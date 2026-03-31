@@ -1,0 +1,162 @@
+const { Module } = require("../main");
+const { convert: imageToPdf, sizes } = require("image-to-pdf");
+const fileSystem = require("node:fs/promises");
+const fileType = require("file-type");
+const { MODE } = require("../config");
+const path = require("path");
+const fs = require("fs");
+const { getTempSubdir, getTempPath } = require("../core/helpers");
+
+const getFileType = async (buffer) => {
+  try {
+    if (fileType.fileTypeFromBuffer) {
+      return await fileType.fileTypeFromBuffer(buffer);
+    }
+
+    if (fileType.fromBuffer) {
+      return await fileType.fromBuffer(buffer);
+    }
+
+    return await fileType(buffer);
+  } catch (error) {
+    console.log("Dosya türü algılanamadı:", error);
+    return null;
+  }
+};
+
+const imageInputDirectory = getTempSubdir("pdf");
+const finalPdfOutputPath = getTempPath("converted.pdf");
+
+Module(
+  {
+    pattern: "pdf ?(.*)",
+    fromMe: MODE === "private",
+    desc: "Resimlerden PDF'e",
+    use: "converters",
+    usage: ".pdf help",
+  },
+  async (message, commandArguments) => {
+    const subCommand = commandArguments[1]?.toLowerCase();
+
+    if (subCommand === "help") {
+      await message.sendReply(`_🗑️ 1. .pdf ile resimleri ekleyin_\n_2. .pdf get ile PDF çıktısını alın_\n_3. Yanlışlıkla resim mi eklediniz? .pdf delete ile temizleyin_\n_4. Çıktı alındıktan sonra tüm dosyalar otomatik silinir_`
+      );
+    } else if (subCommand === "delete") {
+      const currentFiles = await fileSystem.readdir(imageInputDirectory);
+      const filesToDelete = currentFiles.map((fileName) =>
+        path.join(imageInputDirectory, fileName)
+      );
+
+      await Promise.all(
+        filesToDelete.map((filePath) => fileSystem.unlink(filePath))
+      );
+
+      try {
+        await fileSystem.unlink(finalPdfOutputPath);
+      } catch (error) {}
+      await message.sendReply(`_✅ Tüm dosyalar başarıyla temizlendi!_`);
+    } else if (subCommand === "get") {
+      const allStoredFiles = await fileSystem.readdir(imageInputDirectory);
+      const imageFilePaths = allStoredFiles
+        .filter((fileName) => fileName.includes("topdf"))
+        .map((fileName) => path.join(imageInputDirectory, fileName));
+
+      if (!imageFilePaths.length) {
+        return await message.sendReply("_💬 Dosya girişi yapılmadı_");
+      }
+
+      const pdfGenerationStream = imageToPdf(imageFilePaths, sizes.A4);
+      const pdfWriteStream = fs.createWriteStream(finalPdfOutputPath);
+
+      pdfGenerationStream.pipe(pdfWriteStream);
+
+      pdfWriteStream.on("finish", async () => {
+        await message.client.sendMessage(
+          message.jid,
+          {
+            document: { url: finalPdfOutputPath },
+            mimetype: "application/pdf",
+            fileName: "converted.pdf",
+          },
+          { quoted: message.data }
+        );
+
+        const filesToCleanUp = await fileSystem.readdir(imageInputDirectory);
+        const tempFilesForDeletion = filesToCleanUp.map((fileName) =>
+          path.join(imageInputDirectory, fileName)
+        );
+        await Promise.all(
+          tempFilesForDeletion.map((filePath) => fileSystem.unlink(filePath))
+        );
+        await fileSystem.unlink(finalPdfOutputPath);
+      });
+
+      pdfWriteStream.on("error", async (error) => {
+        await message.sendReply(`_PDF dönüşümü başarısız: ${error.message}_`);
+      });
+    } else if (message.reply_message && message.reply_message.album) {
+      // handle album
+      const albumData = await message.reply_message.download();
+      const allImages = albumData.images || [];
+
+      if (allImages.length === 0)
+        return await message.sendReply("_🎬 Albümde resim yok (videolar PDF'ye dönüştürülemez)_");
+
+      await message.send(
+        `_${allImages.length} albüm görseli PDF'e ekleniyor..._`
+      );
+
+      for (let i = 0; i < allImages.length; i++) {
+        try {
+          const file = allImages[i];
+          const detectedFileType = await getFileType(
+            fs.readFileSync(file)
+          );
+
+          if (detectedFileType && detectedFileType.mime.startsWith("image")) {
+            const newImagePath = path.join(
+              imageInputDirectory,
+              `topdf_album_${i}.jpg`
+            );
+            fs.copyFileSync(file, newImagePath);
+          }
+        } catch (err) {
+          console.error("Albüm görseli PDF'e eklenemedi:", err);
+        }
+      }
+
+      await message.sendReply(
+        `_*✅ ${allImages.length} albüm görseli kaydedildi*_\n_*Toplam görsel hazır. PDF oluşturmak için '.pdf get' kullanın!*_`
+      );
+    } else if (message.reply_message) {
+      const repliedMessageBuffer = await message.reply_message.download(
+        "buffer"
+      );
+      const detectedFileType = await getFileType(repliedMessageBuffer);
+
+      if (detectedFileType && detectedFileType.mime.startsWith("image")) {
+        const existingImageFiles = (
+          await fileSystem.readdir(imageInputDirectory)
+        ).filter((fileName) => fileName.includes("topdf"));
+        const nextImageIndex = existingImageFiles.length;
+        const newImagePath = path.join(
+          imageInputDirectory,
+          `topdf_${nextImageIndex}.jpg`
+        );
+
+        await fileSystem.writeFile(newImagePath, repliedMessageBuffer);
+        return await message.sendReply(
+          `*_Görsel başarıyla kaydedildi_*\n_*Toplam kaydedilen görsel: ${
+            nextImageIndex + 1
+          }*_\n*_Tüm görselleri kaydettikten sonra sonucu almak için '.pdf get' kullanın. Dönüşümden sonra görseller silinecektir!_*`
+        );
+      } else {
+        return await message.sendReply("_💬 PDF dönüşümüne eklemek için bir resmi yanıtlayın!_"
+        );
+      }
+    } else {
+      return await message.sendReply('_💬 Bir resmi yanıtlayın veya daha fazla bilgi için ".pdf help" kullanın._'
+      );
+    }
+  }
+);
