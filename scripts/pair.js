@@ -30,7 +30,7 @@ const pino = require("pino");
 
 const phoneNumber = process.argv[2] || null;
 const useQR = !phoneNumber;
-const sessionDir = path.join(__dirname, "../sessions/pair-temp");
+const sessionDir = path.join(__dirname, "../sessions/lades-session");
 
 const logger = pino({ level: "silent" });
 
@@ -118,8 +118,16 @@ async function startPairing() {
       fs.writeFileSync(outFile, sessionB64, "utf8");
       console.log(`📁 Kaydedildi: ${outFile}\n`);
 
-      await sock.logout().catch(() => {});
-      process.exit(0);
+      const autoLogout = process.env.PAIR_AUTO_LOGOUT !== "false";
+      if (autoLogout) {
+        console.log("⚠️  Otomatik oturum kapatma etkin. Cihaz listesinde 'Çıkış işlemi bekleniyor' durumu normaldir.");
+        console.log("🔄 Eğer oturumu sürekli tutmak istiyorsanız, .env dosyanıza PAIR_AUTO_LOGOUT=false ekleyin.");
+        await sock.logout().catch(() => {});
+        process.exit(0);
+      } else {
+        console.log("✅ Oturum açık tutuluyor. Bu pencereyi kapatmadan önce config.env'e SESSION= değeri ekleyin veya index.js'i başlatın.");
+        console.log("⌨️  Çıkmak için Ctrl+C tuşlayın.");
+      }
     }
 
     if (connection === "close") {

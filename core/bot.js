@@ -21,6 +21,7 @@ const { bindToSocket, fetchGroupMeta } = require("./store");
 const { handleMessage, handleGroupUpdate, handleGroupParticipantsUpdate, loadPlugins } = require("./handler");
 const { startTempCleanup, stopTempCleanup, isGroup } = require("./helpers");
 const path = require("path");
+const fs = require("fs");
 
 // ─────────────────────────────────────────────────────────
 //  Reconnect state
@@ -101,11 +102,12 @@ async function createBot(sessionId = "lades-session", options = {}) {
       const pluginsDir = path.join(__dirname, "..", "plugins");
       loadPlugins(pluginsDir);
 
-      // Self-test: tüm komutları sessizce test et (Arka planda)
-      setTimeout(async () => {
+      // Self-test: tüm komutları sessizce test et (Mikro-batch'ler, event loop'a ara ver)
+      setTimeout(() => {
         try {
           const { runSelfTest } = require("./self-test");
-          runSelfTest(sock); // Await kaldırıldı, arka planda çalışsın
+          // Immediately, event loop'u blok etmeyecek şekilde çalıştır
+          setImmediate(() => runSelfTest(sock));
         } catch (e) {
           logger.warn({ err: e.message }, "Self-test atlandı");
         }

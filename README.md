@@ -54,6 +54,10 @@ node scripts/pair.js
 node scripts/pair.js +905XXXXXXXXX
 ```
 
+> Yeni: Otomatik oturum kapatma varsayılan olarak açık. Eğer bağlı cihazda "Çıkış işlemi bekleniyor" ve oturum kaybolması istemiyorsanız `config.env` veya `.env` içinde:
+> `PAIR_AUTO_LOGOUT=false`
+> olarak ayarlayın.
+
 Gösterilen session string'i `config.env` dosyasında `SESSION=` alanına yapıştırın.
 
 ### 4. Başlat

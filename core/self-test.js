@@ -15,9 +15,9 @@ const path = require("path");
 const fs   = require("fs");
 
 const STATS_FILE  = path.join(__dirname, "../sessions/cmd-stats.json");
-const TIMEOUT_MS  = 6000;   // komut başına max bekleme
-const BATCH_SIZE  = 5;      // Paralel test sayısı (Stability için düşürüldü)
-const BATCH_DELAY = 500;    // Batch'ler arası bekleme (ms)
+const TIMEOUT_MS  = 4000;   // komut başına max bekleme (kısaltıldı)
+const BATCH_SIZE  = 3;      // Paralel test sayısı (daha küçük = daha sık interrupt)
+const BATCH_DELAY = 200;    // Batch'ler arası bekleme (ms, kısaltıldı)
 
 // Bu pattern'ler gerçek grup/kullanıcı işlemi yapar, atla
 const DANGEROUS_PATTERNS = [
@@ -194,7 +194,11 @@ async function runSelfTest(sock) {
       else if (r.result.status === "skipped") skipped++;
     }
 
-    if (i + BATCH_SIZE < queue.length) await new Promise(res => setTimeout(res, BATCH_DELAY));
+    // Event loop'a kesinti ver: diğer işleri (incoming messages, timers) handle et
+    if (i + BATCH_SIZE < queue.length) {
+      await new Promise(res => setImmediate(res));
+      await new Promise(res => setTimeout(res, BATCH_DELAY));
+    }
   }
 
   const report = `🧪 Self-test tamamlandı — ✅ ${ok} başarılı · ❌ ${err} hata · ⏱ ${timeout} zaman aşımı · ⏭ ${skipped} atlandı`;
