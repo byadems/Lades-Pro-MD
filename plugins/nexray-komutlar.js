@@ -1,49 +1,63 @@
 const { Module } = require("../main");
 const axios = require("axios");
 const config = require("../config");
+const { CircuitBreaker } = require("./utils/resilience");
 
 const BASE = "https://api.nexray.web.id";
 const TIMEOUT = 30000;
 const isFromMe = config.MODE === "private";
 
-async function nexGet(path, opts = {}) {
+// Nexray API için devre kesici (Circuit Breaker)
+const nexBreaker = new CircuitBreaker(async (path, opts) => {
   const res = await axios.get(`${BASE}${path}`, {
     timeout: opts.timeout || TIMEOUT,
     validateStatus: () => true,
     responseType: opts.buffer ? "arraybuffer" : "json",
   });
+  return res;
+}, {
+  failureThreshold: 3,
+  openTimeout: 60000 // 1 dakika devre dışı kal
+});
 
-  let payload = res.data;
-  const contentType = (res.headers?.["content-type"] || "").toLowerCase();
+async function nexGet(path, opts = {}) {
+  try {
+    const res = await nexBreaker.fire(path, opts);
+    let payload = res.data;
+    const contentType = (res.headers?.["content-type"] || "").toLowerCase();
 
-  if (opts.buffer) {
-    const buf = Buffer.isBuffer(res.data) ? res.data : Buffer.from(res.data || []);
-
-    if (contentType.includes("application/json") || contentType.includes("text/json")) {
-      try {
-        payload = JSON.parse(buf.toString("utf-8"));
-      } catch {
-        payload = null;
+    if (opts.buffer) {
+      const buf = Buffer.isBuffer(res.data) ? res.data : Buffer.from(res.data || []);
+      if (contentType.includes("application/json") || contentType.includes("text/json")) {
+        try {
+          payload = JSON.parse(buf.toString("utf-8"));
+        } catch {
+          payload = null;
+        }
+      }
+      if (res.status === 200 && buf.length > 0 && !contentType.includes("json")) {
+        return buf;
       }
     }
 
-    if (res.status === 200 && buf.length > 0 && !contentType.includes("json")) {
-      return buf;
+    if (payload?.status && payload?.result !== undefined) {
+      return payload.result;
     }
+
+    const errorMsg =
+      payload?.error?.message ||
+      payload?.error ||
+      payload?.message ||
+      payload?.result?.message ||
+      `HTTP ${res.status}`;
+
+    throw new Error(errorMsg);
+  } catch (e) {
+    if (e.name === "CircuitBreakerError") {
+      throw new Error("⚠️ _API servisi şu an yoğun veya kapalı. Lütfen daha sonra tekrar deneyin._");
+    }
+    throw e;
   }
-
-  if (payload?.status && payload?.result !== undefined) {
-    return payload.result;
-  }
-
-  const errorMsg =
-    payload?.error?.message ||
-    payload?.error ||
-    payload?.message ||
-    payload?.result?.message ||
-    `HTTP ${res.status}`;
-
-  throw new Error(errorMsg);
 }
 
 // ══════════════════════════════════════════════════════════

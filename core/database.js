@@ -1,5 +1,7 @@
 "use strict";
 
+const fs = require("fs");
+const path = require("path");
 const { DataTypes, Op } = require("sequelize");
 const { sequelize, logger } = require("../config");
 
@@ -127,6 +129,13 @@ MessageStats.belongsTo(UserData, { foreignKey: "userJid", targetKey: "jid", as: 
 //  Database initialization
 // ─────────────────────────────────────────────────────────
 async function initializeDatabase() {
+  // SQLite için sessions klasörünü oluştur
+  const sessionsDir = path.join(__dirname, "..", "sessions");
+  if (!fs.existsSync(sessionsDir)) {
+    fs.mkdirSync(sessionsDir, { recursive: true });
+    logger.info("Oturum dizini (sessions/) oluşturuldu.");
+  }
+
   let retries = 5;
   while (retries > 0) {
     try {

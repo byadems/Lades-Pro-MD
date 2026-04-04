@@ -552,11 +552,19 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
       }
     }
 
-    // Metrics tracking with memory safety (capped size)
+    // Metrics tracking with memory safety (capped size & auto-clear)
     if (!fromMe) {
+      if (global.metrics_messages > 1000000) global.metrics_messages = 0; // Prevent overflow
       global.metrics_messages++;
-      if (global.metrics_users_set.size < 2000) global.metrics_users_set.add(senderJid);
-      if (isGroup && global.metrics_groups_set.size < 500) global.metrics_groups_set.add(jid);
+      
+      // Şişmeyi önlemek ve veriyi tazelemek için limit aşımında temizle
+      if (global.metrics_users_set.size >= 2000) global.metrics_users_set.clear();
+      global.metrics_users_set.add(senderJid);
+      
+      if (isGroup) {
+        if (global.metrics_groups_set.size >= 500) global.metrics_groups_set.clear();
+        global.metrics_groups_set.add(jid);
+      }
     }
 
     // ── on:"text" / on:"message" event handler'ları — prefix gerekmez ──────

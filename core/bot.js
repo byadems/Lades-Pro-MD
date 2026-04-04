@@ -19,13 +19,14 @@ const { getMessageText, startTempCleanup, stopTempCleanup, isGroup, loadBaileys 
 // ─────────────────────────────────────────────────────────
 const RECONNECT_BASE_MS = 3000;
 const RECONNECT_MAX_MS = 60000;
-let reconnectCount = 0;
+let _selfTestRan = false;
 let _pairCodeRequested = false;
 
 // ─────────────────────────────────────────────────────────
 //  Create bot instance
 // ─────────────────────────────────────────────────────────
 async function createBot(sessionId = "lades-session", options = {}) {
+  let reconnectCount = options.reconnectCount || 0;
   // Load Baileys library dynamically (ESM)
   const { 
     default: makeWASocket, 
@@ -162,7 +163,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
     }
 
     if (connection === "open") {
-      reconnectCount = 0;
+      // Reconnect sayacını sıfırla (manager üzerinden de sıfırlanmalı)
+      if (options.manager) options.manager.reconnectCount = 0;
       _pairCodeRequested = false;
       logger.info(`✅ Bot bağlandı! JID: ${sock.user?.id}`);
       if (process.send) process.send({ type: 'bot_status', data: { connected: true, phone: sock.user.id } });
@@ -202,12 +204,12 @@ async function createBot(sessionId = "lades-session", options = {}) {
       const pluginsDir = path.join(__dirname, "..", "plugins");
       loadPlugins(pluginsDir);
 
-      // Self-test: tüm komutları sessizce test et (Mikro-batch'ler, event loop'a ara ver)
-      if (process.env.SELF_TEST !== 'false') {
+      // Self-test: tüm komutları ilk bağlantıda test et
+      if (process.env.SELF_TEST !== 'false' && !_selfTestRan) {
+        _selfTestRan = true;
         setTimeout(() => {
           try {
             const { runSelfTest } = require("./self-test");
-            // Immediately, event loop'u blok etmeyecek şekilde çalıştır
             setImmediate(() => runSelfTest(sock));
           } catch (e) {
             logger.warn({ err: e.message }, "Self-test atlandı");
@@ -235,7 +237,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
         const delay = Math.min(RECONNECT_BASE_MS * Math.pow(2, reconnectCount - 1), RECONNECT_MAX_MS);
         logger.info(`${delay}ms içinde yeniden bağlanılıyor (Deneme ${reconnectCount})...`);
         setTimeout(async () => {
-          const newSock = await createBot(sessionId, options);
+          const newSock = await createBot(sessionId, { ...options, reconnectCount });
           if (options.manager) {
             options.manager.updateSocket(sessionId, newSock);
           }

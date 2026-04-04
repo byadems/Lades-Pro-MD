@@ -41,7 +41,7 @@ async function getPrayerTimes(cityInput, type = 'ezan', date = moment().format('
       cache.data[cacheKey] = { data: { ...data }, timestamp: moment() };
       return { cityName, today: date, ...data };
     }
-  } catch (_) {}
+  } catch (_) { }
 
   // 2. Yedek: İmsakiyem (Diyanet)
   try {
@@ -65,7 +65,7 @@ async function getPrayerTimes(cityInput, type = 'ezan', date = moment().format('
       cache.data[cacheKey] = { data: { ...data }, timestamp: moment() };
       return { cityName, today: date, ...data };
     }
-  } catch (_) {}
+  } catch (_) { }
 
   // 3. Son yedek: AlAdhan (uluslararası, her zaman çalışır)
   try {
@@ -88,14 +88,14 @@ async function getPrayerTimes(cityInput, type = 'ezan', date = moment().format('
       cache.data[cacheKey] = { data: { ...data }, timestamp: moment() };
       return { cityName, today: date, ...data };
     }
-  } catch (_) {}
+  } catch (_) { }
 
   return { error: '⚠️ Tüm vakit kaynakları başarısız oldu. Lütfen daha sonra tekrar deneyiniz.' };
 }
 
 Module({
   pattern: 'ezan ?(.*)',
-  fromMe: false,
+  fromMe: isFromMe,
   use: 'dini',
   desc: 'Belirtilen şehrin günlük ezan vakitlerini ve ezana ne kadar süre kaldığını gösterir.'
 }, async (message, match) => {
@@ -163,7 +163,7 @@ Module({
 
 Module({
   pattern: 'sahur ?(.*)',
-  fromMe: false,
+  fromMe: isFromMe,
   use: 'dini',
   desc: 'Belirtilen şehrin sahur vaktine ne kadar süre kaldığını hesaplar.'
 }, async (message, match) => {
@@ -212,7 +212,7 @@ Module({
 
 Module({
   pattern: 'iftar ?(.*)',
-  fromMe: false,
+  fromMe: isFromMe,
   use: 'dini',
   desc: 'Belirtilen şehrin iftar vaktine ne kadar süre kaldığını hesaplar.'
 }, async (message, match) => {
