@@ -529,6 +529,12 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     const { jid, sender, text, isGroup, fromMe } = message;
     const senderJid = sender; // Alias for legacy checks
 
+    // Rate limit kontrolü (Grup için sender+jid, DM için jid)
+    const rateLimitKey = isGroup ? `${jid}:${senderJid}` : jid;
+    if (!fromMe && !isOwnerOrSudo(senderJid) && !checkRateLimit(rateLimitKey)) {
+      return; // Limite takıldı, sessizce dur
+    }
+
     if (!text) return;
 
     const ownerCheck = isOwner(senderJid) || fromMe;

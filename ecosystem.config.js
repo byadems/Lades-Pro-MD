@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: "nexbot-md",
+      name: "lades-md",
       script: "index.js",
       watch: false,
       ignore_watch: ["node_modules", "sessions", "plugins/ai-generated", "*.log"],
