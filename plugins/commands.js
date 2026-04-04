@@ -15,19 +15,20 @@ const { nxTry } = require("./utils");
 const isPrivateMode = MODE === "private";
 
 const CATEGORY_TR = {
-  system: "Sistem",
-  download: "İndirme",
-  whatsapp: "WhatsApp",
-  utility: "Yardımcı",
-  misc: "Çeşitli",
-  group: "Grup",
-  edit: "Düzenleme",
-  search: "Arama",
-  settings: "Ayarlar",
-  owner: "Sahip",
-  converters: "Dönüştürücü",
-  game: "Oyun",
-  Genel: "Genel",
+  owner: "👑 Kurucu & Geliştirici",
+  system: "⚙️ Sistem & Analiz",
+  group: "👥 Grup Yönetimi",
+  ai: "🤖 Yapay Zeka",
+  download: "⬇️ İndirme Merkezi",
+  search: "🔍 Arama & Bilgi",
+  tools: "🛠️ Araçlar & Çeviri",
+  edit: "🎨 Görsel Düzenleme",
+  media: "🎬 Medya İşlemleri",
+  fun: "🎉 Eğlence & Efekt",
+  game: "🎮 Oyunlar & Testler",
+  dini: "🕌 Dini Bilgiler",
+  chat: "💬 Sohbet & Mesaj",
+  genel: "📦 Genel Komutlar",
 };
 
 const extractCommandName = (pattern) => {
@@ -56,6 +57,7 @@ Module(
   {
     pattern: "liste ?(.*)",
     fromMe: isPrivateMode,
+    desc: "Tüm komutları kategorili bir liste halinde gösterir.",
     excludeFromCommands: true,
   },
   async (message, args) => {
@@ -87,7 +89,19 @@ Module(
     const handlerPrefix = safeHandlers.match(/\[(\W*)\]/)?.[1]?.[0] || ".";
 
     for (const category in categorizedCommands) {
-      const catLabel = CATEGORY_TR[category] || category.charAt(0).toUpperCase() + category.slice(1);
+      const catLabels = {
+        'system': '⚙️ Sistem & Sahip',
+        'group': '👥 Grup Yönetimi',
+        'ai': '🤖 Yapay Zeka',
+        'download': '⬇️ İndirme Merkezi',
+        'media': '🎨 Medya & Tasarım',
+        'tools': '🛠️ Araçlar & Bilgi',
+        'fun': '🎮 Oyun & Eğlence',
+        'dini': '🕌 Dini Bilgiler',
+        'chat': '💬 Sohbet & Mesaj',
+        'genel': '📦 Genel Komutlar'
+      };
+      const catLabel = catLabels[category] || category.charAt(0).toUpperCase() + category.slice(1);
       responseMessage += `*───「 ${catLabel} 」───*\n\n`;
       categorizedCommands[category].forEach((cmd) => {
         responseMessage += `• \`${handlerPrefix}${cmd.name}\`\n`;
@@ -278,7 +292,7 @@ Module(
   {
     pattern: "menü",
     fromMe: isPrivateMode,
-    use: "utility",
+    use: "genel",
     desc: "Bot komut menüsünü gösterir.",
   },
   async (message, match) => {
@@ -348,7 +362,7 @@ Module(
         fs.existsSync(path.join(imagesDir, f))
       );
       imagePayload = localPath
-        ? fs.readFileSync(path.join(imagesDir, localPath))
+        ? await fs.promises.readFile(path.join(imagesDir, localPath))
         : null;
     }
 
@@ -424,7 +438,7 @@ Module(
     pattern: "setinfo ?(.*)",
     fromMe: true,
     desc: "Bot yapılandırma komutları hakkında bilgi gösterir.",
-    use: "settings",
+    use: "owner",
   },
   async (message, match) => {
     const infoText = `*⚙️ ───「 Bot Bilgi Yapılandırması 」───*
@@ -459,7 +473,7 @@ Module(
     pattern: "setname ?(.*)",
     fromMe: true,
     desc: "Bot adını ayarlar",
-    use: "settings",
+    use: "owner",
   },
   async (message, match) => {
     const name = match[1]?.trim();
@@ -479,7 +493,7 @@ Module(
     pattern: "setimage",
     fromMe: true,
     desc: "Bot resmini ayarlar (bir resme yanıt verin)",
-    use: "settings",
+    use: "owner",
   },
   async (message, match) => {
     if (!message.reply_message || !message.reply_message.image) {
@@ -492,7 +506,7 @@ Module(
       const uploadRes = await uploadToImgbb(downloadedFile);
 
       try {
-        fs.unlinkSync(downloadedFile);
+        await fs.promises.unlink(downloadedFile);
       } catch (e) {
         console.log("Geçici dosya silinemedi:", downloadedFile);
       }
@@ -522,7 +536,7 @@ Module(
     fromMe: true,
     desc: "Mevcut çevrimiçi (alive) mesajını biçimlendirmesiyle test eder.",
     usage: ".testalive",
-    use: "utility",
+    use: "owner",
   },
   async (message, match) => {
     const aliveMessage = ALIVE;
@@ -764,7 +778,7 @@ Module(
     pattern: "hava ?(.*)",
     fromMe: false,
     desc: "Hava durumu bilgisi gönderir.",
-    use: "utility",
+    use: "search",
   },
   async (m, match) => {
     const restrictedGroupId = "905396978235-1601666238@g.us";
@@ -915,8 +929,7 @@ Module(
   {
     pattern: "resim ?(.*)",
     fromMe: isPrivateMode,
-    desc: "Google'dan resim arar",
-    usage: ".resim kedi",
+    desc: "İnternetten görsel arar ve indirir.",
     use: "search",
   },
   async (message, match) => {
@@ -943,15 +956,15 @@ Module(
 
 Module(
   {
-    pattern: "(?:reçete|recete) ?(.*)",
+    pattern: "yemekt ?(.*)",
     fromMe: isPrivateMode,
     desc: "Yemek tarifi arar",
-    usage: ".reçete pilav",
+    usage: ".yemekt pilav",
     use: "search",
   },
   async (message, match) => {
     const query = (match[1] || "").trim();
-    if (!query) return await message.sendReply("🍳 _Yemek adı girin:_ `.reçete pilav`");
+    if (!query) return await message.sendReply("🍳 _Yemek adı girin:_ `.yemekt pilav`");
     try {
       const wait = await message.send("🍳 _Tarif aranıyor..._");
       const r = await nxTry([

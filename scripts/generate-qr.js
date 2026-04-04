@@ -16,7 +16,7 @@ async function start() {
     version,
     printQRInTerminal: true,
     auth: state,
-    browser: ["Lades-MD", "Chrome", "2.0.0"],
+    browser: Browsers.ubuntu("Chrome"),
     syncFullHistory: false,
     logger: require("pino")({ level: "silent" })
   });

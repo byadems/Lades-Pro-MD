@@ -6,40 +6,68 @@
  * Manages lifecycle of multiple bot instances.
  */
 
+const EventEmitter = require("events");
 const { createBot } = require("./bot");
 const { logger } = require("../config");
 
-class BotManager {
+class BotManager extends EventEmitter {
   constructor() {
+    super();
     this.bots = new Map(); // sessionId → sock
     this.states = new Map(); // sessionId → "connecting"|"open"|"closed"
+    this.suspendedSessions = new Set(); // sessionId → true (if being handled by dashboard)
+  }
+
+  suspend(sessionId) {
+    logger.info(`Session ${sessionId} is now SUSPENDED (Dashboard Control).`);
+    this.suspendedSessions.add(sessionId);
+  }
+
+  resume(sessionId) {
+    logger.info(`Session ${sessionId} is now RESUMED.`);
+    this.suspendedSessions.delete(sessionId);
+  }
+
+  isSuspended(sessionId) {
+    return this.suspendedSessions.has(sessionId);
   }
 
   async addSession(sessionId, options = {}) {
     if (this.bots.has(sessionId)) {
       logger.warn(`Session ${sessionId} already exists`);
-      return;
+      return this.bots.get(sessionId);
     }
     logger.info(`Starting session: ${sessionId}`);
     this.states.set(sessionId, "connecting");
+    this.emit("status", { sessionId, status: "connecting" });
 
     try {
-      const sock = await createBot(sessionId, options);
+      // Pass the manager to createBot so it can notify when a new socket is created
+      const sock = await createBot(sessionId, { ...options, manager: this });
       this.bots.set(sessionId, sock);
 
-      sock.ev.on("connection.update", ({ connection }) => {
-        if (connection === "open") this.states.set(sessionId, "open");
-        if (connection === "close") {
-          this.states.set(sessionId, "closed");
-          this.bots.delete(sessionId);
-        }
-      });
+      this._bindEvents(sessionId, sock);
 
       return sock;
     } catch (err) {
       logger.error({ err, sessionId }, "Failed to start session");
       this.states.set(sessionId, "error");
     }
+  }
+
+  _bindEvents(sessionId, sock) {
+    sock.ev.on("connection.update", ({ connection }) => {
+      if (connection) {
+        this.states.set(sessionId, connection);
+        this.emit("status", { sessionId, status: connection });
+      }
+    });
+  }
+
+  updateSocket(sessionId, newSock) {
+    logger.info(`Session ${sessionId} socket updated (reconnected)`);
+    this.bots.set(sessionId, newSock);
+    this._bindEvents(sessionId, newSock);
   }
 
   getSession(sessionId) {
@@ -62,13 +90,25 @@ class BotManager {
     return Array.from(this.states.values()).some(s => s === "open");
   }
 
-  async removeSession(sessionId) {
+  /**
+   * Removes a session from the manager.
+   * @param {string} sessionId 
+   * @param {boolean} isLogout If true, performs a full logout (deletes credentials).
+   */
+  async removeSession(sessionId, isLogout = false) {
     const sock = this.bots.get(sessionId);
     if (sock) {
-      await sock.logout().catch(() => {});
+      if (isLogout) {
+        logger.info(`Performing full logout for session: ${sessionId}`);
+        sock.__intentionalLogout = true;
+        await sock.logout().catch(() => {});
+      } else {
+        logger.info(`Stopping session (connection only): ${sessionId}`);
+        sock.ws.close();
+      }
       this.bots.delete(sessionId);
       this.states.delete(sessionId);
-      logger.info(`Session ${sessionId} removed.`);
+      logger.info(`Session ${sessionId} removed from manager.`);
     }
   }
 }

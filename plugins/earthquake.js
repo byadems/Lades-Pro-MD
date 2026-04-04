@@ -100,7 +100,7 @@ Module(
     pattern: "sondepremler ?(.*)",
     fromMe: auto,
     desc: "Türkiye genelinde gerçekleşen son depremleri listeler.",
-    use: "utility",
+    use: "tools",
   },
   async (m, match) => {
     const rawArgs = (match && match[1] ? match[1] : "").trim();
@@ -127,7 +127,7 @@ Module(
     pattern: "sondeprem",
     fromMe: auto,
     desc: "Son deprem kaydını gösterir.",
-    use: "utility",
+    use: "tools",
     dontAddCommandList: true,
   },
   async (m) => {

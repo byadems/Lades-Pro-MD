@@ -197,10 +197,10 @@ const makeRequest = (useOpenAI = false) => {
 
 Module({
   pattern: "dinle",
-  fromMe: false,
+  fromMe: isFromMe,
   desc: "Sesli mesajı metne dönüştürür. (Tek seferlik sesler de dahil)",
   usage: ".dinle (bir ses mesajına yanıtlayarak)",
-  use: "group",
+  use: "tools",
 },
 async (message, match) => {
   const replied = message.reply_message;
@@ -212,9 +212,9 @@ async (message, match) => {
 
 Module({
   on: 'message',
-  fromMe: false,
+  fromMe: isFromMe,
   desc: "Ses mesajını otomatik olarak metne dönüştürür.",
-  use: "group",
+  use: "tools",
 },
 async (message, match) => {
   try {
@@ -234,10 +234,11 @@ async (message, match) => {
 
 Module(
   {
+    fromMe: isFromMe,
     pattern: "trim ?(.*)",
     desc: Lang.TRIM_DESC,
     usage: Lang.TRIM_USE,
-    use: "edit",
+    use: "media",
   },
   async (message, match) => {
     if (
@@ -267,10 +268,11 @@ Module(
 );
 Module(
   {
+    fromMe: isFromMe,
     pattern: "renklendir",
     desc: "Siyah-beyaz fotoğrafı renklendirir (yanıtlanan görsel)",
     usage: ".renklendir (görsele yanıt verin)",
-    use: "edit",
+    use: "media",
   },
   async (message) => {
     if (!message.reply_message || !message.reply_message.image)
@@ -304,9 +306,10 @@ Module(
 
 Module(
   {
+    fromMe: isFromMe,
     pattern: "siyahvideo",
     desc: "Sesi siyah videoya dönüştürür",
-    use: "edit",
+    use: "media",
   },
   async (message, match) => {
     if (!message.reply_message || !message.reply_message.audio)
@@ -342,15 +345,15 @@ Module(
           .on("error", reject);
       });
 
-      const videoBuffer = fs.readFileSync(outputPath);
+      const videoBuffer = await fs.promises.readFile(outputPath);
       await message.send(videoBuffer, "video");
       await message.edit(
         "_✅ Siyah video başarıyla oluşturuldu!_",
         message.jid,
         processingMsg.key
       );
-      if (fs.existsSync(audioFile)) fs.unlinkSync(audioFile);
-      if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+      await fs.promises.unlink(audioFile).catch(() => {});
+      await fs.promises.unlink(outputPath).catch(() => {});
     } catch (error) {
       console.error("Siyah video oluşturma hatası:", error);
       await message.send("_❌ Siyah video oluşturulamadı. Lütfen tekrar deneyin._");
@@ -359,13 +362,14 @@ Module(
 );
 Module(
   {
+    fromMe: isFromMe,
     pattern: "birleştir",
     desc: Lang.AVMIX_DESC,
-    use: "edit",
+    use: "media",
   },
   async (message, match) => {
     const avmixDir = getTempSubdir("avmix");
-    let files = fs.readdirSync(avmixDir);
+    const files = await fs.promises.readdir(avmixDir);
     if (
       (!message.reply_message && files.length < 2) ||
       (message.reply_message &&
@@ -375,17 +379,17 @@ Module(
       return await message.send(Lang.AVMIX_NEED_FILES);
     if (message.reply_message.audio) {
       const savedFile = await message.reply_message.download();
-      await fs.writeFileSync(
+      await fs.promises.writeFile(
         getTempPath("avmix/audio.mp3"),
-        fs.readFileSync(savedFile)
+        await fs.promises.readFile(savedFile)
       );
       return await message.sendReply(Lang.AVMIX_AUDIO_ADDED);
     }
     if (message.reply_message.video) {
       const savedFile = await message.reply_message.download();
-      await fs.writeFileSync(
+      await fs.promises.writeFile(
         getTempPath("avmix/video.mp4"),
-        fs.readFileSync(savedFile)
+        await fs.promises.readFile(savedFile)
       );
       return await message.sendReply(Lang.AVMIX_VIDEO_ADDED);
     }
@@ -395,22 +399,23 @@ Module(
         getTempPath("avmix/audio.mp3")
       );
       await message.sendReply(video, "video");
-      await fs.unlinkSync(getTempPath("avmix/video.mp4"));
-      await fs.unlinkSync(getTempPath("avmix/audio.mp3"));
-      await fs.unlinkSync("./merged.mp4");
+      await fs.promises.unlink(getTempPath("avmix/video.mp4")).catch(() => {});
+      await fs.promises.unlink(getTempPath("avmix/audio.mp3")).catch(() => {});
+      await fs.promises.unlink("./merged.mp4").catch(() => {});
       return;
     }
   }
 );
 Module(
   {
+    fromMe: isFromMe,
     pattern: "vmix ?(.*)",
     desc: "İki videoyu birleştirir",
-    use: "edit",
+    use: "media",
   },
   async (message, match) => {
     const vmixDir = getTempSubdir("vmix");
-    let files = fs.readdirSync(vmixDir);
+    const files = await fs.promises.readdir(vmixDir);
     if (
       (!message.reply_message && files.length < 2) ||
       (message.reply_message && !message.reply_message.video)
@@ -418,18 +423,18 @@ Module(
       return await message.send("_🎬 Bana videolar verin_");
     if (message.reply_message.video && files.length == 1) {
       const savedFile = await message.reply_message.download();
-      await fs.writeFileSync(
+      await fs.promises.writeFile(
         getTempPath("vmix/video1.mp4"),
-        fs.readFileSync(savedFile)
+        await fs.promises.readFile(savedFile)
       );
       return await message.sendReply("*🎬 2. Video Eklendi. İşlemek için tekrar .vmix yazın!*"
       );
     }
     if (message.reply_message.video && files.length == 0) {
       const savedFile = await message.reply_message.download();
-      await fs.writeFileSync(
+      await fs.promises.writeFile(
         getTempPath("vmix/video2.mp4"),
-        fs.readFileSync(savedFile)
+        await fs.promises.readFile(savedFile)
       );
       return await message.sendReply("*🎬 1. Video Eklendi*");
     }
@@ -453,25 +458,24 @@ Module(
     }
     if (files.length === 2) {
       await message.sendReply("*🎬 Videolar birleştiriliyor..*");
-      await message.send(
-        await merge(
+      const mergedFile = await merge(
           [getTempPath("vmix/video1.mp4"), getTempPath("vmix/video2.mp4")],
           getTempSubdir(""),
           "merged.mp4"
-        ),
-        "video"
-      );
-      await fs.unlinkSync(getTempPath("vmix/video1.mp4"));
-      await fs.unlinkSync(getTempPath("vmix/video2.mp4"));
+        );
+      await message.send(mergedFile, "video");
+      await fs.promises.unlink(getTempPath("vmix/video1.mp4")).catch(() => {});
+      await fs.promises.unlink(getTempPath("vmix/video2.mp4")).catch(() => {});
       return;
     }
   }
 );
 Module(
   {
+    fromMe: isFromMe,
     pattern: "ağırçekim",
     desc: "Videoyu pürüzsüz ağır çekime dönüştürür",
-    use: "edit",
+    use: "media",
   },
   async (message, match) => {
     if (!message.reply_message || !message.reply_message.video)
@@ -485,18 +489,19 @@ Module(
       .format("mp4")
       .save(getTempPath("slowmo.mp4"))
       .on("end", async () => {
-        return await message.send(
-          fs.readFileSync(getTempPath("slowmo.mp4")),
-          "video"
-        );
+        const buf = await fs.promises.readFile(getTempPath("slowmo.mp4"));
+        await message.send(buf, "video");
+        await fs.promises.unlink(getTempPath("slowmo.mp4")).catch(() => {});
+        await fs.promises.unlink(savedFile).catch(() => {});
       });
   }
 );
 Module(
   {
+    fromMe: isFromMe,
     pattern: "oval",
     desc: "Çıkartma/fotoğrafı yuvarlak olarak kırpar",
-    use: "edit",
+    use: "media",
   },
   async (message, match) => {
     await circle(message);
@@ -504,8 +509,10 @@ Module(
 );
 Module(
   {
+    fromMe: isFromMe,
     pattern: "gif",
-    desc: "Sesli olarak videoyu gif'e dönüştürür",
+    use: "media",
+    desc: "Videoyu sesli bir GIF (hareketli resim) formatına dönüştürür.",
   },
   async (message, match) => {
     if (!message.reply_message || !message.reply_message.video)
@@ -517,18 +524,22 @@ Module(
       .videoBitrate(500)
       .save(getTempPath("agif.mp4"))
       .on("end", async () => {
-        return await message.client.sendMessage(message.jid, {
-          video: fs.readFileSync(getTempPath("agif.mp4")),
+        const buf = await fs.promises.readFile(getTempPath("agif.mp4"));
+        await message.client.sendMessage(message.jid, {
+          video: buf,
           gifPlayback: true,
         });
+        await fs.promises.unlink(getTempPath("agif.mp4")).catch(() => {});
+        await fs.promises.unlink(savedFile).catch(() => {});
       });
   }
 );
 Module(
   {
+    fromMe: isFromMe,
     pattern: "interp ?(.*)",
     desc: "Videonun kare hızını (FPS) artırır",
-    use: "edit",
+    use: "media",
   },
   async (message, match) => {
     if (!message.reply_message || !message.reply_message.video)
@@ -544,20 +555,20 @@ Module(
       .format("mp4")
       .save(getTempPath("interp.mp4"))
       .on("end", async () => {
-        return await message.send(
-          fs.readFileSync(getTempPath("interp.mp4")),
-          "video"
-        );
+        const buf = await fs.promises.readFile(getTempPath("interp.mp4"));
+        await message.send(buf, "video");
+        await fs.promises.unlink(getTempPath("interp.mp4")).catch(() => {});
+        await fs.promises.unlink(savedFile).catch(() => {});
       });
   }
 );
 Module(
   {
     pattern: "bul ?(.*)",
-    fromMe: false,
+    fromMe: isFromMe,
     desc: "Yapay zeka aracılığıyla çalan şarkının adını bulur.",
     usage: "Ses dosyasına etiketleyerek .bul yazın.",
-    use: "search",
+    use: "tools",
   },
   async (message, match) => {
     if (!message.reply_message?.audio)
@@ -601,7 +612,9 @@ Module(
 );
 Module(
   {
+    fromMe: isFromMe,
     pattern: "döndür ?(.*)",
+    use: "media",
     desc: "Videoyu döndürür (sol/sağ)",
   },
   async (message, match) => {
@@ -613,25 +626,30 @@ Module(
     const dir = (match[1] || "").toLowerCase();
     if (dir === "left" || dir === "sol") angle = "2";
     if (dir === "flip" || dir === "ters") angle = "3";
-    await message.send("_⏳ İşleniyor..._");
+    const rotatedFilePath = await rotate(file, angle);
     await message.sendReply(
-      fs.readFileSync(await rotate(file, angle)),
+      await fs.promises.readFile(rotatedFilePath),
       "video"
     );
+    await fs.promises.unlink(file).catch(() => {});
+    await fs.promises.unlink(rotatedFilePath).catch(() => {});
   }
 );
 Module(
-  { pattern: "flip ?(.*)", desc: "Videoyu ters çevirir (flip)" },
+  {
+    fromMe: isFromMe, pattern: "flip ?(.*)", use: "media", desc: "Videoyu ters çevirir (flip)" },
   async (message, match) => {
     if (!message.reply_message || !message.reply_message.video)
       return await message.sendReply("*🎬 Bir videoyu yanıtla*");
     const file = await message.reply_message.download();
     const angle = "3";
-    await message.send("_⏳ İşleniyor..._");
+    const flippedFilePath = await rotate(file, angle);
     await message.sendReply(
-      fs.readFileSync(await rotate(file, angle)),
+      await fs.promises.readFile(flippedFilePath),
       "video"
     );
+    await fs.promises.unlink(file).catch(() => {});
+    await fs.promises.unlink(flippedFilePath).catch(() => {});
   }
 );
 
@@ -659,7 +677,6 @@ Module(
       const imgData = res.url ? { url: res.url } : res;
       await message.client.sendMessage(message.jid, {
         image: imgData,
-        caption: `🌐 *${url}*`,
       }, { quoted: message.data });
     } catch (e) {
       await message.sendReply(`❌ _Ekran görüntüsünü alamadım:_ ${e.message}`);
@@ -709,7 +726,7 @@ Module(
     fromMe: isFromMe,
     desc: "Görseli HD kaliteye yükseltir",
     usage: ".hd (görsele yanıtla)",
-    use: "tools",
+    use: "media",
   },
   async (message, match) => {
     const replyMime = message.reply_message?.mimetype || "";
@@ -744,7 +761,7 @@ Module(
     fromMe: isFromMe,
     desc: "Meme görseli oluşturur (üst ve alt metin)",
     usage: ".meme ÜSTMETIN|ALTMETIN (görsel yanıtla)",
-    use: "fun",
+    use: "media",
   },
   async (message, match) => {
     const input = (match[1] || "").trim();
@@ -777,7 +794,7 @@ Module(
     fromMe: isFromMe,
     desc: "Kodu güzel bir görsel olarak oluşturur",
     usage: ".kodgörsel const x = 1",
-    use: "fun",
+    use: "media",
   },
   async (message, match) => {
     let code = (match[1] || "").trim();

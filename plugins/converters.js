@@ -13,6 +13,7 @@ const {
 } = require("./utils");
 const config = require("../config");
 const axios = require("axios");
+const isFromMe = config.MODE === "public" ? false : true;
 const fileType = require("file-type");
 const { getTempPath, getTempSubdir } = require("../core/helpers");
 const { badWords } = require("./utils/censor");
@@ -62,9 +63,10 @@ const Lang = getString("converters");
 
 Module(
   {
-    pattern: "görsel ?(.*)",
+    fromMe: isFromMe,
+    pattern: "görselara ?(.*)",
     use: "search",
-    desc: "Google Görseller'de resim arar ve istenen sayıda sonucu gönderir.",
+    desc: "Google Görseller üzerinden resim arar ve indirir.",
   },
   async (message, match) => {
     if (!match[1]) return await message.send("*_💬 Arama terimi gerekli!_*");
@@ -131,24 +133,30 @@ Module(
 
 Module(
   {
+    fromMe: isFromMe,
     pattern: "çıkartma ?(.*)",
-    use: "edit",
+    use: "media",
     desc: Lang.STICKER_DESC,
   },
   async (message, match) => {
     if (match[1] && match[1].trim() !== "") {
-      const result = await attp(match[1].trim());
-      const exif = {
-        author: STICKER_DATA.split(";")[1] || "",
-        packname: message.senderName,
-        categories: STICKER_DATA.split(";")[2] || "😂",
-        android: "https://github.com/byadems/Lades-MD/",
-        ios: "https://github.com/byadems/Lades-MD/",
-      };
-      return await message.sendMessage(
-        fs.readFileSync(await addExif(result, exif)),
-        "sticker"
-      );
+      try {
+        const result = await attp(match[1].trim());
+        const exif = {
+          author: STICKER_DATA.split(";")[1] || "",
+          packname: message.senderName,
+          categories: STICKER_DATA.split(";")[2] || "😂",
+          android: "https://github.com/byadems/Lades-MD/",
+          ios: "https://github.com/byadems/Lades-MD/",
+        };
+        return await message.sendMessage(
+          fs.readFileSync(await addExif(result, exif)),
+          "sticker"
+        );
+      } catch (e) {
+        console.error("Çıkartma (metin) hatası:", e);
+        return await message.sendReply("_❌ Çıkartma oluşturulamadı. Lütfen tekrar deneyin._");
+      }
     }
 
     if (message.reply_message === false)
@@ -166,13 +174,12 @@ Module(
     if (message.reply_message.album) {
       const albumData = await message.reply_message.download();
       const allFiles = [...(albumData.images || []), ...(albumData.videos || [])];
-      if (allFiles.length === 0) return await message.send("_📭 Albümde medya yok_");
+      if (allFiles.length === 0) return await message.send("_💭 Albümde medya yok_");
 
       await message.send(`_⏳ ${allFiles.length} çıkartma dönüştürülüyor..._`);
       for (const file of allFiles) {
         try {
-          const isVideo = albumData.videos?.includes(file);
-          const stickerFile = fs.readFileSync(
+          const stickerFile = await fs.promises.readFile(
             await addExif(
               await sticker(file, isVideo ? "video" : "image"),
               exif
@@ -188,26 +195,52 @@ Module(
       return;
     }
 
-    const savedFile = await message.reply_message.download();
-    if (message.reply_message.image === true) {
-      return await message.sendMessage(
-        fs.readFileSync(await addExif(await sticker(savedFile), exif)),
-        "sticker",
-        { quoted: message.quoted }
-      );
-    } else {
-      return await message.sendMessage(
-        fs.readFileSync(await addExif(await sticker(savedFile, "video"), exif)),
-        "sticker",
-        { quoted: message.quoted }
-      );
+    try {
+      var savedFile = await message.reply_message.download();
+      const { getTempPath } = require("../core/helpers");
+      const outWebp = getTempPath("out_sticker.webp");
+      const ffmpeg = require("fluent-ffmpeg");
+
+      // Bypassing obfuscated sticker() for direct transparent ffmpeg processing
+      await new Promise((resolve, reject) => {
+        ffmpeg(savedFile)
+          .outputOptions([
+            "-vcodec", "libwebp",
+            "-vf", "scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000",
+            "-loop", "0",
+            "-preset", "superfast", // Optimized for cloud CPU
+            "-qscale", "60",       // Balanced quality/size
+            "-an"
+          ])
+          .save(outWebp)
+          .on("end", resolve)
+          .on("error", reject);
+      });
+
+      const stickerPath = await addExif(outWebp, exif);
+      const stickerBuf = await fs.promises.readFile(stickerPath);
+      await message.sendMessage(stickerBuf, "sticker", { quoted: message.quoted });
+
+      // Silme işlemi: Kullanıcının ilettiği görsel mesajını sil
+      if (message.reply_message) {
+        try {
+          await message.client.sendMessage(message.jid, { delete: message.reply_message.key });
+        } catch (e) {
+          console.error("Mesaj silinemedi:", e);
+        }
+      }
+      return;
+    } catch (e) {
+      console.error("Çıkartma hatası:", e);
+      return await message.sendReply(`_❌ Çıkartma oluşturulamadı. Hata: ${e.message}_`);
     }
   }
 );
 Module(
   {
+    fromMe: isFromMe,
     pattern: "mp3 ?(.*)",
-    use: "edit",
+    use: "media",
     desc: Lang.MP3_DESC,
   },
   async (message) => {
@@ -224,9 +257,9 @@ Module(
     if (message.reply_message.album) {
       const albumData = await message.reply_message.download();
       const videoFiles = albumData.videos || [];
-      
+
       if (videoFiles.length === 0) {
-        return await message.send("_📭 Albümde video dosyası yok. MP3 için video/ses dosyası gerekir._");
+        return await message.send("_💭 Albümde video dosyası yok. MP3 için video/ses dosyası gerekir._");
       }
 
       await message.send(`_⏳ ${videoFiles.length} dosya mp3'e dönüştürülüyor..._`);
@@ -252,22 +285,31 @@ Module(
       return;
     }
 
-    let savedFile = await message.reply_message.download();
-    ffmpeg(savedFile)
-      .save(getTempPath("tomp3.mp3"))
-      .on("end", async () => {
-        await message.sendMessage(
-          fs.readFileSync(getTempPath("tomp3.mp3")),
-          "audio",
-          { quoted: message.quoted }
-        );
+    try {
+      const savedFile = await message.reply_message.download();
+      const outPath = getTempPath(`tomp3_${Date.now()}.mp3`);
+      await new Promise((resolve, reject) => {
+        ffmpeg(savedFile)
+          .save(outPath)
+          .on("end", resolve)
+          .on("error", reject);
       });
+      await message.sendMessage(
+        await fs.promises.readFile(outPath),
+        "audio",
+        { quoted: message.quoted }
+      );
+    } catch (e) {
+      console.error("MP3 dönüştürme hatası:", e);
+      await message.sendReply("_❌ Ses dönüştürülemedi. Dosya desteklenmiyor olabilir._");
+    }
   }
 );
 Module(
   {
+    fromMe: isFromMe,
     pattern: "slow",
-    use: "edit",
+    use: "media",
     desc: "Müziği yavaşlatır ve ses tonunu düşürür. Slowed+reverb sesleri yapmak için",
   },
   async (message, match) => {
@@ -278,7 +320,7 @@ Module(
     if (message.reply_message.album) {
       const albumData = await message.reply_message.download();
       const videoFiles = albumData.videos || [];
-      
+
       if (videoFiles.length === 0) {
         return await message.send("_📭 Albümde video dosyası yok. Yavaşlatma için video/ses dosyası gerekir._");
       }
@@ -290,8 +332,9 @@ Module(
           const outputPath = getTempPath(`album_slow_${i}.mp3`);
           await new Promise((resolve, reject) => {
             ffmpeg(file)
-              .audioFilter("atempo=0.5")
-              .outputOptions(["-y", "-af", "asetrate=44100*0.9"])
+              .audioFilter("atempo=0.8,asetrate=44100*0.9")
+              .format("mp3")
+              .outputOptions("-y")
               .save(outputPath)
               .on("end", resolve)
               .on("error", reject);
@@ -301,39 +344,47 @@ Module(
             "audio",
             { quoted: message.quoted }
           );
+          try { fs.unlinkSync(outputPath); } catch (e) { }
         } catch (err) {
           console.error("Albüm sesi yavaşlatılamadı:", err);
+          await message.sendReply(`_❌ Albümdeki bir dosya yavaşlatılamadı: ${err.message}_`);
         }
       }
       return;
     }
 
-    const savedFile = await message.reply_message.download();
-    const quotedSeconds = message.quoted?.message
-      ? (message.quoted.message[Object.keys(message.quoted.message)[0]]?.seconds || 0)
-      : 0;
-    if (quotedSeconds > 120)
-      await message.sendReply(`_❌ Uyarı: Süre 2 dakikadan uzun. Bu işlem başarısız olabilir veya çok daha uzun sürebilir!_`
-      );
-    ffmpeg(savedFile)
-      .audioFilter("atempo=0.5")
-      .outputOptions(["-y", "-af", "asetrate=44100*0.9"])
-      .save(getTempPath("slow.mp3"))
-      .on("end", async () => {
-        await message.sendMessage(
-          fs.readFileSync(getTempPath("slow.mp3")),
-          "audio",
-          {
-            quoted: message.quoted,
-          }
-        );
+    try {
+      const waitMsg = await message.sendReply("_⏳ Ses yavaşlatılıyor..._");
+      const savedPath = await message.reply_message.download();
+      const quotedSeconds = message.quoted?.message
+        ? (message.quoted.message[Object.keys(message.quoted.message)[0]]?.seconds || 0)
+        : 0;
+      if (quotedSeconds > 120)
+        await message.sendReply(`_⚠️ Süre 2 dakikadan uzun, işlem yavaş sürebilir..._`);
+
+      const outPath = getTempPath("slow.mp3");
+      await new Promise((resolve, reject) => {
+        ffmpeg(savedPath)
+          .audioFilter("atempo=0.8,asetrate=44100*0.9")
+          .format("mp3")
+          .save(outPath)
+          .on("end", resolve)
+          .on("error", reject);
       });
+      await message.sendMessage(fs.readFileSync(outPath), "audio", { quoted: message.data });
+      await message.edit("_✅ Başarılı!_", message.jid, waitMsg.key);
+      try { fs.unlinkSync(savedPath); fs.unlinkSync(outPath); } catch (e) { }
+    } catch (e) {
+      console.error("Slow komutu hatası:", e);
+      await message.sendReply(`_❌ Hata oluştu: ${e.message}_`);
+    }
   }
 );
 Module(
   {
+    fromMe: isFromMe,
     pattern: "sped ?(.*)",
-    use: "edit",
+    use: "media",
     desc: "Müziği hızlandırır ve ses tonunu yükseltir. Sped-up+reverb sesleri yapmak için",
   },
   async (message, match) => {
@@ -344,7 +395,7 @@ Module(
     if (message.reply_message.album) {
       const albumData = await message.reply_message.download();
       const videoFiles = albumData.videos || [];
-      
+
       if (videoFiles.length === 0) {
         return await message.send("_📭 Albümde video dosyası yok. Hızlandırma için video/ses dosyası gerekir._");
       }
@@ -356,8 +407,9 @@ Module(
           const outputPath = getTempPath(`album_sped_${i}.mp3`);
           await new Promise((resolve, reject) => {
             ffmpeg(file)
-              .audioFilter("atempo=0.5")
-              .outputOptions(["-y", "-af", "asetrate=44100*1.2"])
+              .audioFilter("atempo=1.2,asetrate=44100*1.15")
+              .format("mp3")
+              .outputOptions("-y")
               .save(outputPath)
               .on("end", resolve)
               .on("error", reject);
@@ -367,39 +419,47 @@ Module(
             "audio",
             { quoted: message.quoted }
           );
+          try { fs.unlinkSync(outputPath); } catch (e) { }
         } catch (err) {
           console.error("Albüm sesi hızlandırılamadı:", err);
+          await message.sendReply(`_❌ Albümdeki bir dosya hızlandırılamadı: ${err.message}_`);
         }
       }
       return;
     }
 
-    const savedFile = await message.reply_message.download();
-    const quotedSeconds2 = message.quoted?.message
-      ? (message.quoted.message[Object.keys(message.quoted.message)[0]]?.seconds || 0)
-      : 0;
-    if (quotedSeconds2 > 120)
-      await message.sendReply(`_❌ Uyarı: Süre 2 dakikadan uzun. Bu işlem başarısız olabilir veya çok daha uzun sürebilir!_`
-      );
-    ffmpeg(savedFile)
-      .audioFilter("atempo=0.5")
-      .outputOptions(["-y", "-af", "asetrate=44100*1.2"])
-      .save(getTempPath("sped.mp3"))
-      .on("end", async () => {
-        await message.sendMessage(
-          fs.readFileSync(getTempPath("sped.mp3")),
-          "audio",
-          {
-            quoted: message.quoted,
-          }
-        );
+    try {
+      const waitMsg = await message.sendReply("_⏳ Ses hızlandırılıyor..._");
+      const savedPath = await message.reply_message.download();
+      const quotedSeconds = message.quoted?.message
+        ? (message.quoted.message[Object.keys(message.quoted.message)[0]]?.seconds || 0)
+        : 0;
+      if (quotedSeconds > 120)
+        await message.sendReply(`_⚠️ Süre 2 dakikadan uzun, işlem yavaş sürebilir..._`);
+
+      const outPath = getTempPath("sped.mp3");
+      await new Promise((resolve, reject) => {
+        ffmpeg(savedPath)
+          .audioFilter("atempo=1.2,asetrate=44100*1.15")
+          .format("mp3")
+          .save(outPath)
+          .on("end", resolve)
+          .on("error", reject);
       });
+      await message.sendMessage(fs.readFileSync(outPath), "audio", { quoted: message.data });
+      await message.edit("_✅ Başarılı!_", message.jid, waitMsg.key);
+      try { fs.unlinkSync(savedPath); fs.unlinkSync(outPath); } catch (e) { }
+    } catch (e) {
+      console.error("Sped komutu hatası:", e);
+      await message.sendReply(`_❌ Hata oluştu: ${e.message}_`);
+    }
   }
 );
 Module(
   {
+    fromMe: isFromMe,
     pattern: "basartır ?(.*)",
-    use: "edit",
+    use: "media",
     desc: Lang.BASS_DESC,
   },
   async (message, match) => {
@@ -410,7 +470,7 @@ Module(
     if (message.reply_message.album) {
       const albumData = await message.reply_message.download();
       const videoFiles = albumData.videos || [];
-      
+
       if (videoFiles.length === 0) {
         return await message.send("_📭 Albümde video dosyası yok. Bas için video/ses dosyası gerekir._");
       }
@@ -418,45 +478,70 @@ Module(
       await message.send(`_⏳ ${videoFiles.length} dosyaya bas ekleniyor..._`);
       for (const file of videoFiles) {
         try {
-          bass(file, match[1], async function (audio) {
-            await message.sendMessage(audio, "audio", { quoted: message.data });
-          });
+          const buf = await fs.promises.readFile(file);
+          const audioResult = await bass(buf, match[1] ? parseInt(match[1]) : 20);
+          await message.sendMessage(audioResult, "audio", { quoted: message.data });
         } catch (err) {
           console.error("Albüm sesine bas eklenemedi:", err);
+          await message.sendReply(`_❌ Albümdeki bir dosyaya bas eklenemedi: ${err.message}_`);
         }
       }
       return;
     }
 
-    const savedFile = await message.reply_message.download();
-    bass(savedFile, match[1], async function (audio) {
-      await message.sendMessage(audio, "audio", { quoted: message.data });
-    });
+    try {
+      const waitMsg = await message.sendReply("_⏳ Ses bası artırılıyor..._");
+      const buf = await message.reply_message.download("buffer");
+      const gain = match[1] ? parseInt(match[1]) : 20;
+
+      const audioResult = await bass(buf, gain);
+      await message.sendMessage(audioResult, "audio", { quoted: message.data });
+      await message.edit("_✅ Başarılı!_", message.jid, waitMsg.key);
+    } catch (e) {
+      console.error("Basartır komutu hatası:", e);
+      await message.sendReply(`_❌ Hata oluştu: ${e.message}_`);
+    }
   }
 );
 Module(
   {
+    fromMe: isFromMe,
     pattern: "foto ?(.*)",
-    use: "edit",
+    use: "media",
     desc: Lang.PHOTO_DESC,
   },
   async (message, match) => {
     if (message.reply_message === false)
       return await message.send(Lang.PHOTO_NEED_REPLY);
-    const savedFile = await message.reply_message.download();
-    const outPng = getTempPath(".png");
-    ffmpeg(savedFile)
-      .fromFormat("webp_pipe")
-      .save(outPng)
-      .on("end", async () => {
-        await message.sendReply(fs.readFileSync(outPng), "image");
+
+    try {
+      const savedFile = await message.reply_message.download();
+
+      // If it's already an image (jpg/png/etc), send it directly as image
+      if (message.reply_message.image) {
+        return await message.sendMessage(await fs.promises.readFile(savedFile), "image", { quoted: message.quoted });
+      }
+
+      // Otherwise (sticker, webp) - convert via ffmpeg
+      const outPng = getTempPath(`foto_${Date.now()}.png`);
+      await new Promise((resolve, reject) => {
+        ffmpeg(savedFile)
+          .save(outPng)
+          .on("end", resolve)
+          .on("error", reject);
       });
+      await message.sendMessage(await fs.promises.readFile(outPng), "image", { quoted: message.quoted });
+    } catch (e) {
+      console.error("Foto dönüştürme hatası:", e);
+      await message.sendReply(`_❌ Görsel dönüştürülemedi. Hata: ${e.message}_`);
+    }
   }
 );
 Module(
   {
-    pattern: "yazıçıkartma ?(.*)",
-    use: "utility",
+    fromMe: isFromMe,
+    pattern: "yazı1 ?(.*)",
+    use: "media",
     desc: "Metinden hareketli çıkartmaya",
   },
   async (message, match) => {
@@ -477,9 +562,10 @@ Module(
 );
 Module(
   {
+    fromMe: isFromMe,
     pattern: "tts ?(.*)",
     desc: Lang.TTS_DESC,
-    use: "utility",
+    use: "media",
   },
   async (message, match) => {
     let query = match[1] || message.reply_message.text;
@@ -552,7 +638,7 @@ Module(
     pattern: "ses ?(.*)",
     fromMe: false,
     desc: Lang.TTS_DESC,
-    use: "utility",
+    use: "media",
   },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
@@ -671,8 +757,9 @@ Module(
 
 Module(
   {
+    fromMe: isFromMe,
     pattern: "belge ?(.*)",
-    use: "edit",
+    use: "media",
     desc: "Yanıtlanan medyayı belge (document) formatına dönüştürür",
   },
   async (message, match) => {
@@ -738,7 +825,6 @@ Module(
       const processingMsg = await message.send("_⏳ Belgeye dönüştürülüyor..._");
 
       const filePath = await message.reply_message.download();
-      const stream = fs.createReadStream(filePath);
       const randomHash = Math.random().toString(36).substring(2, 8);
       let fileName = match[1];
       const mimetype = mediaInfo.mimetype || "application/octet-stream";
@@ -755,6 +841,8 @@ Module(
           fileName += `.${ext}`;
         }
       }
+
+      const stream = fs.createReadStream(filePath);
       await message.sendMessage({ stream: stream }, "document", {
         quoted: message.quoted,
         fileName: fileName,
@@ -775,13 +863,14 @@ Module(
       );
     } catch (error) {
       console.error("Belge dönüşüm hatası:", error);
-      if (error.message.includes("download")) {
+      if (error.message && error.message.includes("download")) {
         await message.send(
           "_❌ Medya indirilemedi. Dosya bozuk veya süresi dolmuş olabilir_"
         );
       } else if (
-        error.message.includes("large") ||
-        error.message.includes("memory")
+        error.message &&
+        (error.message.includes("large") ||
+          error.message.includes("memory"))
       ) {
         await message.send("_⚠️ Dosya işlemek için çok büyük_");
       } else {
@@ -792,9 +881,10 @@ Module(
 );
 Module(
   {
-    pattern: "upload ?(.*)",
-    use: "utility",
-    desc: "URL'den dosya indirir ve belge olarak gönderir",
+    fromMe: isFromMe,
+    pattern: "indir ?(.*)",
+    use: "media",
+    desc: "URL üzerindeki dosyayı indirir ve sohbete yükler.",
   },
   async (message, match) => {
     let url =
@@ -872,10 +962,12 @@ Module(
     }
   }
 );
+
 Module(
   {
+    fromMe: isFromMe,
     pattern: "square ?(.*)",
-    use: "edit",
+    use: "media",
     desc: "Video/resmi 1:1 oranında (kare formatında) kırpar",
   },
   async (message, match) => {
@@ -889,7 +981,7 @@ Module(
 
     try {
       const processingMsg = await message.send(
-        "_⏳ Medya kare formata işleniyor..._"
+        "_⏳ Medya kare formatına işleniyor..._"
       );
 
       const savedFile = await message.reply_message.download();
@@ -919,20 +1011,21 @@ Module(
         .save(outputPath)
         .on("end", async () => {
           try {
+            const fs = require("fs").promises;
             if (isVideo) {
-              await message.sendMessage(fs.readFileSync(outputPath), "video", {
+              await message.sendMessage(await fs.readFile(outputPath), "video", {
                 quoted: message.quoted,
                 caption: "_✅ Kare formata kırpıldı_",
               });
             } else {
-              await message.sendMessage(fs.readFileSync(outputPath), "image", {
+              await message.sendMessage(await fs.readFile(outputPath), "image", {
                 quoted: message.quoted,
                 caption: "_✅ Kare formata kırpıldı_",
               });
             }
 
-            fs.unlinkSync(savedFile);
-            fs.unlinkSync(outputPath);
+            await fs.unlink(savedFile).catch(() => { });
+            await fs.unlink(outputPath).catch(() => { });
 
             await message.edit(
               "_✅ Kare kırpma tamamlandı_",
@@ -950,7 +1043,7 @@ Module(
           try {
             fs.unlinkSync(savedFile);
             if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-          } catch (e) {}
+          } catch (e) { }
         });
     } catch (error) {
       console.error("Kare kırpma hatası:", error);
@@ -961,22 +1054,23 @@ Module(
 
 Module(
   {
-    pattern: "resize ?(.*)",
-    use: "edit",
-    desc: "Video/resim en-boy oranını değiştirin. Kullanım: .resize 16:9, .resize 9:16",
+    fromMe: isFromMe,
+    pattern: "boyut ?(.*)",
+    use: "media",
+    desc: "Video/resim en-boy oranını değiştirin. Kullanım: .boyut 16:9, .boyut 9:16",
   },
   async (message, match) => {
     if (
       !message.reply_message ||
       (!message.reply_message.video && !message.reply_message.image)
     ) {
-      return await message.sendReply("_🎬 Boyutunu değiştirmek için bir videoyu veya resmi yanıtlayın_"
+      return await message.sendReply("_🎬 Boyutunu değiştirmek için bir videoyu veya görseli yanıtlayın!_"
       );
     }
 
     if (!match[1]) {
       return await message.send(
-        "_💬 En-boy oranı belirtin. Örnekler:_\n• `.resize 16:9` - Geniş ekran\n• `.resize 9:16` - Dikey/Hikaye\n• `.resize 4:3` - Klasik\n• `.resize 21:9` - Ultra geniş\n• `.resize 1:1` - Kare"
+        "_💬 En-boy oranı belirtin. Örnekler:_\n• `.boyut 16:9` - Geniş ekran\n• `.boyut 9:16` - Dikey/Hikaye\n• `.boyut 4:3` - Klasik\n• `.boyut 21:9` - Ultra geniş\n• `.boyut 1:1` - Kare"
       );
     }
 
@@ -1048,20 +1142,21 @@ Module(
         .save(outputPath)
         .on("end", async () => {
           try {
+            const fs = require("fs").promises;
             if (isVideo) {
-              await message.sendMessage(fs.readFileSync(outputPath), "video", {
+              await message.sendMessage(await fs.readFile(outputPath), "video", {
                 quoted: message.quoted,
                 caption: `_✅ ${input} en-boy oranına boyutlandırıldı (${targetWidth}x${targetHeight})_`,
               });
             } else {
-              await message.sendMessage(fs.readFileSync(outputPath), "image", {
+              await message.sendMessage(await fs.readFile(outputPath), "image", {
                 quoted: message.quoted,
                 caption: `_✅ ${input} en-boy oranına boyutlandırıldı (${targetWidth}x${targetHeight})_`,
               });
             }
 
-            fs.unlinkSync(savedFile);
-            fs.unlinkSync(outputPath);
+            await fs.unlink(savedFile).catch(() => { });
+            await fs.unlink(outputPath).catch(() => { });
 
             await message.edit(
               `_✅ ${input} en-boy oranı değişikliği tamamlandı_`,
@@ -1081,7 +1176,7 @@ Module(
           try {
             fs.unlinkSync(savedFile);
             if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-          } catch (e) {}
+          } catch (e) { }
         });
     } catch (error) {
       console.error("Boyutlandırma hatası:", error);
@@ -1091,8 +1186,9 @@ Module(
 );
 Module(
   {
+    fromMe: isFromMe,
     pattern: "sıkıştır ?(.*)",
-    use: "edit",
+    use: "media",
     desc: "Video/resmi yüzdeyle sıkıştırın. Kullanım: .compress 50 (%50 sıkıştırma)",
   },
   async (message, match) => {
@@ -1145,7 +1241,7 @@ Module(
           .audioCodec("aac")
           .outputOptions([
             "-preset",
-            "medium",
+            "superfast",
             "-crf",
             crf.toString(),
             "-profile:v",
@@ -1166,8 +1262,13 @@ Module(
         .save(outputPath)
         .on("end", async () => {
           try {
-            const originalSize = fs.statSync(savedFile).size;
-            const compressedSize = fs.statSync(outputPath).size;
+            const fs = require("fs").promises;
+            const stats = await Promise.all([
+              require("fs").promises.stat(savedFile),
+              require("fs").promises.stat(outputPath)
+            ]);
+            const originalSize = stats[0].size;
+            const compressedSize = stats[1].size;
             const actualReduction = Math.round(
               (1 - compressedSize / originalSize) * 100
             );
@@ -1179,15 +1280,16 @@ Module(
                 : `${(bytes / 1024).toFixed(1)}KB`;
             };
 
+            const fs = require("fs").promises;
             if (isVideo) {
-              await message.sendMessage(fs.readFileSync(outputPath), "video", {
+              await message.sendMessage(await fs.readFile(outputPath), "video", {
                 quoted: message.quoted,
                 caption: `_✅ %${actualReduction} sıkıştırıldı_\n_${formatSize(
                   originalSize
                 )} → ${formatSize(compressedSize)}_`,
               });
             } else {
-              await message.sendMessage(fs.readFileSync(outputPath), "image", {
+              await message.sendMessage(await fs.readFile(outputPath), "image", {
                 quoted: message.quoted,
                 caption: `_✅ %${actualReduction} sıkıştırıldı_\n_${formatSize(
                   originalSize
@@ -1195,8 +1297,8 @@ Module(
               });
             }
 
-            fs.unlinkSync(savedFile);
-            fs.unlinkSync(outputPath);
+            await fs.unlink(savedFile).catch(() => { });
+            await fs.unlink(outputPath).catch(() => { });
 
             await message.edit(
               `_✅ Sıkıştırma tamamlandı (%${actualReduction} azalma)_`,
@@ -1214,7 +1316,7 @@ Module(
           try {
             fs.unlinkSync(savedFile);
             if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-          } catch (e) {}
+          } catch (e) { }
         });
     } catch (error) {
       console.error("Sıkıştırma hatası:", error);

@@ -11,8 +11,9 @@ let config = require("../config");
 let fs = require("fs");
 Module(
   {
+    fromMe: isFromMe,
     pattern: "take ?(.*)",
-    use: "edit",
+    use: "media",
     desc: "Çıkartma/ses paketi ve yazar adını değiştirir.",
     usage: ".take paket;yazar\n(bir çıkartmaya veya sese yanıt vererek)",
   },
@@ -42,7 +43,7 @@ Module(
       }
       return await m.client.sendMessage(
         m.jid,
-        { sticker: fs.readFileSync(await addExif(q, exif)) },
+        { sticker: await addExif(q, exif) },
         { quoted: m.quoted }
       );
     }
@@ -51,8 +52,8 @@ Module(
         match[1] !== ""
           ? match[1]
           : config.AUDIO_DATA === "default"
-          ? "Lades Ses Başlığı;Lades Sanatçı;https://i.ibb.co/s98DyMMq/NL-1.png"
-          : config.AUDIO_DATA;
+            ? "Lades Ses Başlığı;Lades Sanatçı;https://i.ibb.co/s98DyMMq/NL-1.png"
+            : config.AUDIO_DATA;
       if (config.AUDIO_DATA == "default") {
         await m.sendReply(`_🎵 Varsayılan ses verisi kullanılıyor, değiştirmek için .setvar AUDIO_DATA=baslık;sanatcı;kapak_url kullanın_`
         );
@@ -103,26 +104,28 @@ Module(
 );
 Module(
   {
+    fromMe: isFromMe,
     pattern: "mp4 ?(.*)",
-    use: "edit",
+    use: "media",
     desc: "Hareketli çıkartmayı videoya dönüştürür",
     usage: ".mp4 (bir hareketli çıkartmaya yanıt vererek)",
   },
   async (m, t) => {
     if (m.reply_message.sticker) {
-      var q = await m.reply_message.download();
+      const q = await m.reply_message.download("buffer");
+      const { getTempPath } = require("../core/helpers");
+      const outPath = getTempPath("converted.mp4");
       try {
-        var result = await webp2mp4(q, __dirname + "/temp/output.mp4");
+        await webp2mp4(q, outPath);
       } catch (e) {
-        console.log("Take hatası:", e);
-        return await m.sendReply("*❌ Başarısız*");
+        console.log("Take hatası (.mp4):", e);
+        return await m.sendReply(`*❌ Hareketli çıkartma videoya dönüştürülemedi. Hata:* ${e.message}`);
       }
       await m.client.sendMessage(
         m.jid,
         {
-          video: {
-            url: __dirname + "/temp/output.mp4",
-          },
+          document: await fs.promises.readFile(outPath),
+          mimetype: "video/mp4",
         },
         { quoted: m.quoted }
       );
@@ -132,10 +135,11 @@ Module(
 
 Module(
   {
+    fromMe: isFromMe,
     pattern: "url ?(.*)",
-    desc: "Resmi imgbb'ye yükler ve resim URL gönderir",
+    desc: "Resmi internete yükleyerek paylaşılabilir bağlantı oluşturur.",
     usage: ".url (bir görsele, videoya veya sese yanıt vererek)",
-    use: "edit",
+    use: "media",
   },
   async (m, match) => {
     let result;

@@ -11,9 +11,9 @@ function cleanPhoneNumber(phone) {
 
 Module({
     pattern: "bağla ?(.*)",
-    fromMe: false,
+    fromMe: true,
     desc: "WhatsApp Web bağlantısı",
-    type: "user",
+    use: "owner",
   },
   async (message, match) => {
     const chatJid = message.jid;

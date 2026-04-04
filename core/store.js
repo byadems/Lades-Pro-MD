@@ -111,6 +111,8 @@ async function getFullMessage(msgId) {
   try {
     // msgId might come with suffix or prefix, search accurately
     const id = (msgId || "").split("_")[0];
+    if (!id || id === "undefined" || id === "null") return { found: false };
+
     for (const jid of messageStore.keys()) {
       const bucket = messageStore.get(jid);
       if (bucket && bucket.has(id)) {
@@ -137,9 +139,102 @@ async function getTotalUserCount() {
   }
 }
 
+async function fetchFromStore(jid) {
+  try {
+    const { MessageStats, UserData } = require("./database");
+    return await MessageStats.findAll({
+      where: { jid },
+      include: [{ model: UserData, as: "User" }],
+    });
+  } catch (err) {
+    logger.debug({ err, jid }, "Failed to fetch from store");
+    return [];
+  }
+}
+
+async function getTopUsers(jid, limit = 10) {
+  try {
+    const { MessageStats, UserData } = require("./database");
+    return await MessageStats.findAll({
+      where: { jid },
+      order: [["totalMessages", "DESC"]],
+      limit,
+      include: [{ model: UserData, as: "User" }],
+    });
+  } catch (err) {
+    logger.debug({ err, jid }, "Failed to get top users");
+    return [];
+  }
+}
+
+async function getGlobalTopUsers(limit = 10) {
+  try {
+    const { MessageStats, UserData, sequelize } = require("./database");
+    // Global stats: sum totals for each user across all chats
+    const results = await MessageStats.findAll({
+      attributes: [
+        "userJid",
+        [sequelize.fn("SUM", sequelize.col("totalMessages")), "totalMessages"],
+        [sequelize.fn("MAX", sequelize.col("lastMessageAt")), "lastMessageAt"],
+      ],
+      group: ["userJid", "User.jid"],
+      include: [{ model: UserData, as: "User" }],
+      order: [[sequelize.literal("totalMessages"), "DESC"]],
+      limit,
+    });
+    return results;
+  } catch (err) {
+    logger.debug({ err }, "Failed to get global top users");
+    return [];
+  }
+}
+
+/**
+ * Increments message statistics for a user in a specific chat.
+ * @param {string} jid - The chat JID
+ * @param {string} userJid - The user JID
+ * @param {string} type - Message type (text, image, video, audio, sticker, other)
+ */
+async function incrementStats(jid, userJid, type = "text") {
+  try {
+    const { MessageStats, UserData } = require("./database");
+    
+    // Ensure UserData exists (can be expanded if needed)
+    await UserData.findOrCreate({ where: { jid: userJid } });
+
+    // Find or create stats entry for this chat + user
+    const [stats] = await MessageStats.findOrCreate({
+      where: { jid, userJid },
+      defaults: { 
+        totalMessages: 0, textMessages: 0, imageMessages: 0, 
+        videoMessages: 0, audioMessages: 0, stickerMessages: 0, 
+        otherMessages: 0 
+      }
+    });
+
+    const updateData = {
+      totalMessages: stats.totalMessages + 1,
+      lastMessageAt: new Date()
+    };
+
+    if (type === "text") updateData.textMessages = stats.textMessages + 1;
+    else if (type === "image") updateData.imageMessages = stats.imageMessages + 1;
+    else if (type === "video") updateData.videoMessages = stats.videoMessages + 1;
+    else if (type === "audio") updateData.audioMessages = stats.audioMessages + 1;
+    else if (type === "sticker") updateData.stickerMessages = stats.stickerMessages + 1;
+    else updateData.otherMessages = stats.otherMessages + 1;
+
+    await stats.update(updateData);
+  } catch (err) {
+    logger.debug({ err, jid, userJid }, "Failed to increment stats");
+  }
+}
+
 module.exports = {
   storeMessage, getMessage, getMessageByKey,
   setGroupMeta, getGroupMeta, fetchGroupMeta, invalidateGroupMeta,
   bindToSocket, getStoreStats,
   getTotalUserCount, getFullMessage, fetchRecentChats,
+  fetchFromStore, getTopUsers, getGlobalTopUsers,
+  incrementStats,
 };

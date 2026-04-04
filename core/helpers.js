@@ -159,6 +159,10 @@ function suppressLibsignalLogs() {
 // ─────────────────────────────────────────────────────────
 //  Message utilities
 // ─────────────────────────────────────────────────────────
+async function loadBaileys() {
+  return await import("@whiskeysockets/baileys");
+}
+
 function getMessageText(message) {
   if (!message) return "";
   
@@ -199,10 +203,38 @@ function getMentioned(message) {
 }
 
 /**
- * Asynchronously load Baileys module (compatibility helper)
+ * Downloads a file from a URL and saves it directly to a disk path as a stream.
+ * Highly memory efficient as it bypasses the Node.js heap.
+ * @param {string} url 
+ * @param {string} destPath 
+ * @returns {Promise<string>} The path to the saved file.
  */
-async function loadBaileys() {
-  return require("@whiskeysockets/baileys");
+async function saveToDisk(url, destPath) {
+  const axios = require("axios");
+  const writer = fs.createWriteStream(destPath);
+
+  const response = await axios({
+    url,
+    method: "GET",
+    responseType: "stream",
+    timeout: 30000,
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+    }
+  });
+
+  return new Promise((resolve, reject) => {
+    response.data.pipe(writer);
+    let error = null;
+    writer.on("error", (err) => {
+      error = err;
+      writer.close();
+      reject(err);
+    });
+    writer.on("close", () => {
+      if (!error) resolve(destPath);
+    });
+  });
 }
 
 module.exports = {
@@ -213,5 +245,5 @@ module.exports = {
   formatBytes, formatDuration, runtime, sleep, chunk,
   suppressLibsignalLogs,
   getMessageText, getQuotedMsg, getMentioned,
-  loadBaileys, getTempSubdir
+  loadBaileys, getTempSubdir, saveToDisk
 };

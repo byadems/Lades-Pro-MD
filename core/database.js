@@ -13,14 +13,6 @@ const WhatsappSession = sequelize.define("WhatsappSession", {
   sessionData: {
     type: DataTypes.TEXT("long"),
     allowNull: true,
-    get() {
-      const raw = this.getDataValue("sessionData");
-      try { return raw ? JSON.parse(raw) : null; } catch { return null; }
-    },
-    set(val) {
-      try { this.setDataValue("sessionData", val ? JSON.stringify(val) : null); }
-      catch { this.setDataValue("sessionData", null); }
-    },
   },
 }, { tableName: "whatsapp_sessions", timestamps: true });
 
@@ -101,9 +93,35 @@ const AiCommand = sequelize.define("AiCommand", {
   commandName: { type: DataTypes.STRING(64), allowNull: false },
   description: { type: DataTypes.TEXT, allowNull: true },
   code: { type: DataTypes.TEXT("long"), allowNull: false },
-  active: { type: DataTypes.BOOLEAN, defaultValue: true },
+  active: true,
   createdBy: { type: DataTypes.STRING(64), allowNull: true },
 }, { tableName: "ai_commands", timestamps: true });
+
+/** Message statistics tracking */
+const MessageStats = sequelize.define("MessageStats", {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  jid: { type: DataTypes.STRING(64), allowNull: false },
+  userJid: { type: DataTypes.STRING(64), allowNull: false },
+  totalMessages: { type: DataTypes.INTEGER, defaultValue: 0 },
+  textMessages: { type: DataTypes.INTEGER, defaultValue: 0 },
+  imageMessages: { type: DataTypes.INTEGER, defaultValue: 0 },
+  videoMessages: { type: DataTypes.INTEGER, defaultValue: 0 },
+  audioMessages: { type: DataTypes.INTEGER, defaultValue: 0 },
+  stickerMessages: { type: DataTypes.INTEGER, defaultValue: 0 },
+  otherMessages: { type: DataTypes.INTEGER, defaultValue: 0 },
+  lastMessageAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+}, { 
+  tableName: "message_stats", 
+  timestamps: true,
+  indexes: [
+    { fields: ["jid"] },
+    { fields: ["userJid"] },
+    { unique: true, fields: ["jid", "userJid"] }
+  ]
+});
+
+// Associations
+MessageStats.belongsTo(UserData, { foreignKey: "userJid", targetKey: "jid", as: "User" });
 
 // ─────────────────────────────────────────────────────────
 //  Database initialization
@@ -126,6 +144,7 @@ async function initializeDatabase() {
   const models = [
     WhatsappSession, BotConfig, GroupSettings, UserData,
     WarnLog, Filter, Schedule, ExternalPlugin, AiCommand,
+    MessageStats,
   ];
 
   // Eski Lades-MD eklentilerinden gelen (SQLite'ta hata veren) tabloları da senkronize et
@@ -181,6 +200,7 @@ module.exports = {
   Schedule,
   ExternalPlugin,
   AiCommand,
+  MessageStats,
   initializeDatabase,
   Op,
 };

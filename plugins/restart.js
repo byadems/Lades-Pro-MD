@@ -2,7 +2,7 @@ const { Module } = require("../main");
 
 Module(
   {
-    pattern: "ybaşlat|reload|reboot",
+    pattern: "ybaşlat",
     fromMe: true,
     desc: "Botu yeniden başlatır",
     use: "system",

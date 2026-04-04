@@ -31,7 +31,6 @@ function checkLinks(links, allowedWords) {
 }
 const { Module } = require("../main");
 const {
-  isAdmin,
   antilinkConfig,
   antiword,
   antibot,
@@ -43,8 +42,10 @@ const {
   getWarn,
   linkDetector,
   censorBadWords,
+  isAdmin,
 } = require("./utils");
 const config = require("../config");
+const isFromMe = config.MODE === "public" ? false : true;
 const { settingsMenu, ADMIN_ACCESS } = config;
 const fs = require("fs");
 const { BotVariable } = require("../core/database");
@@ -188,7 +189,7 @@ Module(
   {
     pattern: "setenv ?(.*)",
     fromMe: true,
-    desc: "config.env'deki ortam değişkenlerini ayarla",
+    desc: "Botun temel yapılandırma (env) değişken ayarlarını düzenler.",
     usage: ".setenv MY_VAR=some_value",
     dontAddCommandList: true,
   },
@@ -243,7 +244,7 @@ Module(
     pattern: "değişkenler",
     fromMe: true,
     desc: "Tüm bot değişkenlerini getir",
-    use: "owner",
+    use: "system",
   },
   async (message, match) => {
     try {
@@ -269,7 +270,8 @@ Module(
   {
     pattern: "platform",
     fromMe: true,
-    use: "settings",
+    desc: "Sunucu, işletim sistemi ve versiyon bilgilerini gösterir.",
+    use: "system",
   },
   async (message, match) => {
     return await message.sendReply(`_Bot ${config.PLATFORM} üzerinde çalışıyor_`);
@@ -281,7 +283,7 @@ Module(
     pattern: "dil ?(.*)",
     fromMe: true,
     desc: "Bot dilini bazı komutlar için değiştir",
-    use: "settings",
+    use: "system",
   },
   async (message, match) => {
     if (
@@ -299,7 +301,7 @@ Module(
     pattern: "ayarlar ?(.*)",
     fromMe: true,
     desc: "Ek WhatsApp bot seçeneklerini aktifleştirmek için ayarlar.",
-    use: "owner",
+    use: "system",
   },
   async (message, match) => {
     let configs = settingsMenu || [];
@@ -333,7 +335,7 @@ Module(
     pattern: "mod ?(.*)",
     fromMe: true,
     desc: "Bot modunu genel (public) ve özel (private) olarak değiştirin",
-    use: "settings",
+    use: "system",
     dontAddCommandList: true,
   },
   async (message, match) => {
@@ -356,7 +358,7 @@ Module(
     pattern: "antisilme ?(.*)",
     fromMe: true,
     desc: "Mesaj silme engelini aktifleştirir",
-    use: "settings",
+    use: "system",
   },
   async (message, match) => {
     let target = match[1]?.trim();
@@ -404,7 +406,8 @@ Module(
   {
     pattern: "setsudo ?(.*)",
     fromMe: true,
-    use: "owner",
+    desc: "Belirtilen numaraya üst düzey yönetici (SUDO) yetkisi verir.",
+    use: "system",
     dontAddCommandList: true,
   },
   async (message, mm) => {
@@ -466,7 +469,8 @@ Module(
   {
     pattern: "sudolar ?(.*)",
     fromMe: true,
-    use: "owner",
+    desc: "Üst düzey ynetici yetkisine (SUDO) sahip numaraları listeler.",
+    use: "system",
   },
   async (message, match) => {
     let sudoMap = [];
@@ -617,14 +621,12 @@ Module(
 Module(
   {
     pattern: "antibot ?(.*)",
-    fromMe: false,
+    fromMe: isFromMe,
     desc: "Diğer botların mesajlarını tespit eder ve atar.",
     use: "group",
   },
   async (message, match) => {
-    let adminAccesValidated = ADMIN_ACCESS
-      ? await isAdmin(message, message.sender)
-      : false;
+    let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
       match[1] = match[1] ? match[1].toLowerCase() : "";
       const db = await antibot.get();
@@ -633,7 +635,7 @@ Module(
         jids.push(data.jid);
       });
       if (match[1] === "aç" || match[1] === "on") {
-        if (!(await isAdmin(message)))
+        if (!message.isBotAdmin)
           return await message.sendReply("_❌ Ben bir yönetici değilim!_");
         await antibot.set(message.jid);
       }
@@ -659,14 +661,12 @@ Module(
 Module(
   {
     pattern: "antispam ?(.*)",
-    fromMe: false,
+    fromMe: isFromMe,
     desc: "Spam mesajları tespit eder ve kullanıcıyı çıkarır.",
     use: "group",
   },
   async (message, match) => {
-    let adminAccesValidated = ADMIN_ACCESS
-      ? await isAdmin(message, message.sender)
-      : false;
+    let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
       match[1] = match[1] ? match[1].toLowerCase() : "";
       const db = await antispam.get();
@@ -675,7 +675,7 @@ Module(
         jids.push(data.jid);
       });
       if (match[1] === "aç" || match[1] === "on") {
-        if (!(await isAdmin(message)))
+        if (!message.isBotAdmin)
           return await message.sendReply("_❌ Ben bir yönetici değilim!_");
         await antispam.set(message.jid);
       }
@@ -701,14 +701,12 @@ Module(
 Module(
   {
     pattern: "pdm ?(.*)",
-    fromMe: false,
+    fromMe: isFromMe,
     desc: "Yetki verme/alma durumlarını tespit eder ve uyarı gönderir.",
     use: "group",
   },
   async (message, match) => {
-    let adminAccesValidated = ADMIN_ACCESS
-      ? await isAdmin(message, message.sender)
-      : false;
+    let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
       match[1] = match[1] ? match[1].toLowerCase() : "";
       const db = await pdm.get();
@@ -813,14 +811,12 @@ Module(
 Module(
   {
     pattern: "antibağlantı ?(.*)",
-    fromMe: false,
+    fromMe: isFromMe,
     desc: "Gelişmiş antilink (link engelleme) sistemi (uyarı/at/sil modlu)",
     use: "group",
   },
   async (message, match) => {
-    let adminAccesValidated = ADMIN_ACCESS
-      ? await isAdmin(message, message.sender)
-      : false;
+    let adminAccesValidated = await isAdmin(message);
 
     if (!(message.fromOwner || adminAccesValidated)) return;
 
@@ -835,7 +831,7 @@ Module(
       switch (command) {
         case "on":
         case "enable":
-          if (!(await isAdmin(message))) {
+          if (!message.isBotAdmin) {
             return await message.sendReply("_❌ Ben bir yönetici değilim!_");
           }
 
@@ -879,7 +875,7 @@ Module(
             );
           }
 
-          if (!(await isAdmin(message))) {
+          if (!message.isBotAdmin) {
             return await message.sendReply("_❌ Ben bir yönetici değilim!_");
           }
 
@@ -1069,14 +1065,12 @@ Module(
 Module(
   {
     pattern: "antikelime ?(.*)",
-    fromMe: false,
+    fromMe: isFromMe,
     desc: "Yasaklı kelime (antiword) engelini aktifleştirir, gönderen atılır",
     use: "group",
   },
   async (message, match) => {
-    let adminAccesValidated = ADMIN_ACCESS
-      ? await isAdmin(message, message.sender)
-      : false;
+    let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
       match[1] = match[1] ? match[1].toLowerCase() : "";
       const db = await antiword.get();
@@ -1110,7 +1104,7 @@ Module(
         }
       }
       if (match[1] === "aç" || match[1] === "on") {
-        if (!(await isAdmin(message)))
+        if (!await isAdmin(message))
           return await message.sendReply("_❌ Ben bir yönetici değilim!_");
         await antiword.set(message.jid);
       }
@@ -1144,7 +1138,7 @@ Module(
     desc: "Kapsamlı arama reddetme yönetim sistemi",
     usage:
       ".aramaengel aç/kapat\n.aramaengel beyazlisteyeekle <numara>\n.aramaengel beyazlistelerisil <numara>\n.aramaengel beyazlistelerigöster\n.aramaengel beyazlistelerisil\n.aramaengel mesaj <mesaj>\n.aramaengel mesaj kapat",
-    use: "owner",
+    use: "system",
   },
   async (message, match) => {
     const input = match[1]?.trim();
@@ -1457,14 +1451,14 @@ Module(
           );
           if (!inviteMatch) continue;
 
-          const botIsAdmin = await isAdmin(message);
-          const senderIsAdmin = await isAdmin(message, message.sender);
+          const botIsAdmin = message.isBotAdmin;
+          const senderIsAdmin = message.isAdmin;
           if (!botIsAdmin || senderIsAdmin) return;
 
           if (currentGroupCode && inviteMatch[2] === currentGroupCode) continue;
 
           const groupMetadata = await message.client.groupMetadata(message.jid);
-          
+
           let senderNumber = message.sender.split("@")[0];
           let senderName = senderNumber;
           try {
@@ -1476,7 +1470,7 @@ Module(
           } catch {
             senderName = message.senderName || senderNumber;
           }
-          
+
           const infoMessage =
             `Saygıdeğer yöneticilerim; *${groupMetadata.subject}* grubunda ` +
             `şu şahsı *${senderName}* (+${senderNumber}) suçüstü yakaladım. 😈
@@ -1529,7 +1523,7 @@ Module(
           }
         }
 
-        if (linkBlocked && !(await isAdmin(message, message.sender))) {
+        if (linkBlocked && !message.isAdmin) {
           const usr = message.sender;
 
           await message.client.sendMessage(message.jid, {
@@ -1641,7 +1635,7 @@ Module(
   {
     pattern: "uptime",
     fromMe: true,
-    use: "utility",
+    use: "system",
     desc: "Sistem (OS) / işlem çalışma süresini gösterir (uptime)",
   },
   async (message, match) => {

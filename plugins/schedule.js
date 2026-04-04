@@ -160,8 +160,9 @@ async function createMessageObject(
 
 Module(
   {
+    fromMe: isFromMe,
     pattern: "planla ?(.*)",
-    use: "utility",
+    use: "tools",
     desc: "⏰ Mesaj planla - Gruba veya özele zamanlanmış mesaj gönder",
   },
   async (m, match) => {
@@ -256,8 +257,9 @@ Module(
 
 Module(
   {
+    fromMe: isFromMe,
     pattern: "plandurum ?(.*)",
-    use: "utility",
+    use: "tools",
     desc: "📋 Planlanan tüm mesajları listeler",
     usage: ".plandurum",
   },
@@ -303,8 +305,9 @@ Module(
 
 Module(
   {
+    fromMe: isFromMe,
     pattern: "plansil ?(.*)",
-    use: "utility",
+    use: "tools",
     desc: "🗑️ Planlanan mesajı ID ile iptal eder",
     usage: ".plansil <id>",
   },

@@ -5,12 +5,16 @@
 
 const badWords = [
   "amk","aq","mk","orospu","orospu çocuğu","orospu cocugu","oç","o.ç","amcık","amına","amını","amina", 
-"sik","sikerim","siktir","sikim","sikeyim","sikiyim","sikti","sikik","yarrak","yarak","yarram","yarrağım",
-"piç","pezevenk","kahpe","kaltak","kaşar","puşt","ibne","ibine","ibneyim","şerefsiz","serefsiz",
-"mal","salak","aptal","gerizekalı","dalyarak","dingil","yavşak","yavsak","göt","götveren","gavat",
+  "sik","sikerim","siktir","sikim","sikeyim","sikiyim","sikti","sikik","yarrak","yarak","yarram","yarrağım",
+  "piç","pezevenk","kahpe","kaltak","kaşar","puşt","ibne","ibine","ibneyim","şerefsiz","serefsiz",
+  "mal","salak","aptal","gerizekalı","dalyarak","dingil","yavşak","yavsak","göt","götveren","gavat",
   "döl","bok","bok gibi","amına koyayım","amına koyim","amına kodum","siktir git",
-"fuck","fucking","pussy","bitch","asshole","bastard"
+  "fuck","fucking","pussy","bitch","asshole","bastard"
 ];
+
+// Pre-compile into a single optimized regex for performance
+const escapedWords = badWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+const BAD_WORD_REGEX = new RegExp(`\\b(${escapedWords.join("|")})\\b`, "gi");
 
 /**
  * Metindeki yasaklı kelimeleri yıldız (*) ile maskeleler.
@@ -19,14 +23,7 @@ const badWords = [
  */
 function censorBadWords(text) {
   if (!text || typeof text !== "string") return text;
-  let result = text;
-  for (const word of badWords) {
-    if (!word || word.length < 2) continue;
-    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`\\b${escaped}\\b`, "gi");
-    result = result.replace(regex, (m) => "*".repeat(m.length));
-  }
-  return result;
+  return text.replace(BAD_WORD_REGEX, (m) => "*".repeat(m.length));
 }
 
-module.exports = { censorBadWords, badWords };
+module.exports = { censorBadWords, badWords, BAD_WORD_REGEX };

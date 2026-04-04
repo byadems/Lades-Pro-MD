@@ -18,6 +18,9 @@
     <div class="aur-4"></div>
   </div>
 
+  <!-- MOBILE OVERLAY -->
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-top">
@@ -87,6 +90,16 @@
 
   <!-- MAIN -->
   <div class="main">
+
+    <!-- MOBILE HEADER -->
+    <div class="mobile-header">
+      <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <svg viewBox="0 0 24 24" fill="none" width="24" height="24"><path d="M4 12h16M4 6h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <div class="mobile-brand">
+        <span class="brand-name" style="font-size: 16px;">Lades-Pro-MD</span>
+      </div>
+    </div>
 
     <!-- ═══════════════════════════════════ PANEL PAGE ═══════════════════════════════════ -->
     <div class="page active" id="page-panel">
@@ -278,15 +291,19 @@
             </div>
             <div class="ctrl-btns">
               <button class="ctrl-btn start" id="btnStart">
-                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M10 8l6 4-6 4V8z" fill="currentColor"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                 Oturumu Başlat
               </button>
-              <button class="ctrl-btn restart" id="btnRestart">
-                <svg viewBox="0 0 24 24" fill="none"><polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                Yeniden Başlat
+              <button class="ctrl-btn restart-session" id="btnRestartSession">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                Oturumu Yeniden Başlat
+              </button>
+              <button class="ctrl-btn restart-system" id="btnRestartSystem">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                Sistemi Yeniden Başlat
               </button>
               <button class="ctrl-btn stop" id="btnStop">
-                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
                 Oturumu Kapat
               </button>
             </div>

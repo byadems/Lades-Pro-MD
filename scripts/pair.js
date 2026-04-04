@@ -60,7 +60,7 @@ async function startPairing() {
     logger,
     printQRInTerminal: false,
     auth: state,
-    browser: ["Lades-MD", "Chrome", "2.0.0"],
+    browser: Browsers.ubuntu("Chrome"),
     syncFullHistory: false,
   });
 

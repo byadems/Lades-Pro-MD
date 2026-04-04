@@ -4,7 +4,7 @@ const { fancy } = require('./utils');
 Module({
      pattern: 'fancy ?(.*)',
      fromMe: isPrivateMode,
-     use: 'utility',
+     use: 'edit',
      desc: 'Süslü metin yazı tipleri oluşturur'
  }, (async (message, match) => {
      if (!match[1] && !message.reply_message.message) return await message.sendReply('_*💬 Bir metni yanıtlayıp sayısal kodu belirtin veya direkt yazın.* Örnek:_\n\n- `.fancy 10 Merhaba`\n- `.fancy Merhaba dünya`\n'+String.fromCharCode(8206).repeat(4001)+fancy.list('Örnek metin',fancy));

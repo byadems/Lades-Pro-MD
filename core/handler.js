@@ -12,8 +12,7 @@ const fs = require("fs");
 const config = require("../config");
 const { logger } = require("../config");
 const { getGroupSettings } = require("./db-cache");
-const { isGroup, getGroupAdmins, getMessageText, getMentioned, getQuotedMsg } = require("./helpers");
-const { downloadMediaMessage } = require("@whiskeysockets/baileys");
+const { isGroup, getGroupAdmins, getMessageText, getMentioned, getQuotedMsg, loadBaileys } = require("./helpers");
 
 // ─────────────────────────────────────────────────────────
 //  Command Stats Tracker
@@ -25,9 +24,11 @@ try {
   if (fs.existsSync(STATS_FILE)) cmdStats = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
 } catch { cmdStats = {}; }
 
+let _statsSaveTimer = null;
 function recordStat(pattern, status, durationMs, error = null) {
   const key = String(pattern).split('?')[0].split(' ')[0].replace(/[^\wçğıöşüÇĞİÖŞÜ]/gi, '');
   if (!key) return;
+  
   cmdStats[key] = {
     status,
     ms: durationMs,
@@ -35,9 +36,21 @@ function recordStat(pattern, status, durationMs, error = null) {
     error: error ? String(error).slice(0, 120) : null,
     runs: (cmdStats[key]?.runs || 0) + 1
   };
-  // Write async, non-blocking
-  fs.writeFile(STATS_FILE, JSON.stringify(cmdStats), () => {});
+
+  if (!_statsSaveTimer) {
+    _statsSaveTimer = setTimeout(async () => {
+       try {
+         await fs.promises.writeFile(STATS_FILE, JSON.stringify(cmdStats));
+       } catch (e) { }
+       _statsSaveTimer = null;
+    }, 2 * 60 * 1000);
+  }
 }
+
+// Process çıkarken son halini kaydet
+process.on('exit', () => {
+  try { fs.writeFileSync(STATS_FILE, JSON.stringify(cmdStats)); } catch {}
+});
 
 function getStats() { return cmdStats; }
 
@@ -48,9 +61,26 @@ function getStats() { return cmdStats; }
  */
 function jidToPhone(jid) {
   if (!jid) return 'Bilinmiyor';
-  const local = jid.split('@')[0];   // strip domain
-  const num   = local.split(':')[0]; // strip device suffix
+  const num = jid.split('@')[0].split(':')[0]; // strip domain and device
   return '+' + num;
+}
+
+/**
+ * Extracts and standardizes numerical ID for universal comparison (phone or LID).
+ */
+function getNumericalId(jid) {
+  if (!jid) return '';
+  // Strip domain: "12345:1@s.whatsapp.net" -> "12345:1"
+  // Strip device: "12345:1" -> "12345"
+  // Strip leading non-digits (like +)
+  return jid.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
+}
+
+/**
+ * Standardizes a JID for comparison (legacy support)
+ */
+function cleanJid(jid) {
+  return getNumericalId(jid);
 }
 
 // ─────────────────────────────────────────────────────────
@@ -72,8 +102,8 @@ class ReplyMessage {
 
     const msg = this.message || {};
     this.text = getMessageText(msg);
-    this.caption = msg.imageMessage?.caption || msg.videoMessage?.caption || "";
-    
+    this.caption = msg.imageMessage?.caption || msg.videoMessage?.caption || msg.documentMessage?.caption || msg.documentWithCaptionMessage?.message?.documentMessage?.caption || "";
+
     // Media flags (Lades-MD style)
     this.image = !!msg.imageMessage;
     this.video = !!msg.videoMessage;
@@ -83,8 +113,8 @@ class ReplyMessage {
     this.document = !!msg.documentMessage;
     this.viewOnce = !!(msg.viewOnceMessage || msg.viewOnceMessageV2);
     this.mimetype = msg.imageMessage?.mimetype || msg.videoMessage?.mimetype ||
-                    msg.audioMessage?.mimetype || msg.documentMessage?.mimetype || "";
-    
+      msg.audioMessage?.mimetype || msg.documentMessage?.mimetype || "";
+
     // Compatibility keys
     this.key = {
       remoteJid: this.remoteJid,
@@ -92,12 +122,12 @@ class ReplyMessage {
       id: this.id,
       participant: this.jid
     };
-    
+
     // Auto-fix for group quoted keys
     if (parentMsg.isGroup && !this.key.participant) {
       this.key.participant = this.jid || parentMsg.sender;
     }
-    
+
     // data alias (bazı pluginler message.reply_message.data kullanır)
     this.data = {
       key: this.key,
@@ -107,18 +137,21 @@ class ReplyMessage {
   }
 
   /**
-   * Median mesajı (alıntılanan) indir — plugins .download() veya .download("buffer") çağırır.
+   * Median mesajı (alıntılanan) indir.
+   * Varsayılan: dosya yolu döndürür (ffmpeg, sticker, createReadStream uyumlu).
+   * download("buffer") çağrılırsa buffer döner.
+   * Upstream raganork-md davranışıyla birebir uyumlu.
    */
-  async download(type = "buffer") {
+  async download(type = "path") {
     try {
       const rawMsg = { key: this.key, message: this.message };
+      const { downloadMediaMessage } = await loadBaileys();
       const buf = await downloadMediaMessage(rawMsg, "buffer", {});
-      // Ortam dosyası olarak kaydet
       const { getTempPath } = require("./helpers");
       const ext = this._guessExt();
       const outPath = getTempPath(ext);
-      const fs = require("fs");
-      fs.writeFileSync(outPath, buf);
+      const fs = require("fs").promises;
+      await fs.writeFile(outPath, buf);
       if (type === "buffer") return buf;
       return outPath;
     } catch (e) {
@@ -128,12 +161,13 @@ class ReplyMessage {
   }
 
   _guessExt() {
-    if (this.image) return ".jpg";
-    if (this.video) return ".mp4";
-    if (this.audio || this.ptt) return ".ogg";
-    if (this.sticker) return ".webp";
-    if (this.document) return ".bin";
-    return ".bin";
+    const mime = this.mimetype || "";
+    if (this.type === "stickerMessage" || mime.includes("webp")) return ".webp";
+    if (mime.includes("image")) return ".jpg";
+    if (mime.includes("video")) return ".mp4";
+    if (mime.includes("audio")) return ".mp3";
+    if (mime.includes("pdf")) return ".pdf";
+    return "";
   }
 }
 
@@ -147,13 +181,24 @@ class BaseMessage {
     this.id = rawMsg.key.id;
     this.fromMe = rawMsg.key.fromMe;
     this.isGroup = this.jid.endsWith("@g.us");
-    
+
     if (this.isGroup) {
       this.sender = rawMsg.key.participant || rawMsg.participant || "";
     } else {
-      this.sender = this.fromMe 
-        ? (client.user?.id?.split(":")[0] + (client.user?.id?.includes(":") ? "@s.whatsapp.net" : "@lid"))
-        : this.jid;
+      // 100% Robust Numerical fromMe detection
+      // Comparing strictly by numerical ID part to bypass @lid vs @s.whatsapp.net mismatch
+      const myId = client.user?.id ? getNumericalId(client.user.id) : null;
+      const myLid = (client.user && client.user.lid) ? getNumericalId(client.user.lid) : null;
+      const senderId = getNumericalId(this.jid);
+      
+      const isActuallyMe = this.fromMe || (myId && senderId === myId) || (myLid && senderId === myLid);
+      
+      if (isActuallyMe) {
+        this.sender = client.user.id;
+        this.fromMe = true;
+      } else {
+        this.sender = this.jid;
+      }
     }
     this.timestamp = rawMsg.messageTimestamp;
     this.pushName = rawMsg.pushName || "";
@@ -178,18 +223,18 @@ class BaseMessage {
     this.sticker = !!msg.stickerMessage;
     this.document = !!msg.documentMessage;
     this.mimetype = msg.imageMessage?.mimetype || msg.videoMessage?.mimetype ||
-                    msg.audioMessage?.mimetype || msg.documentMessage?.mimetype || "";
+      msg.audioMessage?.mimetype || msg.documentMessage?.mimetype || "";
 
     // fromBot flag: bazı pluginler bunu kontrol eder
     const botId = client.user?.id?.split(":")[0];
     this.fromBot = !!(this.sender && botId && this.sender.split("@")[0].split(":")[0] === botId);
 
-    const contextInfo = msg.extendedTextMessage?.contextInfo || 
-                        msg.imageMessage?.contextInfo || 
-                        msg.videoMessage?.contextInfo || 
-                        msg.audioMessage?.contextInfo || 
-                        msg.stickerMessage?.contextInfo || 
-                        msg.documentMessage?.contextInfo;
+    const contextInfo = msg.extendedTextMessage?.contextInfo ||
+      msg.imageMessage?.contextInfo ||
+      msg.videoMessage?.contextInfo ||
+      msg.audioMessage?.contextInfo ||
+      msg.stickerMessage?.contextInfo ||
+      msg.documentMessage?.contextInfo;
 
     if (contextInfo?.quotedMessage) {
       this.quoted = new ReplyMessage(client, contextInfo, this);
@@ -314,6 +359,26 @@ class BaseMessage {
   async forwardMessage(jid, message = this.data, options = {}) {
     return this.forward(jid, message, options);
   }
+
+  /**
+   * Bir medyayı indir (BaseMessage üzerinden)
+   */
+  async download(type = "path") {
+    try {
+      const { downloadMediaMessage } = await loadBaileys();
+      const buf = await downloadMediaMessage(this.data, "buffer", {});
+      const { getTempPath } = require("./helpers");
+      const ext = this.mimetype.split("/")[1]?.split(";")[0] || "bin";
+      const tmpPath = getTempPath(`media_${Date.now()}.${ext}`);
+
+      if (type === "buffer") return buf;
+      await fs.promises.writeFile(tmpPath, buf);
+      return tmpPath;
+    } catch (e) {
+      console.error("BaseMessage.download hatası:", e);
+      return null;
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────
@@ -342,9 +407,9 @@ function Module(options, callback) {
     return;
   }
 
-  if (!cmd.pattern || typeof cmd.run !== "function") {
-    logger.warn({ pattern: cmd.pattern, on: cmd.on }, "Invalid command definition skipped");
-    return;
+  // Pre-compile regex for performance
+  if (cmd.pattern) {
+    cmd._regex = new RegExp("^" + cmd.pattern, 'iu');
   }
 
   commands.push(cmd);
@@ -426,16 +491,22 @@ function checkRateLimit(jid) {
 //  Permission helpers
 // ─────────────────────────────────────────────────────────
 function isOwner(senderJid) {
+  if (!senderJid) return false;
+  
+  // 1. Numerical comparison (most robust)
+  const senderNum = getNumericalId(senderJid);
   const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, "");
-  if (!ownerNum) return false;
-  const senderNum = senderJid.replace("@s.whatsapp.net", "").replace(/[^0-9]/g, "");
-  return senderNum === ownerNum;
+  
+  if (ownerNum && senderNum === ownerNum) return true;
+  
+  return false;
 }
 
 function isSudo(senderJid) {
   if (!config.SUDO) return false;
+  // Use getNumericalId for sudo check as well
   const sudos = config.SUDO.split(",").map(s => s.trim().replace(/[^0-9]/g, ""));
-  const senderNum = senderJid.replace("@s.whatsapp.net", "").replace(/[^0-9]/g, "");
+  const senderNum = getNumericalId(senderJid);
   return sudos.includes(senderNum);
 }
 
@@ -459,20 +530,33 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     const senderJid = sender; // Alias for legacy checks
 
     if (!text) return;
+
+    const ownerCheck = isOwner(senderJid) || fromMe;
+    const sudoCheck = isSudo(senderJid);
+    const publicMode = (process.env.PUBLIC_MODE === "true" || config.PUBLIC_MODE);
+
+    if (config.DEBUG) {
+        console.log(`\n--- [NEW MESSAGE] ---`);
+        console.log(`| Text: "${text}"`);
+        console.log(`| From: ${senderJid} (Me: ${fromMe}, Group: ${isGroup})`);
+        console.log(`| Auth: Owner=${ownerCheck}, Sudo=${sudoCheck}, Public=${publicMode}`);
+        console.log(`--------------------\n`);
+    }
+
     logger.debug({ jid, sender, text: text.slice(0, 50) }, "Processing message");
 
     // Auto-read / Auto-typing
     if (!fromMe) {
-        if (config.AUTO_READ) {
-            setTimeout(() => client.readMessages([rawMsg.key]).catch(()=>{}), 50);
-        }
+      if (config.AUTO_READ) {
+        setTimeout(() => client.readMessages([rawMsg.key]).catch(() => { }), 50);
+      }
     }
 
-    // Metrics tracking
+    // Metrics tracking with memory safety (capped size)
     if (!fromMe) {
-        global.metrics_messages++;
-        global.metrics_users_set.add(senderJid);
-        if (isGroup) global.metrics_groups_set.add(jid);
+      global.metrics_messages++;
+      if (global.metrics_users_set.size < 2000) global.metrics_users_set.add(senderJid);
+      if (isGroup && global.metrics_groups_set.size < 500) global.metrics_groups_set.add(jid);
     }
 
     // ── on:"text" / on:"message" event handler'ları — prefix gerekmez ──────
@@ -503,16 +587,41 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     logger.debug({ prefix, input }, "Command detected");
 
     // Permission checks
-    const ownerCheck = isOwner(senderJid);
-    const sudoCheck = isSudo(senderJid);
     const ownerOrSudo = ownerCheck || sudoCheck;
 
     for (const cmd of commands) {
-      // Regex pattern matching (Standard in Raganork-MD, using Unicode flag for Turkish chars)
-      const pattern = new RegExp(cmd.pattern, 'iu');
-      const match = input.match(pattern);
+      // Use pre-compiled regex for maximum speed
+      const match = cmd._regex ? input.match(cmd._regex) : null;
 
       if (match) {
+        // ── Native Permission Checks ──
+        let isAdmin = false;
+        let isBotAdmin = false;
+
+        if (isGroup) {
+          try {
+            // metadata yoksa çekmeye çalış
+            if (!groupMetadata) {
+                groupMetadata = await client.groupMetadata(jid).catch(() => null);
+            }
+            if (groupMetadata) {
+              const admins = getGroupAdmins(groupMetadata);
+              message.groupAdmins = admins; // Tüm liste (eklentiler için)
+              isAdmin = admins.includes(senderJid);
+              isBotAdmin = admins.includes(client.user?.id?.split(":")[0] + "@s.whatsapp.net") || 
+                           admins.includes(client.user?.id?.split(":")[0] + "@c.us");
+            }
+          } catch (e) {
+            logger.debug({ err: e.message }, "Admin check error");
+          }
+        } else {
+          message.groupAdmins = [];
+        }
+
+        // Mesaj nesnesine ekle (pluginler için)
+        message.isAdmin = isAdmin;
+        message.isBotAdmin = isBotAdmin;
+
         // Core Logic Filters
         if (cmd.fromMe && !fromMe && !ownerOrSudo) continue;
 
@@ -539,8 +648,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
             await message.reply("❌ Bu komut grup içinde kullanılabilir.");
             return;
           }
-          const admins = groupMetadata ? getGroupAdmins(groupMetadata) : [];
-          if (!admins.includes(senderJid) && !ownerOrSudo) {
+          if (!isAdmin && !ownerOrSudo) {
             await message.reply("❌ Bu komut yalnızca grup yöneticilerine aittir.");
             return;
           }
@@ -554,53 +662,37 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
         // Execute command (Callback style: message, match)
         try {
           if (!fromMe) global.metrics_commands++;
-          
+
+          // Command Start Reaction (⏳ Processing)
+          await message.react("⏳");
+
           // Non-blocking Auto-Typing when command starts
           if (config.AUTO_TYPING && !fromMe) {
-              setTimeout(() => {
-                  client.sendPresenceUpdate('composing', jid).catch(()=>{});
-              }, 10);
+            setTimeout(() => {
+              client.sendPresenceUpdate('composing', jid).catch(() => { });
+            }, 10);
           }
 
-          // Reaction (CMD_REACTION Initial load)
-          client.sendMessage(jid, { react: { text: "🔄", key: rawMsg.key } }).catch(()=>{});
-
-          // Emit to Dashboard 'Son Aktivite'
-          try {
-            const pushName = (rawMsg.pushName && rawMsg.pushName.trim()) ? rawMsg.pushName.trim() : (fromMe ? 'Ben (Bot)' : 'Bilinmiyor');
-
-            process.emit('dashboard_activity', {
-              time: new Date().toLocaleTimeString(),
-              sender: pushName,
-              isGroup: isGroup,
-              groupName: isGroup && groupMetadata ? groupMetadata.subject : null,
-              type: 'Komut',
-              content: text.length > 30 ? text.substring(0, 30) + '...' : text,
-              command: cmd.pattern ? cmd.pattern.toString().replace(/^\/|\/$/g, '').split(' ')[0] : 'Bilinmiyor'
-            });
-          } catch(e) {}
-
+          // Performance measurement start
           const _t0 = Date.now();
-          
-          // Komut çalıştırılırken 30 saniyelik bir üst sınır (deadline) ekleyelim
-          await Promise.race([
-            cmd.run(message, match),
-            new Promise((_, rej) => setTimeout(() => rej(new Error("Zaman Aşımı (30s)")), 30000))
-          ]);
-          
+
+          // Komut çalıştırılırken (hata yakalama bloğu içindeyiz)
+          await cmd.run(message, match);
+
           const _dur = Date.now() - _t0;
           logger.debug({ cmd: cmd.pattern, jid, senderJid, ms: _dur }, "Command executed");
           recordStat(cmd.pattern, 'ok', _dur);
-          
-          // Reaction (CMD_REACTION Success)
-          client.sendMessage(jid, { react: { text: "✅", key: rawMsg.key } }).catch(()=>{});
+
+          // Success Reaction
+          await message.react("✅");
+
         } catch (err) {
           logger.error({ err, cmd: cmd.pattern }, "Command execution error");
           recordStat(cmd.pattern, 'error', 0, err.message);
-          
-          // Reaction (CMD_REACTION Error)
-          client.sendMessage(jid, { react: { text: "❌", key: rawMsg.key } }).catch(()=>{});
-          
+
+          // Error Reaction
+          await message.react("❌");
+
           if (config.DEBUG) {
             await message.reply(`❌ Hata: \`${err.message}\``);
           }
@@ -617,16 +709,52 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
 }
 
 async function handleGroupUpdate(client, update) {
+  // traditional eventHandlers (Map)
   const handlers = eventHandlers.get("group") || [];
   for (const h of handlers) {
     try { await h(client, update); } catch { }
   }
+  // Module({ on: "group", ... }) handlers
+  const onH = [...(onHandlers.group || []), ...(onHandlers["group-update"] || [])];
+  if (onH.length > 0) {
+    const message = {
+      client,
+      jid: update.id,
+      from: update.author || update.id,
+      action: update.action || "update",
+      participants: update.participants || [],
+      ...update
+    };
+    for (const h of onH) {
+      try { await h.run(message, []); } catch (e) {
+        logger.debug({ err: e.message, type: "group" }, "on-group handler error");
+      }
+    }
+  }
 }
 
 async function handleGroupParticipantsUpdate(client, update) {
+  // traditional eventHandlers (Map)
   const handlers = eventHandlers.get("groupParticipants") || [];
   for (const h of handlers) {
     try { await h(client, update); } catch { }
+  }
+  // Module({ on: "groupParticipants", ... }) handlers
+  const onH = onHandlers.groupParticipants || [];
+  if (onH.length > 0) {
+    const message = {
+      client,
+      jid: update.id,
+      from: update.author || update.id,
+      participant: update.participants || [],
+      action: update.action,
+      ...update
+    };
+    for (const h of onH) {
+      try { await h.run(message, []); } catch (e) {
+        logger.debug({ err: e.message, type: "groupParticipants" }, "on-groupParticipants handler error");
+      }
+    }
   }
 }
 

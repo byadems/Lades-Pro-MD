@@ -31,17 +31,17 @@ Module(
   {
     pattern: "pdf ?(.*)",
     fromMe: MODE === "private",
-    desc: "Resimlerden PDF'e",
-    use: "converters",
-    usage: ".pdf help",
+    desc: "Yanıtlanan resimleri bir PDF dosyasına dönüştürür.",
+    use: "tools",
+    usage: ".pdf yardım",
   },
   async (message, commandArguments) => {
     const subCommand = commandArguments[1]?.toLowerCase();
 
-    if (subCommand === "help") {
-      await message.sendReply(`_🗑️ 1. .pdf ile resimleri ekleyin_\n_2. .pdf get ile PDF çıktısını alın_\n_3. Yanlışlıkla resim mi eklediniz? .pdf delete ile temizleyin_\n_4. Çıktı alındıktan sonra tüm dosyalar otomatik silinir_`
+    if (subCommand === "yardım") {
+      await message.sendReply(`_🗑️ 1. .pdf ile resimleri ekleyin_\n_2. .pdf getir ile PDF çıktısını alın_\n_3. Yanlışlıkla resim mi eklediniz? .pdf sil ile geri alın._\n_Çıktı alındıktan sonra tüm dosyalar otomatik silinir_`
       );
-    } else if (subCommand === "delete") {
+    } else if (subCommand === "sil") {
       const currentFiles = await fileSystem.readdir(imageInputDirectory);
       const filesToDelete = currentFiles.map((fileName) =>
         path.join(imageInputDirectory, fileName)
@@ -53,16 +53,16 @@ Module(
 
       try {
         await fileSystem.unlink(finalPdfOutputPath);
-      } catch (error) {}
+      } catch (error) { }
       await message.sendReply(`_✅ Tüm dosyalar başarıyla temizlendi!_`);
-    } else if (subCommand === "get") {
+    } else if (subCommand === "getir") {
       const allStoredFiles = await fileSystem.readdir(imageInputDirectory);
       const imageFilePaths = allStoredFiles
         .filter((fileName) => fileName.includes("topdf"))
         .map((fileName) => path.join(imageInputDirectory, fileName));
 
       if (!imageFilePaths.length) {
-        return await message.sendReply("_💬 Dosya girişi yapılmadı_");
+        return await message.sendReply("_💬 Dosya girişi yapılmadı!_");
       }
 
       const pdfGenerationStream = imageToPdf(imageFilePaths, sizes.A4);
@@ -100,7 +100,7 @@ Module(
       const allImages = albumData.images || [];
 
       if (allImages.length === 0)
-        return await message.sendReply("_🎬 Albümde resim yok (videolar PDF'ye dönüştürülemez)_");
+        return await message.sendReply("_🎬 Albümde resim yok! (videolar PDF'ye dönüştürülemez)_");
 
       await message.send(
         `_${allImages.length} albüm görseli PDF'e ekleniyor..._`
@@ -110,7 +110,7 @@ Module(
         try {
           const file = allImages[i];
           const detectedFileType = await getFileType(
-            fs.readFileSync(file)
+            await fileSystem.readFile(file)
           );
 
           if (detectedFileType && detectedFileType.mime.startsWith("image")) {
@@ -118,7 +118,7 @@ Module(
               imageInputDirectory,
               `topdf_album_${i}.jpg`
             );
-            fs.copyFileSync(file, newImagePath);
+            await fileSystem.copyFile(file, newImagePath);
           }
         } catch (err) {
           console.error("Albüm görseli PDF'e eklenemedi:", err);
@@ -126,7 +126,7 @@ Module(
       }
 
       await message.sendReply(
-        `_*✅ ${allImages.length} albüm görseli kaydedildi*_\n_*Toplam görsel hazır. PDF oluşturmak için '.pdf get' kullanın!*_`
+        `_*✅ ${allImages.length} albüm görseli kaydedildi*_\n_*Tüm görseller hazır. PDF oluşturmak için '.pdf getir' yazın!*_`
       );
     } else if (message.reply_message) {
       const repliedMessageBuffer = await message.reply_message.download(
@@ -146,16 +146,15 @@ Module(
 
         await fileSystem.writeFile(newImagePath, repliedMessageBuffer);
         return await message.sendReply(
-          `*_Görsel başarıyla kaydedildi_*\n_*Toplam kaydedilen görsel: ${
-            nextImageIndex + 1
-          }*_\n*_Tüm görselleri kaydettikten sonra sonucu almak için '.pdf get' kullanın. Dönüşümden sonra görseller silinecektir!_*`
+          `*_Görsel başarıyla kaydedildi_*\n_*Toplam kaydedilen görsel: ${nextImageIndex + 1
+          }*_\n*_Tüm görselleri kaydettikten sonra sonucu almak için '.pdf getir' yazın. Dönüştürmeden sonra görseller silinecektir!_*`
         );
       } else {
-        return await message.sendReply("_💬 PDF dönüşümüne eklemek için bir resmi yanıtlayın!_"
+        return await message.sendReply("_💬 PDF dönüşümüne eklemek için bir resme yanıtlayın!_"
         );
       }
     } else {
-      return await message.sendReply('_💬 Bir resmi yanıtlayın veya daha fazla bilgi için ".pdf help" kullanın._'
+      return await message.sendReply('_💬 Bir resme yanıtlayın veya daha fazla bilgi için ".pdf yardım" yazın._'
       );
     }
   }

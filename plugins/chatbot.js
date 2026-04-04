@@ -1,6 +1,7 @@
 const { Module } = require("../main");
 const config = require("../config");
 const axios = require("axios");
+const isFromMe = config.MODE === "public" ? false : true;
 const { setVar } = require("./manage");
 const fs = require("fs");
 const { getBuffer, uploadToImgbb } = require("./utils");
@@ -745,7 +746,7 @@ Module(
 
 Module({
   pattern: "yz ?(.*)",
-  fromMe: false,
+  fromMe: isFromMe,
   desc: "Yapay zekaya sadece metin sorusu sorar. Görsele yanıtlanırsa görseli analiz eder.",
   usage: ".yz <soru> | (görsele yanıtlayıp) .yz",
   type: "ai",
@@ -843,7 +844,7 @@ Module({
 
 Module({
   pattern: "yzgörsel ?(.*)",
-  fromMe: false,
+  fromMe: isFromMe,
   desc: "Metinden görsel üretir.",
   usage: ".yzgörsel <açıklama>",
   type: "ai",
@@ -874,7 +875,7 @@ Module({
 
 Module({
   pattern: "yzdüzenle ?(.*)",
-  fromMe: false,
+  fromMe: isFromMe,
   desc: "Yanıtlanan görseli talimata göre GPT ile düzenler.",
   usage: ".yzdüzenle <talimat> (görsele yanıt)",
   type: "ai",
@@ -920,7 +921,7 @@ Module({
 
 Module({
   pattern: "soruçöz ?(.*)",
-  fromMe: false,
+  fromMe: isFromMe,
   desc: "Sınav sorularını YZ yardımıyla çözer",
   type: "ai",
 },
@@ -1005,7 +1006,7 @@ Module({
 
 Module({
   pattern: "yzanime ?(.*)",
-  fromMe: false,
+  fromMe: isFromMe,
   desc: "Fotoğrafı Yapay Zeka ile anime stiline dönüştürür.",
   type: "ai",
 },

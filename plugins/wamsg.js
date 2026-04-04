@@ -1,15 +1,16 @@
 const { Module } = require("../main");
-const { isAdmin, censorBadWords } = require("./utils");
+const { censorBadWords, isAdmin } = require("./utils");
 const { ADMIN_ACCESS, MODE } = require("../config");
 const isPrivateMode = MODE !== "public";
 Module(
   {
-    pattern: "react ?(.*)",
+    pattern: "tepki ?(.*)",
     fromMe: true,
-    use: "whatsapp",
+    desc: "Yanıtlanan mesaja belirtilen emoji ile tepki verir.",
+    use: "tools",
   },
   async (m, t) => {
-    if (!m.reply_message) return await m.sendReply("_💬 Bir mesajı yanıtlayın!_");
+    if (!m.reply_message) return await m.sendReply("_💬 Bir mesaja yanıtlayın!_");
     let msg = {
       remoteJid: m.reply_message?.jid,
       id: m.reply_message.id,
@@ -28,12 +29,13 @@ Module(
   {
     pattern: "düzenle ?(.*)",
     fromMe: true,
-    use: "whatsapp",
+    desc: "Botun gönderdiği mesajı düzenler.",
+    use: "tools",
   },
   async (m, t) => {
     if (!m.reply_message) return await m.sendReply("_💬 Düzenlenecek mesajı yanıtlayın!_");
     if (!t[1]) return await m.sendReply("_💬 Yeni metni girin!_");
-    
+
     if (m.quoted.key.fromMe) {
       const safeText = censorBadWords(t[1]);
       await m.edit(safeText, m.jid, m.quoted.key);
@@ -47,8 +49,8 @@ Module(
   {
     pattern: "msjat ?(.*)",
     fromMe: true,
-    desc: "Yanıtlanan mesajı belirtilen jid'e iletir",
-    use: "whatsapp",
+    desc: "Sohbeti veya mesajı, belirtilen JID adresine (numaraya) doğrudan iletir.",
+    use: "tools",
   },
   async (m, t) => {
     const query = (t[1] || "").trim();
@@ -76,11 +78,11 @@ Module(
     const text = firstSpace === -1 ? "" : query.slice(firstSpace + 1).trim();
 
     if (!jid.includes("@")) {
-      return await m.sendReply("_❌ Geçerli bir JID girin. Örnek: `.msjat 120363xxxx@g.us Merhaba`_" );
+      return await m.sendReply("_❌ Geçerli bir JID girin. Örnek: `.msjat 120363xxxx@g.us Merhaba`_");
     }
 
     if (!text) {
-      return await m.sendReply("_❌ Gönderilecek mesaj metni eksik!_" );
+      return await m.sendReply("_❌ Gönderilecek mesaj metni eksik!_");
     }
 
     await m.client.sendMessage(jid, { text });
@@ -91,8 +93,8 @@ Module(
   {
     pattern: "msjyönlendir ?(.*)",
     fromMe: true,
-    desc: "Yanıtlanan mesajı belirtilen jid'e iletir",
-    use: "whatsapp",
+    desc: "Sohbeti veya mesajı, belirtilen JID adresine `İletildi` olarak gönderir.",
+    use: "tools",
   },
   async (m, t) => {
     const query = (t[1] || "").trim();
@@ -120,11 +122,11 @@ Module(
     const text = firstSpace === -1 ? "" : query.slice(firstSpace + 1).trim();
 
     if (!jid.includes("@")) {
-      return await m.sendReply("_❌ Geçerli bir JID girin. Örnek: `.msjyönlendir 120363xxxx@g.us Merhaba`_" );
+      return await m.sendReply("_❌ Geçerli bir JID girin. Örnek: `.msjyönlendir 120363xxxx@g.us Merhaba`_");
     }
 
     if (!text) {
-      return await m.sendReply("_❌ Gönderilecek mesaj metni eksik!_" );
+      return await m.sendReply("_❌ Gönderilecek mesaj metni eksik!_");
     }
 
     await m.client.sendMessage(jid, { text }, {
@@ -138,7 +140,7 @@ Module(
     pattern: "tekrar ?(.*)",
     fromMe: isPrivateMode,
     desc: "Yanıtlanan komutu tekrar çalıştırmayı dener",
-    use: "misc",
+    use: "tools",
   },
   async (m, t) => {
     if (!m.reply_message)
@@ -155,7 +157,7 @@ Module(
     pattern: "vv ?(.*)",
     fromMe: true,
     desc: "Tek görünürlü (view once) mesajları yakalar",
-    use: "utility",
+    use: "tools",
   },
   async (m, match) => {
     const quoted = m.quoted?.message,
@@ -186,10 +188,10 @@ Module(
     const directType = quoted.imageMessage
       ? "imageMessage"
       : quoted.audioMessage
-      ? "audioMessage"
-      : quoted.videoMessage
-      ? "videoMessage"
-      : null;
+        ? "audioMessage"
+        : quoted.videoMessage
+          ? "videoMessage"
+          : null;
 
     if (directType && quoted[directType]?.viewOnce) {
       quoted[directType].viewOnce = false;
@@ -205,12 +207,13 @@ Module(
   {
     pattern: "msjsil",
     fromMe: true,
+    use: "tools",
     desc: "Mesajı herkesten siler. Yönetici silmesini destekler",
   },
   async (m, t) => {
     if (!m.reply_message) return await m.sendReply("_💬 Silinecek mesajı yanıtlayın!_");
-    
-    let adminAccesValidated = ADMIN_ACCESS ? await isAdmin(m, m.sender) : false;
+
+    let adminAccesValidated = await isAdmin(m);
     if (m.fromOwner || adminAccesValidated) {
       m.jid = m.quoted.key.remoteJid;
       if (m.quoted.key.fromMe) {

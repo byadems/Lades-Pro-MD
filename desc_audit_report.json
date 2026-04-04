@@ -1,0 +1,1406 @@
+[
+  {
+    "file": "afk.js",
+    "pattern": "uzakta ?(.*)",
+    "rawDesc": "\"Kendinizi AFK (Klavyeden Uzakta) olarak ayarlayın\"",
+    "resolvedDesc": "Kendinizi AFK (Klavyeden Uzakta) olarak ayarlayın"
+  },
+  {
+    "file": "autodl.js",
+    "pattern": "otodl ?(.*)",
+    "rawDesc": "\"URL izleyici otomatik indirme - sohbetlerde veya küresel olarak etkinleştirin\"",
+    "resolvedDesc": "URL izleyici otomatik indirme - sohbetlerde veya küresel olarak etkinleştirin"
+  },
+  {
+    "file": "bagla.js",
+    "pattern": "bağla ?(.*)",
+    "rawDesc": "\"WhatsApp Web bağlantısı\"",
+    "resolvedDesc": "WhatsApp Web bağlantısı"
+  },
+  {
+    "file": "chatbot.js",
+    "pattern": "yzayar ?(.*)",
+    "rawDesc": "\"Gemini API ile yapay zeka destekli sohbet botu yapılandırması - metin ve görüntü analizini destekler.\"",
+    "resolvedDesc": "Gemini API ile yapay zeka destekli sohbet botu yapılandırması - metin ve görüntü analizini destekler."
+  },
+  {
+    "file": "chatbot.js",
+    "pattern": "yz ?(.*)",
+    "rawDesc": "\"Yapay zekaya sadece metin sorusu sorar. Görsele yanıtlanırsa görseli analiz eder.\"",
+    "resolvedDesc": "Yapay zekaya sadece metin sorusu sorar. Görsele yanıtlanırsa görseli analiz eder."
+  },
+  {
+    "file": "chatbot.js",
+    "pattern": "yzgörsel ?(.*)",
+    "rawDesc": "\"Metinden görsel üretir.\"",
+    "resolvedDesc": "Metinden görsel üretir."
+  },
+  {
+    "file": "chatbot.js",
+    "pattern": "yzdüzenle ?(.*)",
+    "rawDesc": "\"Yanıtlanan görseli talimata göre GPT ile düzenler.\"",
+    "resolvedDesc": "Yanıtlanan görseli talimata göre GPT ile düzenler."
+  },
+  {
+    "file": "chatbot.js",
+    "pattern": "soruçöz ?(.*)",
+    "rawDesc": "\"Sınav sorularını YZ yardımıyla çözer\"",
+    "resolvedDesc": "Sınav sorularını YZ yardımıyla çözer"
+  },
+  {
+    "file": "chatbot.js",
+    "pattern": "yzanime ?(.*)",
+    "rawDesc": "\"Fotoğrafı Yapay Zeka ile anime stiline dönüştürür.\"",
+    "resolvedDesc": "Fotoğrafı Yapay Zeka ile anime stiline dönüştürür."
+  },
+  {
+    "file": "commands.js",
+    "pattern": "liste ?(.*)",
+    "rawDesc": "\"Botun tüm komutlarını kategorilenmiş bir liste halinde gösterir.\"",
+    "resolvedDesc": "Botun tüm komutlarını kategorilenmiş bir liste halinde gösterir."
+  },
+  {
+    "file": "commands.js",
+    "pattern": "kontrol",
+    "rawDesc": "\"Botun çevrimiçi olup olmadığını kontrol eder.\"",
+    "resolvedDesc": "Botun çevrimiçi olup olmadığını kontrol eder."
+  },
+  {
+    "file": "commands.js",
+    "pattern": "setalive ?(.*)",
+    "rawDesc": "\"Bot için çevrimiçi (alive) mesajı ayarlar.\"",
+    "resolvedDesc": "Bot için çevrimiçi (alive) mesajı ayarlar."
+  },
+  {
+    "file": "commands.js",
+    "pattern": "menü",
+    "rawDesc": "\"Bot komut menüsünü gösterir.\"",
+    "resolvedDesc": "Bot komut menüsünü gösterir."
+  },
+  {
+    "file": "commands.js",
+    "pattern": "oyunlar ?(.*)",
+    "rawDesc": "\"Mevcut tüm oyunları listeler\"",
+    "resolvedDesc": "Mevcut tüm oyunları listeler"
+  },
+  {
+    "file": "commands.js",
+    "pattern": "setinfo ?(.*)",
+    "rawDesc": "\"Bot yapılandırma komutları hakkında bilgi gösterir.\"",
+    "resolvedDesc": "Bot yapılandırma komutları hakkında bilgi gösterir."
+  },
+  {
+    "file": "commands.js",
+    "pattern": "setname ?(.*)",
+    "rawDesc": "\"Bot adını ayarlar\"",
+    "resolvedDesc": "Bot adını ayarlar"
+  },
+  {
+    "file": "commands.js",
+    "pattern": "setimage",
+    "rawDesc": "\"Bot resmini ayarlar (bir resme yanıt verin)\"",
+    "resolvedDesc": "Bot resmini ayarlar (bir resme yanıt verin)"
+  },
+  {
+    "file": "commands.js",
+    "pattern": "testalive",
+    "rawDesc": "\"Mevcut çevrimiçi (alive) mesajını biçimlendirmesiyle test eder.\"",
+    "resolvedDesc": "Mevcut çevrimiçi (alive) mesajını biçimlendirmesiyle test eder."
+  },
+  {
+    "file": "commands.js",
+    "pattern": "bildir ?(.*)",
+    "rawDesc": "\"Bot hakkında istek, şikayet, hata, öneri veya talep iletir.\"",
+    "resolvedDesc": "Bot hakkında istek, şikayet, hata, öneri veya talep iletir."
+  },
+  {
+    "file": "commands.js",
+    "pattern": "hava ?(.*)",
+    "rawDesc": "\"Hava durumu bilgisi gönderir.\"",
+    "resolvedDesc": "Hava durumu bilgisi gönderir."
+  },
+  {
+    "file": "commands.js",
+    "pattern": "kur ?(.*)",
+    "rawDesc": "\"Belirli bir miktarın iki para birimi arasındaki döviz kuru dönüşümünü hesaplar.\"",
+    "resolvedDesc": "Belirli bir miktarın iki para birimi arasındaki döviz kuru dönüşümünü hesaplar."
+  },
+  {
+    "file": "commands.js",
+    "pattern": "resim ?(.*)",
+    "rawDesc": "\"Google\"",
+    "resolvedDesc": "Google"
+  },
+  {
+    "file": "commands.js",
+    "pattern": "(?:reçete|recete) ?(.*)",
+    "rawDesc": "\"Yemek tarifi arar\"",
+    "resolvedDesc": "Yemek tarifi arar"
+  },
+  {
+    "file": "converters.js",
+    "pattern": "görsel ?(.*)",
+    "rawDesc": "\"Google Görseller\"",
+    "resolvedDesc": "Google Görseller"
+  },
+  {
+    "file": "converters.js",
+    "pattern": "çıkartma ?(.*)",
+    "rawDesc": "Lang.STICKER_DESC",
+    "resolvedDesc": "Yanıt verdiğiniz fotoğraf veya videoyu çıkartmaya çevirin."
+  },
+  {
+    "file": "converters.js",
+    "pattern": "mp3 ?(.*)",
+    "rawDesc": "Lang.MP3_DESC",
+    "resolvedDesc": "Medyayı ses dosyasına çevirir."
+  },
+  {
+    "file": "converters.js",
+    "pattern": "slow",
+    "rawDesc": "\"Müziği yavaşlatır ve ses tonunu düşürür. Slowed+reverb sesleri yapmak için\"",
+    "resolvedDesc": "Müziği yavaşlatır ve ses tonunu düşürür. Slowed+reverb sesleri yapmak için"
+  },
+  {
+    "file": "converters.js",
+    "pattern": "sped ?(.*)",
+    "rawDesc": "\"Müziği hızlandırır ve ses tonunu yükseltir. Sped-up+reverb sesleri yapmak için\"",
+    "resolvedDesc": "Müziği hızlandırır ve ses tonunu yükseltir. Sped-up+reverb sesleri yapmak için"
+  },
+  {
+    "file": "converters.js",
+    "pattern": "basartır ?(.*)",
+    "rawDesc": "Lang.BASS_DESC",
+    "resolvedDesc": "İstediğiniz şarkının bas seviyesini arttırın. Örnek: .bass 20"
+  },
+  {
+    "file": "converters.js",
+    "pattern": "foto ?(.*)",
+    "rawDesc": "Lang.PHOTO_DESC",
+    "resolvedDesc": "Çıkartmayı fotoğrafa çevirir."
+  },
+  {
+    "file": "converters.js",
+    "pattern": "yazıçıkartma ?(.*)",
+    "rawDesc": "\"Metinden hareketli çıkartmaya\"",
+    "resolvedDesc": "Metinden hareketli çıkartmaya"
+  },
+  {
+    "file": "converters.js",
+    "pattern": "tts ?(.*)",
+    "rawDesc": "Lang.TTS_DESC",
+    "resolvedDesc": "Yazıyı sese çevirir."
+  },
+  {
+    "file": "converters.js",
+    "pattern": "ses ?(.*)",
+    "rawDesc": "Lang.TTS_DESC",
+    "resolvedDesc": "Yazıyı sese çevirir."
+  },
+  {
+    "file": "converters.js",
+    "pattern": "belge ?(.*)",
+    "rawDesc": "\"Yanıtlanan medyayı belge (document) formatına dönüştürür\"",
+    "resolvedDesc": "Yanıtlanan medyayı belge (document) formatına dönüştürür"
+  },
+  {
+    "file": "converters.js",
+    "pattern": "upload ?(.*)",
+    "rawDesc": "\"URL\"",
+    "resolvedDesc": "URL"
+  },
+  {
+    "file": "converters.js",
+    "pattern": "square ?(.*)",
+    "rawDesc": "\"Video/resmi 1:1 oranında (kare formatında) kırpar\"",
+    "resolvedDesc": "Video/resmi 1:1 oranında (kare formatında) kırpar"
+  },
+  {
+    "file": "converters.js",
+    "pattern": "resize ?(.*)",
+    "rawDesc": "\"Video/resim en-boy oranını değiştirin. Kullanım: .resize 16:9, .resize 9:16\"",
+    "resolvedDesc": "Video/resim en-boy oranını değiştirin. Kullanım: .resize 16:9, .resize 9:16"
+  },
+  {
+    "file": "converters.js",
+    "pattern": "sıkıştır ?(.*)",
+    "rawDesc": "\"Video/resmi yüzdeyle sıkıştırın. Kullanım: .compress 50 (%50 sıkıştırma)\"",
+    "resolvedDesc": "Video/resmi yüzdeyle sıkıştırın. Kullanım: .compress 50 (%50 sıkıştırma)"
+  },
+  {
+    "file": "dc.js",
+    "pattern": "dc ?(.*)",
+    "rawDesc": "\"Doğruluk mu Cesaret mi oyununu oynatır.\"",
+    "resolvedDesc": "Doğruluk mu Cesaret mi oyununu oynatır."
+  },
+  {
+    "file": "earthquake.js",
+    "pattern": "sondepremler ?(.*)",
+    "rawDesc": "\"Türkiye genelinde gerçekleşen son depremleri listeler.\"",
+    "resolvedDesc": "Türkiye genelinde gerçekleşen son depremleri listeler."
+  },
+  {
+    "file": "earthquake.js",
+    "pattern": "sondeprem",
+    "rawDesc": "\"Son deprem kaydını gösterir.\"",
+    "resolvedDesc": "Son deprem kaydını gösterir."
+  },
+  {
+    "file": "editor.js",
+    "pattern": "editör",
+    "rawDesc": "\"Fotoğraf düzenleme araçlarını getirir.\"",
+    "resolvedDesc": "Fotoğraf düzenleme araçlarını getirir."
+  },
+  {
+    "file": "editor.js",
+    "pattern": "${command} ?(.*)",
+    "rawDesc": "",
+    "resolvedDesc": ""
+  },
+  {
+    "file": "editor.js",
+    "pattern": "wasted ?(.*)",
+    "rawDesc": "\"GTA tarzı \"",
+    "resolvedDesc": "GTA tarzı "
+  },
+  {
+    "file": "editor.js",
+    "pattern": "wanted ?(.*)",
+    "rawDesc": "\"Aranıyor posteri oluşturur\"",
+    "resolvedDesc": "Aranıyor posteri oluşturur"
+  },
+  {
+    "file": "editor.js",
+    "pattern": "anime ?(.*)",
+    "rawDesc": "\"Fotoğrafı anime stiline dönüştürür\"",
+    "resolvedDesc": "Fotoğrafı anime stiline dönüştürür"
+  },
+  {
+    "file": "editor.js",
+    "pattern": "ghiblistil ?(.*)",
+    "rawDesc": "\"Fotoğrafı Studio Ghibli stiline dönüştürür\"",
+    "resolvedDesc": "Fotoğrafı Studio Ghibli stiline dönüştürür"
+  },
+  {
+    "file": "editor.js",
+    "pattern": "chibi ?(.*)",
+    "rawDesc": "\"Fotoğrafı chibi stiline dönüştürür\"",
+    "resolvedDesc": "Fotoğrafı chibi stiline dönüştürür"
+  },
+  {
+    "file": "editor.js",
+    "pattern": "efektsinema ?(.*)",
+    "rawDesc": "\"Fotoğrafa sinematik film efekti uygular\"",
+    "resolvedDesc": "Fotoğrafa sinematik film efekti uygular"
+  },
+  {
+    "file": "editor.js",
+    "pattern": "grafitisokak ?(.*)",
+    "rawDesc": "\"Fotoğrafı sokak grafiti sanatına dönüştürür\"",
+    "resolvedDesc": "Fotoğrafı sokak grafiti sanatına dönüştürür"
+  },
+  {
+    "file": "editor.js",
+    "pattern": "pikselart ?(.*)",
+    "rawDesc": "\"Fotoğrafı piksel NFT sanatına dönüştürür\"",
+    "resolvedDesc": "Fotoğrafı piksel NFT sanatına dönüştürür"
+  },
+  {
+    "file": "editor.js",
+    "pattern": "komik ?(.*)",
+    "rawDesc": "\"Fotoğrafı çizgi roman stiline dönüştürür\"",
+    "resolvedDesc": "Fotoğrafı çizgi roman stiline dönüştürür"
+  },
+  {
+    "file": "editor.js",
+    "pattern": "mafia ?(.*)",
+    "rawDesc": "\"Fotoğrafı mafia stiline dönüştürür\"",
+    "resolvedDesc": "Fotoğrafı mafia stiline dönüştürür"
+  },
+  {
+    "file": "external-plugin.js",
+    "pattern": "modülyükle ?(.*)",
+    "rawDesc": "Lang.INSTALL_DESC",
+    "resolvedDesc": "Modül yükler.\n⌨️ Örnek: .install https://gist.github.com/..."
+  },
+  {
+    "file": "external-plugin.js",
+    "pattern": "modül ?(.*)",
+    "rawDesc": "Lang.PLUGIN_DESC",
+    "resolvedDesc": "Yüklediğiniz pluginleri gösterir."
+  },
+  {
+    "file": "external-plugin.js",
+    "pattern": "modülsil ?(.*)",
+    "rawDesc": "Lang.REMOVE_DESC",
+    "resolvedDesc": "Modül kaldırır."
+  },
+  {
+    "file": "external-plugin.js",
+    "pattern": "mgüncelle ?(.*)",
+    "rawDesc": "\"Bir eklentiyi (plugin) günceller\"",
+    "resolvedDesc": "Bir eklentiyi (plugin) günceller"
+  },
+  {
+    "file": "ezan.js",
+    "pattern": "ezan ?(.*)",
+    "rawDesc": "\"Belirtilen şehrin günlük ezan vakitlerini ve ezana ne kadar süre kaldığını gösterir.\"",
+    "resolvedDesc": "Belirtilen şehrin günlük ezan vakitlerini ve ezana ne kadar süre kaldığını gösterir."
+  },
+  {
+    "file": "ezan.js",
+    "pattern": "sahur ?(.*)",
+    "rawDesc": "\"Belirtilen şehrin sahur vaktine ne kadar süre kaldığını hesaplar.\"",
+    "resolvedDesc": "Belirtilen şehrin sahur vaktine ne kadar süre kaldığını hesaplar."
+  },
+  {
+    "file": "ezan.js",
+    "pattern": "iftar ?(.*)",
+    "rawDesc": "\"Belirtilen şehrin iftar vaktine ne kadar süre kaldığını hesaplar.\"",
+    "resolvedDesc": "Belirtilen şehrin iftar vaktine ne kadar süre kaldığını hesaplar."
+  },
+  {
+    "file": "fancy.js",
+    "pattern": "fancy ?(.*)",
+    "rawDesc": "\"Süslü metin yazı tipleri oluşturur\"",
+    "resolvedDesc": "Süslü metin yazı tipleri oluşturur"
+  },
+  {
+    "file": "filter.js",
+    "pattern": "filtre ?(.*)",
+    "rawDesc": "\"Otomatik yanıt filtreleri oluşturur. Kullanım: .filtre tetikleyici | yanıt\"",
+    "resolvedDesc": "Otomatik yanıt filtreleri oluşturur. Kullanım: .filtre tetikleyici | yanıt"
+  },
+  {
+    "file": "filter.js",
+    "pattern": "filtreler ?(.*)",
+    "rawDesc": "\"Tüm filtreleri listele\"",
+    "resolvedDesc": "Tüm filtreleri listele"
+  },
+  {
+    "file": "filter.js",
+    "pattern": "filtresil ?(.*)",
+    "rawDesc": "\"Bir filtreyi sil\"",
+    "resolvedDesc": "Bir filtreyi sil"
+  },
+  {
+    "file": "filter.js",
+    "pattern": "togglefilter ?(.*)",
+    "rawDesc": "\"Bir filtreyi aç/kapat\"",
+    "resolvedDesc": "Bir filtreyi aç/kapat"
+  },
+  {
+    "file": "filter.js",
+    "pattern": "filtretest ?(.*)",
+    "rawDesc": "\"Bir mesajın filtreleri tetikleyip tetiklemeyeceğini test edin\"",
+    "resolvedDesc": "Bir mesajın filtreleri tetikleyip tetiklemeyeceğini test edin"
+  },
+  {
+    "file": "filter.js",
+    "pattern": "filtreyardım",
+    "rawDesc": "\"Filtre sistemi için ayrıntılı yardım\"",
+    "resolvedDesc": "Filtre sistemi için ayrıntılı yardım"
+  },
+  {
+    "file": "fun-tests.js",
+    "pattern": "testgay ?(.*)",
+    "rawDesc": "\"Etiketlediğiniz üyenin gaylik yüzdesini ölçer.\"",
+    "resolvedDesc": "Etiketlediğiniz üyenin gaylik yüzdesini ölçer."
+  },
+  {
+    "file": "fun-tests.js",
+    "pattern": "testlez ?(.*)",
+    "rawDesc": "\"Etiketlediğiniz üyenin lezlik yüzdesini ölçer.\"",
+    "resolvedDesc": "Etiketlediğiniz üyenin lezlik yüzdesini ölçer."
+  },
+  {
+    "file": "fun-tests.js",
+    "pattern": "testprenses ?(.*)",
+    "rawDesc": "\"Etiketlediğiniz üyenin prenseslik seviyesini ölçer.\"",
+    "resolvedDesc": "Etiketlediğiniz üyenin prenseslik seviyesini ölçer."
+  },
+  {
+    "file": "fun-tests.js",
+    "pattern": "testregl ?(.*)",
+    "rawDesc": "\"Etiketlediğiniz üyenin Regl olma ihtimalini ölçer.\"",
+    "resolvedDesc": "Etiketlediğiniz üyenin Regl olma ihtimalini ölçer."
+  },
+  {
+    "file": "fun-tests.js",
+    "pattern": "testinanç ?(.*)",
+    "rawDesc": "\"Etiketlediğiniz üyenin inanç seviyesini ölçer.\"",
+    "resolvedDesc": "Etiketlediğiniz üyenin inanç seviyesini ölçer."
+  },
+  {
+    "file": "fun-tests.js",
+    "pattern": "aşkölç ?(.*)",
+    "rawDesc": "\"İki kişi arasındaki aşk yüzdesini ölçer.\"",
+    "resolvedDesc": "İki kişi arasındaki aşk yüzdesini ölçer."
+  },
+  {
+    "file": "fun-tests.js",
+    "pattern": "beyin",
+    "rawDesc": "\"Rastgele beyin jimnastiği sorusu gönderir\"",
+    "resolvedDesc": "Rastgele beyin jimnastiği sorusu gönderir"
+  },
+  {
+    "file": "fun-tests.js",
+    "pattern": "bilmece",
+    "rawDesc": "\"Rastgele bilmece sorusu gönderir\"",
+    "resolvedDesc": "Rastgele bilmece sorusu gönderir"
+  },
+  {
+    "file": "fun-tests.js",
+    "pattern": "kimyasoru",
+    "rawDesc": "\"Rastgele kimya sorusu gönderir\"",
+    "resolvedDesc": "Rastgele kimya sorusu gönderir"
+  },
+  {
+    "file": "fun-tests.js",
+    "pattern": "alay ?(.*)",
+    "rawDesc": "\"Metni alay/slang formatına dönüştürür\"",
+    "resolvedDesc": "Metni alay/slang formatına dönüştürür"
+  },
+  {
+    "file": "fun-tests.js",
+    "pattern": "(?:dragonyazı|dragonyazi) ?(.*)",
+    "rawDesc": "\"Dragon Ball stili metin logosu oluşturur\"",
+    "resolvedDesc": "Dragon Ball stili metin logosu oluşturur"
+  },
+  {
+    "file": "fun-tests.js",
+    "pattern": "(?:neonyazı|neonyazi) ?(.*)",
+    "rawDesc": "\"Neon ışıklı metin logosu oluşturur\"",
+    "resolvedDesc": "Neon ışıklı metin logosu oluşturur"
+  },
+  {
+    "file": "fun-tests.js",
+    "pattern": "(?:grafitiyazı|grafitiyazi) ?(.*)",
+    "rawDesc": "\"Grafiti stili metin logosu oluşturur\"",
+    "resolvedDesc": "Grafiti stili metin logosu oluşturur"
+  },
+  {
+    "file": "fun-tests.js",
+    "pattern": "(?:devilyazı|devilyazi) ?(.*)",
+    "rawDesc": "\"Şeytan kanadı stili metin logosu oluşturur\"",
+    "resolvedDesc": "Şeytan kanadı stili metin logosu oluşturur"
+  },
+  {
+    "file": "fun-tests.js",
+    "pattern": "(?:müzikkartı|muzikkarti) ?(.*)",
+    "rawDesc": "\"Müzik kartı görseli oluşturur\"",
+    "resolvedDesc": "Müzik kartı görseli oluşturur"
+  },
+  {
+    "file": "group-updates.js",
+    "pattern": "otoçıkartma ?(.*)",
+    "rawDesc": "\"Komutları çıkartmalara yapıştırır. Çıkartma gönderilirse komut gibi çalışır!\"",
+    "resolvedDesc": "Komutları çıkartmalara yapıştırır. Çıkartma gönderilirse komut gibi çalışır!"
+  },
+  {
+    "file": "group-updates.js",
+    "pattern": "otoçıkartmasil ?(.*)",
+    "rawDesc": "\"Çıkartmalardaki komutları siler\"",
+    "resolvedDesc": "Çıkartmalardaki komutları siler"
+  },
+  {
+    "file": "group-updates.js",
+    "pattern": "otoçıkartmalar ?(.*)",
+    "rawDesc": "\"Çıkartmalardaki komutları gösterir\"",
+    "resolvedDesc": "Çıkartmalardaki komutları gösterir"
+  },
+  {
+    "file": "group-updates.js",
+    "pattern": "otosohbetkapat ?(.*)",
+    "rawDesc": "\"Grup sohbetinin otomatik kapanma özelliğini aktif eder veya kapatır.\"",
+    "resolvedDesc": "Grup sohbetinin otomatik kapanma özelliğini aktif eder veya kapatır."
+  },
+  {
+    "file": "group-updates.js",
+    "pattern": "otosohbetaç ?(.*)",
+    "rawDesc": "\"Grup sohbetinin otomatik açılma özelliğini aktif eder.\"",
+    "resolvedDesc": "Grup sohbetinin otomatik açılma özelliğini aktif eder."
+  },
+  {
+    "file": "group-updates.js",
+    "pattern": "otosohbet ?(.*)",
+    "rawDesc": "\"Grup sohbetinin otomatik açılış ve kapanış saatlerini ayarlar. (Örn: .otosohbet 09:00|23:00)\"",
+    "resolvedDesc": "Grup sohbetinin otomatik açılış ve kapanış saatlerini ayarlar. (Örn: .otosohbet 09:00|23:00)"
+  },
+  {
+    "file": "group-updates.js",
+    "pattern": "antinumara ?(.*)",
+    "rawDesc": "\"Belirli ülke koduna sahip numaraların gruba girişini engeller/yönetir.\"",
+    "resolvedDesc": "Belirli ülke koduna sahip numaraların gruba girişini engeller/yönetir."
+  },
+  {
+    "file": "group.js",
+    "pattern": "sohbetsil ?(.*)",
+    "rawDesc": "\"Sohbeti temizle\"",
+    "resolvedDesc": "Sohbeti temizle"
+  },
+  {
+    "file": "group.js",
+    "pattern": "ban ?(.*)",
+    "rawDesc": "Lang.KICK_DESC",
+    "resolvedDesc": "Gruptan kişi banlar. Yanıt verin ya da komutu yazdıktan sonra kişiyi etiketleyin."
+  },
+  {
+    "file": "group.js",
+    "pattern": "at ?(.*)",
+    "rawDesc": "Lang.KICK_DESC",
+    "resolvedDesc": "Gruptan kişi banlar. Yanıt verin ya da komutu yazdıktan sonra kişiyi etiketleyin."
+  },
+  {
+    "file": "group.js",
+    "pattern": "ekle ?(.*)",
+    "rawDesc": "Lang.ADD_DESC",
+    "resolvedDesc": "Gruba kişi ekler.\n⌨️ Örnek: .add 9055xxxxxxxx"
+  },
+  {
+    "file": "group.js",
+    "pattern": "yetkiver ?(.*)",
+    "rawDesc": "Lang.PROMOTE_DESC",
+    "resolvedDesc": "Belirtilen kişiyi yönetici yapar."
+  },
+  {
+    "file": "group.js",
+    "pattern": "istekler ?(.*)",
+    "rawDesc": "\"Bekleyen katılma isteklerinin listesini al\"",
+    "resolvedDesc": "Bekleyen katılma isteklerinin listesini al"
+  },
+  {
+    "file": "group.js",
+    "pattern": "ayrıl",
+    "rawDesc": "Lang.LEAVE_DESC",
+    "resolvedDesc": "Gruptan çıkmayı sağlar."
+  },
+  {
+    "file": "group.js",
+    "pattern": "quoted",
+    "rawDesc": "\"Yanıtlanan mesajın alıntıladığı mesajı gönderir. Silinen mesajları kurtarmak için kullanışlıdır.\"",
+    "resolvedDesc": "Yanıtlanan mesajın alıntıladığı mesajı gönderir. Silinen mesajları kurtarmak için kullanışlıdır."
+  },
+  {
+    "file": "group.js",
+    "pattern": "yetkial ?(.*)",
+    "rawDesc": "Lang.DEMOTE_DESC",
+    "resolvedDesc": "Belirtilen yöneticinin yetkisini düşürür."
+  },
+  {
+    "file": "group.js",
+    "pattern": "sohbetkapat ?(.*)",
+    "rawDesc": "Lang.MUTE_DESC",
+    "resolvedDesc": "Grup sohbetini kapatır. Yalnızca adminler mesaj gönderebilir.\n⌨️ Örnek: .mute & .mute 5m vb."
+  },
+  {
+    "file": "group.js",
+    "pattern": "sohbetaç",
+    "rawDesc": "Lang.UNMUTE_DESC",
+    "resolvedDesc": "Grup sohbetini açar. Herkes mesaj gönderebilir."
+  },
+  {
+    "file": "group.js",
+    "pattern": "jid",
+    "rawDesc": "Lang.JID_DESC",
+    "resolvedDesc": "Belirtilen kişinin veya sohbetin JID adres bilgisini verir."
+  },
+  {
+    "file": "group.js",
+    "pattern": "davet",
+    "rawDesc": "Lang.INVITE_DESC",
+    "resolvedDesc": "Grubun davet linkini getirir."
+  },
+  {
+    "file": "group.js",
+    "pattern": "davetyenile",
+    "rawDesc": "Lang.REVOKE_DESC",
+    "resolvedDesc": "Grubun davet linkini sıfırlar."
+  },
+  {
+    "file": "group.js",
+    "pattern": "gayaryt ?(.*)",
+    "rawDesc": "\"Grup ayarlarını sadece yöneticilerin düzenleyebileceği şekilde değiştirir!\"",
+    "resolvedDesc": "Grup ayarlarını sadece yöneticilerin düzenleyebileceği şekilde değiştirir!"
+  },
+  {
+    "file": "group.js",
+    "pattern": "gayarherkes ?(.*)",
+    "rawDesc": "\"Grup ayarlarını herkesin düzenleyebileceği şekilde değiştirir!\"",
+    "resolvedDesc": "Grup ayarlarını herkesin düzenleyebileceği şekilde değiştirir!"
+  },
+  {
+    "file": "group.js",
+    "pattern": "gadı ?(.*)",
+    "rawDesc": "\"Grup adını (başlığını) değiştir\"",
+    "resolvedDesc": "Grup adını (başlığını) değiştir"
+  },
+  {
+    "file": "group.js",
+    "pattern": "gaçıklama ?(.*)",
+    "rawDesc": "\"Grup açıklamasını değiştir\"",
+    "resolvedDesc": "Grup açıklamasını değiştir"
+  },
+  {
+    "file": "group.js",
+    "pattern": "common ?(.*)",
+    "rawDesc": "\"İki gruptaki ortak katılımcıları bulur\"",
+    "resolvedDesc": "İki gruptaki ortak katılımcıları bulur"
+  },
+  {
+    "file": "group.js",
+    "pattern": "diff ?(.*)",
+    "rawDesc": "\"İki gruptaki farklı katılımcıları bulur\"",
+    "resolvedDesc": "İki gruptaki farklı katılımcıları bulur"
+  },
+  {
+    "file": "group.js",
+    "pattern": "tag ?(.*)",
+    "rawDesc": "Lang.TAGALL_DESC",
+    "resolvedDesc": "Gruptaki herkesi etiketler. Mesaja gömülü etiket atmak için mesajı yanıtlayın ya da kelime girin."
+  },
+  {
+    "file": "group.js",
+    "pattern": "engelle ?(.*)",
+    "rawDesc": "\"Kullanıcıyı engelle\"",
+    "resolvedDesc": "Kullanıcıyı engelle"
+  },
+  {
+    "file": "group.js",
+    "pattern": "katıl ?(.*)",
+    "rawDesc": "\"Davet bağlantısını kullanarak bir WhatsApp grubuna katılın\"",
+    "resolvedDesc": "Davet bağlantısını kullanarak bir WhatsApp grubuna katılın"
+  },
+  {
+    "file": "group.js",
+    "pattern": "engelkaldır ?(.*)",
+    "rawDesc": "\"Kullanıcının engelini kaldır\"",
+    "resolvedDesc": "Kullanıcının engelini kaldır"
+  },
+  {
+    "file": "group.js",
+    "pattern": "toplukatıl ?(.*)",
+    "rawDesc": "\"Davet bağlantılarını kullanarak birden fazla WhatsApp grubuna katılmayı sağlar\"",
+    "resolvedDesc": "Davet bağlantılarını kullanarak birden fazla WhatsApp grubuna katılmayı sağlar"
+  },
+  {
+    "file": "group.js",
+    "pattern": "tümjid ?(.*)",
+    "rawDesc": "\"Grup JID\"",
+    "resolvedDesc": "Grup JID"
+  },
+  {
+    "file": "group.js",
+    "pattern": "duyuru ?(.*)",
+    "rawDesc": "\"Bot\"",
+    "resolvedDesc": "Bot"
+  },
+  {
+    "file": "group.js",
+    "pattern": "sabitle ?(.*)",
+    "rawDesc": "\"Yanıtlanan mesajı belirli bir süre için sabitler\"",
+    "resolvedDesc": "Yanıtlanan mesajı belirli bir süre için sabitler"
+  },
+  {
+    "file": "group.js",
+    "pattern": "pp ?(.*)",
+    "rawDesc": "\"Profil resmini değiştir/al (tam ekran destekli)\"",
+    "resolvedDesc": "Profil resmini değiştir/al (tam ekran destekli)"
+  },
+  {
+    "file": "group.js",
+    "pattern": "grupfoto ?(.*)",
+    "rawDesc": "\"Grup simgesini değiştir/al (tam ekran destekli)\"",
+    "resolvedDesc": "Grup simgesini değiştir/al (tam ekran destekli)"
+  },
+  {
+    "file": "group.js",
+    "pattern": "altın ?(.*)",
+    "rawDesc": "\"Güncel altın fiyatlarını gösterir\"",
+    "resolvedDesc": "Güncel altın fiyatlarını gösterir"
+  },
+  {
+    "file": "group.js",
+    "pattern": "etiket",
+    "rawDesc": "\"Tüm üyeleri etiketler.\"",
+    "resolvedDesc": "Tüm üyeleri etiketler."
+  },
+  {
+    "file": "group.js",
+    "pattern": "ytetiket",
+    "rawDesc": "\"Tüm yöneticileri etiketler.\"",
+    "resolvedDesc": "Tüm yöneticileri etiketler."
+  },
+  {
+    "file": "komutlar.js",
+    "pattern": "komut ?(.*)",
+    "rawDesc": "\"Bot komutlarını listeler veya belirtilen komutun detaylarını gösterir.\"",
+    "resolvedDesc": "Bot komutlarını listeler veya belirtilen komutun detaylarını gösterir."
+  },
+  {
+    "file": "manage.js",
+    "pattern": "setvar ?(.*)",
+    "rawDesc": "\"Bot değişkenlerini (variables) uzaktan ayarla\"",
+    "resolvedDesc": "Bot değişkenlerini (variables) uzaktan ayarla"
+  },
+  {
+    "file": "manage.js",
+    "pattern": "değişkengetir ?(.*)",
+    "rawDesc": "\"Bot değişkeninin değerini getir\"",
+    "resolvedDesc": "Bot değişkeninin değerini getir"
+  },
+  {
+    "file": "manage.js",
+    "pattern": "değişkensil ?(.*)",
+    "rawDesc": "\"Bot değişkenini sil\"",
+    "resolvedDesc": "Bot değişkenini sil"
+  },
+  {
+    "file": "manage.js",
+    "pattern": "setenv ?(.*)",
+    "rawDesc": "\"config.env\"",
+    "resolvedDesc": "config.env"
+  },
+  {
+    "file": "manage.js",
+    "pattern": "değişkenler",
+    "rawDesc": "\"Tüm bot değişkenlerini getir\"",
+    "resolvedDesc": "Tüm bot değişkenlerini getir"
+  },
+  {
+    "file": "manage.js",
+    "pattern": "platform",
+    "rawDesc": "\"Botun çalıştığı sunucu, işletim sistemi ve versiyon bilgilerini gösterir.\"",
+    "resolvedDesc": "Botun çalıştığı sunucu, işletim sistemi ve versiyon bilgilerini gösterir."
+  },
+  {
+    "file": "manage.js",
+    "pattern": "dil ?(.*)",
+    "rawDesc": "\"Bot dilini bazı komutlar için değiştir\"",
+    "resolvedDesc": "Bot dilini bazı komutlar için değiştir"
+  },
+  {
+    "file": "manage.js",
+    "pattern": "ayarlar ?(.*)",
+    "rawDesc": "\"Ek WhatsApp bot seçeneklerini aktifleştirmek için ayarlar.\"",
+    "resolvedDesc": "Ek WhatsApp bot seçeneklerini aktifleştirmek için ayarlar."
+  },
+  {
+    "file": "manage.js",
+    "pattern": "mod ?(.*)",
+    "rawDesc": "\"Bot modunu genel (public) ve özel (private) olarak değiştirin\"",
+    "resolvedDesc": "Bot modunu genel (public) ve özel (private) olarak değiştirin"
+  },
+  {
+    "file": "manage.js",
+    "pattern": "antisilme ?(.*)",
+    "rawDesc": "\"Mesaj silme engelini aktifleştirir\"",
+    "resolvedDesc": "Mesaj silme engelini aktifleştirir"
+  },
+  {
+    "file": "manage.js",
+    "pattern": "setsudo ?(.*)",
+    "rawDesc": "",
+    "resolvedDesc": ""
+  },
+  {
+    "file": "manage.js",
+    "pattern": "sudolar ?(.*)",
+    "rawDesc": "\"Bot üzerinde yönetici yetkisine (SUDO) sahip numaraları listeler.\"",
+    "resolvedDesc": "Bot üzerinde yönetici yetkisine (SUDO) sahip numaraları listeler."
+  },
+  {
+    "file": "manage.js",
+    "pattern": "sudosil ?(.*)",
+    "rawDesc": "\"Yöneticiyi (sudo) siler\"",
+    "resolvedDesc": "Yöneticiyi (sudo) siler"
+  },
+  {
+    "file": "manage.js",
+    "pattern": "toggle ?(.*)",
+    "rawDesc": "\"Komutları açıp kapatmak için\"",
+    "resolvedDesc": "Komutları açıp kapatmak için"
+  },
+  {
+    "file": "manage.js",
+    "pattern": "antibot ?(.*)",
+    "rawDesc": "\"Diğer botların mesajlarını tespit eder ve atar.\"",
+    "resolvedDesc": "Diğer botların mesajlarını tespit eder ve atar."
+  },
+  {
+    "file": "manage.js",
+    "pattern": "antispam ?(.*)",
+    "rawDesc": "\"Spam mesajları tespit eder ve kullanıcıyı çıkarır.\"",
+    "resolvedDesc": "Spam mesajları tespit eder ve kullanıcıyı çıkarır."
+  },
+  {
+    "file": "manage.js",
+    "pattern": "pdm ?(.*)",
+    "rawDesc": "\"Yetki verme/alma durumlarını tespit eder ve uyarı gönderir.\"",
+    "resolvedDesc": "Yetki verme/alma durumlarını tespit eder ve uyarı gönderir."
+  },
+  {
+    "file": "manage.js",
+    "pattern": "antiyetkidüşürme ?(.*)",
+    "rawDesc": "\"Yetki alınmasını tespit eder ve yapanın yetkisini alıp, mağdura yetkiyi verir.\"",
+    "resolvedDesc": "Yetki alınmasını tespit eder ve yapanın yetkisini alıp, mağdura yetkiyi verir."
+  },
+  {
+    "file": "manage.js",
+    "pattern": "antiyetkiverme ?(.*)",
+    "rawDesc": "\"Yetki verilmesini tespit eder ve yapanın ile yeni yetkilinin yetkilerini alır.\"",
+    "resolvedDesc": "Yetki verilmesini tespit eder ve yapanın ile yeni yetkilinin yetkilerini alır."
+  },
+  {
+    "file": "manage.js",
+    "pattern": "antibağlantı ?(.*)",
+    "rawDesc": "\"Gelişmiş antilink (link engelleme) sistemi (uyarı/at/sil modlu)\"",
+    "resolvedDesc": "Gelişmiş antilink (link engelleme) sistemi (uyarı/at/sil modlu)"
+  },
+  {
+    "file": "manage.js",
+    "pattern": "antikelime ?(.*)",
+    "rawDesc": "\"Yasaklı kelime (antiword) engelini aktifleştirir, gönderen atılır\"",
+    "resolvedDesc": "Yasaklı kelime (antiword) engelini aktifleştirir, gönderen atılır"
+  },
+  {
+    "file": "manage.js",
+    "pattern": "aramaengel ?(.*)",
+    "rawDesc": "\"Kapsamlı arama reddetme yönetim sistemi\"",
+    "resolvedDesc": "Kapsamlı arama reddetme yönetim sistemi"
+  },
+  {
+    "file": "manage.js",
+    "pattern": "uptime",
+    "rawDesc": "\"Sistem (OS) / işlem çalışma süresini gösterir (uptime)\"",
+    "resolvedDesc": "Sistem (OS) / işlem çalışma süresini gösterir (uptime)"
+  },
+  {
+    "file": "media.js",
+    "pattern": "dinle",
+    "rawDesc": "\"Sesli mesajı metne dönüştürür. (Tek seferlik sesler de dahil)\"",
+    "resolvedDesc": "Sesli mesajı metne dönüştürür. (Tek seferlik sesler de dahil)"
+  },
+  {
+    "file": "media.js",
+    "pattern": "trim ?(.*)",
+    "rawDesc": "Lang.TRIM_DESC",
+    "resolvedDesc": "Seçtiğiniz medyanın belirli bir kısmını kesmenizi sağlar."
+  },
+  {
+    "file": "media.js",
+    "pattern": "renklendir",
+    "rawDesc": "\"Siyah-beyaz fotoğrafı renklendirir (yanıtlanan görsel)\"",
+    "resolvedDesc": "Siyah-beyaz fotoğrafı renklendirir (yanıtlanan görsel)"
+  },
+  {
+    "file": "media.js",
+    "pattern": "siyahvideo",
+    "rawDesc": "\"Sesi siyah videoya dönüştürür\"",
+    "resolvedDesc": "Sesi siyah videoya dönüştürür"
+  },
+  {
+    "file": "media.js",
+    "pattern": "birleştir",
+    "rawDesc": "Lang.AVMIX_DESC",
+    "resolvedDesc": "*Ses ve video dosyasını birleştirmenizi sağlar.*"
+  },
+  {
+    "file": "media.js",
+    "pattern": "vmix ?(.*)",
+    "rawDesc": "\"İki videoyu birleştirir\"",
+    "resolvedDesc": "İki videoyu birleştirir"
+  },
+  {
+    "file": "media.js",
+    "pattern": "ağırçekim",
+    "rawDesc": "\"Videoyu pürüzsüz ağır çekime dönüştürür\"",
+    "resolvedDesc": "Videoyu pürüzsüz ağır çekime dönüştürür"
+  },
+  {
+    "file": "media.js",
+    "pattern": "oval",
+    "rawDesc": "\"Çıkartma/fotoğrafı yuvarlak olarak kırpar\"",
+    "resolvedDesc": "Çıkartma/fotoğrafı yuvarlak olarak kırpar"
+  },
+  {
+    "file": "media.js",
+    "pattern": "gif",
+    "rawDesc": "\"Sesli olarak videoyu gif\"",
+    "resolvedDesc": "Sesli olarak videoyu gif"
+  },
+  {
+    "file": "media.js",
+    "pattern": "interp ?(.*)",
+    "rawDesc": "\"Videonun kare hızını (FPS) artırır\"",
+    "resolvedDesc": "Videonun kare hızını (FPS) artırır"
+  },
+  {
+    "file": "media.js",
+    "pattern": "bul ?(.*)",
+    "rawDesc": "\"Yapay zeka aracılığıyla çalan şarkının adını bulur.\"",
+    "resolvedDesc": "Yapay zeka aracılığıyla çalan şarkının adını bulur."
+  },
+  {
+    "file": "media.js",
+    "pattern": "döndür ?(.*)",
+    "rawDesc": "\"Videoyu döndürür (sol/sağ)\"",
+    "resolvedDesc": "Videoyu döndürür (sol/sağ)"
+  },
+  {
+    "file": "media.js",
+    "pattern": "flip ?(.*)",
+    "rawDesc": "\"Videoyu ters çevirir (flip)\"",
+    "resolvedDesc": "Videoyu ters çevirir (flip)"
+  },
+  {
+    "file": "media.js",
+    "pattern": "ss ?(.*)",
+    "rawDesc": "\"Web sitesinin ekran görüntüsünü alır\"",
+    "resolvedDesc": "Web sitesinin ekran görüntüsünü alır"
+  },
+  {
+    "file": "media.js",
+    "pattern": "metin ?(.*)",
+    "rawDesc": "\"Görseldeki metni okur (OCR)\"",
+    "resolvedDesc": "Görseldeki metni okur (OCR)"
+  },
+  {
+    "file": "media.js",
+    "pattern": "hd ?(.*)",
+    "rawDesc": "\"Görseli HD kaliteye yükseltir\"",
+    "resolvedDesc": "Görseli HD kaliteye yükseltir"
+  },
+  {
+    "file": "media.js",
+    "pattern": "meme ?(.*)",
+    "rawDesc": "\"Meme görseli oluşturur (üst ve alt metin)\"",
+    "resolvedDesc": "Meme görseli oluşturur (üst ve alt metin)"
+  },
+  {
+    "file": "media.js",
+    "pattern": "kodgörsel ?(.*)",
+    "rawDesc": "\"Kodu güzel bir görsel olarak oluşturur\"",
+    "resolvedDesc": "Kodu güzel bir görsel olarak oluşturur"
+  },
+  {
+    "file": "mention.js",
+    "pattern": "bahsetme ?(.*)",
+    "rawDesc": "\"Otomatik etiket (mention) yanıt yönetimi\"",
+    "resolvedDesc": "Otomatik etiket (mention) yanıt yönetimi"
+  },
+  {
+    "file": "message-stats.js",
+    "pattern": "mesajlar ?(.*)",
+    "rawDesc": "\"En az bir mesajı olan üyelerin gönderdiği mesaj sayılarını gösterir. (sayıya göre sıralanmış şekilde)\"",
+    "resolvedDesc": "En az bir mesajı olan üyelerin gönderdiği mesaj sayılarını gösterir. (sayıya göre sıralanmış şekilde)"
+  },
+  {
+    "file": "message-stats.js",
+    "pattern": "inactive ?(.*)",
+    "rawDesc": "\"Son mesaj zamanına göre pasif üyeleri gösterir. İstenirse atabilir.\"",
+    "resolvedDesc": "Son mesaj zamanına göre pasif üyeleri gösterir. İstenirse atabilir."
+  },
+  {
+    "file": "message-stats.js",
+    "pattern": "üyetemizle ?(.*)",
+    "rawDesc": "\"Belirtilen süre boyunca mesaj atmayan üyeleri listeler veya çıkarır.\"",
+    "resolvedDesc": "Belirtilen süre boyunca mesaj atmayan üyeleri listeler veya çıkarır."
+  },
+  {
+    "file": "message-stats.js",
+    "pattern": "users ?(.*)",
+    "rawDesc": "\"Mesaj sayısına göre en iyi kullanıcıları gösterir.\"",
+    "resolvedDesc": "Mesaj sayısına göre en iyi kullanıcıları gösterir."
+  },
+  {
+    "file": "netler.js",
+    "pattern": "bilgikaçnet ?(.*)",
+    "rawDesc": "\"Üniversite bölümleri için kaç net yapmak gerektiğini, ilgili bölümün tam olarak ne olduğunu, ne iş yaptığını ve iş olanaklarına dair detaylı bilgiler paylaşmaya yarar.\"",
+    "resolvedDesc": "Üniversite bölümleri için kaç net yapmak gerektiğini, ilgili bölümün tam olarak ne olduğunu, ne iş yaptığını ve iş olanaklarına dair detaylı bilgiler paylaşmaya yarar."
+  },
+  {
+    "file": "nexray-komutlar.js",
+    "pattern": "emojimix ?(.*)",
+    "rawDesc": "\"İki emojiyi birleştirip yeni emoji oluşturur\"",
+    "resolvedDesc": "İki emojiyi birleştirip yeni emoji oluşturur"
+  },
+  {
+    "file": "nexray-komutlar.js",
+    "pattern": "yazı ?(.*)",
+    "rawDesc": "\"Glitch efektli metin görseli oluşturur\"",
+    "resolvedDesc": "Glitch efektli metin görseli oluşturur"
+  },
+  {
+    "file": "nexray-komutlar.js",
+    "pattern": "naruto ?(.*)",
+    "rawDesc": "\"Naruto stili metin logosu oluşturur\"",
+    "resolvedDesc": "Naruto stili metin logosu oluşturur"
+  },
+  {
+    "file": "nexray-komutlar.js",
+    "pattern": "marvel ?(.*)",
+    "rawDesc": "\"Marvel stili logo oluşturur (2 kelime)\"",
+    "resolvedDesc": "Marvel stili logo oluşturur (2 kelime)"
+  },
+  {
+    "file": "nexray-komutlar.js",
+    "pattern": "blackpink ?(.*)",
+    "rawDesc": "\"Blackpink stili metin görseli oluşturur\"",
+    "resolvedDesc": "Blackpink stili metin görseli oluşturur"
+  },
+  {
+    "file": "nexray-komutlar.js",
+    "pattern": "brat ?(.*)",
+    "rawDesc": "\"Brat (Charli XCX) stili yeşil metin görseli\"",
+    "resolvedDesc": "Brat (Charli XCX) stili yeşil metin görseli"
+  },
+  {
+    "file": "nexray-komutlar.js",
+    "pattern": "söz ?(.*)",
+    "rawDesc": "\"Şarkı sözlerini bulur\"",
+    "resolvedDesc": "Şarkı sözlerini bulur"
+  },
+  {
+    "file": "nexray-komutlar.js",
+    "pattern": "duvar ?(.*)",
+    "rawDesc": "\"HD duvar kağıdı arar ve gönderir\"",
+    "resolvedDesc": "HD duvar kağıdı arar ve gönderir"
+  },
+  {
+    "file": "nexray-komutlar.js",
+    "pattern": "çıkartmabul ?(.*)",
+    "rawDesc": "\"WhatsApp çıkartma paketi arar\"",
+    "resolvedDesc": "WhatsApp çıkartma paketi arar"
+  },
+  {
+    "file": "nexray-komutlar.js",
+    "pattern": "vikipedi ?(.*)",
+    "rawDesc": "\"Wikipedia\"",
+    "resolvedDesc": "Wikipedia"
+  },
+  {
+    "file": "nexray-komutlar.js",
+    "pattern": "alıntı ?(.*)",
+    "rawDesc": "\"WhatsApp tarzı alıntı görseli oluşturur\"",
+    "resolvedDesc": "WhatsApp tarzı alıntı görseli oluşturur"
+  },
+  {
+    "file": "nexray-komutlar.js",
+    "pattern": "rüya ?(.*)",
+    "rawDesc": "\"Rüyanızı yapay zeka ile yorumlar\"",
+    "resolvedDesc": "Rüyanızı yapay zeka ile yorumlar"
+  },
+  {
+    "file": "nexray-komutlar.js",
+    "pattern": "görsel ?(.*)",
+    "rawDesc": "\"Yapay zeka ile açıklamadan görsel oluşturur\"",
+    "resolvedDesc": "Yapay zeka ile açıklamadan görsel oluşturur"
+  },
+  {
+    "file": "nexray-komutlar.js",
+    "pattern": "threads ?(.*)",
+    "rawDesc": "\"Threads video/görsel indirir\"",
+    "resolvedDesc": "Threads video/görsel indirir"
+  },
+  {
+    "file": "nexray-komutlar.js",
+    "pattern": "soundcloud ?(.*)",
+    "rawDesc": "\"SoundCloud\"",
+    "resolvedDesc": "SoundCloud"
+  },
+  {
+    "file": "nexray-komutlar.js",
+    "pattern": "çevir ?(.*)",
+    "rawDesc": "\"Metni iki dil arasında çevirir. Örnek: .çevir en tr\"",
+    "resolvedDesc": "Metni iki dil arasında çevirir. Örnek: .çevir en tr"
+  },
+  {
+    "file": "pdf.js",
+    "pattern": "pdf ?(.*)",
+    "rawDesc": "\"Resimlerden PDF\"",
+    "resolvedDesc": "Resimlerden PDF"
+  },
+  {
+    "file": "removebg.js",
+    "pattern": "apsil ?(.*)",
+    "rawDesc": "\"Yapay zeka kullanarak görüntünün arka planını kaldırır veya düz renk/resim ile değiştirir.\r\n👤 *Kullanım Örnekleri:*\r\n• .apsil                → Arka planı şeffaf (kaldırır)\r\n• .apsil mavi           → Arkaplan mavi\r\n• .apsil #ff0000        → Arkaplan kırmızı (hex kodu)\r\n• .apsil https://resim  → Arkaplan olarak URL\"",
+    "resolvedDesc": "Yapay zeka kullanarak görüntünün arka planını kaldırır veya düz renk/resim ile değiştirir.\r\n👤 *Kullanım Örnekleri:*\r\n• .apsil                → Arka planı şeffaf (kaldırır)\r\n• .apsil mavi           → Arkaplan mavi\r\n• .apsil #ff0000        → Arkaplan kırmızı (hex kodu)\r\n• .apsil https://resim  → Arkaplan olarak URL"
+  },
+  {
+    "file": "restart.js",
+    "pattern": "ybaşlat|reload|reboot",
+    "rawDesc": "\"Botu yeniden başlatır\"",
+    "resolvedDesc": "Botu yeniden başlatır"
+  },
+  {
+    "file": "sayac.js",
+    "pattern": "ykssayaç",
+    "rawDesc": "yks",
+    "resolvedDesc": "VARIABLE: yks"
+  },
+  {
+    "file": "sayac.js",
+    "pattern": "kpsssayaç",
+    "rawDesc": "kpss",
+    "resolvedDesc": "VARIABLE: kpss"
+  },
+  {
+    "file": "sayac.js",
+    "pattern": "msüsayaç",
+    "rawDesc": "msu",
+    "resolvedDesc": "VARIABLE: msu"
+  },
+  {
+    "file": "sayac.js",
+    "pattern": "okulsayaç",
+    "rawDesc": "okul",
+    "resolvedDesc": "VARIABLE: okul"
+  },
+  {
+    "file": "sayac.js",
+    "pattern": "ramazansayaç",
+    "rawDesc": "oruc",
+    "resolvedDesc": "VARIABLE: oruc"
+  },
+  {
+    "file": "schedule.js",
+    "pattern": "planla ?(.*)",
+    "rawDesc": "\"⏰ Mesaj planla - Gruba veya özele zamanlanmış mesaj gönder\"",
+    "resolvedDesc": "⏰ Mesaj planla - Gruba veya özele zamanlanmış mesaj gönder"
+  },
+  {
+    "file": "schedule.js",
+    "pattern": "plandurum ?(.*)",
+    "rawDesc": "\"📋 Planlanan tüm mesajları listeler\"",
+    "resolvedDesc": "📋 Planlanan tüm mesajları listeler"
+  },
+  {
+    "file": "schedule.js",
+    "pattern": "plansil ?(.*)",
+    "rawDesc": "\"🗑️ Planlanan mesajı ID ile iptal eder\"",
+    "resolvedDesc": "🗑️ Planlanan mesajı ID ile iptal eder"
+  },
+  {
+    "file": "social.js",
+    "pattern": "insta ?(.*)",
+    "rawDesc": "\"Instagram gönderi/Reels/TV indirici - çoklu bağlantı destekler\"",
+    "resolvedDesc": "Instagram gönderi/Reels/TV indirici - çoklu bağlantı destekler"
+  },
+  {
+    "file": "social.js",
+    "pattern": "fb ?(.*)",
+    "rawDesc": "\"Facebook video indirici\"",
+    "resolvedDesc": "Facebook video indirici"
+  },
+  {
+    "file": "social.js",
+    "pattern": "igara ?(.*)",
+    "rawDesc": "\"Instagram kullanıcı profili bilgilerini gösterir\"",
+    "resolvedDesc": "Instagram kullanıcı profili bilgilerini gösterir"
+  },
+  {
+    "file": "social.js",
+    "pattern": "twara ?(.*)",
+    "rawDesc": "\"Twitter/X kullanıcı profili bilgilerini gösterir\"",
+    "resolvedDesc": "Twitter/X kullanıcı profili bilgilerini gösterir"
+  },
+  {
+    "file": "social.js",
+    "pattern": "hikaye ?(.*)",
+    "rawDesc": "\"Instagram hikaye (story) indirici\"",
+    "resolvedDesc": "Instagram hikaye (story) indirici"
+  },
+  {
+    "file": "social.js",
+    "pattern": "pinterest ?(.*)",
+    "rawDesc": "\"Pinterest indirici\"",
+    "resolvedDesc": "Pinterest indirici"
+  },
+  {
+    "file": "social.js",
+    "pattern": "twitter ?(.*)",
+    "rawDesc": "\"Twitter/X video indirici\"",
+    "resolvedDesc": "Twitter/X video indirici"
+  },
+  {
+    "file": "social.js",
+    "pattern": "tiktok ?(.*)",
+    "rawDesc": "\"TikTok video indirici\"",
+    "resolvedDesc": "TikTok video indirici"
+  },
+  {
+    "file": "social.js",
+    "pattern": "capcut ?(.*)",
+    "rawDesc": "\"CapCut şablon/video indirici\"",
+    "resolvedDesc": "CapCut şablon/video indirici"
+  },
+  {
+    "file": "social.js",
+    "pattern": "ttara ?(.*)",
+    "rawDesc": "\"TikTok kullanıcı bilgilerini getirir. (Gizli hesaplar hariç)\"",
+    "resolvedDesc": "TikTok kullanıcı bilgilerini getirir. (Gizli hesaplar hariç)"
+  },
+  {
+    "file": "take.js",
+    "pattern": "take ?(.*)",
+    "rawDesc": "\"Çıkartma/ses paketi ve yazar adını değiştirir.\"",
+    "resolvedDesc": "Çıkartma/ses paketi ve yazar adını değiştirir."
+  },
+  {
+    "file": "take.js",
+    "pattern": "mp4 ?(.*)",
+    "rawDesc": "\"Hareketli çıkartmayı videoya dönüştürür\"",
+    "resolvedDesc": "Hareketli çıkartmayı videoya dönüştürür"
+  },
+  {
+    "file": "take.js",
+    "pattern": "url ?(.*)",
+    "rawDesc": "\"Resmi imgbb\"",
+    "resolvedDesc": "Resmi imgbb"
+  },
+  {
+    "file": "updater.js",
+    "pattern": "güncelle ?(.*)",
+    "rawDesc": "\"Bot güncellemelerini kontrol eder ve uygular.\"",
+    "resolvedDesc": "Bot güncellemelerini kontrol eder ve uygular."
+  },
+  {
+    "file": "utility.js",
+    "pattern": "yaşhesap ?(.*)",
+    "rawDesc": "\"Yaş hesaplayıcı\"",
+    "resolvedDesc": "Yaş hesaplayıcı"
+  },
+  {
+    "file": "utility.js",
+    "pattern": "gerisayım ?(.*)",
+    "rawDesc": "\"Tarihe geri sayım yapar\"",
+    "resolvedDesc": "Tarihe geri sayım yapar"
+  },
+  {
+    "file": "utility.js",
+    "pattern": "ping",
+    "rawDesc": "\"Ağ gecikmesini (ping) ölçer\"",
+    "resolvedDesc": "Ağ gecikmesini (ping) ölçer"
+  },
+  {
+    "file": "utility.js",
+    "pattern": "hıztesti",
+    "rawDesc": "\"Ookla Speedtest ile gerçek hız testi\"",
+    "resolvedDesc": "Ookla Speedtest ile gerçek hız testi"
+  },
+  {
+    "file": "wamsg.js",
+    "pattern": "react ?(.*)",
+    "rawDesc": "\"Yanıtlanan mesaja belirtilen emoji ile tepki (reaction) verir.\"",
+    "resolvedDesc": "Yanıtlanan mesaja belirtilen emoji ile tepki (reaction) verir."
+  },
+  {
+    "file": "wamsg.js",
+    "pattern": "düzenle ?(.*)",
+    "rawDesc": "\"Botun gönderdiği bir mesajı düzenler.\"",
+    "resolvedDesc": "Botun gönderdiği bir mesajı düzenler."
+  },
+  {
+    "file": "wamsg.js",
+    "pattern": "msjat ?(.*)",
+    "rawDesc": "\"Yanıtlanan mesajı belirtilen jid\"",
+    "resolvedDesc": "Yanıtlanan mesajı belirtilen jid"
+  },
+  {
+    "file": "wamsg.js",
+    "pattern": "msjyönlendir ?(.*)",
+    "rawDesc": "\"Yanıtlanan mesajı belirtilen jid\"",
+    "resolvedDesc": "Yanıtlanan mesajı belirtilen jid"
+  },
+  {
+    "file": "wamsg.js",
+    "pattern": "tekrar ?(.*)",
+    "rawDesc": "\"Yanıtlanan komutu tekrar çalıştırmayı dener\"",
+    "resolvedDesc": "Yanıtlanan komutu tekrar çalıştırmayı dener"
+  },
+  {
+    "file": "wamsg.js",
+    "pattern": "vv ?(.*)",
+    "rawDesc": "\"Tek görünürlü (view once) mesajları yakalar\"",
+    "resolvedDesc": "Tek görünürlü (view once) mesajları yakalar"
+  },
+  {
+    "file": "wamsg.js",
+    "pattern": "msjsil",
+    "rawDesc": "\"Mesajı herkesten siler. Yönetici silmesini destekler\"",
+    "resolvedDesc": "Mesajı herkesten siler. Yönetici silmesini destekler"
+  },
+  {
+    "file": "warn.js",
+    "pattern": "uyar(.*)",
+    "rawDesc": "\"Grup üyelerini uyarmaya yarar. Limit aşıldığında üye gruptan atılır.\"",
+    "resolvedDesc": "Grup üyelerini uyarmaya yarar. Limit aşıldığında üye gruptan atılır."
+  },
+  {
+    "file": "warn.js",
+    "pattern": "kaçuyarı ?(.*)",
+    "rawDesc": "\"Bir üyenin uyarılarını kontrol etmeyi sağlar.\"",
+    "resolvedDesc": "Bir üyenin uyarılarını kontrol etmeyi sağlar."
+  },
+  {
+    "file": "welcome.js",
+    "pattern": "welcome ?(.*)",
+    "rawDesc": "\"Grup karşılama mesajını ayarlar. $user, $group vb. etiketler kullanılabilir.\"",
+    "resolvedDesc": "Grup karşılama mesajını ayarlar. $user, $group vb. etiketler kullanılabilir."
+  },
+  {
+    "file": "welcome.js",
+    "pattern": "goodbye ?(.*)",
+    "rawDesc": "\"Grup çıkış mesajını ayarlar.\"",
+    "resolvedDesc": "Grup çıkış mesajını ayarlar."
+  },
+  {
+    "file": "welcome.js",
+    "pattern": "testwelcome ?(.*)",
+    "rawDesc": "\"Karşılama mesajını test eder\"",
+    "resolvedDesc": "Karşılama mesajını test eder"
+  },
+  {
+    "file": "welcome.js",
+    "pattern": "testgoodbye ?(.*)",
+    "rawDesc": "\"Veda mesajını test eder\"",
+    "resolvedDesc": "Veda mesajını test eder"
+  },
+  {
+    "file": "youtube.js",
+    "pattern": "spotify ?(.*)",
+    "rawDesc": "\"Spotify şarkısı indir\"",
+    "resolvedDesc": "Spotify şarkısı indir"
+  },
+  {
+    "file": "youtube.js",
+    "pattern": "ytara ?(.*)",
+    "rawDesc": "\"YouTube araması (detaylı bilgi ile)\"",
+    "resolvedDesc": "YouTube araması (detaylı bilgi ile)"
+  },
+  {
+    "file": "youtube.js",
+    "pattern": "ytvideo ?(.*)",
+    "rawDesc": "\"Video arayarak veya bağlantıdan doğrudan en yüksek kaliteyi indirir\"",
+    "resolvedDesc": "Video arayarak veya bağlantıdan doğrudan en yüksek kaliteyi indirir"
+  },
+  {
+    "file": "youtube.js",
+    "pattern": "video ?(.*)",
+    "rawDesc": "\"YouTube\"",
+    "resolvedDesc": "YouTube"
+  },
+  {
+    "file": "youtube.js",
+    "pattern": "ytses ?(.*)",
+    "rawDesc": "\"YouTube sesini belge olarak indir\"",
+    "resolvedDesc": "YouTube sesini belge olarak indir"
+  },
+  {
+    "file": "youtube.js",
+    "pattern": "şarkı ?(.*)",
+    "rawDesc": "\"YouTube\"",
+    "resolvedDesc": "YouTube"
+  }
+]

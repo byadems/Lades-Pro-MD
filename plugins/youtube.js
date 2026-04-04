@@ -311,7 +311,7 @@ Module(
   {
     pattern: "video ?(.*)",
     fromMe: fromMe,
-    desc: "YouTube'dan video indirir (arama terimi veya link ile)",
+    desc: "YouTube üzerinden video indirir (anahtar kelime veya bağlantı ile).",
     usage: ".video <sorgu/link>",
     use: "download",
   },
@@ -524,14 +524,14 @@ Module(
   {
     pattern: "şarkı ?(.*)",
     fromMe: fromMe,
-    desc: "YouTube'dan ses indirir (veya 'ara' argümanı ile listeleyerek seçer)",
-    usage: ".şarkı <sorgu/link> | .şarkı ara <sorgu>",
+    desc: "YouTube üzerinden ses/şarkı indirir (anahtar kelime veya bağlantı ile).",
+    usage: ".şarkı <sorgu/bağlantı> | .şarkıara <sorgu>",
     use: "download",
   },
   async (message, match) => {
     let input = (match[1] || message.reply_message?.text || "").trim();
     if (!input) {
-      return await message.sendReply("_⚠️ Lütfen şarkı adı veya bağlantısı yazın!_\n_Örnek: .şarkı Duman - Bu Akşam_");
+      return await message.sendReply("_⚠️ Lütfen şarkı adı veya bağlantısı yazın!_\n🎶 _Örnek: .şarkı Duman - Bu Akşam_");
     }
 
     // Handle "ara" subcommand
@@ -556,7 +556,7 @@ Module(
           resultText += `   _Kanal:_ ${video.channel}\n\n`;
         });
 
-        resultText += "_Ses indirmek için bir numara (1-10) ile yanıtlayın_";
+        resultText += "▶️ _Ses indirmek için bir numara (1-10) ile yanıtlayın._";
         return await message.edit(resultText, message.jid, searchMsg.key);
       } catch (error) {
         console.error("Şarkı arama hatası:", error);

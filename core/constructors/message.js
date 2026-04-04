@@ -6,8 +6,7 @@
  * Makes plugin writing much simpler.
  */
 
-const { downloadMediaMessage, generateForwardMessageContent, proto } = require("@whiskeysockets/baileys");
-const { getTempPath, cleanTempFile, getGroupAdmins } = require("../helpers");
+const { getTempPath, cleanTempFile, getGroupAdmins, loadBaileys } = require("../helpers");
 const fs = require("fs");
 
 /**
@@ -84,6 +83,7 @@ function enrichMessage(ctx, sock) {
     // ── Media helpers ─────────────────────────────────
     downloadMedia: async () => {
       if (!ctx.isImage && !ctx.isVideo && !ctx.isAudio && !ctx.isSticker && !ctx.isDocument) return null;
+      const { downloadMediaMessage } = await loadBaileys();
       const buffer = await downloadMediaMessage({ key, message }, "buffer", {});
       return buffer;
     },
@@ -92,6 +92,7 @@ function enrichMessage(ctx, sock) {
       const quoted = ctx.quoted;
       if (!quoted) return null;
       if (!quoted.isImage && !quoted.isVideo && !quoted.isAudio && !quoted.isSticker && !quoted.isDocument) return null;
+      const { downloadMediaMessage } = await loadBaileys();
       const buffer = await downloadMediaMessage(
         { key: quoted.key, message: quoted.message }, "buffer", {}
       );

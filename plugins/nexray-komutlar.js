@@ -81,7 +81,7 @@ Module(
     fromMe: isFromMe,
     desc: "Glitch efektli metin görseli oluşturur",
     usage: ".yazı LADES",
-    use: "fun",
+    use: "edit",
   },
   async (message, match) => {
     const text = (match[1] || "").trim();
@@ -104,7 +104,7 @@ Module(
     fromMe: isFromMe,
     desc: "Naruto stili metin logosu oluşturur",
     usage: ".naruto LADES",
-    use: "fun",
+    use: "edit",
   },
   async (message, match) => {
     const text = (match[1] || "").trim();
@@ -127,7 +127,7 @@ Module(
     fromMe: isFromMe,
     desc: "Marvel stili logo oluşturur (2 kelime)",
     usage: ".marvel LADES BOT",
-    use: "fun",
+    use: "edit",
   },
   async (message, match) => {
     const input = (match[1] || "").trim();
@@ -151,7 +151,7 @@ Module(
     fromMe: isFromMe,
     desc: "Blackpink stili metin görseli oluşturur",
     usage: ".blackpink LADES",
-    use: "fun",
+    use: "edit",
   },
   async (message, match) => {
     const text = (match[1] || "").trim();
@@ -174,7 +174,7 @@ Module(
     fromMe: isFromMe,
     desc: "Brat (Charli XCX) stili yeşil metin görseli",
     usage: ".brat lades bot",
-    use: "fun",
+    use: "edit",
   },
   async (message, match) => {
     const text = (match[1] || "").trim();
@@ -193,16 +193,16 @@ Module(
 // ══════════════════════════════════════════════════════════
 Module(
   {
-    pattern: "söz ?(.*)",
+    pattern: "şarkısözü ?(.*)",
     fromMe: isFromMe,
     desc: "Şarkı sözlerini bulur",
-    usage: ".söz Never Gonna Give You Up",
+    usage: ".şarkısözü Never Gonna Give You Up",
     use: "search",
   },
   async (message, match) => {
     const query = (match[1] || "").trim();
     if (!query) return await message.sendReply("🎵 _Şarkı adı girin:_ `.söz Tarkan Şımarık`");
-    
+
     let lyrics = null;
     let title = query;
     let artist = null;
@@ -216,7 +216,7 @@ Module(
         title = track.trackName || title;
         artist = track.artistName;
       }
-    } catch (_) {}
+    } catch (_) { }
 
     // 2. lyrics.ovh API (yedek)
     if (!lyrics) {
@@ -232,7 +232,7 @@ Module(
             title = songName;
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     // 3. Nexray API (son yedek)
@@ -244,7 +244,7 @@ Module(
           title = r.title || title;
           artist = r.artist;
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     if (!lyrics) {
@@ -265,15 +265,15 @@ Module(
 // ══════════════════════════════════════════════════════════
 Module(
   {
-    pattern: "duvar ?(.*)",
+    pattern: "duvarkağıdı ?(.*)",
     fromMe: isFromMe,
     desc: "HD duvar kağıdı arar ve gönderir",
-    usage: ".duvar doğa",
+    usage: ".duvarkağıdı doğa",
     use: "search",
   },
   async (message, match) => {
     const query = (match[1] || "").trim();
-    if (!query) return await message.sendReply("🖼️ _Konu girin:_ `.duvar doğa`");
+    if (!query) return await message.sendReply("🖼️ _Konu girin:_ `.duvarkağıdı doğa`");
     try {
       const results = await nexGet(`/search/wallcraft?q=${encodeURIComponent(query)}`);
       if (!results?.length) throw new Error("Sonuç bulunamadı");
@@ -328,13 +328,13 @@ Module(
   {
     pattern: "vikipedi ?(.*)",
     fromMe: isFromMe,
-    desc: "Wikipedia'dan bilgi çeker",
-    usage: ".wiki İstanbul",
+    desc: "Vikipedi üzerinden bilgi arar.",
+    usage: ".vikipedi İstanbul",
     use: "search",
   },
   async (message, match) => {
     const query = (match[1] || "").trim();
-    if (!query) return await message.sendReply("📚 _Konu girin:_ `.wiki İstanbul`");
+    if (!query) return await message.sendReply("📚 _Konu girin:_ `.vikipedi İstanbul`");
     try {
       const results = await nexGet(`/search/wikipedia?q=${encodeURIComponent(query)}`);
       if (!results?.length) throw new Error("Sonuç bulunamadı");
@@ -360,7 +360,7 @@ Module(
     fromMe: isFromMe,
     desc: "WhatsApp tarzı alıntı görseli oluşturur",
     usage: ".alıntı Merhaba dünya!",
-    use: "fun",
+    use: "edit",
   },
   async (message, match) => {
     let text = (match[1] || "").trim();

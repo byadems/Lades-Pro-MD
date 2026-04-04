@@ -12,13 +12,18 @@ const S = {
   plugins: [],
   ramHistory: [],
   chart: null,
+  testProgressPoll: null,
 };
 let es = null;
+let pairCountdownTimer = null;
 
 // ══════════════════════════════
 //  NAVIGATION
 // ══════════════════════════════
 function setupNav() {
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.getElementById('mobileOverlay');
+
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const page = btn.dataset.page;
@@ -26,9 +31,14 @@ function setupNav() {
       btn.classList.add('active');
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.getElementById(`page-${page}`)?.classList.add('active');
-      if (page === 'terminal') { 
-        S.newLogs = 0; 
-        updateTermBadge(); 
+
+      if (sidebar && overlay) {
+        sidebar.classList.remove('mobile-open');
+        overlay.classList.remove('active');
+      }
+      if (page === 'terminal') {
+        S.newLogs = 0;
+        updateTermBadge();
         setTimeout(() => {
           const body = document.getElementById('termBody');
           if (body) body.scrollTop = body.scrollHeight;
@@ -57,13 +67,34 @@ function setupConnTabs() {
 }
 
 // ══════════════════════════════
+//  MOBILE MENU
+// ══════════════════════════════
+function setupMobileMenu() {
+  const btn = document.getElementById('mobileMenuBtn');
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.getElementById('mobileOverlay');
+
+  if (btn && sidebar && overlay) {
+    btn.addEventListener('click', () => {
+      sidebar.classList.add('mobile-open');
+      overlay.classList.add('active');
+    });
+
+    overlay.addEventListener('click', () => {
+      sidebar.classList.remove('mobile-open');
+      overlay.classList.remove('active');
+    });
+  }
+}
+
+// ══════════════════════════════
 //  STATUS POLLING
 // ══════════════════════════════
 async function fetchStatus() {
   try {
     const r = await fetch('/api/status');
     const d = await r.json();
-    const online = d.hasSession;
+    const online = typeof d.connected === 'boolean' ? d.connected : d.hasSession;
 
     // Hero card
     const hero = document.getElementById('heroCard');
@@ -92,7 +123,7 @@ async function fetchStatus() {
     const heroIcon = document.getElementById('heroIcon');
     if (heroIcon) heroIcon.querySelector('svg')?.setAttribute('stroke', online ? 'currentColor' : 'currentColor');
 
-  } catch {}
+  } catch { }
 }
 
 // ══════════════════════════════
@@ -108,11 +139,25 @@ function setupAuth() {
 
   // Controls
   document.getElementById('btnStart')?.addEventListener('click', () => startQR());
-  document.getElementById('btnRestart')?.addEventListener('click', async () => {
+  document.getElementById('btnRestartSession')?.addEventListener('click', async () => {
     try {
-      toast('Yeniden başlatılıyor...', 'info');
-      await fetch('/api/auth/restart', { method: 'POST' });
+      toast('WhatsApp bağlantısı yenileniyor...', 'info');
+      await fetch('/api/auth/restart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'session' })
+      });
     } catch { toast('İşlem başarısız.', 'error'); }
+  });
+  document.getElementById('btnRestartSystem')?.addEventListener('click', async () => {
+    try {
+      toast('Tüm sistem yeniden başlatılıyor (Phoenix)...', 'warn');
+      await fetch('/api/auth/restart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'system' })
+      });
+    } catch { toast('Bağlantı hatası.', 'error'); }
   });
   document.getElementById('btnStop')?.addEventListener('click', async () => {
     try {
@@ -142,15 +187,42 @@ async function startQR() {
 
 async function startPair(phone) {
   const disp = document.getElementById('pairDisplay');
+  const btn = document.getElementById('btnPair');
+  const lockBtn = (locked) => {
+    if (!btn) return;
+    btn.disabled = locked;
+    btn.style.opacity = locked ? '0.65' : '1';
+  };
   if (disp) { disp.classList.remove('hidden'); disp.innerHTML = '<div style="color:var(--text3);font-size:13px">⌛ Kod alınıyor…</div>'; }
+  if (pairCountdownTimer) {
+    clearInterval(pairCountdownTimer);
+    pairCountdownTimer = null;
+  }
+  lockBtn(true);
   try {
     const r = await fetch('/api/auth/pair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }) });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || 'Hata');
-    if (disp) disp.innerHTML = `<h2>${d.code}</h2><p>WhatsApp → Telefon Numarasıyla Bağla → Bu kodu girin</p>`;
+    const renderPairInfo = () => {
+      if (!disp) return;
+      const now = Date.now();
+      const leftMs = Math.max(0, (d.expiresAt || now) - now);
+      const leftSec = Math.ceil(leftMs / 1000);
+      const expired = leftSec <= 0;
+      const safePhone = esc(d.phone || phone);
+      disp.innerHTML = `<h2>${d.code}</h2><p>WhatsApp → Telefon Numarasıyla Bağla → Bu kodu girin</p><p style="font-size:12px;color:var(--text3);margin-top:8px">Numara: +${safePhone} · Deneme: #${d.attempt || '-'}</p><p style="font-size:12px;color:${expired ? 'var(--red)' : 'var(--green)'};margin-top:4px">${expired ? 'Kodun süresi doldu, yeni kod üretin.' : `Kalan süre: ${leftSec}sn`}</p>`;
+      if (expired && pairCountdownTimer) {
+        clearInterval(pairCountdownTimer);
+        pairCountdownTimer = null;
+        lockBtn(false);
+      }
+    };
+    renderPairInfo();
+    pairCountdownTimer = setInterval(renderPairInfo, 1000);
     pollAuth();
   } catch (e) {
     if (disp) disp.innerHTML = `<div style="color:var(--red);font-size:13px">❌ ${e.message}</div>`;
+    lockBtn(false);
   }
 }
 
@@ -168,7 +240,7 @@ function pollAuth() {
         const visual = document.getElementById('qrVisual');
         if (visual) visual.innerHTML = `<div style="text-align:center;color:var(--green);padding:20px"><div style="font-size:32px">✅</div><div style="font-size:14px;margin-top:8px;font-weight:600">Başarıyla Bağlandı!</div></div>`;
       } else if (d.status === 'error') { clearInterval(pollT); }
-    } catch {}
+    } catch { }
   }, 2000);
 }
 
@@ -182,14 +254,25 @@ async function loadCommands() {
     const r = await fetch('/api/commands?t=' + Date.now());
     const d = await r.json();
     S.commands = d.commands || [];
-    const tested  = S.commands.filter(c => c.stat).length;
-    const ok      = S.commands.filter(c => c.stat?.status === 'ok').length;
+
+    // Fetch test progress
+    const progressR = await fetch('/api/test-progress?t=' + Date.now());
+    const progressData = await progressR.json();
+
+    const tested = S.commands.filter(c => c.stat).length;
+    const ok = S.commands.filter(c => c.stat?.status === 'ok').length;
     const errored = S.commands.filter(c => c.stat?.status === 'error').length;
     const timeout = S.commands.filter(c => c.stat?.status === 'timeout').length;
     const skipped = S.commands.filter(c => c.stat?.status === 'skipped').length;
-    const banner  = document.getElementById('cmdTestBanner');
+    const banner = document.getElementById('cmdTestBanner');
     if (banner) {
-      if (tested === 0) {
+      // If test is currently running, show current command
+      if (progressData.status === 'testing' && progressData.currentCommand) {
+        const current = progressData.currentIndex;
+        const total = progressData.totalCommands;
+        banner.innerHTML = `🧪 Test devam ediyor: <b>.${progressData.currentCommand}</b> (${current}/${total})`;
+        banner.className = 'cmd-banner pending';
+      } else if (tested === 0) {
         banner.innerHTML = '⏳ Bot henüz test çalıştırmadı. Bot bağlanınca otomatik başlar.';
         banner.className = 'cmd-banner pending';
       } else {
@@ -199,8 +282,45 @@ async function loadCommands() {
       banner.style.display = 'block';
     }
     renderCommands();
+
+    // If test is active, set up polling to update banner in real-time
+    if (progressData.status === 'testing') {
+      if (S.testProgressPoll) clearInterval(S.testProgressPoll);
+      S.testProgressPoll = setInterval(updateTestProgressBanner, 200); // 200ms for real-time updates
+    } else {
+      if (S.testProgressPoll) clearInterval(S.testProgressPoll);
+      S.testProgressPoll = null;
+    }
   } catch {
     if (list) list.innerHTML = '<div class="cmd-loading">Komutlar yüklenirken hata oluştu.</div>';
+  }
+}
+
+async function updateTestProgressBanner() {
+  try {
+    const progressR = await fetch('/api/test-progress?t=' + Date.now());
+    const progressData = await progressR.json();
+    const banner = document.getElementById('cmdTestBanner');
+
+    if (!banner) return;
+
+    if (progressData.status === 'testing' && progressData.currentCommand) {
+      const current = progressData.currentIndex;
+      const total = progressData.totalCommands;
+      banner.innerHTML = `🧪 Test devam ediyor: <b>.${progressData.currentCommand}</b> (${current}/${total})`;
+      banner.className = 'cmd-banner pending';
+      banner.style.display = 'block';
+    } else if (progressData.status === 'completed') {
+      // Test completed, show final results
+      if (S.testProgressPoll) {
+        clearInterval(S.testProgressPoll);
+        S.testProgressPoll = null;
+      }
+      // Reload commands to get final stats
+      loadCommands();
+    }
+  } catch (err) {
+    console.error('Failed to update test progress:', err);
   }
 }
 
@@ -225,31 +345,33 @@ function renderCommands(filter = '') {
     groups[cat].push(c);
   });
 
-  const catLabels = { group: '👥 Grup', ai: '🤖 Yapay Zeka', media: '🎵 Medya', general: '⚡ Genel', genel: '⚡ Genel', owner: '🔐 Sahip', fun: '🎉 Eğlence', tools: '🛠 Araçlar' };
+  const catLabels = { owner: "👑 Kurucu", system: "⚙️ Sistem", group: "👥 Grup", ai: "🤖 Yapay Zeka", download: "⬇️ İndirme", search: "🔍 Arama", tools: "🛠️ Araçlar", edit: "🎨 Görsel Düzenleme", media: "🎬 Medya", fun: "🎉 Eğlence", game: "🎮 Oyun & Test", dini: "🕌 Dini", chat: "💬 Sohbet", genel: "📦 Genel" };
 
   list.innerHTML = Object.entries(groups).map(([cat, items]) => `
     <div class="cmd-category">
       <div class="cmd-cat-name">${catLabels[cat] || '📦 ' + cat}</div>
       ${items.map(c => {
-        const s = c.stat;
-        let statBadge = '<span class="cmd-stat untested">— Henüz test edilmedi</span>';
-        if (s) {
-          if (s.status === 'ok') {
-            const t = s.lastRun ? new Date(s.lastRun).toLocaleTimeString('tr-TR', {hour:'2-digit',minute:'2-digit'}) : '';
-            statBadge = `<span class="cmd-stat ok">✅ ${s.ms}ms · ${t} · ${s.runs}x</span>`;
-          } else {
-            statBadge = `<span class="cmd-stat error" title="${esc(s.error||'')}">❌ Hata · ${s.runs}x çalıştı</span>`;
-          }
-        }
-        return `
+    const s = c.stat;
+    let statBadge = '<span class="cmd-stat untested">— Henüz test edilmedi</span>';
+    if (s) {
+      if (s.status === 'ok') {
+        const t = s.lastRun ? new Date(s.lastRun).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '';
+        statBadge = `<span class="cmd-stat ok">✅ ${s.ms}ms · ${t} · ${s.runs}x</span>`;
+      } else if (s.status === 'skipped') {
+        statBadge = `<span class="cmd-stat" style="color:var(--text3);" title="${esc(s.error || 'Atlandı')}">⏭ Atlandı · ${s.error || 'Güvenlik'}</span>`;
+      } else {
+        statBadge = `<span class="cmd-stat error" title="${esc(s.error || 'Hata')}">❌ Hata · ${s.runs}x çalıştı</span>`;
+      }
+    }
+    return `
           <div class="cmd-item">
-            <span class="cmd-name">.${c.pattern?.split(' ')[0]?.split('?')?.[0] || c.pattern}</span>
+            <span class="cmd-name">.${c.pattern || ''}</span>
             <span class="cmd-desc">${esc(c.desc || '--')}</span>
             ${statBadge}
             <span class="cmd-type">${c.use || c.type || 'genel'}</span>
           </div>
         `;
-      }).join('')}
+  }).join('')}
     </div>
   `).join('');
 }
@@ -275,15 +397,15 @@ function renderPlugins(filter = '') {
   const countEl = document.getElementById('pluginCount');
   if (!grid) return;
 
-  const plugins = filter ? S.plugins.filter(p => 
+  const plugins = filter ? S.plugins.filter(p =>
     p.name.toLowerCase().includes(filter) || p.desc.toLowerCase().includes(filter)
   ) : S.plugins;
 
   if (countEl) countEl.textContent = `${plugins.length} eklenti bulundu`;
 
-  if (!plugins.length) { 
-    grid.innerHTML = '<div class="cmd-loading">Eklenti bulunamadı.</div>'; 
-    return; 
+  if (!plugins.length) {
+    grid.innerHTML = '<div class="cmd-loading">Eklenti bulunamadı.</div>';
+    return;
   }
 
   const prefix = getVal('s_PREFIX') || '.';
@@ -292,7 +414,7 @@ function renderPlugins(filter = '') {
     // Prefix handler eklemesi (e.g. .afk)
     // utils gibi sistem dosyalarına prefix eklemeyelim
     const displayName = (p.name === 'utils' || p.name === 'main' || p.name === 'index') ? p.name : `${prefix}${p.name}`;
-    
+
     return `
       <div class="plugin-card ${p.active ? 'active' : ''} spotlight-wrap">
         <div class="p-header">
@@ -335,13 +457,13 @@ function setupBroadcast() {
     try {
       const btn = document.getElementById('bcSubmit');
       const btnSpan = btn.querySelector('span');
-      btn.disabled = true; if(btnSpan) btnSpan.textContent = 'Gönderiliyor...';
+      btn.disabled = true; if (btnSpan) btnSpan.textContent = 'Gönderiliyor...';
       const r = await fetch('/api/system/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jid, message })
       });
-      btn.disabled = false; if(btnSpan) btnSpan.textContent = 'MESAJI ŞİMDİ GÖNDER';
+      btn.disabled = false; if (btnSpan) btnSpan.textContent = 'MESAJI ŞİMDİ GÖNDER';
       if (r.ok) {
         toast('Sinyal başarıyla gönderildi!', 'success');
         setVal('bc_message', '');
@@ -391,10 +513,10 @@ function updateChart(val) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('cmdSearch')?.addEventListener('input', function() {
+  document.getElementById('cmdSearch')?.addEventListener('input', function () {
     renderCommands(this.value.toLowerCase().trim());
   });
-  document.getElementById('pluginSearch')?.addEventListener('input', function() {
+  document.getElementById('pluginSearch')?.addEventListener('input', function () {
     renderPlugins(this.value.toLowerCase().trim());
   });
 });
@@ -416,17 +538,17 @@ function connectLogs() {
   es.onmessage = (e) => {
     try {
       const log = JSON.parse(e.data);
-      
+
       if (log.isMetrics) {
         document.getElementById('statMessages').textContent = log.messages || 0;
         document.getElementById('statCommands').textContent = log.commands || 0;
         document.getElementById('statUsers').textContent = log.users || 0;
         document.getElementById('statGroups').textContent = log.groups || 0;
-        
+
         // Masterpiece: Add heap/max metrics
         if (log.memHeap) {
-           updateChart(log.memHeap);
-           setText('cpuMetric', log.cpuLoad || '0.1');
+          updateChart(log.memHeap);
+          setText('cpuMetric', log.cpuLoad || '0.1');
         }
         return; // Don't process as a terminal log
       }
@@ -437,14 +559,13 @@ function connectLogs() {
           // Remove empty state message
           const emptyRow = tBody.querySelector('.empty-row');
           if (emptyRow) emptyRow.remove();
-
           let senderHtml;
           if (log.isGroup) {
-              const name = esc(log.sender || 'Bilinmiyor');
-              const group = esc(log.groupName || 'Grup');
-              senderHtml = `<span style="color:var(--text)">${name}</span><span style="color:var(--text3);margin:0 3px">›</span><span style="color:var(--text2);font-size:12px">${group}</span> <span style="font-size:10px;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,0.08);color:var(--text2);margin-left:6px;font-weight:500;">Grup</span>`;
+            const name = esc(log.sender || 'Bilinmiyor');
+            const group = esc(log.groupName || 'Grup');
+            senderHtml = `<span style="color:var(--text)">${name}</span><span style="color:var(--text3);margin:0 3px">›</span><span style="color:var(--text2);font-size:12px">${group}</span> <span style="font-size:10px;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,0.08);color:var(--text2);margin-left:6px;font-weight:500;">Grup</span>`;
           } else {
-              senderHtml = `<span style="color:var(--green)">${esc(log.sender || 'Bilinmiyor')}</span> <span style="font-size:10px;padding:2px 6px;border-radius:6px;background:var(--green-dim);color:var(--green);margin-left:6px;font-weight:500;">Özel</span>`;
+            senderHtml = `<span style="color:var(--green)">${esc(log.sender || 'Bilinmiyor')}</span> <span style="font-size:10px;padding:2px 6px;border-radius:6px;background:var(--green-dim);color:var(--green);margin-left:6px;font-weight:500;">Özel</span>`;
           }
 
           const tr = document.createElement('tr');
@@ -477,7 +598,7 @@ function connectLogs() {
       if (!document.getElementById('page-terminal')?.classList.contains('active')) {
         S.newLogs++; updateTermBadge();
       }
-    } catch {}
+    } catch { }
   };
 }
 
@@ -497,7 +618,7 @@ function appendLog(log) {
   el.dataset.lv = lv;
   if (S.activeFilter !== 'all' && S.activeFilter !== lv) el.classList.add('fhide');
   const txt = (log.data || '').replace(/\x1b\[[0-9;]*m/g, '').trim();
-  
+
   // Syntax Highlight Logic
   let contentHtml = esc(txt);
   contentHtml = contentHtml.replace(/(\{.*\}|\[.*\])/g, '<span style="color:#60a5fa">$1</span>'); // JSON
@@ -505,7 +626,7 @@ function appendLog(log) {
 
   el.innerHTML = `<span class="ltime">${log.time || ''}</span><span class="llv ${lv}">${lv.toUpperCase()}</span><span class="lcontent">${contentHtml}</span>`;
   body.appendChild(el);
-  if (body.children.length > 600) body.removeChild(body.firstChild);
+  if (body.children.length > 200) body.removeChild(body.firstChild);
   if (S.autoScroll) body.scrollTop = body.scrollHeight;
 }
 
@@ -531,7 +652,7 @@ function setupTerminalControls() {
   });
 
   // Auto-scroll
-  document.getElementById('btnAutoScroll')?.addEventListener('click', function() {
+  document.getElementById('btnAutoScroll')?.addEventListener('click', function () {
     S.autoScroll = !S.autoScroll;
     this.classList.toggle('active', S.autoScroll);
   });
@@ -545,7 +666,7 @@ function setupTerminalControls() {
   });
 
   // Search
-  document.getElementById('termSearch')?.addEventListener('input', function() {
+  document.getElementById('termSearch')?.addEventListener('input', function () {
     const q = this.value.toLowerCase().trim();
     let matches = 0;
     document.querySelectorAll('#termBody .log-line').forEach(line => {
@@ -572,12 +693,12 @@ async function fetchConfig() {
     setVal('s_PREFIX', d.PREFIX);
     setVal('s_SUDO', d.SUDO);
     setVal('s_GEMINI_API_KEY', d.GEMINI_API_KEY);
-    setChk('s_PUBLIC_MODE',   d.PUBLIC_MODE === 'true');
-    setChk('s_AUTO_READ',     d.AUTO_READ === 'true');
-    setChk('s_AUTO_TYPING',   d.AUTO_TYPING !== 'false');
-    setChk('s_ANTI_LINK',     d.ANTI_LINK === 'true');
-    setChk('s_ANTI_SPAM',     d.ANTI_SPAM === 'true');
-  } catch {}
+    setChk('s_PUBLIC_MODE', d.PUBLIC_MODE === 'true');
+    setChk('s_AUTO_READ', d.AUTO_READ === 'true');
+    setChk('s_AUTO_TYPING', d.AUTO_TYPING !== 'false');
+    setChk('s_ANTI_LINK', d.ANTI_LINK === 'true');
+    setChk('s_ANTI_SPAM', d.ANTI_SPAM === 'true');
+  } catch { }
 }
 
 async function loadEnvPreview() {
@@ -594,16 +715,16 @@ function setupSettings() {
   document.getElementById('settingsForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const body = {
-      BOT_NAME:       getVal('s_BOT_NAME'),
-      OWNER_NUMBER:   getVal('s_OWNER_NUMBER'),
-      PREFIX:         getVal('s_PREFIX'),
-      SUDO:           getVal('s_SUDO'),
+      BOT_NAME: getVal('s_BOT_NAME'),
+      OWNER_NUMBER: getVal('s_OWNER_NUMBER'),
+      PREFIX: getVal('s_PREFIX'),
+      SUDO: getVal('s_SUDO'),
       GEMINI_API_KEY: getVal('s_GEMINI_API_KEY'),
-      PUBLIC_MODE:    getChk('s_PUBLIC_MODE') ? 'true' : 'false',
-      AUTO_READ:      getChk('s_AUTO_READ') ? 'true' : 'false',
-      AUTO_TYPING:    getChk('s_AUTO_TYPING') ? 'true' : 'false',
-      ANTI_LINK:      getChk('s_ANTI_LINK') ? 'true' : 'false',
-      ANTI_SPAM:      getChk('s_ANTI_SPAM') ? 'true' : 'false',
+      PUBLIC_MODE: getChk('s_PUBLIC_MODE') ? 'true' : 'false',
+      AUTO_READ: getChk('s_AUTO_READ') ? 'true' : 'false',
+      AUTO_TYPING: getChk('s_AUTO_TYPING') ? 'true' : 'false',
+      ANTI_LINK: getChk('s_ANTI_LINK') ? 'true' : 'false',
+      ANTI_SPAM: getChk('s_ANTI_SPAM') ? 'true' : 'false',
     };
     try {
       const r = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -627,7 +748,7 @@ function setupSettings() {
 // ══════════════════════════════
 function toast(msg, type = 'info') {
   const box = document.getElementById('toastBox'); if (!box) return;
-  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  const icons = { success: '✅', error: '❌', info: 'ℹ️', warn: '⚠️' };
   const t = document.createElement('div');
   t.className = `toast ${type}`;
   t.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
@@ -647,17 +768,18 @@ function formatUptime(sec) {
   return res.join(' ');
 }
 function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
-function setVal(id, val)  { const el = document.getElementById(id); if (el && val !== undefined) el.value = val; }
-function getVal(id)       { return document.getElementById(id)?.value || ''; }
-function setChk(id, val)  { const el = document.getElementById(id); if (el) el.checked = !!val; }
-function getChk(id)       { return document.getElementById(id)?.checked || false; }
-function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function setVal(id, val) { const el = document.getElementById(id); if (el && val !== undefined) el.value = val; }
+function getVal(id) { return document.getElementById(id)?.value || ''; }
+function setChk(id, val) { const el = document.getElementById(id); if (el) el.checked = !!val; }
+function getChk(id) { return document.getElementById(id)?.checked || false; }
+function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
 // ══════════════════════════════
 //  INIT
 // ══════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
   setupNav();
+  setupMobileMenu();
   setupConnTabs();
   setupAuth();
   setupTerminalControls();
@@ -666,14 +788,20 @@ document.addEventListener('DOMContentLoaded', () => {
   connectLogs();
   fetchStatus();
   setInterval(fetchStatus, 5000);
-  
+
   // Global helpers
   window.togglePlugin = togglePlugin;
 
-  // Global Mouse tracking for Spotlight effects
+  // Global Mouse tracking for Spotlight effects (Optimized with RAF)
+  let rafPending = false;
   document.addEventListener('mousemove', e => {
-    document.body.style.setProperty('--mouse-x', `${e.clientX}px`);
-    document.body.style.setProperty('--mouse-y', `${e.clientY}px`);
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(() => {
+      document.body.style.setProperty('--mouse-x', `${e.clientX}px`);
+      document.body.style.setProperty('--mouse-y', `${e.clientY}px`);
+      rafPending = false;
+    });
   });
 });
 

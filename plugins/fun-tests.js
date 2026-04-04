@@ -27,7 +27,7 @@ Module(
   {
     pattern: "testgay ?(.*)",
     fromMe: false,
-    use: "group",
+    use: "game",
     desc: "Etiketlediğiniz üyenin gaylik yüzdesini ölçer.",
   },
   async (message) => {
@@ -42,7 +42,7 @@ Module(
   {
     pattern: "testlez ?(.*)",
     fromMe: false,
-    use: "group",
+    use: "game",
     desc: "Etiketlediğiniz üyenin lezlik yüzdesini ölçer.",
   },
   async (message) => {
@@ -57,7 +57,7 @@ Module(
   {
     pattern: "testprenses ?(.*)",
     fromMe: false,
-    use: "group",
+    use: "game",
     desc: "Etiketlediğiniz üyenin prenseslik seviyesini ölçer.",
   },
   async (message) => {
@@ -72,7 +72,7 @@ Module(
   {
     pattern: "testregl ?(.*)",
     fromMe: false,
-    use: "group",
+    use: "game",
     desc: "Etiketlediğiniz üyenin Regl olma ihtimalini ölçer.",
   },
   async (message) => {
@@ -87,7 +87,7 @@ Module(
   {
     pattern: "testinanç ?(.*)",
     fromMe: false,
-    use: "group",
+    use: "game",
     desc: "Etiketlediğiniz üyenin inanç seviyesini ölçer.",
   },
   async (message) => {
@@ -102,7 +102,7 @@ Module(
   {
     pattern: "aşkölç ?(.*)",
     fromMe: false,
-    use: "group",
+    use: "game",
     desc: "İki kişi arasındaki aşk yüzdesini ölçer.",
   },
   async (message, match) => {
@@ -143,7 +143,7 @@ Module(
     fromMe: isFromMe,
     desc: "Rastgele beyin jimnastiği sorusu gönderir",
     usage: ".beyin",
-    use: "games",
+    use: "game",
   },
   async (message) => {
     try {
@@ -170,7 +170,7 @@ Module(
     fromMe: isFromMe,
     desc: "Rastgele bilmece sorusu gönderir",
     usage: ".bilmece",
-    use: "games",
+    use: "game",
   },
   async (message) => {
     try {
@@ -197,7 +197,7 @@ Module(
     fromMe: isFromMe,
     desc: "Rastgele kimya sorusu gönderir",
     usage: ".kimyasoru",
-    use: "games",
+    use: "game",
   },
   async (message) => {
     try {
@@ -205,6 +205,7 @@ Module(
       const element = r.element || r.question || r.soal || JSON.stringify(r);
       const symbol = r.symbol || r.jawaban || r.answer || "?";
       const number = r.atomicNumber || r.atomic_number || r.nomor || "";
+
       await message.sendReply(
         `⚗️ *Kimya Sorusu*\n\n` +
         `Bu elementin sembolü nedir?\n` +
@@ -244,11 +245,11 @@ Module(
 
 Module(
   {
-    pattern: "(?:dragonyazı|dragonyazi) ?(.*)",
+    pattern: "dragonyazı ?(.*)",
     fromMe: isFromMe,
     desc: "Dragon Ball stili metin logosu oluşturur",
     usage: ".dragonyazı LADES",
-    use: "fun",
+    use: "edit",
   },
   async (message, match) => {
     const text = trToEn((match[1] || "").trim());
@@ -264,11 +265,11 @@ Module(
 
 Module(
   {
-    pattern: "(?:neonyazı|neonyazi) ?(.*)",
+    pattern: "neonyazı ?(.*)",
     fromMe: isFromMe,
     desc: "Neon ışıklı metin logosu oluşturur",
     usage: ".neonyazı LADES",
-    use: "fun",
+    use: "edit",
   },
   async (message, match) => {
     const text = trToEn((match[1] || "").trim());
@@ -284,11 +285,11 @@ Module(
 
 Module(
   {
-    pattern: "(?:grafitiyazı|grafitiyazi) ?(.*)",
+    pattern: "grafitiyazı ?(.*)",
     fromMe: isFromMe,
     desc: "Grafiti stili metin logosu oluşturur",
     usage: ".grafitiyazı LADES",
-    use: "fun",
+    use: "edit",
   },
   async (message, match) => {
     const text = trToEn((match[1] || "").trim());
@@ -304,11 +305,11 @@ Module(
 
 Module(
   {
-    pattern: "(?:devilyazı|devilyazi) ?(.*)",
+    pattern: "devilyazı ?(.*)",
     fromMe: isFromMe,
     desc: "Şeytan kanadı stili metin logosu oluşturur",
     usage: ".devilyazı LADES",
-    use: "fun",
+    use: "edit",
   },
   async (message, match) => {
     const text = trToEn((match[1] || "").trim());
@@ -324,15 +325,15 @@ Module(
 
 Module(
   {
-    pattern: "(?:müzikkartı|muzikkarti) ?(.*)",
+    pattern: "müzikkart ?(.*)",
     fromMe: isFromMe,
     desc: "Müzik kartı görseli oluşturur",
-    usage: ".müzikkartı Şarkı Adı|Sanatçı|<resim_url>",
-    use: "fun",
+    usage: ".müzikkart Şarkı Adı|Sanatçı|<resim_url>",
+    use: "edit",
   },
   async (message, match) => {
     const parts = (match[1] || "").split("|").map(s => s.trim());
-    if (parts.length < 2) return await message.sendReply("🎵 _Kullanım:_ `.müzikkartı Şarkı Adı|Sanatçı` veya `Şarkı|Sanatçı|<resim_url>`");
+    if (parts.length < 2) return await message.sendReply("🎵 _Kullanım:_ `.müzikkart Şarkı Adı|Sanatçı` veya `Şarkı|Sanatçı|<resim_url>`");
     const [title, artist, img] = parts;
     let imageUrl = img || "https://i.imgur.com/Y3KqMfn.jpg";
 

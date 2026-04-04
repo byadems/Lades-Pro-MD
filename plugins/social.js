@@ -12,6 +12,7 @@ const {
 const nexray = require("./utils/nexray");
 const botConfig = require("../config");
 const axios = require("axios");
+const { saveToDisk, getTempPath, cleanTempFile } = require("../core/helpers");
 const isFromMe = botConfig.isPrivate;
 
 async function checkRedirect(url) {
@@ -96,38 +97,53 @@ Module(
       }
 
       if (!allMediaUrls.length)
-        return await message.sendReply("_⚠️ Bir şeyler ters gitti, Lütfen tekrar deneyin!_"
-        );
+        return await message.sendReply("_⚠️ Bir şeyler ters gitti, Lütfen tekrar deneyin!_");
 
-      // send as single media or album
-      if (allMediaUrls.length === 1) {
-        return await message.sendMessage(
-          { url: allMediaUrls[0] },
-          /\.(jpg|jpeg|png|webp|heic)(\?|$)/i.test(allMediaUrls[0])
-            ? "image"
-            : "video",
-          {
-            quoted: quotedMessage,
-          }
-        );
+      // Check if total album size or count is too large to prevent crashes
+      if (allMediaUrls.length > 10) {
+        return await message.sendReply("_⚠️ Albüm çok fazla öğe içeriyor (Maksimum 10)._");
       }
 
-      // send as album
-      const albumObject = allMediaUrls.map((mediaUrl) => {
-        return /\.(jpg|jpeg|png|webp|heic)(\?|$)/i.test(mediaUrl)
-          ? { image: mediaUrl }
-          : { video: mediaUrl };
-      });
-      albumObject[0].caption = `_İndirme tamamlandı! (${allMediaUrls.length} öğe)_`;
-      return await message.client.albumMessage(
-        message.jid,
-        albumObject,
-        message.data
-      );
+      const tempFiles = [];
+      try {
+        // Download all media to temp files
+        for (const mediaUrl of allMediaUrls) {
+          const isImage = /\.(jpg|jpeg|png|webp|heic)(\?|$)/i.test(mediaUrl);
+          const ext = isImage ? ".jpg" : ".mp4";
+          const tempPath = getTempPath(ext);
+          await saveToDisk(mediaUrl, tempPath);
+          tempFiles.push({ path: tempPath, isImage });
+        }
+
+        if (tempFiles.length === 1) {
+          const file = tempFiles[0];
+          return await message.sendMessage(
+            { [file.isImage ? "image" : "video"]: { url: file.path } },
+            { quoted: quotedMessage }
+          );
+        }
+
+        // Send as album (passing local paths)
+        const albumObject = tempFiles.map((file, i) => {
+          const obj = file.isImage ? { image: { url: file.path } } : { video: { url: file.path } };
+          if (i === 0) obj.caption = `_İndirme tamamlandı! (${tempFiles.length} öğe)_`;
+          return obj;
+        });
+
+        return await message.client.albumMessage(
+          message.jid,
+          albumObject,
+          message.data
+        );
+      } finally {
+        // CLEANUP
+        for (const file of tempFiles) {
+          cleanTempFile(file.path);
+        }
+      }
     } catch (err) {
       console.error("Instagram komut hatası:", err?.message || err);
-      return await message.sendReply("_⚠️ Bir şeyler ters gitti, Lütfen tekrar deneyin!_"
-      );
+      return await message.sendReply("_⚠️ Bir şeyler ters gitti, Lütfen tekrar deneyin!_");
     }
   }
 );
@@ -155,13 +171,25 @@ Module(
         result = await nexray.downloadFacebook(videoLink);
       }
       if (result?.url) {
-        return await message.sendReply({ url: result.url }, "video");
+        const tempPath = getTempPath(".mp4");
+        try {
+          await saveToDisk(result.url, tempPath);
+          return await message.sendReply({ video: { url: tempPath } });
+        } finally {
+          cleanTempFile(tempPath);
+        }
       }
     } catch (e) {
       try {
         const fallback = await nexray.downloadFacebook(videoLink);
         if (fallback?.url) {
-          return await message.sendReply({ url: fallback.url }, "video");
+          const tempPath = getTempPath(".mp4");
+          try {
+            await saveToDisk(fallback.url, tempPath);
+            return await message.sendReply({ video: { url: tempPath } });
+          } finally {
+            cleanTempFile(tempPath);
+          }
         }
       } catch (_) {}
       console.error("Facebook indirme hatası:", e.message);
@@ -177,7 +205,7 @@ Module(
     fromMe: isFromMe,
     desc: "Instagram kullanıcı profili bilgilerini gösterir",
     usage: ".igara kullanıcıadı",
-    use: "stalker",
+    use: "tools",
   },
   async (message, match) => {
     const user = (match[1] || "").trim().replace(/^@/, "");
@@ -224,7 +252,7 @@ Module(
     fromMe: isFromMe,
     desc: "Twitter/X kullanıcı profili bilgilerini gösterir",
     usage: ".twara kullanıcı adı",
-    use: "stalker",
+    use: "tools",
   },
   async (message, match) => {
     const user = (match[1] || "").trim().replace(/^@/, "");
@@ -298,11 +326,18 @@ Module(
     }
     if (!storyData || !storyData.length)
       return await message.sendReply("*_❌ Bulunamadı!_*");
-    if (storyData.length === 1)
-      return await message.sendReply(
-        { url: storyData[0] },
-        /\.(jpg|jpeg|png|webp)(\?|$)/i.test(storyData[0]) ? "image" : "video"
-      );
+    if (storyData.length === 1) {
+      const isImage = /\.(jpg|jpeg|png|webp)(\?|$)/i.test(storyData[0]);
+      const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
+      try {
+        await saveToDisk(storyData[0], tempPath);
+        return await message.sendReply(
+          { [isImage ? "image" : "video"]: { url: tempPath } }
+        );
+      } finally {
+        cleanTempFile(tempPath);
+      }
+    }
     userIdentifier = userIdentifier
       .replace("https://instagram.com/stories/", "")
       .split("/")[0];
@@ -352,12 +387,23 @@ Module(
       }
 
       if (!url)
-        return await message.sendReply("_❌ Bu bağlantı için indirilebilir medya bulunamadı_"
-        );
+        return await message.sendReply("_❌ Bu bağlantı için indirilebilir medya bulunamadı_");
+      
       const quotedMessage = message.reply_message
         ? message.quoted
         : message.data;
-      await message.sendMessage({ url }, "video", { quoted: quotedMessage });
+
+      const isImage = /\.(jpg|jpeg|png|webp|heic)(\?|$)/i.test(url);
+      const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
+      try {
+        await saveToDisk(url, tempPath);
+        await message.sendMessage(
+          { [isImage ? "image" : "video"]: { url: tempPath } },
+          { quoted: quotedMessage }
+        );
+      } finally {
+        cleanTempFile(tempPath);
+      }
     } else {
       let desiredCount = parseInt(userQuery.split(",")[1]) || 5;
       let searchQuery = userQuery.split(",")[0] || userQuery;
@@ -426,7 +472,13 @@ Module(
     try {
       const result = await nexray.downloadTwitter(videoLink);
       if (result?.url) {
-        await message.sendReply({ url: result.url }, "video");
+        const tempPath = getTempPath(".mp4");
+        try {
+          await saveToDisk(result.url, tempPath);
+          await message.sendReply({ video: { url: tempPath } });
+        } finally {
+          cleanTempFile(tempPath);
+        }
       } else {
         await message.sendReply("_⚠️ Bu bağlantı için indirilebilir medya bulunamadı_");
       }
@@ -456,8 +508,14 @@ Module(
         const fallback = await nexray.downloadTiktok(videoLink);
         downloadResult = fallback?.url ? { url: fallback.url } : null;
       }
-      if (downloadResult) {
-        await message.sendReply(downloadResult, "video");
+      if (downloadResult && downloadResult.url) {
+        const tempPath = getTempPath(".mp4");
+        try {
+          await saveToDisk(downloadResult.url, tempPath);
+          await message.sendReply({ video: { url: tempPath } });
+        } finally {
+          cleanTempFile(tempPath);
+        }
       } else {
         await message.sendReply("_⚠️ Bir şeyler ters gitti, Lütfen tekrar deneyin!_");
       }
@@ -465,7 +523,13 @@ Module(
       try {
         const fallback = await nexray.downloadTiktok(videoLink);
         if (fallback?.url) {
-          await message.sendReply({ url: fallback.url }, "video");
+          const tempPath = getTempPath(".mp4");
+          try {
+            await saveToDisk(fallback.url, tempPath);
+            await message.sendReply({ video: { url: tempPath } });
+          } finally {
+            cleanTempFile(tempPath);
+          }
         } else {
           await message.sendReply("_⚠️ Bir şeyler ters gitti, Lütfen tekrar deneyin!_");
         }
@@ -504,7 +568,13 @@ Module(
       if (desc) caption += `📝 ${desc}\n`;
       if (usage !== "-") caption += `📈 *Kullanım:* ${fmtCount(usage)}`;
       
-      await message.client.sendMessage(message.jid, { video: { url: video }, caption }, { quoted: message.data });
+      const tempPath = getTempPath(".mp4");
+      try {
+        await saveToDisk(video, tempPath);
+        await message.client.sendMessage(message.jid, { video: { url: tempPath }, caption }, { quoted: message.data });
+      } finally {
+        cleanTempFile(tempPath);
+      }
     } catch (e) {
       await message.sendReply(`❌ _CapCut videosu indirilemedi:_ ${e.message}`);
     }
@@ -532,10 +602,10 @@ function extractTikTokUsername(input) {
 Module(
   {
     pattern: 'ttara ?(.*)',
-    fromMe: false,
+    fromMe: isFromMe,
     desc: 'TikTok kullanıcı bilgilerini getirir. (Gizli hesaplar hariç)',
     usage: '.ttara lades\n.ttara @lades\n.ttara https://www.tiktok.com/@lades',
-    use: 'search',
+    use: "tools",
   },
   async (message, match) => {
     try {

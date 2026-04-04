@@ -1,6 +1,6 @@
 const { Module } = require("../main");
 const { ADMIN_ACCESS, HANDLER_PREFIX } = require("../config");
-const { isAdmin, filter } = require("./utils");
+const { filter, isAdmin } = require("./utils");
 
 const handler = HANDLER_PREFIX;
 
@@ -11,13 +11,11 @@ Module(
     desc: "Otomatik yanıt filtreleri oluşturur. Kullanım: .filtre tetikleyici | yanıt",
     usage:
       ".filtre merhaba | Merhaba! | chat\n.filtre yardım | Size yardım edebilirim | global\n.filtre güle | Güle güle! | group | exact",
-    use: "utility",
+    use: "group",
   },
   async (message, match) => {
     if (match[0].includes("filters")) return;
-    let adminAccess = ADMIN_ACCESS
-      ? await isAdmin(message, message.sender)
-      : false;
+    let adminAccess = await isAdmin(message);
     if (!message.fromOwner && !adminAccess) return;
     const input = match[1]?.trim();
     if (!input) {
@@ -111,12 +109,10 @@ Module(
     fromMe: false,
     desc: "Tüm filtreleri listele",
     usage: ".filters\n.filters global\n.filters group",
-    use: "utility",
+    use: "group",
   },
   async (message, match) => {
-    let adminAccess = ADMIN_ACCESS
-      ? await isAdmin(message, message.sender)
-      : false;
+    let adminAccess = await isAdmin(message);
     if (!message.fromOwner && !adminAccess) return;
 
     const scope = match[1]?.trim().toLowerCase();
@@ -170,12 +166,10 @@ Module(
     fromMe: false,
     desc: "Bir filtreyi sil",
     usage: ".delfilter trigger\n.delfilter trigger global",
-    use: "utility",
+    use: "group",
   },
   async (message, match) => {
-    let adminAccess = ADMIN_ACCESS
-      ? await isAdmin(message, message.sender)
-      : false;
+    let adminAccess = await isAdmin(message);
     if (!message.fromOwner && !adminAccess) return;
 
     const input = match[1]?.trim();
@@ -216,12 +210,10 @@ Module(
     fromMe: false,
     desc: "Bir filtreyi aç/kapat",
     usage: ".togglefilter trigger\n.togglefilter trigger global",
-    use: "utility",
+    use: "group",
   },
   async (message, match) => {
-    let adminAccess = ADMIN_ACCESS
-      ? await isAdmin(message, message.sender)
-      : false;
+    let adminAccess = await isAdmin(message);
     if (!message.fromOwner && !adminAccess) return;
 
     const input = match[1]?.trim();
@@ -275,12 +267,10 @@ Module(
     fromMe: false,
     desc: "Bir mesajın filtreleri tetikleyip tetiklemeyeceğini test edin",
     usage: ".testfilter hello world",
-    use: "utility",
+    use: "group",
   },
   async (message, match) => {
-    let adminAccess = ADMIN_ACCESS
-      ? await isAdmin(message, message.sender)
-      : false;
+    let adminAccess = await isAdmin(message);
     if (!message.fromOwner && !adminAccess) return;
 
     const testText = match[1]?.trim();
@@ -320,7 +310,7 @@ Module(
     pattern: "filtreyardım",
     fromMe: false,
     desc: "Filtre sistemi için ayrıntılı yardım",
-    use: "utility",
+    use: "group",
   },
   async (message) => {
     const helpText =

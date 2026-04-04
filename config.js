@@ -72,6 +72,7 @@ const config = {
   OWNER_NUMBER: process.env.OWNER_NUMBER || "",
   PREFIX: process.env.PREFIX || ".",
   SESSION: process.env.SESSION || "",
+  LANGUAGE: process.env.LANG || "turkish",
 
   // Features
   AUTO_READ: process.env.AUTO_READ === "true",

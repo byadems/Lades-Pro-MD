@@ -19,6 +19,9 @@ function TimeCalculator(a) {
 }
 
 const { Module } = require("../main");
+const config = require("../config");
+const isFromMe = config.MODE === "public" ? false : true;
+
 const { exec } = require("child_process");
 const { promisify } = require("util");
 const execPromise = promisify(exec);
@@ -33,18 +36,20 @@ const tar = require("tar");
 // ═══════════════════════════════════
 Module(
   {
+    fromMe: isFromMe,
     pattern: "yaşhesap ?(.*)",
     desc: "Yaş hesaplayıcı",
-    use: "utility",
+    use: "tools",
   },
   async (m, match) => {
-    if (!match) return await m.sendReply("_📅 Doğum tarihinizi girin_\n_Örnek: .yaşhesap 15/06/1990_");
+    const input = match[1] ? match[1].trim() : "";
+    if (!input) return await m.sendReply("_📅 Doğum tarihinizi yazın._\n_Örnek: .yaşhesap 10/01/2021_");
     if (
-      !/^(0?[1-9]|[12][0-9]|3[01])[\/\-](0?[1-9]|1[012])[\/\-]\d{4}$/.test(match)
+      !/^(0?[1-9]|[12][0-9]|3[01])[\/\-](0?[1-9]|1[012])[\/\-]\d{4}$/.test(input)
     )
-      return await m.sendReply("_⚠️ Tarih gg/aa/yyyy formatında olmalıdır_\n_Örnek: 15/06/1990_");
+      return await m.sendReply("_⚠️ Tarih gg/aa/yyyy formatında olmalıdır!_\n_Örnek: 15/06/1990_");
 
-    var DOB = match;
+    var DOB = input;
     var parts = DOB.includes("-") ? DOB.split("-") : DOB.split("/");
     var actual = parts[1] + "/" + parts[0] + "/" + parts[2];
     var dob = new Date(actual).getTime();
@@ -65,18 +70,20 @@ Module(
 // ═══════════════════════════════════
 Module(
   {
+    fromMe: isFromMe,
     pattern: "gerisayım ?(.*)",
     desc: "Tarihe geri sayım yapar",
-    use: "utility",
+    use: "tools",
   },
   async (m, match) => {
-    if (!match) return await m.sendReply("_📅 Bana gelecek bir tarih verin!_\n_Örnek: .gerisayım 01/01/2026_");
+    const input = match[1] ? match[1].trim() : "";
+    if (!input) return await m.sendReply("_📅 Bana gelecek bir tarih verin!_\n_Örnek: .gerisayım 01/01/2099_");
     if (
-      !/^(0?[1-9]|[12][0-9]|3[01])[\/\-](0?[1-9]|1[012])[\/\-]\d{4}$/.test(match)
+      !/^(0?[1-9]|[12][0-9]|3[01])[\/\-](0?[1-9]|1[012])[\/\-]\d{4}$/.test(input)
     )
       return await m.sendReply("_⚠️ Tarih gg/aa/yyyy formatında olmalıdır_\n_Örnek: 01/01/2026_");
 
-    var DOB = match;
+    var DOB = input;
     var parts = DOB.includes("-") ? DOB.split("-") : DOB.split("/");
     var actual = parts[1] + "/" + parts[0] + "/" + parts[2];
     var dob = new Date(actual).getTime();
@@ -85,7 +92,7 @@ Module(
 
     var today = new Date().getTime();
 
-    if (dob <= today) return await m.sendReply("_⚠️ Lütfen gelecekte bir tarih girin!_");
+    if (dob <= today) return await m.sendReply("_⚠️ Lütfen gelecekten bir tarih yazın!_");
 
     var remaining = (dob - today) / 1000;
     return await m.sendReply("_⏳ " + TimeCalculator(remaining) + " kaldı_");
@@ -97,8 +104,9 @@ Module(
 // ═══════════════════════════════════
 Module(
   {
+    fromMe: isFromMe,
     pattern: "ping",
-    use: "utility",
+    use: "tools",
     desc: "Ağ gecikmesini (ping) ölçer",
   },
   async (message) => {
@@ -128,7 +136,7 @@ function downloadFile(url, dest) {
         resolve();
       });
     }).on('error', (err) => {
-      fs.unlink(dest, () => {});
+      fs.unlink(dest, () => { });
       reject(err);
     });
   });
@@ -139,9 +147,10 @@ function downloadFile(url, dest) {
 // ═══════════════════════════════════
 Module(
   {
+    fromMe: isFromMe,
     pattern: "hıztesti",
     desc: "Ookla Speedtest ile gerçek hız testi",
-    use: "utility",
+    use: "tools",
   },
   async (message) => {
     const loading = await message.sendReply(
@@ -247,9 +256,9 @@ Module(
 
     } catch (error) {
       console.error("Speedtest error:", error);
-      
+
       let errorMsg = `❌ *Hız testi başarısız!*\n\n`;
-      
+
       if (error.message.includes("Desteklenmeyen platform")) {
         errorMsg += `_Platform desteklenmiyor: ${process.platform} ${process.arch}_`;
       } else if (error.killed) {
@@ -261,9 +270,9 @@ Module(
       } else {
         errorMsg += `_${error.message}_`;
       }
-      
+
       errorMsg += `\n\n💡 *Alternatif:* .ping komutunu deneyin`;
-      
+
       await message.edit(errorMsg, message.jid, loading.key);
     }
   }

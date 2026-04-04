@@ -6,22 +6,13 @@
  * binds all event handlers, and implements reconnect logic.
  */
 
-const {
-  default: makeWASocket,
-  DisconnectReason,
-  fetchLatestBaileysVersion,
-  makeCacheableSignalKeyStore,
-  Browsers,
-  proto,
-} = require("@whiskeysockets/baileys");
-
+const path = require("path");
+const fs = require("fs");
 const { logger, ...config } = require("../config");
 const { getAuthState, displayQR } = require("./auth");
 const { bindToSocket, fetchGroupMeta } = require("./store");
 const { handleMessage, handleGroupUpdate, handleGroupParticipantsUpdate, loadPlugins } = require("./handler");
-const { startTempCleanup, stopTempCleanup, isGroup } = require("./helpers");
-const path = require("path");
-const fs = require("fs");
+const { getMessageText, startTempCleanup, stopTempCleanup, isGroup, loadBaileys } = require("./helpers");
 
 // ─────────────────────────────────────────────────────────
 //  Reconnect state
@@ -35,7 +26,74 @@ let _pairCodeRequested = false;
 //  Create bot instance
 // ─────────────────────────────────────────────────────────
 async function createBot(sessionId = "lades-session", options = {}) {
-  const { state, saveCreds } = await getAuthState(config, sessionId);
+  // Load Baileys library dynamically (ESM)
+  const { 
+    default: makeWASocket, 
+    DisconnectReason, 
+    fetchLatestBaileysVersion, 
+    makeCacheableSignalKeyStore, 
+    Browsers, 
+    proto 
+  } = await loadBaileys();
+
+  // --- SESSION MIGRATION & HEALTH CHECK ---
+  const { WhatsappSession } = require("./database");
+  const sessionsDir = path.join(__dirname, "..", "sessions", sessionId);
+  const credsFile = path.join(sessionsDir, "creds.json");
+  
+  // 1. Migration: If file exists but DB is empty, migrate to DB
+  try {
+    const existingInDb = await WhatsappSession.findByPk(sessionId);
+    if (!existingInDb && fs.existsSync(credsFile)) {
+      logger.info(`Oturum senkronizasyonu: Yerel dosyadan veri tabanına aktarılıyor (${sessionId})...`);
+      const creds = JSON.parse(fs.readFileSync(credsFile, 'utf-8'));
+      await WhatsappSession.create({ 
+        sessionId, 
+        sessionData: JSON.stringify({ creds, keys: {} }) 
+      });
+      // Rename old folder to avoid double migration
+      fs.renameSync(sessionsDir, sessionsDir + "_migrated_" + Date.now());
+    }
+  } catch (e) {
+    logger.warn({ err: e.message }, "Oturum taşıma sırasında hata oluştu");
+  }
+
+  const { state, saveCreds, clearState } = await getAuthState(config, sessionId);
+  
+  // CRITICAL: Validate session before attempting connection.
+  // If creds are empty or missing cryptographic keys, do NOT connect - let the dashboard handle login.
+  const hasValidSession = state.creds 
+    && state.creds.me 
+    && state.creds.signedPreKey
+    && state.creds.signedPreKey.keyPair;
+    
+  if (!hasValidSession) {
+    logger.info(`[${sessionId}] Geçerli oturum bulunamadı. Dashboard üzerinden giriş yapılması bekleniyor...`);
+    // Return a minimal fake socket so manager doesn't crash
+    // The dashboard will handle the actual login flow
+    const { EventEmitter } = require('events');
+    const fakeSock = Object.assign(new EventEmitter(), {
+      user: null,
+      ws: { close: () => {}, readyState: 3 },
+      ev: new EventEmitter(),
+      sendMessage: async () => {},
+      groupMetadata: async () => ({}),
+      __isWaitingForLogin: true,
+    });
+    // Emit events that manager needs
+    setTimeout(() => {
+      fakeSock.ev.emit('connection.update', { connection: 'waiting_for_login' });
+    }, 100);
+    return fakeSock;
+  }
+
+  // 2. Health Check: Detect corrupted registered=false state
+  if (state.creds && state.creds.me && state.creds.registered === false) {
+    logger.warn(`[Sağlık Kontrolü] Oturum 'kayıtlı değil' (registered: false) olarak işaretlenmiş. Onarılıyor...`);
+    state.creds.registered = true; // Attempt fix
+    await saveCreds(); 
+  }
+
   const { version } = await fetchLatestBaileysVersion().catch(() => ({
     version: [2, 3000, 1017531287],
   }));
@@ -50,7 +108,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(state.keys, logger.child({ module: "signal", level: config.DEBUG ? "debug" : "warn" })),
     },
-    browser: ["Lades-Pro-MD", "Chrome", "2.0.0"],
+    browser: Browsers.ubuntu("Chrome"),
     getMessage: async (key) => {
       const { getMessageByKey } = require("./store");
       const msg = getMessageByKey(key);
@@ -75,8 +133,18 @@ async function createBot(sessionId = "lades-session", options = {}) {
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr, isNewLogin } = update;
 
+    // CRITICAL: If suspended (dashboard is and should be in control), do nothing!
+    if (options.manager && options.manager.isSuspended(sessionId)) {
+      if (connection === "close") logger.info(`[Suspended] Connection closed for ${sessionId}. Ignoring.`);
+      return; 
+    }
+
     if (qr) {
       displayQR(qr);
+      if (options.manager) {
+        options.manager.emit("qr", { sessionId, qr });
+      }
+      
       // If pair code is enabled and not yet requested
       if (options.phoneNumber && !_pairCodeRequested) {
         _pairCodeRequested = true;
@@ -84,6 +152,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
           try {
             const code = await sock.requestPairingCode(options.phoneNumber);
             logger.info(`📱 Eşleşme Kodu: ${code}`);
+            if (process.send) process.send({ type: 'qr', qr: code }); // Send pair code as 'qr' type for simplicity in dashboard
             console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📱 Telefonunuzda WhatsApp > Bağlı Cihazlar > Cihaz Bağla\n   Kod: ${code}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
           } catch (err) {
             logger.error({ err }, "Pair code request failed");
@@ -96,49 +165,122 @@ async function createBot(sessionId = "lades-session", options = {}) {
       reconnectCount = 0;
       _pairCodeRequested = false;
       logger.info(`✅ Bot bağlandı! JID: ${sock.user?.id}`);
+      if (process.send) process.send({ type: 'bot_status', data: { connected: true, phone: sock.user.id } });
+      
+      // Force "Online" state on connect to update Last Seen
+      await sock.sendPresenceUpdate('available').catch(() => {});
+      
       startTempCleanup();
+
+      // Auto-sync OWNER_NUMBER if not set or placeholder
+      const currentOwner = (process.env.OWNER_NUMBER || "").replace(/[^0-9]/g, "");
+      if (!currentOwner || currentOwner === "905XXXXXXXXX") {
+        const myNum = sock.user.id.split('@')[0].split(':')[0].replace(/[^0-9]/g, "");
+        if (myNum) {
+          logger.info(`[Owner Sync] Sahip numarası güncelleniyor: ${myNum}`);
+          process.env.OWNER_NUMBER = myNum;
+          // Update config.env file
+          try {
+            const envPath = path.join(__dirname, "../config.env");
+            if (fs.existsSync(envPath)) {
+              let content = fs.readFileSync(envPath, 'utf8');
+              const regex = new RegExp(`^OWNER_NUMBER=.*$`, 'm');
+              if (regex.test(content)) {
+                content = content.replace(regex, `OWNER_NUMBER=${myNum}`);
+              } else {
+                content += `\nOWNER_NUMBER=${myNum}`;
+              }
+              fs.writeFileSync(envPath, content);
+            }
+          } catch (e) {
+            logger.warn({ err: e.message }, "config.env güncellenemedi");
+          }
+        }
+      }
 
       // Load plugins on first connect
       const pluginsDir = path.join(__dirname, "..", "plugins");
       loadPlugins(pluginsDir);
 
       // Self-test: tüm komutları sessizce test et (Mikro-batch'ler, event loop'a ara ver)
-      setTimeout(() => {
-        try {
-          const { runSelfTest } = require("./self-test");
-          // Immediately, event loop'u blok etmeyecek şekilde çalıştır
-          setImmediate(() => runSelfTest(sock));
-        } catch (e) {
-          logger.warn({ err: e.message }, "Self-test atlandı");
-        }
-      }, 3000);
+      if (process.env.SELF_TEST !== 'false') {
+        setTimeout(() => {
+          try {
+            const { runSelfTest } = require("./self-test");
+            // Immediately, event loop'u blok etmeyecek şekilde çalıştır
+            setImmediate(() => runSelfTest(sock));
+          } catch (e) {
+            logger.warn({ err: e.message }, "Self-test atlandı");
+          }
+        }, 3000);
+      }
     }
 
     if (connection === "close") {
       stopTempCleanup();
       const statusCode = lastDisconnect?.error?.output?.statusCode;
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-      logger.warn({ statusCode }, `Bağlantı kesildi, yeniden bağlanılıyor=${shouldReconnect}`);
+      const errorMsg = lastDisconnect?.error?.message || "";
+      
+      // If it's a logged out code OR a fatal key error (noise-handler crash)
+      const isFatal = statusCode === DisconnectReason.loggedOut || 
+                      statusCode === 401 || 
+                      errorMsg.includes("reading 'public'") || 
+                      errorMsg.includes("reading 'private'");
+
+      const shouldReconnect = !isFatal;
+      logger.warn({ statusCode, errorMsg, shouldReconnect }, `Bağlantı kesildi.`);
 
       if (shouldReconnect) {
         reconnectCount++;
         const delay = Math.min(RECONNECT_BASE_MS * Math.pow(2, reconnectCount - 1), RECONNECT_MAX_MS);
         logger.info(`${delay}ms içinde yeniden bağlanılıyor (Deneme ${reconnectCount})...`);
-        setTimeout(() => createBot(sessionId, options), delay);
+        setTimeout(async () => {
+          const newSock = await createBot(sessionId, options);
+          if (options.manager) {
+            options.manager.updateSocket(sessionId, newSock);
+          }
+        }, delay);
       } else {
+        // Manual dashboard stop/logout should not kill the whole process.
+        if (sock.__intentionalLogout) {
+          logger.info("Oturum manuel olarak kapatıldı.");
+          return;
+        }
         logger.error("Oturum kapatıldı! Lütfen yeniden doğrulama yapın.");
-        // Oturum geçersiz olduğunda yerel dosyayı temizleyelim ki bir sonraki restartta QR çıksın
+        // Oturum geçersiz olduğunda HEM yerel dosyayı HEM veri tabanını temizleyelim
         try {
+          await clearState(); // NEW: Clear database sessionData
           const sessionsDir = path.join(__dirname, "..", "sessions", sessionId);
           const credsFile = path.join(sessionsDir, "creds.json");
           if (fs.existsSync(credsFile)) {
             fs.unlinkSync(credsFile);
-            logger.info("Geçersiz creds.json silindi, yeni oturum için hazır.");
+            logger.info("Geçersiz creds.json silindi.");
           }
+          
+          // NEW: Trigger a fresh connection attempt to get the QR code
+          // BUT: Only if NOT suspended (dashboard should handle it otherwise)
+          if (options.manager && options.manager.isSuspended(sessionId)) {
+            logger.info(`Session ${sessionId} is suspended. Skipping auto-restart.`);
+            return;
+          }
+
+          logger.info("Yeni oturum için taze bir bağlantı başlatılıyor (10sn içinde)...");
+          setTimeout(async () => {
+            if (options.manager && options.manager.isSuspended(sessionId)) {
+              logger.info(`Session ${sessionId} was suspended during wait. Aborting restart.`);
+              return;
+            }
+            const newSock = await createBot(sessionId, options);
+            if (options.manager) {
+              options.manager.updateSocket(sessionId, newSock);
+            }
+          }, 10000);
         } catch (e) {
-          logger.warn({ err: e.message }, "Oturum dosyası temizlenemedi");
+          logger.warn({ err: e.message }, "Oturum verileri temizlenemedi");
         }
-        process.exit(1);
+        
+        if (process.send) process.send({ type: 'bot_status', data: { connected: false } });
+        return;
       }
     }
 
@@ -153,10 +295,12 @@ async function createBot(sessionId = "lades-session", options = {}) {
     for (const msg of messages) {
       if (!msg.message) continue;
       const jid = msg.key.remoteJid;
-      
+      const fromMe = msg.key.fromMe;
+      const text = getMessageText(msg.message);
       // Her mesajı ayrı bir "non-blocking" işlem olarak ele alalım
       (async () => {
         try {
+          if (config.DEBUG) console.log(`[RAW UPSERT] JID: ${jid} | Text: "${text?.slice(0,20)}..."`);
           let groupMeta = null;
           if (isGroup(jid)) {
             groupMeta = await fetchGroupMeta(sock, jid);

@@ -96,7 +96,7 @@ async function getPrayerTimes(cityInput, type = 'ezan', date = moment().format('
 Module({
   pattern: 'ezan ?(.*)',
   fromMe: false,
-  use: 'ezan',
+  use: 'dini',
   desc: 'Belirtilen şehrin günlük ezan vakitlerini ve ezana ne kadar süre kaldığını gösterir.'
 }, async (message, match) => {
   const cityInput = match[1] ? match[1].toUpperCase() : null;
@@ -164,7 +164,7 @@ Module({
 Module({
   pattern: 'sahur ?(.*)',
   fromMe: false,
-  use: 'sahur',
+  use: 'dini',
   desc: 'Belirtilen şehrin sahur vaktine ne kadar süre kaldığını hesaplar.'
 }, async (message, match) => {
   const cityInput = match[1] ? match[1].toUpperCase() : null;
@@ -213,7 +213,7 @@ Module({
 Module({
   pattern: 'iftar ?(.*)',
   fromMe: false,
-  use: 'iftar',
+  use: 'dini',
   desc: 'Belirtilen şehrin iftar vaktine ne kadar süre kaldığını hesaplar.'
 }, async (message, match) => {
   const cityInput = match[1] ? match[1].toUpperCase() : null;

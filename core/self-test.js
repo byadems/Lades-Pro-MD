@@ -15,15 +15,15 @@ const path = require("path");
 const fs   = require("fs");
 
 const STATS_FILE  = path.join(__dirname, "../sessions/cmd-stats.json");
-const TIMEOUT_MS  = 4000;   // komut başına max bekleme (kısaltıldı)
-const BATCH_SIZE  = 3;      // Paralel test sayısı (daha küçük = daha sık interrupt)
-const BATCH_DELAY = 200;    // Batch'ler arası bekleme (ms, kısaltıldı)
+const TIMEOUT_MS  = 1500;   // Accelerated command timeout
+const BATCH_SIZE  = 5;      
+const BATCH_DELAY = 150;    
 
-// Bu pattern'ler gerçek grup/kullanıcı işlemi yapar, atla
+// Bu pattern'ler gerçek grup/kullanıcı işlemi yapar veya veri tabanı/config değiştirir, atla
 const DANGEROUS_PATTERNS = [
   /^ban/, /^at$/, /^ekle/, /^tagall/, /^etiket/, /^ytetiket/,
   /^yetkiver/, /^yetkial/, /^davet/, /^davetyenile/, /^ayrıl/,
-  /^sohbetsil/, /^sohbetkapat/, /^sohbetaç/, /^duyuru/, /^sabitle/,
+  /^sohbetsil/, /^sohbetkapat/, /^sohbetaç/, /^duyuru/,
   /^engelle/, /^engelkaldır/, /^katıl/, /^toplukatıl/,
   /^otoçıkartma/, /^otosohbet/, /^antinumara/,
   /^ybaşlat/, /^güncelle/, /^reload/, /^reboot/, /^bağla/,
@@ -31,6 +31,10 @@ const DANGEROUS_PATTERNS = [
   /^uyar/, /^uyarısıfırla/, /^filtre/, /^togglefilter/,
   /^warn/, /^pdm/, /^antikelime/, /^antisil/,
   /^speedtest/, /^hıztesti/,
+  /^setvar/, /^setenv/, /^delvar/, /^değişkensil/, /^dil$/, /^mod$/,
+  /^ayarlar$/, /^setsudo/, /^sudosil/, /^toggle$/, /^antibot/, /^antispam/,
+  /^antiyetkidüşürme/, /^antiyetkiverme/, /^antiyetkiyükseltme/,
+  /^aramaengel/
 ];
 
 function isDangerous(key) {
@@ -101,6 +105,7 @@ function createMockMsg(ownJid, text) {
     forward:    noop,
     delete:     noop,
     download:   noop, 
+    _isStale:   false // Zaman aşımı kontrolü için
   };
 }
 
@@ -119,10 +124,14 @@ async function testOne(cmd, ownJid, prefix) {
 
   const t0 = Date.now();
   try {
-    // console.log(`[Self-Test] Running: ${key}`); // Verbose but useful for debugging hangs
+    if (process.env.DEBUG === "true") console.log(`[Self-Test] Running: ${key}`); 
+    
     await Promise.race([
       cmd.run(mock, match),
-      new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), TIMEOUT_MS)),
+      new Promise((_, rej) => setTimeout(() => {
+        mock._isStale = true; // Zaman aşımı sonrası mock aksiyonlarını durdur
+        rej(new Error("timeout"));
+      }, TIMEOUT_MS)),
     ]);
     return { key, result: { status: "ok", ms: Date.now() - t0, lastRun: new Date().toISOString(), error: null, runs: 1 } };
   } catch (err) {
@@ -141,6 +150,12 @@ async function testOne(cmd, ownJid, prefix) {
 async function runSelfTest(sock) {
   const { logger } = require("../config");
   const handler = require("./handler");
+
+  // 100% KALICI ÇÖZÜM: Devre dışı bırakma kontrolü
+  if (process.env.SELF_TEST === "false") {
+    logger.info("🧪 Self-test 'SELF_TEST=false' nedeniyle atlandı.");
+    return;
+  }
 
   const ownJid = sock.user?.id;
   if (!ownJid || !handler.commands) return;
@@ -168,47 +183,94 @@ async function runSelfTest(sock) {
     isGroup: false
   });
 
+  if (!global.testProgress) global.testProgress = {};
+
+  // Global Timeout: Test suite 180 saniyeyi (3dk) geçemez
+  const GLOBAL_SUITE_TIMEOUT = 180000;
+  const startTime = Date.now();
   let ok = 0, err = 0, skipped = 0, timeout = 0;
+  let isSuiteTimedOut = false;
 
   for (let i = 0; i < queue.length; i += BATCH_SIZE) {
-    const batch = queue.slice(i, i + BATCH_SIZE);
-    
-    // Heartbeat to dashboard to confirm we are not dead
-    process.emit('dashboard_activity', {
-        time: new Date().toLocaleTimeString(),
-        sender: 'Sistem',
-        type: 'Heartbeat',
-        content: `Test devam ediyor... (${i}/${queue.length})`,
-        isGroup: false
-    });
+    if (Date.now() - startTime > GLOBAL_SUITE_TIMEOUT) {
+      logger.warn(`🧪 Self-test GLOBAL ZAMAN AŞIMI (${GLOBAL_SUITE_TIMEOUT/1000}sn). Kalan komutlar atlanıyor.`);
+      isSuiteTimedOut = true;
+      break;
+    }
 
-    const results = await Promise.all(batch.map(cmd => testOne(cmd, ownJid, prefix).catch(() => null)));
+    const batch = queue.slice(i, i + BATCH_SIZE);
+    const results = [];
+
+    const batchResults = await Promise.allSettled(
+      batch.map((cmd, j) => {
+        const cmdIndex = i + j + 1;
+        const cmdName = makeKey(cmd.pattern);
+        
+        // Sadece ilk komutu progress olarak göster ama hepsini çalıştır
+        if (j === 0) {
+            global.testProgress = {
+                currentCommand: cmdName,
+                currentIndex: cmdIndex,
+                totalCommands: queue.length,
+                status: 'testing'
+            };
+            process.emit('test_progress', global.testProgress);
+        }
+
+        return testOne(cmd, ownJid, prefix);
+      })
+    );
+
+    for (const res of batchResults) {
+      if (res.status === 'fulfilled' && res.value) {
+        results.push(res.value);
+      }
+    }
+    
+    if (i % 15 === 0) {
+        process.emit('dashboard_activity', {
+            time: new Date().toLocaleTimeString(),
+            sender: 'Sistem',
+            type: 'Heartbeat',
+            content: `Test devam ediyor... (${Math.min(i + batch.length, queue.length)}/${queue.length})`,
+            isGroup: false
+        });
+    }
 
     for (const r of results) {
       if (!r) continue;
       handler.recordStat(r.key, r.result.status, r.result.ms, r.result.error);
-
       if (r.result.status === "ok")      ok++;
       else if (r.result.status === "error")   err++;
       else if (r.result.status === "timeout") timeout++;
       else if (r.result.status === "skipped") skipped++;
     }
 
-    // Event loop'a kesinti ver: diğer işleri (incoming messages, timers) handle et
     if (i + BATCH_SIZE < queue.length) {
       await new Promise(res => setImmediate(res));
       await new Promise(res => setTimeout(res, BATCH_DELAY));
     }
   }
 
-  const report = `🧪 Self-test tamamlandı — ✅ ${ok} başarılı · ❌ ${err} hata · ⏱ ${timeout} zaman aşımı · ⏭ ${skipped} atlandı`;
+  const report = isSuiteTimedOut 
+    ? `⚠️ Self-test yarıda kesildi (Zaman Aşımı) — ✅ ${ok} başarılı · ❌ ${err} hata · ⏱ ${timeout} zaman aşımı`
+    : `🧪 Self-test tamamlandı — ✅ ${ok} başarılı · ❌ ${err} hata · ⏱ ${timeout} zaman aşımı · ⏭ ${skipped} atlandı`;
+  
   logger.info(report);
+  
+  global.testProgress = {
+    currentCommand: null,
+    currentIndex: queue.length,
+    totalCommands: queue.length,
+    status: 'completed'
+  };
+  process.emit('test_progress', global.testProgress);
   
   process.emit('dashboard_activity', {
     time: new Date().toLocaleTimeString(),
     sender: 'Sistem',
     type: 'Self-Test',
-    content: `Self-test bitti: ${ok} BAŞARILI, ${err} HATA.`,
+    content: isSuiteTimedOut ? `Self-test ZAMAN AŞIMINA uğradı. ${ok} BAŞARILI.` : `Self-test bitti: ${ok} BAŞARILI, ${err} HATA.`,
     isGroup: false
   });
 }

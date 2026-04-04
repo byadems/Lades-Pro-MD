@@ -34,7 +34,7 @@ Module(
     pattern: "güncelle ?(.*)",
     fromMe: true,
     desc: "Bot güncellemelerini kontrol eder ve uygular.",
-    use: "owner",
+    use: "system",
   },
   async (message, match) => {
     if (!(await isGitRepo())) {

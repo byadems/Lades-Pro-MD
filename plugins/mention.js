@@ -57,6 +57,7 @@ Module(
   {
     pattern: "bahsetme ?(.*)",
     fromMe: true,
+    use: "tools",
     desc: "Otomatik etiket (mention) yanıt yönetimi",
     usage:
       ".mention set (mesajı yanıtlayın) | .mention set <metin> | .mention get | .mention del | .mention help",

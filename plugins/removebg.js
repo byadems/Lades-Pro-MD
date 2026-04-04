@@ -3,6 +3,8 @@ const axios = require("axios");
 const FormData = require("form-data");
 const fs = require("fs");
 const Path = require("path");
+const config = require("../config");
+const isFromMe = config.MODE === "public" ? false : true;
 
 const RBG_KEYS = ["VwXQes36L5fpTjmMiFpwsy3W", "mkxdVteyNZZhx7fb6y6yqQ6o"];
 
@@ -31,7 +33,8 @@ function getDateBasedName(prefix = "Arkaplan") {
 Module(
   {
     pattern: "apsil ?(.*)",
-    fromMe: false,
+    fromMe: isFromMe,
+    use: "ai",
     use: "ai",
     desc: `Yapay zeka kullanarak görüntünün arka planını kaldırır veya düz renk/resim ile değiştirir.
 👤 *Kullanım Örnekleri:*
@@ -108,7 +111,8 @@ Module(
 
     try {
       imagePath = await message.reply_message.download();
-      const imageBuffer = fs.readFileSync(imagePath);
+      const fsPromises = require("fs").promises;
+      const imageBuffer = await fsPromises.readFile(imagePath);
 
       let response = null;
       let lastError = null;
@@ -168,7 +172,8 @@ Module(
       const mimeType = response.headers["content-type"] || "image/png";
       const extension = (mimeType.split("/")[1] || "png").split(";")[0];
       outputPath = `rbg_${Date.now()}.${extension}`;
-      fs.writeFileSync(outputPath, response.data);
+      const fsPromises = require("fs").promises;
+      await fsPromises.writeFile(outputPath, response.data);
 
       let originalFileName = "";
       try {
@@ -188,10 +193,11 @@ Module(
       }
 
       await message.edit(okMsg, message.jid, processing.key);
+      const fsPromises = require("fs").promises;
       await message.client.sendMessage(
         message.jid,
         {
-          document: fs.readFileSync(outputPath),
+          document: await fsPromises.readFile(outputPath),
           fileName: originalFileName,
           mimetype: mimeType,
         },
@@ -201,8 +207,9 @@ Module(
       console.error("APSil komutu hatası:", error);
       await message.edit("❌ _Dosya gönderilirken bir hata oluştu!_", message.jid, processing.key);
     } finally {
-      if (imagePath && fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
-      if (outputPath && fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+      const fsPromises = require("fs").promises;
+      if (imagePath) await fsPromises.unlink(imagePath).catch(() => {});
+      if (outputPath) await fsPromises.unlink(outputPath).catch(() => {});
     }
   }
 );
