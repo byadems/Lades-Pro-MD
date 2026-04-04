@@ -20,7 +20,6 @@ function TimeCalculator(a) {
 
 const { Module } = require("../main");
 const config = require("../config");
-const isFromMe = config.MODE === "public" ? false : true;
 
 const { exec } = require("child_process");
 const { promisify } = require("util");
@@ -36,8 +35,8 @@ const tar = require("tar");
 // ═══════════════════════════════════
 Module(
   {
-    fromMe: isFromMe,
     pattern: "yaşhesap ?(.*)",
+    fromMe: true,
     desc: "Yaş hesaplayıcı",
     use: "tools",
   },
@@ -70,8 +69,8 @@ Module(
 // ═══════════════════════════════════
 Module(
   {
-    fromMe: isFromMe,
     pattern: "gerisayım ?(.*)",
+    fromMe: true,
     desc: "Tarihe geri sayım yapar",
     use: "tools",
   },
@@ -104,10 +103,10 @@ Module(
 // ═══════════════════════════════════
 Module(
   {
-    fromMe: isFromMe,
     pattern: "ping",
-    use: "tools",
+    fromMe: true,
     desc: "Ağ gecikmesini (ping) ölçer",
+    use: "tools",
   },
   async (message) => {
     const start = process.hrtime();
@@ -147,8 +146,8 @@ function downloadFile(url, dest) {
 // ═══════════════════════════════════
 Module(
   {
-    fromMe: isFromMe,
     pattern: "hıztesti",
+    fromMe: true,
     desc: "Ookla Speedtest ile gerçek hız testi",
     use: "tools",
   },

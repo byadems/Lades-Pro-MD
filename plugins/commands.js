@@ -12,8 +12,6 @@ const { parseAliveMessage, sendAliveMessage } = require("./utils/alive-parser");
 const { badWords, censorBadWords } = require("./utils/censor");
 const { nxTry } = require("./utils");
 
-const isPrivateMode = MODE === "private";
-
 const CATEGORY_TR = {
   owner: "👑 Kurucu & Geliştirici",
   system: "⚙️ Sistem & Analiz",
@@ -56,7 +54,7 @@ const retrieveCommandDetails = (commandName) => {
 Module(
   {
     pattern: "liste ?(.*)",
-    fromMe: isPrivateMode,
+    fromMe: true,
     desc: "Tüm komutları kategorili bir liste halinde gösterir.",
     excludeFromCommands: true,
   },
@@ -159,7 +157,7 @@ const manage = {
 Module(
   {
     pattern: "kontrol",
-    fromMe: isPrivateMode,
+    fromMe: true,
     desc: "Botun çevrimiçi olup olmadığını kontrol eder.",
   },
   async (message, match) => {
@@ -291,9 +289,9 @@ _Merhaba $user!_
 Module(
   {
     pattern: "menü",
-    fromMe: isPrivateMode,
-    use: "genel",
+    fromMe: true,
     desc: "Bot komut menüsünü gösterir.",
+    use: "genel",
   },
   async (message, match) => {
     const stars = ["✦", "✯", "✯", "✰", "◬"];
@@ -405,7 +403,7 @@ ${cmdmenu}`;
 Module(
   {
     pattern: "oyunlar ?(.*)",
-    fromMe: isPrivateMode,
+    fromMe: true,
     desc: "Mevcut tüm oyunları listeler",
   },
   async (message, args) => {
@@ -581,7 +579,7 @@ Module(
     pattern: "bildir ?(.*)",
     fromMe: false,
     desc: "Bot hakkında istek, şikayet, hata, öneri veya talep iletir.",
-    type: "user",
+    use: "tools",
     usage:
       ".bildir istek <mesaj>\n" +
       ".bildir şikayet <mesaj>\n" +
@@ -875,12 +873,15 @@ function parseAmount(input) {
 const createApiUrl = (fromCurrency, toCurrency, amount) =>
   `https://v6.exchangerate-api.com/v6/9f2e3e44d65670cb05593bd9/pair/${fromCurrency}/${toCurrency}/${amount}`;
 
-Module({
-  pattern: 'kur ?(.*)',
-  fromMe: false,
-  desc: 'Belirli bir miktarın iki para birimi arasındaki döviz kuru dönüşümünü hesaplar.',
-  usage: '.kur 2,375.99 dolar tl',
-}, async (message, match) => {
+Module(
+  {
+    pattern: 'kur ?(.*)',
+    fromMe: false,
+    desc: 'Belirli bir miktarın iki para birimi arasındaki döviz kuru dönüşümünü hesaplar.',
+    usage: '.kur 2,375.99 dolar tl',
+    use: 'tools',
+  },
+  async (message, match) => {
   if (message.jid === "905396978235-1601666238@g.us") {
     return message.client.sendMessage(message.jid,
       { text: "❗ *Bu komut sadece sohbet grubunda kullanılabilir!*" }
@@ -928,7 +929,7 @@ Module({
 Module(
   {
     pattern: "resim ?(.*)",
-    fromMe: isPrivateMode,
+    fromMe: true,
     desc: "İnternetten görsel arar ve indirir.",
     use: "search",
   },
@@ -957,7 +958,7 @@ Module(
 Module(
   {
     pattern: "yemekt ?(.*)",
-    fromMe: isPrivateMode,
+    fromMe: true,
     desc: "Yemek tarifi arar",
     usage: ".yemekt pilav",
     use: "search",

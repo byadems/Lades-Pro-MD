@@ -93,12 +93,14 @@ async function getPrayerTimes(cityInput, type = 'ezan', date = moment().format('
   return { error: '⚠️ Tüm vakit kaynakları başarısız oldu. Lütfen daha sonra tekrar deneyiniz.' };
 }
 
-Module({
-  pattern: 'ezan ?(.*)',
-  fromMe: false,
-  use: 'dini',
-  desc: 'Belirtilen şehrin günlük ezan vakitlerini ve ezana ne kadar süre kaldığını gösterir.'
-}, async (message, match) => {
+Module(
+  {
+    pattern: 'ezan ?(.*)',
+    fromMe: false,
+    use: 'dini',
+    desc: 'Belirtilen şehrin günlük ezan vakitlerini ve ezana ne kadar süre kaldığını gösterir.'
+  },
+  async (message, match) => {
   const cityInput = match[1] ? match[1].toUpperCase() : null;
   if (!cityInput) {
     return await message.sendReply('❗️ Lütfen bir şehir ismi veya plaka yazınız.\n💻 Kullanımı: *.ezan şehiradı & plaka*\n👉🏻 Örnek: *.ezan Diyarbakır* | *.ezan 21*');
@@ -161,12 +163,14 @@ Module({
   );
 });
 
-Module({
-  pattern: 'sahur ?(.*)',
-  fromMe: false,
-  use: 'dini',
-  desc: 'Belirtilen şehrin sahur vaktine ne kadar süre kaldığını hesaplar.'
-}, async (message, match) => {
+Module(
+  {
+    pattern: 'sahur ?(.*)',
+    fromMe: false,
+    use: 'dini',
+    desc: 'Belirtilen şehrin sahur vaktine ne kadar süre kaldığını hesaplar.'
+  },
+  async (message, match) => {
   const cityInput = match[1] ? match[1].toUpperCase() : null;
   if (!cityInput) {
     return await message.sendReply('❗️ Lütfen bir şehir ismi veya plaka yazınız.\n💻 Kullanımı: *.sahur şehiradı & plaka*\n👉🏻 Örnek: *.sahur Diyarbakır* | *.sahur 21*');
@@ -210,12 +214,14 @@ Module({
   );
 });
 
-Module({
-  pattern: 'iftar ?(.*)',
-  fromMe: false,
-  use: 'dini',
-  desc: 'Belirtilen şehrin iftar vaktine ne kadar süre kaldığını hesaplar.'
-}, async (message, match) => {
+Module(
+  {
+    pattern: 'iftar ?(.*)',
+    fromMe: false,
+    use: 'dini',
+    desc: 'Belirtilen şehrin iftar vaktine ne kadar süre kaldığını hesaplar.'
+  },
+  async (message, match) => {
   const cityInput = match[1] ? match[1].toUpperCase() : null;
   if (!cityInput) {
     return await message.sendReply('❗️ Lütfen bir şehir ismi veya plaka yazınız.\n💻 Kullanımı: *.iftar şehiradı & plaka*\n👉🏻 Örnek: *.iftar Diyarbakır | .iftar 21*');

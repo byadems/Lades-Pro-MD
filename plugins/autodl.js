@@ -57,7 +57,12 @@ function isAlreadyCommand(text) {
 
 const { bytesToSize: formatBytes } = require("./utils");
 
-Module({ on: "text", fromMe }, async (message) => {
+Module(
+  {
+    on: "text",
+    fromMe,
+  },
+  async (message) => {
   try {
     if (message.fromBot) return;
     const chatJid = message.jid;

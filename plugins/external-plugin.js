@@ -26,8 +26,8 @@ Module(
   {
     pattern: "modülyükle ?(.*)",
     fromMe: true,
-    use: "owner",
     desc: Lang.INSTALL_DESC,
+    use: "owner",
   },
   async (message, match) => {
     match = match[1] !== "" ? match[1] : message.reply_message.text;
@@ -93,8 +93,8 @@ Module(
   {
     pattern: "modül ?(.*)",
     fromMe: true,
-    use: "owner",
     desc: Lang.PLUGIN_DESC,
+    use: "owner",
   },
   async (message, match) => {
     let plugins = await PluginDB.findAll();
@@ -135,8 +135,8 @@ Module(
   {
     pattern: "modülsil ?(.*)",
     fromMe: true,
-    use: "owner",
     desc: Lang.REMOVE_DESC,
+    use: "owner",
   },
   async (message, match) => {
     if (match[1] === "") return await message.send(Lang.NEED_PLUGIN);
@@ -161,9 +161,9 @@ Module(
   {
     pattern: "mgüncelle ?(.*)",
     fromMe: true,
+    desc: "Bir eklentiyi (plugin) günceller",
     use: "owner",
     usage: ".mgüncelle eklenti_adı",
-    desc: "Bir eklentiyi (plugin) günceller",
   },
   async (m, match) => {
     const plugin = match[1];

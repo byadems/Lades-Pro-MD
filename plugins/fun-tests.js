@@ -4,7 +4,6 @@ const { getString } = require("./utils/lang");
 const config = require("../config");
 
 const Lang = getString("group");
-const isFromMe = config.MODE === "public" ? false : true;
 
 const getTargetUser = (message) => message.mention?.[0] || message.reply_message?.jid;
 const randomPercent = () => Math.floor(Math.random() * 100) + 1;
@@ -27,8 +26,8 @@ Module(
   {
     pattern: "testgay ?(.*)",
     fromMe: false,
-    use: "game",
     desc: "Etiketlediğiniz üyenin gaylik yüzdesini ölçer.",
+    use: "game",
   },
   async (message) => {
     await runSingleRateCommand(message, {
@@ -42,8 +41,8 @@ Module(
   {
     pattern: "testlez ?(.*)",
     fromMe: false,
-    use: "game",
     desc: "Etiketlediğiniz üyenin lezlik yüzdesini ölçer.",
+    use: "game",
   },
   async (message) => {
     await runSingleRateCommand(message, {
@@ -57,8 +56,8 @@ Module(
   {
     pattern: "testprenses ?(.*)",
     fromMe: false,
-    use: "game",
     desc: "Etiketlediğiniz üyenin prenseslik seviyesini ölçer.",
+    use: "game",
   },
   async (message) => {
     await runSingleRateCommand(message, {
@@ -72,8 +71,8 @@ Module(
   {
     pattern: "testregl ?(.*)",
     fromMe: false,
-    use: "game",
     desc: "Etiketlediğiniz üyenin Regl olma ihtimalini ölçer.",
+    use: "game",
   },
   async (message) => {
     await runSingleRateCommand(message, {
@@ -87,8 +86,8 @@ Module(
   {
     pattern: "testinanç ?(.*)",
     fromMe: false,
-    use: "game",
     desc: "Etiketlediğiniz üyenin inanç seviyesini ölçer.",
+    use: "game",
   },
   async (message) => {
     await runSingleRateCommand(message, {
@@ -102,8 +101,8 @@ Module(
   {
     pattern: "aşkölç ?(.*)",
     fromMe: false,
-    use: "game",
     desc: "İki kişi arasındaki aşk yüzdesini ölçer.",
+    use: "game",
   },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
@@ -140,7 +139,7 @@ Module(
 Module(
   {
     pattern: "beyin",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Rastgele beyin jimnastiği sorusu gönderir",
     usage: ".beyin",
     use: "game",
@@ -167,7 +166,7 @@ Module(
 Module(
   {
     pattern: "bilmece",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Rastgele bilmece sorusu gönderir",
     usage: ".bilmece",
     use: "game",
@@ -194,7 +193,7 @@ Module(
 Module(
   {
     pattern: "kimyasoru",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Rastgele kimya sorusu gönderir",
     usage: ".kimyasoru",
     use: "game",
@@ -224,7 +223,7 @@ Module(
 Module(
   {
     pattern: "alay ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Metni alay/slang formatına dönüştürür",
     usage: ".alay Merhaba nasılsın",
     use: "fun",
@@ -246,7 +245,7 @@ Module(
 Module(
   {
     pattern: "dragonyazı ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Dragon Ball stili metin logosu oluşturur",
     usage: ".dragonyazı LADES",
     use: "edit",
@@ -266,7 +265,7 @@ Module(
 Module(
   {
     pattern: "neonyazı ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Neon ışıklı metin logosu oluşturur",
     usage: ".neonyazı LADES",
     use: "edit",
@@ -286,7 +285,7 @@ Module(
 Module(
   {
     pattern: "grafitiyazı ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Grafiti stili metin logosu oluşturur",
     usage: ".grafitiyazı LADES",
     use: "edit",
@@ -306,7 +305,7 @@ Module(
 Module(
   {
     pattern: "devilyazı ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Şeytan kanadı stili metin logosu oluşturur",
     usage: ".devilyazı LADES",
     use: "edit",
@@ -326,7 +325,7 @@ Module(
 Module(
   {
     pattern: "müzikkart ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Müzik kartı görseli oluşturur",
     usage: ".müzikkart Şarkı Adı|Sanatçı|<resim_url>",
     use: "edit",

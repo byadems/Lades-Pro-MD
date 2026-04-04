@@ -1,7 +1,6 @@
 const { Module } = require("../main");
 const { censorBadWords, isAdmin } = require("./utils");
 const { ADMIN_ACCESS, MODE } = require("../config");
-const isPrivateMode = MODE !== "public";
 Module(
   {
     pattern: "tepki ?(.*)",
@@ -138,7 +137,7 @@ Module(
 Module(
   {
     pattern: "tekrar ?(.*)",
-    fromMe: isPrivateMode,
+    fromMe: true,
     desc: "Yanıtlanan komutu tekrar çalıştırmayı dener",
     use: "tools",
   },
@@ -207,8 +206,8 @@ Module(
   {
     pattern: "msjsil",
     fromMe: true,
-    use: "tools",
     desc: "Mesajı herkesten siler. Yönetici silmesini destekler",
+    use: "tools",
   },
   async (m, t) => {
     if (!m.reply_message) return await m.sendReply("_💬 Silinecek mesajı yanıtlayın!_");

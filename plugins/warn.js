@@ -1,7 +1,6 @@
 const { Module } = require("../main");
 const config = require("../config");
 const { ADMIN_ACCESS, HANDLER_PREFIX, WARN, SUDO } = config;
-const isFromMe = config.MODE === "public" ? false : true;
 const {
   getWarn,
   setWarn,
@@ -36,7 +35,7 @@ async function sendBanAudio(message) {
 Module(
   {
     pattern: "uyar(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Grup üyelerini uyarmaya yarar. Limit aşıldığında üye gruptan atılır.",
     usage: ".uyar @üye sebep\n.uyar sebep",
     use: "group",
@@ -224,7 +223,7 @@ Module(
 Module(
   {
     pattern: "kaçuyarı ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Bir üyenin uyarılarını kontrol etmeyi sağlar.",
     usage: ".kaçuyarı @üye",
     use: "group",

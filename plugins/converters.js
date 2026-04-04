@@ -13,7 +13,6 @@ const {
 } = require("./utils");
 const config = require("../config");
 const axios = require("axios");
-const isFromMe = config.MODE === "public" ? false : true;
 const fileType = require("file-type");
 const { getTempPath, getTempSubdir } = require("../core/helpers");
 const { badWords } = require("./utils/censor");
@@ -63,10 +62,10 @@ const Lang = getString("converters");
 
 Module(
   {
-    fromMe: isFromMe,
     pattern: "görselara ?(.*)",
-    use: "search",
+    fromMe: true,
     desc: "Google Görseller üzerinden resim arar ve indirir.",
+    use: "search",
   },
   async (message, match) => {
     if (!match[1]) return await message.send("*_💬 Arama terimi gerekli!_*");
@@ -133,10 +132,10 @@ Module(
 
 Module(
   {
-    fromMe: isFromMe,
     pattern: "çıkartma ?(.*)",
-    use: "media",
+    fromMe: true,
     desc: Lang.STICKER_DESC,
+    use: "media",
   },
   async (message, match) => {
     if (match[1] && match[1].trim() !== "") {
@@ -238,10 +237,10 @@ Module(
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "mp3 ?(.*)",
-    use: "media",
+    fromMe: true,
     desc: Lang.MP3_DESC,
+    use: "media",
   },
   async (message) => {
     if (
@@ -307,10 +306,10 @@ Module(
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "slow",
-    use: "media",
+    fromMe: true,
     desc: "Müziği yavaşlatır ve ses tonunu düşürür. Slowed+reverb sesleri yapmak için",
+    use: "media",
   },
   async (message, match) => {
     if (message.reply_message === false)
@@ -382,10 +381,10 @@ Module(
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "sped ?(.*)",
-    use: "media",
+    fromMe: true,
     desc: "Müziği hızlandırır ve ses tonunu yükseltir. Sped-up+reverb sesleri yapmak için",
+    use: "media",
   },
   async (message, match) => {
     if (message.reply_message === false)
@@ -457,10 +456,10 @@ Module(
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "basartır ?(.*)",
-    use: "media",
+    fromMe: true,
     desc: Lang.BASS_DESC,
+    use: "media",
   },
   async (message, match) => {
     if (message.reply_message === false)
@@ -505,10 +504,10 @@ Module(
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "foto ?(.*)",
-    use: "media",
+    fromMe: true,
     desc: Lang.PHOTO_DESC,
+    use: "media",
   },
   async (message, match) => {
     if (message.reply_message === false)
@@ -539,10 +538,10 @@ Module(
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "yazı1 ?(.*)",
-    use: "media",
+    fromMe: true,
     desc: "Metinden hareketli çıkartmaya",
+    use: "media",
   },
   async (message, match) => {
     if (match[1] == "") return await message.send("*_💬 Metin gerekli!_*");
@@ -560,79 +559,6 @@ Module(
     );
   }
 );
-Module(
-  {
-    fromMe: isFromMe,
-    pattern: "tts ?(.*)",
-    desc: Lang.TTS_DESC,
-    use: "media",
-  },
-  async (message, match) => {
-    let query = match[1] || message.reply_message.text;
-    if (!query) return await message.sendReply(Lang.TTS_NEED_REPLY);
-    const ttsDir = getTempSubdir("tts");
-    query = query.replace("tts", "");
-    let lng = "en";
-    if (/[\u0D00-\u0D7F]+/.test(query)) lng = "ml";
-    let LANG = lng,
-      ttsMessage = query,
-      SPEED = 1.0,
-      VOICE = "nova";
-    if ((langMatch = query.match("\\{([a-z]{2})\\}"))) {
-      LANG = langMatch[1];
-      ttsMessage = ttsMessage.replace(langMatch[0], "");
-    }
-    if ((speedMatch = query.match("\\{([0-9]+\\.[0-9]+)\\}"))) {
-      SPEED = parseFloat(speedMatch[1]);
-      ttsMessage = ttsMessage.replace(speedMatch[0], "");
-    }
-    if (
-      (voiceMatch = query.match(
-        "\\{(nova|alloy|ash|coral|echo|fable|onyx|sage|shimmer)\\}"
-      ))
-    ) {
-      VOICE = voiceMatch[1];
-      ttsMessage = ttsMessage.replace(voiceMatch[0], "");
-    }
-    let audio;
-
-    const ttsText = prepareTtsText(ttsMessage);
-    if (LANG === "ml") {
-      try {
-        audio = await gtts(ttsText, LANG);
-      } catch (e) {
-        console.error("TTS Hatası:", e?.message || e);
-        return await message.sendReply("_" + Lang.TTS_ERROR + "_");
-      }
-    } else {
-      try {
-        const ttsResult = await aiTTS(ttsText, VOICE, SPEED.toFixed(2));
-        if (ttsResult && ttsResult.url) {
-          audio = { url: ttsResult.url };
-        } else {
-          throw new Error(
-            ttsResult && ttsResult.error ? ttsResult.error : "YZ Seslendirme başarısız"
-          );
-        }
-      } catch (e) {
-        console.error("Yapay zeka TTS başarısız, gtts kullanılıyor:", e);
-        try {
-          audio = await gtts(ttsText, LANG);
-        } catch (err) {
-          console.error("TTS Hatası:", err?.message || err);
-          return await message.sendReply("_" + Lang.TTS_ERROR + "_");
-        }
-      }
-    }
-
-    await message.sendMessage(audio, "audio", {
-      quoted: message.data,
-      mimetype: "audio/mpeg",
-      ptt: true,
-    });
-  }
-);
-
 Module(
   {
     pattern: "ses ?(.*)",
@@ -704,7 +630,7 @@ Module(
       ttsMessage = ttsMessage.replace(voiceMatch[0], "").trim();
     }
 
-    ttsMessage = ttsMessage.replace(/\s+/g, " ").trim();
+    ttsMessage = prepareTtsText(ttsMessage);
     if (!ttsMessage) {
       return await message.sendReply("❌ Seslendirilecek metin bulunamadı.");
     }
@@ -757,10 +683,10 @@ Module(
 
 Module(
   {
-    fromMe: isFromMe,
     pattern: "belge ?(.*)",
-    use: "media",
+    fromMe: true,
     desc: "Yanıtlanan medyayı belge (document) formatına dönüştürür",
+    use: "media",
   },
   async (message, match) => {
     if (message.reply_message === false)
@@ -881,10 +807,10 @@ Module(
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "indir ?(.*)",
-    use: "media",
+    fromMe: true,
     desc: "URL üzerindeki dosyayı indirir ve sohbete yükler.",
+    use: "media",
   },
   async (message, match) => {
     let url =
@@ -965,10 +891,10 @@ Module(
 
 Module(
   {
-    fromMe: isFromMe,
     pattern: "square ?(.*)",
-    use: "media",
+    fromMe: true,
     desc: "Video/resmi 1:1 oranında (kare formatında) kırpar",
+    use: "media",
   },
   async (message, match) => {
     if (
@@ -1054,10 +980,10 @@ Module(
 
 Module(
   {
-    fromMe: isFromMe,
     pattern: "boyut ?(.*)",
-    use: "media",
+    fromMe: true,
     desc: "Video/resim en-boy oranını değiştirin. Kullanım: .boyut 16:9, .boyut 9:16",
+    use: "media",
   },
   async (message, match) => {
     if (
@@ -1186,10 +1112,10 @@ Module(
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "sıkıştır ?(.*)",
+    fromMe: true,
+    desc: "Video/resmi yüzdeyle sıkıştırın. Kullanım: .sıkıştır 50 (%50 sıkıştırma)",
     use: "media",
-    desc: "Video/resmi yüzdeyle sıkıştırın. Kullanım: .compress 50 (%50 sıkıştırma)",
   },
   async (message, match) => {
     if (
@@ -1202,7 +1128,7 @@ Module(
 
     if (!match[1]) {
       return await message.send(
-        "_💬 Sıkıştırma yüzdesi belirtin. Örnekler:_\n• `.compress 50` - %50 sıkıştırma (orta)\n• `.compress 70` - %70 sıkıştırma (yüksek)\n• `.compress 80` - %80 sıkıştırma (çok yüksek)\n• `.compress 30` - %30 sıkıştırma (hafif)"
+        "_💬 Sıkıştırma yüzdesi belirtin. Örnekler:_\n• `.sıkıştır 50` - %50 sıkıştırma (orta)\n• `.sıkıştır 70` - %70 sıkıştırma (yüksek)\n• `.sıkıştır 80` - %80 sıkıştırma (çok yüksek)\n• `.sıkıştır 30` - %30 sıkıştırma (hafif)"
       );
     }
 

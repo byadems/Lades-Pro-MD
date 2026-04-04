@@ -4,7 +4,6 @@ const FormData = require("form-data");
 const fs = require("fs");
 const Path = require("path");
 const config = require("../config");
-const isFromMe = config.MODE === "public" ? false : true;
 
 const RBG_KEYS = ["VwXQes36L5fpTjmMiFpwsy3W", "mkxdVteyNZZhx7fb6y6yqQ6o"];
 
@@ -33,15 +32,14 @@ function getDateBasedName(prefix = "Arkaplan") {
 Module(
   {
     pattern: "apsil ?(.*)",
-    fromMe: isFromMe,
-    use: "ai",
-    use: "ai",
+    fromMe: true,
     desc: `Yapay zeka kullanarak görüntünün arka planını kaldırır veya düz renk/resim ile değiştirir.
 👤 *Kullanım Örnekleri:*
 • .apsil                → Arka planı şeffaf (kaldırır)
 • .apsil mavi           → Arkaplan mavi
 • .apsil #ff0000        → Arkaplan kırmızı (hex kodu)
 • .apsil https://resim  → Arkaplan olarak URL'deki fotoğrafı kullan`,
+    use: "ai",
   },
   async (message, match) => {
     if (!message.reply_message?.image && !message.reply_message?.document) {

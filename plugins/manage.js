@@ -45,7 +45,6 @@ const {
   isAdmin,
 } = require("./utils");
 const config = require("../config");
-const isFromMe = config.MODE === "public" ? false : true;
 const { settingsMenu, ADMIN_ACCESS } = config;
 const fs = require("fs");
 const { BotVariable } = require("../core/database");
@@ -142,6 +141,7 @@ Module(
     fromMe: true,
     desc: "Bot değişkeninin değerini getir",
     usage: ".getvar MY_VAR",
+    use: "system",
   },
   async (message, args) => {
     const key = args[1]?.trim();
@@ -165,6 +165,7 @@ Module(
     fromMe: true,
     desc: "Bot değişkenini sil",
     usage: ".delvar MY_VAR",
+    use: "system",
   },
   async (message, args) => {
     const key = args[1]?.trim();
@@ -505,6 +506,7 @@ Module(
     pattern: "sudosil ?(.*)",
     fromMe: true,
     desc: "Yöneticiyi (sudo) siler",
+    use: "system",
     dontAddCommandList: true,
   },
   async (m, mm) => {
@@ -621,7 +623,7 @@ Module(
 Module(
   {
     pattern: "antibot ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Diğer botların mesajlarını tespit eder ve atar.",
     use: "group",
   },
@@ -661,7 +663,7 @@ Module(
 Module(
   {
     pattern: "antispam ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Spam mesajları tespit eder ve kullanıcıyı çıkarır.",
     use: "group",
   },
@@ -701,7 +703,7 @@ Module(
 Module(
   {
     pattern: "pdm ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Yetki verme/alma durumlarını tespit eder ve uyarı gönderir.",
     use: "group",
   },
@@ -811,7 +813,7 @@ Module(
 Module(
   {
     pattern: "antibağlantı ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Gelişmiş antilink (link engelleme) sistemi (uyarı/at/sil modlu)",
     use: "group",
   },
@@ -1065,7 +1067,7 @@ Module(
 Module(
   {
     pattern: "antikelime ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Yasaklı kelime (antiword) engelini aktifleştirir, gönderen atılır",
     use: "group",
   },

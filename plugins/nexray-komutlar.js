@@ -5,7 +5,6 @@ const { CircuitBreaker } = require("./utils/resilience");
 
 const BASE = "https://api.nexray.web.id";
 const TIMEOUT = 30000;
-const isFromMe = config.MODE === "private";
 
 // Nexray API için kategorize edilmiş devre kesiciler (Circuit Breaker Pool)
 const breakers = new Map();
@@ -77,7 +76,7 @@ async function nexGet(path, opts = {}) {
 Module(
   {
     pattern: "emojimix ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "İki emojiyi birleştirip yeni emoji oluşturur",
     usage: ".emojimix 😀 🔥",
     use: "fun",
@@ -103,7 +102,7 @@ Module(
 Module(
   {
     pattern: "yazı ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Glitch efektli metin görseli oluşturur",
     usage: ".yazı LADES",
     use: "edit",
@@ -126,7 +125,7 @@ Module(
 Module(
   {
     pattern: "naruto ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Naruto stili metin logosu oluşturur",
     usage: ".naruto LADES",
     use: "edit",
@@ -149,7 +148,7 @@ Module(
 Module(
   {
     pattern: "marvel ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Marvel stili logo oluşturur (2 kelime)",
     usage: ".marvel LADES BOT",
     use: "edit",
@@ -173,7 +172,7 @@ Module(
 Module(
   {
     pattern: "blackpink ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Blackpink stili metin görseli oluşturur",
     usage: ".blackpink LADES",
     use: "edit",
@@ -196,7 +195,7 @@ Module(
 Module(
   {
     pattern: "brat ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Brat (Charli XCX) stili yeşil metin görseli",
     usage: ".brat lades bot",
     use: "edit",
@@ -219,7 +218,7 @@ Module(
 Module(
   {
     pattern: "şarkısözü ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Şarkı sözlerini bulur",
     usage: ".şarkısözü Never Gonna Give You Up",
     use: "search",
@@ -291,7 +290,7 @@ Module(
 Module(
   {
     pattern: "duvarkağıdı ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "HD duvar kağıdı arar ve gönderir",
     usage: ".duvarkağıdı doğa",
     use: "search",
@@ -321,7 +320,7 @@ Module(
 Module(
   {
     pattern: "çıkartmabul ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "WhatsApp çıkartma paketi arar",
     usage: ".çıkartmabul kedi",
     use: "search",
@@ -352,7 +351,7 @@ Module(
 Module(
   {
     pattern: "vikipedi ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Vikipedi üzerinden bilgi arar.",
     usage: ".vikipedi İstanbul",
     use: "search",
@@ -382,7 +381,7 @@ Module(
 Module(
   {
     pattern: "alıntı ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "WhatsApp tarzı alıntı görseli oluşturur",
     usage: ".alıntı Merhaba dünya!",
     use: "edit",
@@ -413,7 +412,7 @@ Module(
 Module(
   {
     pattern: "rüya ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Rüyanızı yapay zeka ile yorumlar",
     usage: ".rüya Gökyüzünde uçuyordum",
     use: "ai",
@@ -443,7 +442,7 @@ Module(
 Module(
   {
     pattern: "görsel ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Yapay zeka ile açıklamadan görsel oluşturur",
     usage: ".görsel sevimli bir kedi anime stili",
     use: "ai",
@@ -471,7 +470,7 @@ Module(
 Module(
   {
     pattern: "threads ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Threads video/görsel indirir",
     usage: ".threads <bağlantı>",
     use: "download",
@@ -507,7 +506,7 @@ Module(
 Module(
   {
     pattern: "soundcloud ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "SoundCloud'dan ses indirir",
     usage: ".soundcloud <bağlantı>",
     use: "download",
@@ -541,7 +540,7 @@ Module(
 Module(
   {
     pattern: "çevir ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Metni iki dil arasında çevirir. Örnek: .çevir en tr",
     usage: ".çevir en tr",
     use: "search",

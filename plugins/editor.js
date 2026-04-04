@@ -128,8 +128,8 @@ function registerEffect(command, desc, route) {
     {
       pattern: `${command} ?(.*)`,
       fromMe: x,
-      dontAddCommandList: true,
       desc,
+      dontAddCommandList: true,
       use: "edit",
     },
     async (message) => {

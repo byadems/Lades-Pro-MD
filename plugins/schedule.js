@@ -160,10 +160,10 @@ async function createMessageObject(
 
 Module(
   {
-    fromMe: isFromMe,
     pattern: "planla ?(.*)",
-    use: "tools",
+    fromMe: true,
     desc: "⏰ Mesaj planla - Gruba veya özele zamanlanmış mesaj gönder",
+    use: "tools",
   },
   async (m, match) => {
     if (!m.reply_message) {
@@ -257,10 +257,10 @@ Module(
 
 Module(
   {
-    fromMe: isFromMe,
     pattern: "plandurum ?(.*)",
-    use: "tools",
+    fromMe: true,
     desc: "📋 Planlanan tüm mesajları listeler",
+    use: "tools",
     usage: ".plandurum",
   },
   async (m, match) => {
@@ -305,10 +305,10 @@ Module(
 
 Module(
   {
-    fromMe: isFromMe,
     pattern: "plansil ?(.*)",
-    use: "tools",
+    fromMe: true,
     desc: "🗑️ Planlanan mesajı ID ile iptal eder",
+    use: "tools",
     usage: ".plansil <id>",
   },
   async (m, match) => {

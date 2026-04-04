@@ -1,5 +1,4 @@
 const { Module, commands } = require('../main');
-const isFromMe = require('../config').MODE === "public" ? false : true;
 
 // Komut adını çıkaran yardımcı fonksiyon
 const extractCommandName = (pattern) => {
@@ -23,13 +22,15 @@ const retrieveCommandDetails = (commandName) => {
   };
 };
 
-Module({
-  pattern: 'komut ?(.*)',
-  fromMe: false,
-  desc: 'Bot komutlarını listeler veya belirtilen komutun detaylarını gösterir.',
-  use: 'genel',
-  usage: '.komutlar | .komut spotify'
-}, async (m, match) => {
+Module(
+  {
+    pattern: 'komut ?(.*)',
+    fromMe: false,
+    desc: 'Bot komutlarını listeler veya belirtilen komutun detaylarını gösterir.',
+    use: 'genel',
+    usage: '.komutlar | .komut spotify'
+  },
+  async (m, match) => {
   const arg = match[1]?.trim().toLowerCase();
 
   // Eğer 'lar' yazılmışsa tam listeyi göster

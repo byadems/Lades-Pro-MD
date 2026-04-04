@@ -44,9 +44,9 @@ Module(
     pattern: "otoçıkartma ?(.*)",
     fromMe: true,
     desc: "Komutları çıkartmalara yapıştırır. Çıkartma gönderilirse komut gibi çalışır!",
+    use: "tools",
     usage: ".otoçıkartma .ban",
     warn: "Sadece çıkartmalarda çalışır",
-    use: "tools",
   },
   async (message, match) => {
     if (!match[1] || !message.reply_message || !message.reply_message.sticker)

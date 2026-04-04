@@ -2,13 +2,15 @@ const { Module } = require('../main')
 
 let choices = ['⚖️ Doğruluk', '🙌🏻 Cesaret'];
 
-Module({
-  pattern: 'dc ?(.*)',
-  fromMe: false,
-  use: 'group',
-  usage: '.dc',
-  desc: "Doğruluk mu Cesaret mi oyununu oynatır."
-}, (async (message, match) => {
+Module(
+  {
+    pattern: 'dc ?(.*)',
+    fromMe: false,
+    use: 'group',
+    usage: '.dc',
+    desc: "Doğruluk mu Cesaret mi oyununu oynatır."
+  },
+  (async (message, match) => {
   let truthQuestions = [
     "📱 Telefonunda en son aradığın şey neydi?",
     "💔 Birisi kız arkadaşın veya erkek arkadaşından ayrılman için sana 1 milyon TL verseydi, yapar mıydın?",

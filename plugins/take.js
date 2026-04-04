@@ -8,14 +8,15 @@ const {
 } = require("./utils");
 const { Module } = require("../main");
 let config = require("../config");
+const isFromMe = true;
 let fs = require("fs");
 Module(
   {
-    fromMe: isFromMe,
     pattern: "take ?(.*)",
-    use: "media",
+    fromMe: true,
     desc: "Çıkartma/ses paketi ve yazar adını değiştirir.",
     usage: ".take paket;yazar\n(bir çıkartmaya veya sese yanıt vererek)",
+    use: "media",
   },
   async (m, match) => {
     if (!m.reply_message)
@@ -104,11 +105,11 @@ Module(
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "mp4 ?(.*)",
-    use: "media",
+    fromMe: true,
     desc: "Hareketli çıkartmayı videoya dönüştürür",
     usage: ".mp4 (bir hareketli çıkartmaya yanıt vererek)",
+    use: "media",
   },
   async (m, t) => {
     if (m.reply_message.sticker) {
@@ -135,8 +136,8 @@ Module(
 
 Module(
   {
-    fromMe: isFromMe,
     pattern: "url ?(.*)",
+    fromMe: true,
     desc: "Resmi internete yükleyerek paylaşılabilir bağlantı oluşturur.",
     usage: ".url (bir görsele, videoya veya sese yanıt vererek)",
     use: "media",

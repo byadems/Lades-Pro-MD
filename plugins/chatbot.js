@@ -1,7 +1,6 @@
 const { Module } = require("../main");
 const config = require("../config");
 const axios = require("axios");
-const isFromMe = config.MODE === "public" ? false : true;
 const { setVar } = require("./manage");
 const fs = require("fs");
 const { getBuffer, uploadToImgbb } = require("./utils");
@@ -428,229 +427,6 @@ logValidGeminiModels();
 
 Module(
   {
-    pattern: "yzayar ?(.*)",
-    fromMe: true,
-    desc: "Gemini API ile yapay zeka destekli sohbet botu yapılandırması - metin ve görüntü analizini destekler.",
-    usage:
-      '.yzayar - _Ayar menüsünü açar\n.yzayar aç/kapat - _Mevcut sohbette etkinleştir/devre dışı bırak_\n.yzayar aç/kapat grup - _Tüm gruplarda etkinleştir/devre dışı bırak_\n.yzayar aç/kapat dm - _DM olarak çalışmasını etkinleştir/devre dışı bırak_\n.yzayar seç "istem" - _Varsayılan istemi ayarla_\n.yzayar temizle - _Tüm sohbet geçmişini sil_\n_Yapay Zeka görsel analizi için görsellere yanıt verebilirsiniz_',
-  },
-  async (message, match) => {
-    const input = match[1]?.trim();
-    const chatJid = message.jid;
-
-    if (!input) {
-      const isEnabled = isChatbotEnabled(chatJid);
-      const globalGroups = config.AI_ALL_GRUP === "true";
-      const globalDMs = config.AI_ALL_DM === "true";
-      const currentModel = models[modelStates.get(chatJid) || 0];
-      const contextSize = chatContexts.get(chatJid)?.length || 0;
-      const hasApiKey = !!config.GEMINI_API_KEY;
-
-      const helpText =
-        `*_🚨 Yapay Zeka Botu Yapılandırması_*\n\n` +
-        `ℹ️ _Mevcut Durum:_ \`${isEnabled ? "Aktif" : "Devre Dışı"}\`\n` +
-        `🔑 _API Anahtarı:_ \`${hasApiKey ? "Ekli ✅" : "Eksik ❌"}\`\n` +
-        `🌐 _Gruplarda:_ \`${globalGroups ? "Aktif ✅" : "Devre Dışı ❌"
-        }\`\n` +
-        `💬 _DM'de:_ \`${globalDMs ? "Aktif ✅" : "Devre Dışı ❌"}\`\n` +
-        `🤖 Seçili Model:_ \`${currentModel}\`\n` +
-        `💭 _Sohbet Hafızası:_ \`${contextSize}\`\n` +
-        `🎯 _Varsayılan İstem:_ \`${globalSystemPrompt.substring(0, 100)}${globalSystemPrompt.length > 100 ? "..." : ""
-        }\`\n\n` +
-        (hasApiKey
-          ? `*_Komutlar:_*\n` +
-          `- \`.yzayar aç\` - _Mevcut sohbette Yapay Zeka'yı etkinleştirir_\n` +
-          `- \`.yzayar kapat\` - _Mevcut sohbette Yapay Zeka'yı kapatır\n` +
-          `- \`.yzayar aç grup\` - _Tüm gruplarda Yapay Zeka'yı etkinleştirir_\n` +
-          `- \`.yzayar aç dm\` - _DM için Yapay Zeka'yı etkinleştirir_\n` +
-          `- \`.yzayar kapat grup\` - _Tüm gruplarda Yapay Zeka'yı kapatır\n` +
-          `- \`.yzayar kapat dm\` - _DM için Yapay Zeka'yı kapatır\n` +
-          `- \`.yzayar seç "istem"\` - _Varsayılan istemi ayarlar_\n` +
-          `- \`.yzayar temizle\` - _Tüm sohbet geçmişini siler_\n` +
-          `- \`.yzayar durum\` - _Ayrıntılı olarak yapılandırmayı gösterir_\n\n` +
-          `🤔 *_Peki, nasıl çalışır?_*\n` +
-          `- _Bot'a gönderilen direkt mesajlar Yapay Zeka'yı çalıştırır_\n` +
-          `- _Bahsetmeler (@bot) Yapay Zeka'yı çalıştırır_\n` +
-          `- _Bot mesajlarına verilen yanıtlar Yapay Zeka'yı çalıştırır_\n` +
-          `- _Görsel Analizi için mesajı yanıtlamak Yapay Zeka'yı çalıştırır_\n` +
-          `- _Sohbet geçmişini otomatik olarak korur_\n` +
-          `- _Hız limitlerine bağlı olarak modelleri otomatik olarak değiştirir_`
-          : `*_⚠️ Kurulum Gerekli!_*\n` +
-          `_Yapay Zeka'yı kullanmak için API anahtarı gereklidir._\n\n` +
-          `*_API anahtarı edinmek için:_*\n` +
-          `- _Bağlantıya tıklayın: https://aistudio.google.com/app/apikey_\n` +
-          `- _Google hesabınızla oturum açın_\n` +
-          `- _API Anahtarı Oluşturun_\n\n` +
-          `*_API anahtarınızı ayarlamak içinse:_*\n` +
-          `\`.setvar GEMINI_API_KEY=your_api_key_here\`\n\n` +
-          `_Anahtarı ayarladıktan sonra aktifleştirmek için \`.yzayar aç\` yazın._`);
-
-      return await message.sendReply(helpText);
-    }
-
-    const args = input.split(" ");
-    const command = args[0].toLowerCase();
-    const target = args[1]?.toLowerCase();
-
-    switch (command) {
-      case "aç":
-        if (!config.GEMINI_API_KEY) {
-          return await message.sendReply(
-            `*_❌ GEMINI_API_KEY Eklenmemiş!_*\n\n` +
-            `_Gemini API anahtarı olmadan Yapay Zeka etkinleştirilemez._\n\n` +
-            `*_API anahtarı edinmek için:_*\n` +
-            `- _Bağlantıya tıklayın: https://aistudio.google.com/app/apikey_\n` +
-            `- _Google hesabınızla oturum açın_\n` +
-            `- _API Anahtarı Oluşturun_\n` +
-            `- _Oluşturulan API anahtarını kopyalayın._\n\n` +
-            `*_API anahtarınızı ayarlamak içinse:_*\n` +
-            `\`.setvar GEMINI_API_KEY=sizin_api_anahtarınız\`\n\n` +
-            `_Şu kısmı \`sizin_api_anahtarınız\` gerçek API anahtarınızla değiştirin._`
-          );
-        }
-
-        if (target === "grup") {
-          await setVar("AI_ALL_GRUP", "true");
-          return await message.sendReply(
-            `*_🤖 Tüm gruplar için Yapay Zeka aktifleştirildi!_*\n\n` +
-            `✅ _Yapay Zeka artık tüm gruplarda yanıt verecek._\n` +
-            `🤖 _Model:_ \`${models[0]}\`\n` +
-            `📍 _Çalışma Koşulu:_ _Yalnızca bahsetmeler ve mesaj yanıtları_\n\n` +
-            `_Yeniden devre dışı bırakmak için \`.yzayar kapat grup\` yazın._`
-          );
-        } else if (target === "dm") {
-          await setVar("AI_ALL_DM", "true");
-          return await message.sendReply(
-            `*_🤖 DM için Yapay Zeka Aktifleştirildi!_*\n\n` +
-            `✅ _Yapay Zeka artık doğrudan tüm mesajlara yanıt verecek._\n` +
-            `🤖 _Model:_ \`${models[0]}\`\n` +
-            `📍 _Çalışma Koşulu:_ _Tüm Mesajlar_\n\n` +
-            `_Yeniden devre dışı bırakmak için \`.yzayar kapat dm\` yazın._`
-          );
-        } else {
-          await enableChatbot(chatJid);
-          return await message.sendReply(
-            `*_🤖 Yapay Zeka Aktif!_*\n\n` +
-            `📍 _Sohbet:_ \`${chatJid.includes("@g.us") ? "Group" : "DM"}\`\n` +
-            `🤖 _Model:_ \`${models[0]}\`\n` +
-            `💭 _Sohbet Geçmişi:_ _Yeni Başlangıç_\n\n` +
-            `_Artık direkt mesajlara, bahsetmelere ve mesaj yanıtlarına cevap vereceğim!_`
-          );
-        }
-
-      case "kapat":
-        if (target === "grup") {
-          await setVar("AI_ALL_GRUP", "false");
-          return await message.sendReply(
-            `*_🤖 Tüm gruplar için Yapay Zeka devre dışı bırakıldı!_*\n\n` +
-            `❌ _Yapay Zeka artık hiçbir grupta yanıt vermeyecek._\n` +
-            `📝 _Kişisel grup ayarları korunacaktır._\n\n` +
-            `_Yeniden aktifleştirmek için \`.yzayar aç grup\` yazın._`
-          );
-        } else if (target === "dm") {
-          await setVar("AI_ALL_DM", "false");
-          return await message.sendReply(
-            `🤖 *_DM için Yapay Zeka devre dışı bırakıldı!_*\n\n` +
-            `❌ _Yapay Zeka artık DM üzerinden yanıt vermeyecek._\n` +
-            `📝 _Kişisel DM ayarları korunacaktır._\n` +
-            `_Yeniden aktifleştirmek için \`.yzayar aç dm\` yazın._`
-          );
-        } else {
-          await disableChatbot(chatJid);
-          return await message.sendReply(
-            `*_🤖 Yapay Zeka artık devre dışı!_*\n\n` +
-            `_Bu sohbette Yapay Zeka devre dışı bırakıldı._\n` +
-            `_Sohbet geçmişi ise temizlendi._`
-          );
-        }
-
-      case "seç":
-        const promptMatch = input.match(/"([^"]+)"/);
-        if (!promptMatch) {
-          return await message.sendReply(
-            `_Lütfen istemi tırnak içinde belirtin._\n\n` +
-            `*_Örnek:_*\n` +
-            `\`.yzayar seç "Sen konuşma konusunda uzmanlaşmış, yardımsever bir asistansın."\``
-          );
-        }
-        const newPrompt = promptMatch[1];
-        await saveSystemPrompt(newPrompt);
-        return await message.sendReply(
-          `*_🎯 Varsayılan İstem Güncellendi!_*\n\n` +
-          `📝 _Yeni İstem:_ \`${newPrompt}\`\n\n` +
-          `_Bu tüm yeni sohbetler için geçerli olacaktır._`
-        );
-
-      case "temizle":
-        if (target === "grup" || target === "dm") {
-          await clearAllContexts(target);
-          return await message.sendReply(
-            `*_💭 Geçmiş Temizlendi (${target === "grup" ? "Grup" : "DM"})_*\n\n` +
-            `_Konuşma geçmişleri tüm ${target === "grup" ? "gruplar" : "DM'ler"} için sıfırlandı._\n` +
-            `_Sonraki mesajlar yeni konuşmalar başlatacak._`
-          );
-        } else {
-          clearContext(chatJid);
-          return await message.sendReply(
-            `*_💭 Geçmiş Temizlendi!_*\n\n` +
-            `_Konuşma geçmişi sıfırlandı._\n` +
-            `_Sonraki mesaj yeni bir konuşma başlatacak._`
-          );
-        }
-
-      case "durum":
-        const isEnabled = isChatbotEnabled(chatJid);
-        const isEnabledIndividually = chatbotStates.get(chatJid) === true;
-        const globalGroups = config.AI_ALL_GRUP === "true";
-        const globalDMs = config.AI_ALL_DM === "true";
-        const currentModel = models[modelStates.get(chatJid) || 0];
-        const contextSize = chatContexts.get(chatJid)?.length || 0;
-        const modelIndex = modelStates.get(chatJid) || 0;
-        const isGroup = chatJid.includes("@g.us");
-
-        let enabledReason = "";
-        if (isEnabledIndividually) {
-          enabledReason = "Bireysel Ayar";
-        } else if (isGroup && globalGroups) {
-          enabledReason = "Genel Grup Ayarı";
-        } else if (!isGroup && globalDMs) {
-          enabledReason = "Genel DM Ayarı";
-        }
-
-        const statusText =
-          `*_🤖 Sohbet Botu Durumu_*\n\n` +
-          `📊 _Durum:_ \`${isEnabled ? "Aktif ✅" : "Kapalı ❌"}\`\n` +
-          (isEnabled && enabledReason
-            ? `📋 _Etkinleştirme:_ \`${enabledReason}\`\n`
-            : "") +
-          `🌐 _Genel Gruplar:_ \`${globalGroups ? "Aktif ✅" : "Kapalı ❌"
-          }\`\n` +
-          `💬 _Genel DM'ler:_ \`${globalDMs ? "Aktif ✅" : "Kapalı ❌"}\`\n` +
-          `🤖 _Mevcut Model:_ \`${currentModel}\`\n` +
-          `📈 _Model Yedekleme Seviyesi:_ \`${modelIndex + 1}/${models.length}\`\n` +
-          `💭 _Hafızadaki Mesajlar:_ \`${contextSize}\`\n` +
-          `🎯 _Sistem İstem:_ \`${globalSystemPrompt}\`\n` +
-          `🔑 _API Anahtarı:_ \`${config.GEMINI_API_KEY ? "Yapılandırıldı ✅" : "Eksik ❌"}\`\n\n` +
-          `*_Mevcut Modeller:_*\n` +
-          models
-            .map(
-              (model, index) =>
-                `${index + 1}. \`${model}\` ${index === modelIndex ? "← Mevcut" : ""}`
-            )
-            .join("\n");
-
-        return await message.sendReply(statusText);
-
-      default:
-        return await message.sendReply(
-          `_Bilinmeyen komut: \`${command}\`_\n\n_Kullanılabilir komutları görmek için \`.yzayar\` yazın._`
-        );
-    }
-  }
-);
-
-Module(
-  {
     on: "text",
     fromMe: false,
   },
@@ -744,340 +520,503 @@ Module(
   }
 );
 
-Module({
-  pattern: "yz ?(.*)",
-  fromMe: isFromMe,
-  desc: "Yapay zekaya sadece metin sorusu sorar. Görsele yanıtlanırsa görseli analiz eder.",
-  usage: ".yz <soru> | (görsele yanıtlayıp) .yz",
-  type: "ai",
-},
+Module(
+  {
+    pattern: "yz ?(.*)",
+    fromMe: false,
+    desc: "Yapay zeka komutları. .yz yazarak tüm alt komutları görebilirsiniz.",
+    usage: ".yz <soru> | .yz görsel <açıklama> | .yz düzenle <talimat> | .yz anime | .yz soruçöz | .yz ayar",
+    type: "ai",
+  },
   async (message, match) => {
     const rawInput = match[1]?.trim() || "";
-    let prompt = "";
-    let imageParts = [];
+    const parts = rawInput.split(/\s+/);
+    const subCmd = parts[0]?.toLowerCase() || "";
+    const subArgs = parts.slice(1).join(" ");
 
-    // ─── 1. ADIM: Yanıtlanan mesajda görsel varsa HER ZAMAN indir ───
-    if (message.reply_message?.image) {
-      try {
-        const buffer = await message.reply_message.download("buffer");
-        const imagePart = await imageToGenerativePart(buffer);
-        if (imagePart) {
-          imageParts.push(imagePart);
-        } else {
-          return await message.sendReply("❌ Görsel işlenemedi.");
+    switch (subCmd) {
+      case "görsel": {
+        const imagePrompt = subArgs || message.reply_message?.text?.trim();
+        if (!imagePrompt) {
+          return await message.sendReply("_🖼️ Görsel açıklaması girin._\n_Örnek: .yz görsel gün batımı sahil_");
         }
-      } catch (error) {
-        console.error("YZ görsel analiz indirme hatası:", error);
-        return await message.sendReply("❌ Görsel indirilemedi.");
-      }
-    }
-
-    // ─── 2. ADIM: Prompt'u oluştur (görsel, metin, rawInput kombinasyonları) ───
-    const hasImage = imageParts.length > 0;
-    const hasReplyText = !!(message.reply_message?.text);
-
-    if (rawInput && hasImage && hasReplyText) {
-      // Görsele + yazılı mesaja yanıt + kullanıcı sorusu var
-      prompt = `Yanıtlanan mesaj: "${message.reply_message.text}"\n\n[Görsel ektedir, görseli de dikkate al]\n\nSoru: ${rawInput}`;
-    } else if (rawInput && hasImage) {
-      // Görsele yanıt + kullanıcı sorusu var (mesaj metni yok)
-      prompt = rawInput;
-    } else if (rawInput && hasReplyText) {
-      // Metne yanıt + kullanıcı sorusu var (görsel yok)
-      prompt = `Yanıtlanan mesaj: "${message.reply_message.text}"\n\nSoru: ${rawInput}`;
-    } else if (rawInput) {
-      // Sadece kullanıcı sorusu var
-      prompt = rawInput;
-    } else if (hasImage && hasReplyText) {
-      // Görsele + yazılı mesaja yanıt (soru yok)
-      prompt = `Bu görseli ve yanındaki mesajı analiz et: "${message.reply_message.text}"`;
-    } else if (hasImage) {
-      // Sadece görsele yanıt (soru yok)
-      prompt = "Bu görselde ne görüyorsun? Kısa ve net analiz et.";
-    } else if (hasReplyText) {
-      // Sadece metne yanıt (soru yok)
-      prompt = `Bu metni analiz et ve yanıtla: "${message.reply_message.text}"`;
-    } else {
-      // Hiçbir şey yok — yardım menüsü
-      return await message.sendReply(
-        "✨ *Yapay Zeka (Lades AI) Kullanım Rehberi*\n\n" +
-        "🤖 *Soru Sorma:*\n" +
-        "└ `.yz yemek tarifi` — Herhangi bir konuda soru sorabilirsiniz.\n\n" +
-        "📝 *Metin Analizi:*\n" +
-        "└ Bir metne yanıt vererek `.yz` yazarsanız metni analiz ederim.\n" +
-        "└ Bir metne yanıt vererek `.yz bu metni özetle` yazarsanız metne göre yanıt veririm.\n\n" +
-        "🖼️ *Görsel Analizi:*\n" +
-        "└ Bir görsele yanıt vererek `.yz` yazarsanız görseli analiz eder ve açıklarım.\n" +
-        "└ Bir görsele yanıt vererek `.yz bu görselde ne var?` yazarsanız görseli açıklarsınız.\n\n" +
-        "🎨 *Görsel Üretimi:*\n" +
-        "└ `.yzgörsel uzayda kedi` — Yazdığınız metinden görsel oluştururum.\n\n" +
-        "🖌️ *Görsel Düzenlemesi:*\n" +
-        "└ Bir görsele yanıt vererek `.yzdüzenle yağlı boya yap` yazarsanız görseli düzenlerim.\n\n"
-      );
-    }
-
-    // ─── 3. ADIM: Emoji talimatını ekle ───
-    const emojiInstruction = "Yanıtında konuya uygun emojiler kullanarak daha anlaşılır ve samimi bir şekilde yanıt ver. ";
-    prompt = emojiInstruction + prompt;
-
-    let sent_msg;
-    try {
-      sent_msg = await message.sendReply("🧐 _Düşünüyorum..._");
-      const fullText = await callGenerativeAI(prompt, imageParts, message, sent_msg);
-
-      if (!fullText) {
-        await message.edit("❌ Yapay Zeka'dan boş yanıt alındı.", message.jid, sent_msg.key);
-        return;
-      }
-
-      await message.edit(fullText, message.jid, sent_msg.key);
-    } catch (error) {
-      console.error("YZ komut hatası:", error.message);
-      if (sent_msg) {
-        await message.edit("❌ Yapay Zeka API'sinde bir hata oluştu.", message.jid, sent_msg.key);
-      } else {
-        await message.sendReply("❌ Yapay Zeka API'sinde bir hata oluştu.");
-      }
-    }
-  }
-);
-
-Module({
-  pattern: "yzgörsel ?(.*)",
-  fromMe: isFromMe,
-  desc: "Metinden görsel üretir.",
-  usage: ".yzgörsel <açıklama>",
-  type: "ai",
-},
-  async (message, match) => {
-    const imagePrompt = match[1]?.trim() || message.reply_message?.text?.trim();
-    if (!imagePrompt) {
-      return await message.sendReply("_🖼️ Görsel açıklaması girin._\n_Örnek: .yzgörsel gün batımı sahil_");
-    }
-
-    try {
-      const processingMsg = await message.sendReply("_🎨 Görsel oluşturuluyor..._");
-      const resultBuffer = await nexray.deepImg(imagePrompt);
-      if (resultBuffer && resultBuffer.length) {
-        await message.sendReply(resultBuffer, "image", {
-          caption: `_*${imagePrompt.slice(0, 80)}${imagePrompt.length > 80 ? "..." : ""}*_`,
-        });
-        await message.edit("_✅ Görsel oluşturuldu!_", message.jid, processingMsg.key);
-      } else {
-        await message.edit("_❌ Görsel oluşturulamadı. Farklı bir açıklama deneyin._", message.jid, processingMsg.key);
-      }
-    } catch (error) {
-      console.error("YZ görsel üretme hatası:", error);
-      await message.sendReply("_❌ Görsel üretiminde hata oluştu. Lütfen tekrar deneyin._");
-    }
-  }
-);
-
-Module({
-  pattern: "yzdüzenle ?(.*)",
-  fromMe: isFromMe,
-  desc: "Yanıtlanan görseli talimata göre GPT ile düzenler.",
-  usage: ".yzdüzenle <talimat> (görsele yanıt)",
-  type: "ai",
-},
-  async (message, match) => {
-    const editPrompt = match[1]?.trim() || "";
-
-    if (!message.reply_message || !message.reply_message.image) {
-      return await message.sendReply(
-        "_🖼️ Düzenleme için bir görsele yanıt verin._\n\n" +
-        "*Görsel düzenleme seçenekleri:*\n" +
-        "• _.yzdüzenle <talimat>_ (YZ ile gelişmiş düzenleme)\n" +
-        "• _.renklendir_ (S/B görseli renklendirir)\n" +
-        "• _.apsil_ (arka planı kaldırır)\n" +
-        "• _.upscale_ (görsel kalitesini artırır)"
-      );
-    }
-
-    if (!editPrompt) {
-      return await message.sendReply("_📝 Düzenleme talimatı girin._\n_Örnek: .yzdüzenle gökyüzünü mor yap_");
-    }
-
-    try {
-      const processingMsg = await message.sendReply("_🎨 Görsel düzenleniyor..._");
-      const imgBuffer = await message.reply_message.download("buffer");
-      const mimetype = message.reply_message.mimetype || "image/jpeg";
-      const resultBuffer = await nexray.gptImage(imgBuffer, editPrompt, mimetype);
-
-      if (resultBuffer && resultBuffer.length) {
-        await message.sendReply(resultBuffer, "image", {
-          caption: `_*${editPrompt.slice(0, 80)}${editPrompt.length > 80 ? "..." : ""}*_`,
-        });
-        await message.edit("_✅ Görsel düzenlendi!_", message.jid, processingMsg.key);
-      } else {
-        await message.edit("_❌ Görsel düzenleme başarısız oldu. Farklı bir talimat deneyin._", message.jid, processingMsg.key);
-      }
-    } catch (error) {
-      console.error("YZ görsel düzenleme hatası:", error);
-      await message.sendReply("_❌ Görsel düzenleme sırasında hata oluştu. Lütfen tekrar deneyin._");
-    }
-  }
-);
-
-Module({
-  pattern: "soruçöz ?(.*)",
-  fromMe: isFromMe,
-  desc: "Sınav sorularını YZ yardımıyla çözer",
-  type: "ai",
-},
-  async (message, match) => {
-    let extra = match[1]?.trim() || "";
-    let imageParts = [];
-
-    let basePrompt =
-      "Şimdi gönderilen sınav sorusunu adım adım çözelim. " +
-      "Önce soruyu analiz et, sonra çözüm yolunu açık ve mantıklı bir şekilde adım adım göster. " +
-      "En sonunda ise net cevabı yaz. " +
-      "Yanıtında uygun emojiler kullanarak adımları daha anlaşılır ve görsel olarak zengin hale getir " +
-      "(örneğin ✅ doğru cevap, 📌 önemli not, 🔍 analiz, 📝 çözüm adımı, 💡 ipucu, ⚠️ dikkat gibi).";
-
-    if (extra) {
-      basePrompt += "\n\nEk not: " + extra;
-    }
-
-    if (message.reply_message) {
-      if (message.reply_message.image) {
         try {
+          const processingMsg = await message.sendReply("_🎨 Görsel oluşturuluyor..._");
+          const resultBuffer = await nexray.deepImg(imagePrompt);
+          if (resultBuffer && resultBuffer.length) {
+            await message.sendReply(resultBuffer, "image", {
+              caption: `_*${imagePrompt.slice(0, 80)}${imagePrompt.length > 80 ? "..." : ""}*_`,
+            });
+            await message.edit("_✅ Görsel oluşturuldu!_", message.jid, processingMsg.key);
+          } else {
+            await message.edit("_❌ Görsel oluşturulamadı. Farklı bir açıklama deneyin._", message.jid, processingMsg.key);
+          }
+        } catch (error) {
+          console.error("YZ görsel üretme hatası:", error);
+          await message.sendReply("_❌ Görsel üretiminde hata oluştu. Lütfen tekrar deneyin._");
+        }
+        break;
+      }
+
+      case "düzenle": {
+        const editPrompt = subArgs || "";
+        if (!message.reply_message || !message.reply_message.image) {
+          return await message.sendReply(
+            "_🖼️ Düzenleme için bir görsele yanıt verin._\n\n" +
+            "*Görsel düzenleme seçenekleri:*\n" +
+            "• _.yz düzenle <talimat>_ (YZ ile gelişmiş düzenleme)\n" +
+            "• _.renklendir_ (S/B görseli renklendirir)\n" +
+            "• _.apsil_ (arka planı kaldırır)\n" +
+            "• _.upscale_ (görsel kalitesini artırır)"
+          );
+        }
+        if (!editPrompt) {
+          return await message.sendReply("_📝 Düzenleme talimatı girin._\n_Örnek: .yz düzenle gökyüzünü mor yap_");
+        }
+        try {
+          const processingMsg = await message.sendReply("_🎨 Görsel düzenleniyor..._");
+          const imgBuffer = await message.reply_message.download("buffer");
+          const mimetype = message.reply_message.mimetype || "image/jpeg";
+          const resultBuffer = await nexray.gptImage(imgBuffer, editPrompt, mimetype);
+          if (resultBuffer && resultBuffer.length) {
+            await message.sendReply(resultBuffer, "image", {
+              caption: `_*${editPrompt.slice(0, 80)}${editPrompt.length > 80 ? "..." : ""}*_`,
+            });
+            await message.edit("_✅ Görsel düzenlendi!_", message.jid, processingMsg.key);
+          } else {
+            await message.edit("_❌ Görsel düzenleme başarısız oldu. Farklı bir talimat deneyin._", message.jid, processingMsg.key);
+          }
+        } catch (error) {
+          console.error("YZ görsel düzenleme hatası:", error);
+          await message.sendReply("_❌ Görsel düzenleme sırasında hata oluştu. Lütfen tekrar deneyin._");
+        }
+        break;
+      }
+
+      case "anime": {
+        if (!message.reply_message?.image) {
+          return await message.sendReply("❗ *Lütfen bir fotoğrafa yanıt vererek `.yz anime` yazın.*");
+        }
+        let sent;
+        let tempFile = null;
+        try {
+          sent = await message.send("🎨 _Anime stili uygulanıyor..._ ⌛");
           const buffer = await message.reply_message.download("buffer");
-          const part = await imageToGenerativePart(buffer);
-          if (part) imageParts.push(part);
-        } catch (err) {
-          console.error("Görsel indirilemedi:", err);
-          return await message.sendReply("❌ Görsel yüklenemedi. Tekrar deneyin.");
-        }
-      } else if (message.reply_message.album) {
-        try {
-          const album = await message.reply_message.download();
-          for (const img of album.images) {
-            const buffer = fs.readFileSync(img);
-            const part = await imageToGenerativePart(buffer);
-            if (part) imageParts.push(part);
+          tempFile = `./temp_anime_${Date.now()}.jpg`;
+          fs.writeFileSync(tempFile, buffer);
+
+          let animeBuffer = null;
+
+          try {
+            const uploadResult = await uploadToImgbb(tempFile);
+            const imageUrl = uploadResult?.url;
+            if (imageUrl && imageUrl.startsWith("http")) {
+              const animeResponse = await axios.get(
+                `https://zellapi.autos/ai/applyfilter?imageUrl=${encodeURIComponent(imageUrl)}`,
+                { timeout: 30000 }
+              );
+              if (animeResponse.data?.result) {
+                animeBuffer = await getBuffer(animeResponse.data.result);
+              }
+            }
+          } catch (err) {
+            console.error("ZellAPI anime dönüştürme hatası:", err.response?.data || err.message);
           }
+
+          if (!animeBuffer) {
+            try {
+              animeBuffer = await nexray.gptImage(
+                buffer,
+                "Transform this photo into high quality anime/manga art style. Keep the same composition and person but make it look like a Japanese anime character.",
+                "image/jpeg"
+              );
+            } catch (err) {
+              console.error("Nexray anime dönüştürme hatası:", err.response?.data || err.message);
+            }
+          }
+
+          if (!animeBuffer) {
+            throw new Error("Tüm anime API'leri başarısız oldu");
+          }
+
+          await message.edit("✅ _Anime stili uygulandı!_", message.jid, sent.key);
+          await message.client.sendMessage(message.jid, {
+            image: animeBuffer
+          }, { quoted: message.reply_message?.data || message.data });
         } catch (err) {
-          console.error("Albüm indirilemedi:", err);
-          return await message.sendReply("❌ Medya yüklenemedi! Tekrar deneyin.");
-        }
-      }
-    }
-
-    if (!imageParts.length && !message.reply_message?.text) {
-      return await message.sendReply("❗ *Lütfen bir sınav sorusuna yanıtlayarak `.soruçöz` yazın.*");
-    }
-
-    let sent;
-    try {
-      sent = await message.sendReply("🧐 _Düşünüyorum..._");
-
-      const result = await callGenerativeAI(
-        basePrompt,
-        imageParts,
-        message,
-        sent
-      );
-
-      if (!result) {
-        return await message.edit(
-          "❌ YZ boş yanıt gönderdi.",
-          message.jid,
-          sent.key
-        );
-      }
-
-      await message.edit(result, message.jid, sent.key);
-    } catch (err) {
-      console.error("SORU ÇÖZME HATASI:", err);
-      if (sent) {
-        await message.edit(
-          "❌ İşlemde hata oluştu. Tekrar deneyiniz.",
-          message.jid,
-          sent.key
-        );
-      } else {
-        await message.sendReply("❌ Yapay Zeka hatası!");
-      }
-    }
-  }
-);
-
-Module({
-  pattern: "yzanime ?(.*)",
-  fromMe: isFromMe,
-  desc: "Fotoğrafı Yapay Zeka ile anime stiline dönüştürür.",
-  type: "ai",
-},
-  async (message, match) => {
-    if (!message.reply_message?.image) {
-      return await message.sendReply("❗ *Lütfen bir fotoğrafa yanıt vererek `.yzanime` yazın.*");
-    }
-    let sent;
-    let tempFile = null;
-    try {
-      sent = await message.send("🎨 _Anime stili uygulanıyor..._ ⌛");
-      const buffer = await message.reply_message.download("buffer");
-      tempFile = `./temp_anime_${Date.now()}.jpg`;
-      fs.writeFileSync(tempFile, buffer);
-
-      let animeBuffer = null;
-
-      // 1. Birincil: ZellAPI
-      try {
-        const uploadResult = await uploadToImgbb(tempFile);
-        const imageUrl = uploadResult?.url;
-
-        if (imageUrl && imageUrl.startsWith("http")) {
-          const animeResponse = await axios.get(
-            `https://zellapi.autos/ai/applyfilter?imageUrl=${encodeURIComponent(imageUrl)}`,
-            { timeout: 30000 }
-          );
-
-          if (animeResponse.data?.result) {
-            animeBuffer = await getBuffer(animeResponse.data.result);
+          console.error("ANİME ÇİZME HATASI:", err.response?.data || err.message);
+          if (sent) {
+            await message.edit(
+              "❌ Anime dönüştürmesi başarısız oldu. Lütfen tekrar deneyin.",
+              message.jid,
+              sent.key
+            );
+          } else {
+            await message.sendReply("❌ *Anime dönüştürmesi başarısız oldu!*");
+          }
+        } finally {
+          if (tempFile && fs.existsSync(tempFile)) {
+            fs.unlinkSync(tempFile);
           }
         }
-      } catch (err) {
-        console.error("ZellAPI anime dönüştürme hatası:", err.response?.data || err.message);
+        break;
       }
 
-      // 2. Yedek API: Nexray gptImage
-      if (!animeBuffer) {
-        try {
-          animeBuffer = await nexray.gptImage(
-            buffer,
-            "Transform this photo into high quality anime/manga art style. Keep the same composition and person but make it look like a Japanese anime character.",
-            "image/jpeg"
-          );
-        } catch (err) {
-          console.error("Nexray anime dönüştürme hatası:", err.response?.data || err.message);
+      case "soruçöz": {
+        let extra = subArgs || "";
+        let imageParts = [];
+
+        let basePrompt =
+          "Şimdi gönderilen sınav sorusunu adım adım çözelim. " +
+          "Önce soruyu analiz et, sonra çözüm yolunu açık ve mantıklı bir şekilde adım adım göster. " +
+          "En sonunda ise net cevabı yaz. " +
+          "Yanıtında uygun emojiler kullanarak adımları daha anlaşılır ve görsel olarak zengin hale getir " +
+          "(örneğin ✅ doğru cevap, 📌 önemli not, 🔍 analiz, 📝 çözüm adımı, 💡 ipucu, ⚠️ dikkat gibi).";
+
+        if (extra) {
+          basePrompt += "\n\nEk not: " + extra;
         }
+
+        if (message.reply_message) {
+          if (message.reply_message.image) {
+            try {
+              const buffer = await message.reply_message.download("buffer");
+              const part = await imageToGenerativePart(buffer);
+              if (part) imageParts.push(part);
+            } catch (err) {
+              console.error("Görsel indirilemedi:", err);
+              return await message.sendReply("❌ Görsel yüklenemedi. Tekrar deneyin.");
+            }
+          } else if (message.reply_message.album) {
+            try {
+              const album = await message.reply_message.download();
+              for (const img of album.images) {
+                const buffer = fs.readFileSync(img);
+                const part = await imageToGenerativePart(buffer);
+                if (part) imageParts.push(part);
+              }
+            } catch (err) {
+              console.error("Albüm indirilemedi:", err);
+              return await message.sendReply("❌ Medya yüklenemedi! Tekrar deneyin.");
+            }
+          }
+        }
+
+        if (!imageParts.length && !message.reply_message?.text) {
+          return await message.sendReply("❗ *Lütfen bir sınav sorusuna yanıtlayarak `.yz soruçöz` yazın.*");
+        }
+
+        let sent;
+        try {
+          sent = await message.sendReply("🧐 _Düşünüyorum..._");
+          const result = await callGenerativeAI(basePrompt, imageParts, message, sent);
+          if (!result) {
+            return await message.edit("❌ YZ boş yanıt gönderdi.", message.jid, sent.key);
+          }
+          await message.edit(result, message.jid, sent.key);
+        } catch (err) {
+          console.error("SORU ÇÖZME HATASI:", err);
+          if (sent) {
+            await message.edit("❌ İşlemde hata oluştu. Tekrar deneyiniz.", message.jid, sent.key);
+          } else {
+            await message.sendReply("❌ Yapay Zeka hatası!");
+          }
+        }
+        break;
       }
 
-      if (!animeBuffer) {
-        throw new Error("Tüm anime API'leri başarısız oldu");
+      case "ayar": {
+        const input = subArgs || "";
+        const chatJid = message.jid;
+
+        if (!input) {
+          const isEnabled = isChatbotEnabled(chatJid);
+          const globalGroups = config.AI_ALL_GRUP === "true";
+          const globalDMs = config.AI_ALL_DM === "true";
+          const currentModel = models[modelStates.get(chatJid) || 0];
+          const contextSize = chatContexts.get(chatJid)?.length || 0;
+          const hasApiKey = !!config.GEMINI_API_KEY;
+
+          const helpText =
+            `*_🚨 Yapay Zeka Botu Yapılandırması_*\n\n` +
+            `ℹ️ _Mevcut Durum:_ \`${isEnabled ? "Aktif" : "Devre Dışı"}\`\n` +
+            `🔑 _API Anahtarı:_ \`${hasApiKey ? "Ekli ✅" : "Eksik ❌"}\`\n` +
+            `🌐 _Gruplarda:_ \`${globalGroups ? "Aktif ✅" : "Devre Dışı ❌"}\`\n` +
+            `💬 _DM'de:_ \`${globalDMs ? "Aktif ✅" : "Devre Dışı ❌"}\`\n` +
+            `🤖 Seçili Model:_ \`${currentModel}\`\n` +
+            `💭 _Sohbet Hafızası:_ \`${contextSize}\`\n` +
+            `🎯 _Varsayılan İstem:_ \`${globalSystemPrompt.substring(0, 100)}${globalSystemPrompt.length > 100 ? "..." : ""
+            }\`\n\n` +
+            (hasApiKey
+              ? `*_Komutlar:_*\n` +
+              `- \`.yz ayar aç\` - _Mevcut sohbette Yapay Zeka'yı etkinleştirir_\n` +
+              `- \`.yz ayar kapat\` - _Mevcut sohbette Yapay Zeka'yı kapatır\n` +
+              `- \`.yz ayar aç grup\` - _Tüm gruplarda Yapay Zeka'yı etkinleştirir_\n` +
+              `- \`.yz ayar aç dm\` - _DM için Yapay Zeka'yı etkinleştirir_\n` +
+              `- \`.yz ayar kapat grup\` - _Tüm gruplarda Yapay Zeka'yı kapatır\n` +
+              `- \`.yz ayar kapat dm\` - _DM için Yapay Zeka'yı kapatır\n` +
+              `- \`.yz ayar seç "istem"\` - _Varsayılan istemi ayarlar_\n` +
+              `- \`.yz ayar temizle\` - _Tüm sohbet geçmişini siler_\n` +
+              `- \`.yz ayar durum\` - _Ayrıntılı olarak yapılandırmayı gösterir_\n\n` +
+              `🤔 *_Peki, nasıl çalışır?_*\n` +
+              `- _Bot'a gönderilen direkt mesajlar Yapay Zeka'yı çalıştırır_\n` +
+              `- _Bahsetmeler (@bot) Yapay Zeka'yı çalıştırır_\n` +
+              `- _Bot mesajlarına verilen yanıtlar Yapay Zeka'yı çalıştırır_\n` +
+              `- _Görsel Analizi için mesajı yanıtlamak Yapay Zeka'yı çalıştırır_\n` +
+              `- _Sohbet geçmişini otomatik olarak korur_\n` +
+              `- _Hız limitlerine bağlı olarak modelleri otomatik olarak değiştirir_`
+              : `*_⚠️ Kurulum Gerekli!_*\n` +
+              `_Yapay Zeka'yı kullanmak için API anahtarı gereklidir._\n\n` +
+              `*_API anahtarı edinmek için:_*\n` +
+              `- _Bağlantıya tıklayın: https://aistudio.google.com/app/apikey_\n` +
+              `- _Google hesabınızla oturum açın_\n` +
+              `- _API Anahtarı Oluşturun_\n\n` +
+              `*_API anahtarınızı ayarlamak içinse:_*\n` +
+              `\`.setvar GEMINI_API_KEY=your_api_key_here\`\n\n` +
+              `_Anahtarı ayarladıktan sonra aktifleştirmek için \`.yz ayar aç\` yazın._`);
+
+          return await message.sendReply(helpText);
+        }
+
+        const args = input.split(" ");
+        const command = args[0].toLowerCase();
+        const target = args[1]?.toLowerCase();
+
+        switch (command) {
+          case "aç":
+            if (!config.GEMINI_API_KEY) {
+              return await message.sendReply(
+                `*_❌ GEMINI_API_KEY Eklenmemiş!_*\n\n` +
+                `_Gemini API anahtarı olmadan Yapay Zeka etkinleştirilemez._\n\n` +
+                `*_API anahtarı edinmek için:_*\n` +
+                `- _Bağlantıya tıklayın: https://aistudio.google.com/app/apikey_\n` +
+                `- _Google hesabınızla oturum açın_\n` +
+                `- _API Anahtarı Oluşturun_\n` +
+                `- _Oluşturulan API anahtarını kopyalayın._\n\n` +
+                `*_API anahtarınızı ayarlamak içinse:_*\n` +
+                `\`.setvar GEMINI_API_KEY=sizin_api_anahtarınız\`\n\n` +
+                `_Şu kısmı \`sizin_api_anahtarınız\` gerçek API anahtarınızla değiştirin._`
+              );
+            }
+            if (target === "grup") {
+              await setVar("AI_ALL_GRUP", "true");
+              return await message.sendReply(
+                `*_🤖 Tüm gruplar için Yapay Zeka aktifleştirildi!_*\n\n` +
+                `✅ _Yapay Zeka artık tüm gruplarda yanıt verecek._\n` +
+                `🤖 _Model:_ \`${models[0]}\`\n` +
+                `📍 _Çalışma Koşulu:_ _Yalnızca bahsetmeler ve mesaj yanıtları_\n\n` +
+                `_Yeniden devre dışı bırakmak için \`.yz ayar kapat grup\` yazın._`
+              );
+            } else if (target === "dm") {
+              await setVar("AI_ALL_DM", "true");
+              return await message.sendReply(
+                `*_🤖 DM için Yapay Zeka Aktifleştirildi!_*\n\n` +
+                `✅ _Yapay Zeka artık doğrudan tüm mesajlara yanıt verecek._\n` +
+                `🤖 _Model:_ \`${models[0]}\`\n` +
+                `📍 _Çalışma Koşulu:_ _Tüm Mesajlar_\n\n` +
+                `_Yeniden devre dışı bırakmak için \`.yz ayar kapat dm\` yazın._`
+              );
+            } else {
+              await enableChatbot(chatJid);
+              return await message.sendReply(
+                `*_🤖 Yapay Zeka Aktif!_*\n\n` +
+                `📍 _Sohbet:_ \`${chatJid.includes("@g.us") ? "Group" : "DM"}\`\n` +
+                `🤖 _Model:_ \`${models[0]}\`\n` +
+                `💭 _Sohbet Geçmişi:_ _Yeni Başlangıç_\n\n` +
+                `_Artık direkt mesajlara, bahsetmelere ve mesaj yanıtlarına cevap vereceğim!_`
+              );
+            }
+
+          case "kapat":
+            if (target === "grup") {
+              await setVar("AI_ALL_GRUP", "false");
+              return await message.sendReply(
+                `*_🤖 Tüm gruplar için Yapay Zeka devre dışı bırakıldı!_*\n\n` +
+                `❌ _Yapay Zeka artık hiçbir grupta yanıt vermeyecek._\n` +
+                `📝 _Kişisel grup ayarları korunacaktır._\n\n` +
+                `_Yeniden aktifleştirmek için \`.yz ayar aç grup\` yazın._`
+              );
+            } else if (target === "dm") {
+              await setVar("AI_ALL_DM", "false");
+              return await message.sendReply(
+                `🤖 *_DM için Yapay Zeka devre dışı bırakıldı!_*\n\n` +
+                `❌ _Yapay Zeka artık DM üzerinden yanıt vermeyecek._\n` +
+                `📝 _Kişisel DM ayarları korunacaktır._\n` +
+                `_Yeniden aktifleştirmek için \`.yz ayar aç dm\` yazın._`
+              );
+            } else {
+              await disableChatbot(chatJid);
+              return await message.sendReply(
+                `*_🤖 Yapay Zeka artık devre dışı!_*\n\n` +
+                `_Bu sohbette Yapay Zeka devre dışı bırakıldı._\n` +
+                `_Sohbet geçmişi ise temizlendi._`
+              );
+            }
+
+          case "seç":
+            const promptMatch = input.match(/"([^"]+)"/);
+            if (!promptMatch) {
+              return await message.sendReply(
+                `_Lütfen istemi tırnak içinde belirtin._\n\n` +
+                `*_Örnek:_*\n` +
+                `\`.yz ayar seç "Sen konuşma konusunda uzmanlaşmış, yardımsever bir asistansın."\``
+              );
+            }
+            const newPrompt = promptMatch[1];
+            await saveSystemPrompt(newPrompt);
+            return await message.sendReply(
+              `*_🎯 Varsayılan İstem Güncellendi!_*\n\n` +
+              `📝 _Yeni İstem:_ \`${newPrompt}\`\n\n` +
+              `_Bu tüm yeni sohbetler için geçerli olacaktır._`
+            );
+
+          case "temizle":
+            if (target === "grup" || target === "dm") {
+              await clearAllContexts(target);
+              return await message.sendReply(
+                `*_💭 Geçmiş Temizlendi (${target === "grup" ? "Grup" : "DM"})_*\n\n` +
+                `_Konuşma geçmişleri tüm ${target === "grup" ? "gruplar" : "DM'ler"} için sıfırlandı._\n` +
+                `_Sonraki mesajlar yeni konuşmalar başlatacak._`
+              );
+            } else {
+              clearContext(chatJid);
+              return await message.sendReply(
+                `*_💭 Geçmiş Temizlendi!_*\n\n` +
+                `_Konuşma geçmişi sıfırlandı._\n` +
+                `_Sonraki mesaj yeni bir konuşma başlatacak._`
+              );
+            }
+
+          case "durum":
+            const isEnabled = isChatbotEnabled(chatJid);
+            const isEnabledIndividually = chatbotStates.get(chatJid) === true;
+            const globalGroups = config.AI_ALL_GRUP === "true";
+            const globalDMs = config.AI_ALL_DM === "true";
+            const currentModel = models[modelStates.get(chatJid) || 0];
+            const contextSize = chatContexts.get(chatJid)?.length || 0;
+            const modelIndex = modelStates.get(chatJid) || 0;
+            const isGroup = chatJid.includes("@g.us");
+
+            let enabledReason = "";
+            if (isEnabledIndividually) {
+              enabledReason = "Bireysel Ayar";
+            } else if (isGroup && globalGroups) {
+              enabledReason = "Genel Grup Ayarı";
+            } else if (!isGroup && globalDMs) {
+              enabledReason = "Genel DM Ayarı";
+            }
+
+            const statusText =
+              `*_🤖 Sohbet Botu Durumu_*\n\n` +
+              `📊 _Durum:_ \`${isEnabled ? "Aktif ✅" : "Kapalı ❌"}\`\n` +
+              (isEnabled && enabledReason
+                ? `📋 _Etkinleştirme:_ \`${enabledReason}\`\n`
+                : "") +
+              `🌐 _Genel Gruplar:_ \`${globalGroups ? "Aktif ✅" : "Kapalı ❌"}\`\n` +
+              `💬 _Genel DM'ler:_ \`${globalDMs ? "Aktif ✅" : "Kapalı ❌"}\`\n` +
+              `🤖 _Mevcut Model:_ \`${currentModel}\`\n` +
+              `📈 _Model Yedekleme Seviyesi:_ \`${modelIndex + 1}/${models.length}\`\n` +
+              `💭 _Hafızadaki Mesajlar:_ \`${contextSize}\`\n` +
+              `🎯 _Sistem İstem:_ \`${globalSystemPrompt}\`\n` +
+              `🔑 _API Anahtarı:_ \`${config.GEMINI_API_KEY ? "Yapılandırıldı ✅" : "Eksik ❌"}\`\n\n` +
+              `*_Mevcut Modeller:_*\n` +
+              models
+                .map(
+                  (model, index) =>
+                    `${index + 1}. \`${model}\` ${index === modelIndex ? "← Mevcut" : ""}`
+                )
+                .join("\n");
+
+            return await message.sendReply(statusText);
+
+          default:
+            return await message.sendReply(
+              `_Bilinmeyen komut: \`${command}\`_\n\n_Kullanılabilir komutları görmek için \`.yz ayar\` yazın._`
+            );
+        }
+        break;
       }
 
-      await message.edit("✅ _Anime stili uygulandı!_", message.jid, sent.key);
-      await message.client.sendMessage(message.jid, {
-        image: animeBuffer
-      }, { quoted: message.reply_message?.data || message.data });
-    } catch (err) {
-      console.error("ANİME ÇİZME HATASI:", err.response?.data || err.message);
-      if (sent) {
-        await message.edit(
-          "❌ Anime dönüştürmesi başarısız oldu. Lütfen tekrar deneyin.",
-          message.jid,
-          sent.key
-        );
-      } else {
-        await message.sendReply("❌ *Anime dönüştürmesi başarısız oldu!*");
-      }
-    } finally {
-      if (tempFile && fs.existsSync(tempFile)) {
-        fs.unlinkSync(tempFile);
+      case "":
+      default: {
+        let prompt = "";
+        let imageParts = [];
+
+        if (message.reply_message?.image) {
+          try {
+            const buffer = await message.reply_message.download("buffer");
+            const imagePart = await imageToGenerativePart(buffer);
+            if (imagePart) {
+              imageParts.push(imagePart);
+            } else {
+              return await message.sendReply("❌ Görsel işlenemedi.");
+            }
+          } catch (error) {
+            console.error("YZ görsel analiz indirme hatası:", error);
+            return await message.sendReply("❌ Görsel indirilemedi.");
+          }
+        }
+
+        const hasImage = imageParts.length > 0;
+        const hasReplyText = !!(message.reply_message?.text);
+
+        if (rawInput && hasImage && hasReplyText) {
+          prompt = `Yanıtlanan mesaj: "${message.reply_message.text}"\n\n[Görsel ektedir, görseli de dikkate al]\n\nSoru: ${rawInput}`;
+        } else if (rawInput && hasImage) {
+          prompt = rawInput;
+        } else if (rawInput && hasReplyText) {
+          prompt = `Yanıtlanan mesaj: "${message.reply_message.text}"\n\nSoru: ${rawInput}`;
+        } else if (rawInput) {
+          prompt = rawInput;
+        } else if (hasImage && hasReplyText) {
+          prompt = `Bu görseli ve yanındaki mesajı analiz et: "${message.reply_message.text}"`;
+        } else if (hasImage) {
+          prompt = "Bu görselde ne görüyorsun? Kısa ve net analiz et.";
+        } else if (hasReplyText) {
+          prompt = `Bu metni analiz et ve yanıtla: "${message.reply_message.text}"`;
+        } else {
+          return await message.sendReply(
+            "✨ *Yapay Zeka (Lades AI) Komutları*\n\n" +
+            "💬 *Sohbet:*\n" +
+            "└ .yz nasılsın — Herhangi bir konuda soru sor\n" +
+            "└ (görsele yanıtlayıp) .yz — Görsel analiz et\n\n" +
+            "🎨 *Görsel Üretimi:*\n" +
+            "└ .yz görsel gün batımı — Metinden görsel üret\n\n" +
+            "🖌️ *Görsel Düzenleme:*\n" +
+            "└ .yz düzenle gökyüzünü mor yap — Görsele YZ düzenleme\n\n" +
+            "🎭 *Anime Dönüşüm:*\n" +
+            "└ .yz anime (görsele yanıt) — Fotoğrafı anime yap\n\n" +
+            "📝 *Soru Çözme:*\n" +
+            "└ .yz soruçöz (soruya yanıt) — Sınav sorusunu çöz\n\n" +
+            "⚙️ *Ayarlar:*\n" +
+            "└ .yz ayar — Yapılandırma menüsü\n" +
+            "└ .yz ayar aç/kapat — Sohbet aç/kapat\n" +
+            "└ .yz ayar durum — Detaylı durum\n" +
+            "└ .yz ayar temizle — Geçmişi sil"
+          );
+        }
+
+        const emojiInstruction = "Yanıtında konuya uygun emojiler kullanarak daha anlaşılır ve samimi bir şekilde yanıt ver. ";
+        prompt = emojiInstruction + prompt;
+
+        let sent_msg;
+        try {
+          sent_msg = await message.sendReply("🧐 _Düşünüyorum..._");
+          const fullText = await callGenerativeAI(prompt, imageParts, message, sent_msg);
+          if (!fullText) {
+            await message.edit("❌ Yapay Zeka'dan boş yanıt alındı.", message.jid, sent_msg.key);
+            return;
+          }
+          await message.edit(fullText, message.jid, sent_msg.key);
+        } catch (error) {
+          console.error("YZ komut hatası:", error.message);
+          if (sent_msg) {
+            await message.edit("❌ Yapay Zeka API'sinde bir hata oluştu.", message.jid, sent_msg.key);
+          } else {
+            await message.sendReply("❌ Yapay Zeka API'sinde bir hata oluştu.");
+          }
+        }
+        break;
       }
     }
   }

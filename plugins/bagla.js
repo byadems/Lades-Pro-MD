@@ -9,7 +9,8 @@ function cleanPhoneNumber(phone) {
   return cleaned;
 }
 
-Module({
+Module(
+  {
     pattern: "bağla ?(.*)",
     fromMe: true,
     desc: "WhatsApp Web bağlantısı",

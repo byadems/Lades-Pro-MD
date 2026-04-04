@@ -10,7 +10,6 @@ const { getString } = require("./utils/lang");
 const { avMix, circle, rotate, trim, uploadToImgbb, nx, nxTry, uploadToCatbox } = require("./utils");
 const nexray = require("./utils/nexray");
 const { censorBadWords } = require("./utils/censor");
-const isFromMe = config.isPrivate;
 const acrcloud = require("acrcloud");
 const acr = new acrcloud({
   host: "identify-eu-west-1.acrcloud.com",
@@ -69,55 +68,55 @@ async function transcribeVoiceMessage(message, targetMessage) {
     if (!isVoice) {
       return;
     }
-    if ((!config.GROQ_API_KEY || config.GROQ_API_KEY === '') && 
-        (!config.OPENAI_API_KEY || config.OPENAI_API_KEY === '')) {
+    if ((!config.GROQ_API_KEY || config.GROQ_API_KEY === '') &&
+      (!config.OPENAI_API_KEY || config.OPENAI_API_KEY === '')) {
       return await message.sendReply("⚠️ _API Anahtarı bulunamadı! (Groq veya OpenAI)_");
     }
     processingMsg = await message.send("🎙️ _Ses analiz ediliyor..._");
     const audioBuffer = await voiceMsg.download("buffer");
     const boundary = `----WebKitFormBoundary${Date.now()}`;
     const buildBody = (modelName) => {
-  const c = [];
-  c.push(Buffer.from(`--${boundary}\r\n`));
-  c.push(Buffer.from(`Content-Disposition: form-data; name="model"\r\n\r\n`));
-  c.push(Buffer.from(`${modelName}\r\n`));
-  c.push(Buffer.from(`--${boundary}\r\n`));
-  c.push(Buffer.from(`Content-Disposition: form-data; name="language"\r\n\r\n`));
-  c.push(Buffer.from(`tr\r\n`));
-  c.push(Buffer.from(`--${boundary}\r\n`));
-  c.push(Buffer.from(`Content-Disposition: form-data; name="file"; filename="audio.ogg"\r\n`));
-  c.push(Buffer.from(`Content-Type: audio/ogg; codecs=opus\r\n\r\n`));
-  c.push(audioBuffer);
-  c.push(Buffer.from(`\r\n`));
-  c.push(Buffer.from(`--${boundary}--\r\n`));
-  return Buffer.concat(c);
-  };
-    const useGroq = config.GROQ_API_KEY && config.GROQ_API_KEY !== '';
-const makeRequest = (useOpenAI = false) => {
-  const body = buildBody(useOpenAI ? "gpt-4o-mini-transcribe" : "whisper-large-v3");
-  return new Promise((resolve, reject) => {
-    const options = useOpenAI ? {
-      hostname: 'api.openai.com',
-      port: 443,
-      path: '/v1/audio/transcriptions',
-      method: 'POST',
-      headers: {
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        'Authorization': `Bearer ${config.OPENAI_API_KEY}`,
-        'Content-Length': body.length
-      }
-    } : {
-      hostname: 'api.groq.com',
-      port: 443,
-      path: '/openai/v1/audio/transcriptions',
-      method: 'POST',
-      headers: {
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        'Authorization': `Bearer ${config.GROQ_API_KEY}`,
-        'Content-Length': body.length
-      }
+      const c = [];
+      c.push(Buffer.from(`--${boundary}\r\n`));
+      c.push(Buffer.from(`Content-Disposition: form-data; name="model"\r\n\r\n`));
+      c.push(Buffer.from(`${modelName}\r\n`));
+      c.push(Buffer.from(`--${boundary}\r\n`));
+      c.push(Buffer.from(`Content-Disposition: form-data; name="language"\r\n\r\n`));
+      c.push(Buffer.from(`tr\r\n`));
+      c.push(Buffer.from(`--${boundary}\r\n`));
+      c.push(Buffer.from(`Content-Disposition: form-data; name="file"; filename="audio.ogg"\r\n`));
+      c.push(Buffer.from(`Content-Type: audio/ogg; codecs=opus\r\n\r\n`));
+      c.push(audioBuffer);
+      c.push(Buffer.from(`\r\n`));
+      c.push(Buffer.from(`--${boundary}--\r\n`));
+      return Buffer.concat(c);
     };
-      const req = https.request(options, (res) => {
+    const useGroq = config.GROQ_API_KEY && config.GROQ_API_KEY !== '';
+    const makeRequest = (useOpenAI = false) => {
+      const body = buildBody(useOpenAI ? "gpt-4o-mini-transcribe" : "whisper-large-v3");
+      return new Promise((resolve, reject) => {
+        const options = useOpenAI ? {
+          hostname: 'api.openai.com',
+          port: 443,
+          path: '/v1/audio/transcriptions',
+          method: 'POST',
+          headers: {
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+            'Authorization': `Bearer ${config.OPENAI_API_KEY}`,
+            'Content-Length': body.length
+          }
+        } : {
+          hostname: 'api.groq.com',
+          port: 443,
+          path: '/openai/v1/audio/transcriptions',
+          method: 'POST',
+          headers: {
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+            'Authorization': `Bearer ${config.GROQ_API_KEY}`,
+            'Content-Length': body.length
+          }
+        };
+        const req = https.request(options, (res) => {
           let data = '';
           res.on('data', (chunk) => { data += chunk; });
           res.on('end', () => {
@@ -197,45 +196,45 @@ const makeRequest = (useOpenAI = false) => {
 
 Module({
   pattern: "dinle",
-  fromMe: isFromMe,
+  fromMe: true,
   desc: "Sesli mesajı metne dönüştürür. (Tek seferlik sesler de dahil)",
   usage: ".dinle (bir ses mesajına yanıtlayarak)",
   use: "tools",
 },
-async (message, match) => {
-  const replied = message.reply_message;
-  if (!replied || (!replied.audio && !replied.ptt)) {
-    return await message.sendReply("❌ Lütfen bir ses mesajına yanıtlayarak yazın!");
-  }
-  return await transcribeVoiceMessage(message, replied);
-});
+  async (message, match) => {
+    const replied = message.reply_message;
+    if (!replied || (!replied.audio && !replied.ptt)) {
+      return await message.sendReply("❌ Lütfen bir ses mesajına yanıtlayarak yazın!");
+    }
+    return await transcribeVoiceMessage(message, replied);
+  });
 
 Module({
   on: 'message',
-  fromMe: isFromMe,
+  fromMe: true,
   desc: "Ses mesajını otomatik olarak metne dönüştürür.",
   use: "tools",
 },
-async (message, match) => {
-  try {
-    const audioMsg = message.data?.message?.audioMessage;
-    if (!audioMsg) {
-      return;
-    }
-    if ((!config.GROQ_API_KEY || config.GROQ_API_KEY === '') && 
+  async (message, match) => {
+    try {
+      const audioMsg = message.data?.message?.audioMessage;
+      if (!audioMsg) {
+        return;
+      }
+      if ((!config.GROQ_API_KEY || config.GROQ_API_KEY === '') &&
         (!config.OPENAI_API_KEY || config.OPENAI_API_KEY === '')) {
-      return;
+        return;
+      }
+      return await transcribeVoiceMessage(message, message);
+    } catch (err) {
+      console.error("Otomatik dinle hatası:", err);
     }
-    return await transcribeVoiceMessage(message, message);
-  } catch (err) {
-    console.error("Otomatik dinle hatası:", err);
-  }
-});
+  });
 
 Module(
   {
-    fromMe: isFromMe,
     pattern: "trim ?(.*)",
+    fromMe: true,
     desc: Lang.TRIM_DESC,
     usage: Lang.TRIM_USE,
     use: "media",
@@ -258,18 +257,18 @@ Module(
     if (message.reply_message.audio) {
       const out = getTempPath("trim.ogg");
       await trim(savedFile, start, end, out);
-      await message.sendReply({stream: fs.createReadStream(out)}, "audio");
+      await message.sendReply({ stream: fs.createReadStream(out) }, "audio");
     } else if (message.reply_message.video) {
       const out = getTempPath("trim.mp4");
       await trim(savedFile, start, end, out);
-      await message.send({stream: fs.createReadStream(out)}, "video");
+      await message.send({ stream: fs.createReadStream(out) }, "video");
     }
   }
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "renklendir",
+    fromMe: true,
     desc: "Siyah-beyaz fotoğrafı renklendirir (yanıtlanan görsel)",
     usage: ".renklendir (görsele yanıt verin)",
     use: "media",
@@ -306,8 +305,8 @@ Module(
 
 Module(
   {
-    fromMe: isFromMe,
     pattern: "siyahvideo",
+    fromMe: true,
     desc: "Sesi siyah videoya dönüştürür",
     use: "media",
   },
@@ -352,8 +351,8 @@ Module(
         message.jid,
         processingMsg.key
       );
-      await fs.promises.unlink(audioFile).catch(() => {});
-      await fs.promises.unlink(outputPath).catch(() => {});
+      await fs.promises.unlink(audioFile).catch(() => { });
+      await fs.promises.unlink(outputPath).catch(() => { });
     } catch (error) {
       console.error("Siyah video oluşturma hatası:", error);
       await message.send("_❌ Siyah video oluşturulamadı. Lütfen tekrar deneyin._");
@@ -362,8 +361,8 @@ Module(
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "birleştir",
+    fromMe: true,
     desc: Lang.AVMIX_DESC,
     use: "media",
   },
@@ -399,17 +398,17 @@ Module(
         getTempPath("avmix/audio.mp3")
       );
       await message.sendReply(video, "video");
-      await fs.promises.unlink(getTempPath("avmix/video.mp4")).catch(() => {});
-      await fs.promises.unlink(getTempPath("avmix/audio.mp3")).catch(() => {});
-      await fs.promises.unlink("./merged.mp4").catch(() => {});
+      await fs.promises.unlink(getTempPath("avmix/video.mp4")).catch(() => { });
+      await fs.promises.unlink(getTempPath("avmix/audio.mp3")).catch(() => { });
+      await fs.promises.unlink("./merged.mp4").catch(() => { });
       return;
     }
   }
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "vmix ?(.*)",
+    fromMe: true,
     desc: "İki videoyu birleştirir",
     use: "media",
   },
@@ -459,21 +458,21 @@ Module(
     if (files.length === 2) {
       await message.sendReply("*🎬 Videolar birleştiriliyor..*");
       const mergedFile = await merge(
-          [getTempPath("vmix/video1.mp4"), getTempPath("vmix/video2.mp4")],
-          getTempSubdir(""),
-          "merged.mp4"
-        );
+        [getTempPath("vmix/video1.mp4"), getTempPath("vmix/video2.mp4")],
+        getTempSubdir(""),
+        "merged.mp4"
+      );
       await message.send(mergedFile, "video");
-      await fs.promises.unlink(getTempPath("vmix/video1.mp4")).catch(() => {});
-      await fs.promises.unlink(getTempPath("vmix/video2.mp4")).catch(() => {});
+      await fs.promises.unlink(getTempPath("vmix/video1.mp4")).catch(() => { });
+      await fs.promises.unlink(getTempPath("vmix/video2.mp4")).catch(() => { });
       return;
     }
   }
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "ağırçekim",
+    fromMe: true,
     desc: "Videoyu pürüzsüz ağır çekime dönüştürür",
     use: "media",
   },
@@ -491,15 +490,15 @@ Module(
       .on("end", async () => {
         const buf = await fs.promises.readFile(getTempPath("slowmo.mp4"));
         await message.send(buf, "video");
-        await fs.promises.unlink(getTempPath("slowmo.mp4")).catch(() => {});
-        await fs.promises.unlink(savedFile).catch(() => {});
+        await fs.promises.unlink(getTempPath("slowmo.mp4")).catch(() => { });
+        await fs.promises.unlink(savedFile).catch(() => { });
       });
   }
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "oval",
+    fromMe: true,
     desc: "Çıkartma/fotoğrafı yuvarlak olarak kırpar",
     use: "media",
   },
@@ -509,8 +508,8 @@ Module(
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "gif",
+    fromMe: true,
     use: "media",
     desc: "Videoyu sesli bir GIF (hareketli resim) formatına dönüştürür.",
   },
@@ -529,15 +528,15 @@ Module(
           video: buf,
           gifPlayback: true,
         });
-        await fs.promises.unlink(getTempPath("agif.mp4")).catch(() => {});
-        await fs.promises.unlink(savedFile).catch(() => {});
+        await fs.promises.unlink(getTempPath("agif.mp4")).catch(() => { });
+        await fs.promises.unlink(savedFile).catch(() => { });
       });
   }
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "interp ?(.*)",
+    fromMe: true,
     desc: "Videonun kare hızını (FPS) artırır",
     use: "media",
   },
@@ -557,15 +556,15 @@ Module(
       .on("end", async () => {
         const buf = await fs.promises.readFile(getTempPath("interp.mp4"));
         await message.send(buf, "video");
-        await fs.promises.unlink(getTempPath("interp.mp4")).catch(() => {});
-        await fs.promises.unlink(savedFile).catch(() => {});
+        await fs.promises.unlink(getTempPath("interp.mp4")).catch(() => { });
+        await fs.promises.unlink(savedFile).catch(() => { });
       });
   }
 );
 Module(
   {
     pattern: "bul ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Yapay zeka aracılığıyla çalan şarkının adını bulur.",
     usage: "Ses dosyasına etiketleyerek .bul yazın.",
     use: "tools",
@@ -612,8 +611,8 @@ Module(
 );
 Module(
   {
-    fromMe: isFromMe,
     pattern: "döndür ?(.*)",
+    fromMe: true,
     use: "media",
     desc: "Videoyu döndürür (sol/sağ)",
   },
@@ -631,13 +630,17 @@ Module(
       await fs.promises.readFile(rotatedFilePath),
       "video"
     );
-    await fs.promises.unlink(file).catch(() => {});
-    await fs.promises.unlink(rotatedFilePath).catch(() => {});
+    await fs.promises.unlink(file).catch(() => { });
+    await fs.promises.unlink(rotatedFilePath).catch(() => { });
   }
 );
 Module(
   {
-    fromMe: isFromMe, pattern: "flip ?(.*)", use: "media", desc: "Videoyu ters çevirir (flip)" },
+    pattern: "flip ?(.*)",
+    fromMe: true,
+    use: "media",
+    desc: "Videoyu ters çevirir (flip)"
+  },
   async (message, match) => {
     if (!message.reply_message || !message.reply_message.video)
       return await message.sendReply("*🎬 Bir videoyu yanıtla*");
@@ -648,15 +651,15 @@ Module(
       await fs.promises.readFile(flippedFilePath),
       "video"
     );
-    await fs.promises.unlink(file).catch(() => {});
-    await fs.promises.unlink(flippedFilePath).catch(() => {});
+    await fs.promises.unlink(file).catch(() => { });
+    await fs.promises.unlink(flippedFilePath).catch(() => { });
   }
 );
 
 Module(
   {
     pattern: "ss ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Web sitesinin ekran görüntüsünü alır",
     usage: ".ss https://fenomensen.net",
     use: "tools",
@@ -687,7 +690,7 @@ Module(
 Module(
   {
     pattern: "metin ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Görseldeki metni okur (OCR)",
     usage: ".metin (görsel yanıtla)",
     use: "tools",
@@ -723,7 +726,7 @@ Module(
 Module(
   {
     pattern: "hd ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Görseli HD kaliteye yükseltir",
     usage: ".hd (görsele yanıtla)",
     use: "media",
@@ -758,7 +761,7 @@ Module(
 Module(
   {
     pattern: "meme ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Meme görseli oluşturur (üst ve alt metin)",
     usage: ".meme ÜSTMETIN|ALTMETIN (görsel yanıtla)",
     use: "media",
@@ -791,7 +794,7 @@ Module(
 Module(
   {
     pattern: "kodgörsel ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Kodu güzel bir görsel olarak oluşturur",
     usage: ".kodgörsel const x = 1",
     use: "media",

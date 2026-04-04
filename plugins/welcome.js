@@ -1,7 +1,6 @@
 const { Module } = require("../main");
 const config = require("../config");
 const { welcome, goodbye, censorBadWords, isAdmin } = require("./utils");
-const isFromMe = config.MODE === "public" ? false : true;
 const {
   parseWelcomeMessage,
   sendWelcomeMessage,
@@ -10,7 +9,7 @@ const {
 Module(
   {
     pattern: "welcome ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Grup karşılama mesajını ayarlar. $user, $group vb. etiketler kullanılabilir.",
     usage: ".welcome Merhaba $mention, $group grubuna hoş geldin! $pp\n.welcome aç/kapat\n.welcome getir\n.welcome sil",
     use: "group",
@@ -101,7 +100,7 @@ Module(
 Module(
   {
     pattern: "goodbye ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Grup çıkış mesajını ayarlar.",
     usage: ".goodbye Hoşça kal $mention! $pp",
     use: "group",
@@ -150,7 +149,7 @@ Module(
 Module(
   {
     pattern: "testwelcome ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Karşılama mesajını test eder",
     use: "group",
   },
@@ -172,7 +171,7 @@ Module(
 Module(
   {
     pattern: "testgoodbye ?(.*)",
-    fromMe: isFromMe,
+    fromMe: true,
     desc: "Veda mesajını test eder",
     use: "group",
   },

@@ -22,7 +22,14 @@ try {
 
 // Register dynamic commands for each bolum
 for (const [key, data] of Object.entries(bolumler)) {
-  Module({ pattern: key + ' ?(.*)', fromMe, use: "tools", dontAddCommandList: true }, async (m) => {
+  Module(
+    {
+      pattern: key + ' ?(.*)',
+      fromMe,
+      use: "tools",
+      dontAddCommandList: true,
+    },
+    async (m) => {
     if (data.images.length > 1) {
       for (let i = 0; i < data.images.length - 1; i++) {
         await m.client.sendMessage(m.jid, { image: { url: data.images[i] } });
@@ -43,6 +50,13 @@ for (const [key, data] of Object.entries(bolumler)) {
 }
 
 // Help / index command
-Module({ pattern: 'bilgikaçnet ?(.*)', fromMe, use: "tools", desc: "Üniversite bölümleri için kaç net yapmak gerektiğini, ilgili bölümün tam olarak ne olduğunu, ne iş yaptığını ve iş olanaklarına dair detaylı bilgiler paylaşmaya yarar." }, async (m) => {
+Module(
+  {
+    pattern: 'bilgikaçnet ?(.*)',
+    fromMe,
+    use: "tools",
+    desc: "Üniversite bölümleri için kaç net yapmak gerektiğini, ilgili bölümün tam olarak ne olduğunu, ne iş yaptığını ve iş olanaklarına dair detaylı bilgiler paylaşmaya yarar."
+  },
+  async (m) => {
   await m.sendReply(helpText);
 });

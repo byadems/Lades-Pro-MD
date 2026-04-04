@@ -4,7 +4,6 @@ const config = require("../config");
 const { setVar, getVar, delVar } = require("./manage");
 let { getString } = require("./utils/lang");
 let Lang = getString("afk");
-const isFromMe = config.MODE === "public" ? false : true;
 
 const afkCache = new Map();
 
@@ -134,11 +133,11 @@ function getAFKData(userJid) {
 Module(
   {
     pattern: "uzakta ?(.*)",
-    fromMe: isFromMe,
-    use: "genel",
+    fromMe: true,
     desc: "Kendinizi AFK (Klavyeden Uzakta) olarak ayarlayın",
     usage:
       ".uzakta [sebep] - _İsteğe bağlı sebeple AFK ol_\n.uzakta - _Mevcut durumu kontrol et_\n.uzakta list - _Tüm AFK kullanıcıları göster_",
+    use: "genel",
   },
   async (message, match) => {
     const userJid = message.sender;

@@ -1,13 +1,14 @@
 const { Module } = require('../main');
-const isPrivateMode = require('../config').isPrivate;
 const { fancy } = require('./utils');
 
-Module({
-  pattern: 'fancy ?(.*)',
-  fromMe: isPrivateMode,
-  use: 'edit',
-  desc: 'Süslü metin yazı tipleri oluşturur'
-}, async (message, match) => {
+Module(
+  {
+    pattern: 'fancy ?(.*)',
+    fromMe: true,
+    use: 'edit',
+    desc: 'Süslü metin yazı tipleri oluşturur'
+  },
+  async (message, match) => {
   const input = (match[1] || "").trim();
   const replyText = message.reply_message?.text;
 

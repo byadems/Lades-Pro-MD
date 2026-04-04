@@ -14,7 +14,6 @@ const baileysPromise = loadBaileys()
 const { isNumeric, mentionjid, censorBadWords, isAdmin } = require("./utils");
 const config = require("../config");
 const { ADMIN_ACCESS, MODE } = config;
-const isFromMe = MODE === "public" ? false : true;
 const { Module } = require("../main");
 const fs = require("fs");
 const path = require("path");
@@ -290,8 +289,8 @@ Module(
   {
     pattern: "yetkiver ?(.*)",
     fromMe: false,
-    use: "group",
     desc: Lang.PROMOTE_DESC,
+    use: "group",
     usage: ".yetkiver @etiket veya yanıtla",
   },
   async (message, match) => {
@@ -318,9 +317,9 @@ Module(
   {
     pattern: "istekler ?(.*)",
     fromMe: false,
+    desc: "Bekleyen katılma isteklerinin listesini al",
     use: "group",
     usage: ".istekler (bekleyen istekleri gör)\n.istekler hepsi onayla (tüm istekleri onayla)\n.istekler hepsi reddet (tüm istekleri reddet)",
-    desc: "Bekleyen katılma isteklerinin listesini al",
   },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
@@ -491,8 +490,8 @@ Module(
   {
     pattern: "yetkial ?(.*)",
     fromMe: false,
-    use: "group",
     desc: Lang.DEMOTE_DESC,
+    use: "group",
     usage: ".yetkial @etiket veya yanıtla",
   },
   async (message, match) => {
@@ -518,9 +517,9 @@ Module(
 Module(
   {
     pattern: "sohbetkapat ?(.*)",
-    use: "group",
     fromMe: false,
     desc: Lang.MUTE_DESC,
+    use: "group",
     usage:
       ".sohbetkapat (grubu süresiz olarak sessize alır)\n.sohbetkapat 1s (1 saat sessize alır)\n.sohbetkapat 5d (5 dakika sessize alır)",
   },
@@ -560,9 +559,9 @@ Module(
 Module(
   {
     pattern: "sohbetaç",
-    use: "group",
     fromMe: false,
     desc: Lang.UNMUTE_DESC,
+    use: "group",
     usage: ".sohbetaç (grubun sessizini açar)",
   },
   async (message, match) => {
@@ -579,9 +578,9 @@ Module(
 Module(
   {
     pattern: "jid",
-    use: "group",
     fromMe: false,
     desc: Lang.JID_DESC,
+    use: "group",
     usage: ".jid (mevcut sohbet kimliğini alır)\n.jid (kullanıcı kimliğini almak için yanıtla)",
   },
   async (message) => {
@@ -599,7 +598,14 @@ Module(
     }
   }
 );
-Module({ pattern: 'davet', fromMe: true, use: 'group', desc: Lang.INVITE_DESC }, (async (message, match) => {
+Module(
+  {
+    pattern: 'davet',
+    fromMe: true,
+    use: 'group',
+    desc: Lang.INVITE_DESC
+  },
+  (async (message, match) => {
   if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND)
   const userIsAdmin = await isAdmin(message, message.sender);
   if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
@@ -1101,11 +1107,11 @@ Module({
 Module(
   {
     pattern: "tümjid ?(.*)",
+    fromMe: true,
     desc: "Sohbetlerin veya grupların tüm JID adreslerini listeler.",
     use: "tools",
     usage:
       ".getjids all (shows all group JIDs)\n.getjids recent (shows recent chat JIDs)\n.getjids recent 15 (shows 15 recent chats)",
-    fromMe: true,
   },
   async (message, match) => {
     const args = match[1]?.trim().split(" ") || [];
@@ -1719,7 +1725,14 @@ Module(
 );
 
 
-Module({ pattern: 'etiket', use: 'group', fromMe: false, desc: 'Tüm üyeleri etiketler.' }, async (message, match) => {
+Module(
+  {
+    pattern: 'etiket',
+    fromMe: false,
+    desc: 'Tüm üyeleri etiketler.',
+    use: 'group',
+  },
+  async (message, match) => {
   const userIsAdmin = await isAdmin(message, message.sender);
   if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
   if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
@@ -1737,7 +1750,14 @@ ${index + 1}. @${jid.split('@')[0]}`;
   });
 });
 
-Module({ pattern: 'ytetiket', use: 'group', fromMe: false, desc: 'Tüm yöneticileri etiketler.' }, async (message, match) => {
+Module(
+  {
+    pattern: 'ytetiket',
+    fromMe: false,
+    desc: 'Tüm yöneticileri etiketler.',
+    use: 'group',
+  },
+  async (message, match) => {
   const target = message.jid;
   const group = await message.client.groupMetadata(target);
   const admins = group.participants.filter(v => v.admin !== null).map(x => x.id);
