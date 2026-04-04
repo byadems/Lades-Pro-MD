@@ -7,22 +7,33 @@ const BASE = "https://api.nexray.web.id";
 const TIMEOUT = 30000;
 const isFromMe = config.MODE === "private";
 
-// Nexray API için devre kesici (Circuit Breaker)
-const nexBreaker = new CircuitBreaker(async (path, opts) => {
-  const res = await axios.get(`${BASE}${path}`, {
-    timeout: opts.timeout || TIMEOUT,
-    validateStatus: () => true,
-    responseType: opts.buffer ? "arraybuffer" : "json",
-  });
-  return res;
-}, {
-  failureThreshold: 3,
-  openTimeout: 60000 // 1 dakika devre dışı kal
-});
+// Nexray API için kategorize edilmiş devre kesiciler (Circuit Breaker Pool)
+const breakers = new Map();
+
+function getBreaker(category) {
+  if (!breakers.has(category)) {
+    const breaker = new CircuitBreaker(async (path, opts) => {
+      return await axios.get(`${BASE}${path}`, {
+        timeout: opts.timeout || TIMEOUT,
+        validateStatus: () => true,
+        responseType: opts.buffer ? "arraybuffer" : "json",
+      });
+    }, {
+      failureThreshold: 3,
+      openTimeout: 60000 // 1 dakika devre dışı kal
+    });
+    breakers.set(category, breaker);
+  }
+  return breakers.get(category);
+}
 
 async function nexGet(path, opts = {}) {
   try {
-    const res = await nexBreaker.fire(path, opts);
+    // Path üzerinden kategori belirle (örn: /ai/dreamanalyze -> ai)
+    const category = path.split("/")[1] || "default";
+    const breaker = getBreaker(category);
+    
+    const res = await breaker.fire(path, opts);
     let payload = res.data;
     const contentType = (res.headers?.["content-type"] || "").toLowerCase();
 

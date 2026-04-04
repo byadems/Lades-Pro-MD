@@ -15,18 +15,18 @@ const { handleMessage, handleGroupUpdate, handleGroupParticipantsUpdate, loadPlu
 const { getMessageText, startTempCleanup, stopTempCleanup, isGroup, loadBaileys } = require("./helpers");
 
 // ─────────────────────────────────────────────────────────
-//  Reconnect state
+//  Reconnect state constants
 // ─────────────────────────────────────────────────────────
 const RECONNECT_BASE_MS = 3000;
 const RECONNECT_MAX_MS = 60000;
-let _selfTestRan = false;
-let _pairCodeRequested = false;
 
 // ─────────────────────────────────────────────────────────
 //  Create bot instance
 // ─────────────────────────────────────────────────────────
 async function createBot(sessionId = "lades-session", options = {}) {
   let reconnectCount = options.reconnectCount || 0;
+  let selfTestRan = false;
+  let pairCodeRequested = false;
   // Load Baileys library dynamically (ESM)
   const { 
     default: makeWASocket, 
@@ -147,8 +147,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
       }
       
       // If pair code is enabled and not yet requested
-      if (options.phoneNumber && !_pairCodeRequested) {
-        _pairCodeRequested = true;
+      if (options.phoneNumber && !pairCodeRequested) {
+        pairCodeRequested = true;
         setTimeout(async () => {
           try {
             const code = await sock.requestPairingCode(options.phoneNumber);
@@ -165,7 +165,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
     if (connection === "open") {
       // Reconnect sayacını sıfırla (manager üzerinden de sıfırlanmalı)
       if (options.manager) options.manager.reconnectCount = 0;
-      _pairCodeRequested = false;
+      pairCodeRequested = false;
       logger.info(`✅ Bot bağlandı! JID: ${sock.user?.id}`);
       if (process.send) process.send({ type: 'bot_status', data: { connected: true, phone: sock.user.id } });
       
@@ -205,8 +205,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
       loadPlugins(pluginsDir);
 
       // Self-test: tüm komutları ilk bağlantıda test et
-      if (process.env.SELF_TEST !== 'false' && !_selfTestRan) {
-        _selfTestRan = true;
+      if (process.env.SELF_TEST !== 'false' && !selfTestRan) {
+        selfTestRan = true;
         setTimeout(() => {
           try {
             const { runSelfTest } = require("./self-test");

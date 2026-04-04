@@ -24,8 +24,15 @@ function setupNav() {
   const sidebar = document.querySelector('.sidebar');
   const overlay = document.getElementById('mobileOverlay');
 
+  const cleanupActiveIntervals = () => {
+    if (S.testProgressPoll) { clearInterval(S.testProgressPoll); S.testProgressPoll = null; }
+    if (pairCountdownTimer) { clearInterval(pairCountdownTimer); pairCountdownTimer = null; }
+    if (pollT) { clearInterval(pollT); pollT = null; }
+  };
+
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+      cleanupActiveIntervals();
       const page = btn.dataset.page;
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');

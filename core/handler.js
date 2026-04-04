@@ -13,6 +13,7 @@ const config = require("../config");
 const { logger } = require("../config");
 const { getGroupSettings } = require("./db-cache");
 const { isGroup, getGroupAdmins, getMessageText, getMentioned, getQuotedMsg, loadBaileys } = require("./helpers");
+const { LRUCache } = require("lru-cache");
 
 // ─────────────────────────────────────────────────────────
 //  Command Stats Tracker
@@ -468,10 +469,9 @@ function loadPlugins(pluginsDir) {
   return { loaded, failed };
 }
 
+//  Rate limiting (Memory leak prevention with LRUCache)
 // ─────────────────────────────────────────────────────────
-//  Rate limiting
-// ─────────────────────────────────────────────────────────
-const rateLimit = new Map();
+const rateLimit = new LRUCache({ max: 1000 }); // En son aktif 1000 kullanıcıyı tutar
 const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX || "8", 10);
 const RATE_LIMIT_WINDOW = parseInt(process.env.RATE_LIMIT_WINDOW || "10000", 10);
 
@@ -520,8 +520,8 @@ function isOwnerOrSudo(senderJid) {
 // Initialize globals for dashboard metrics
 global.metrics_messages = global.metrics_messages || 0;
 global.metrics_commands = global.metrics_commands || 0;
-global.metrics_users_set = global.metrics_users_set || new Set();
-global.metrics_groups_set = global.metrics_groups_set || new Set();
+global.metrics_users_set = global.metrics_users_set || new LRUCache({ max: 2000 });
+global.metrics_groups_set = global.metrics_groups_set || new LRUCache({ max: 500 });
 
 async function handleMessage(client, rawMsg, groupMetadata = null) {
   try {
@@ -563,13 +563,11 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
       if (global.metrics_messages > 1000000) global.metrics_messages = 0; // Prevent overflow
       global.metrics_messages++;
       
-      // Şişmeyi önlemek ve veriyi tazelemek için limit aşımında temizle
-      if (global.metrics_users_set.size >= 2000) global.metrics_users_set.clear();
-      global.metrics_users_set.add(senderJid);
+      // Bellek güvenliği için otomatik budanan LRUCache kullanılır
+      global.metrics_users_set.set(senderJid, true);
       
       if (isGroup) {
-        if (global.metrics_groups_set.size >= 500) global.metrics_groups_set.clear();
-        global.metrics_groups_set.add(jid);
+        global.metrics_groups_set.set(jid, true);
       }
     }
 
