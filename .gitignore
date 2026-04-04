@@ -9,6 +9,17 @@ startup_error.txt
 *.png
 *.jpg
 .DS_Store
+node_modules/
+sessions/
+config.env
+.env
+*.log
+startup_error.txt
+*.txt
+*.webp
+*.png
+*.jpg
+.DS_Store
 dist/
 build/
 .cache/
@@ -16,3 +27,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+lades-session/
+bot.pid
+database.sqlite
