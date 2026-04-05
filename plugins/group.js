@@ -736,7 +736,7 @@ Module({
     if (!match[1])
       return await message.sendReply("_*⚠️ Jid'ler gerekli*_\n_*.common jid1,jid2*_\n _VEYA_ \n_*.common kick grup_jid*_"
       );
-    if (match[1].includes("kick")) {
+    if (match[1].includes("kick") || match[1].includes("at")) {
       const co = match[1].split(" ")[1];
       const g1 = await message.client.groupMetadata(co);
       const g2 = await message.client.groupMetadata(message.jid);
@@ -831,7 +831,7 @@ Module({
 
     const input = (match[1] || "").toLowerCase().trim();
     const isTagAdmin = input === "yt" || input === "admin";
-    const isTagAll = input === "herkes" || input === "all" || input === "";
+    const isTagAll = input === "hepsi" || input === "herkes" || input === "all" || input === "";
     const isReply = !!message.reply_message;
 
     // Sadece .tag yazıldıysa veya metin yoksa bilgilendirme (Emoji ile sade)
@@ -878,7 +878,7 @@ Module({
     fromMe: true,
     use: "system",
     desc: "Kullanıcıyı engelle",
-    usage: ".block (bir mesaja yanıtla)\n.block @etiket",
+    usage: ".engelle (bir mesaja yanıtla)\n.engelle @etiket",
   },
   async (message, match) => {
     const isGroup = message.jid.endsWith("@g.us");
@@ -909,7 +909,7 @@ Module({
     fromMe: true,
     use: "system",
     desc: "Kullanıcının engelini kaldır",
-    usage: ".unblock (reply to a message)\n.unblock @mention",
+    usage: ".engelkaldır (bir mesaja yanıtla)\n.engelkaldır @etiket",
   },
   async (message) => {
     const isGroup = message.jid.endsWith("@g.us");

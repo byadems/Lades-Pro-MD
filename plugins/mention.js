@@ -60,7 +60,7 @@ Module(
     desc: "Otomatik etiket (mention) yanıt yönetimi",
     use: "tools",
     usage:
-      ".mention set (mesajı yanıtlayın) | .mention set <metin> | .mention get | .mention del | .mention help",
+      ".bahsetme set (mesajı yanıtlayın) | .bahsetme set <metin> | .bahsetme get | .bahsetme del | .bahsetme yardım",
   },
   async (message, match) => {
     const args = match[1]?.trim().split(" ");
@@ -75,6 +75,7 @@ Module(
     switch (subcommand) {
       case "del":
       case "delete":
+      case "sil":
         const success = await deleteMentionReply();
         if (success) {
           return await message.sendReply("✅ Bahsetme yanıtı başarıyla silindi!");
@@ -84,6 +85,8 @@ Module(
 
       case "get":
       case "show":
+      case "getir":
+      case "göster":
         const mentionData = getMentionReply();
         if (!mentionData) {
           return await message.sendReply("Bahsetme yanıtı ayarlanmadı!\n\n*Kullanım:*\n• Bir mesajı yanıtlayıp `.mention set` yazın\n• Veya metin mesajı için `.mention set <metin>` kullanın"
@@ -189,6 +192,7 @@ Module(
         return await message.sendReply(`💬 Lütfen 'set' komutu için içerik sağlayın!\n\n*Kullanım:*\n• Herhangi bir mesajı yanıtlayın ve \`${handler}mention set\` yazın\n• Veya metin mesajı için \`${handler}mention set <metin>\` kullanın`);
 
       case "help":
+      case "yardım":
         const helpText = `*Otomatik Etiket Yanıtı Yardım*
 
 *Nedir?*

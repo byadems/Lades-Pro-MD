@@ -140,7 +140,7 @@ Module({
     pattern: "değişkengetir ?(.*)",
     fromMe: true,
     desc: "Bot değişkeninin değerini getir",
-    usage: ".getvar MY_VAR",
+    usage: ".değişkengetir MY_VAR",
     use: "system",
   },
   async (message, args) => {
@@ -163,7 +163,7 @@ Module({
     pattern: "değişkensil ?(.*)",
     fromMe: true,
     desc: "Bot değişkenini sil",
-    usage: ".delvar MY_VAR",
+    usage: ".değişkensil MY_VAR",
     use: "system",
   },
   async (message, args) => {
@@ -815,6 +815,7 @@ Module({
       switch (command) {
         case "on":
         case "enable":
+        case "aç":
           if (!message.isBotAdmin) {
             return await message.sendReply(Lang.NEED_ADMIN);
           }
@@ -840,6 +841,7 @@ Module({
 
         case "off":
         case "disable":
+        case "kapat":
           if (config) {
             await antilinkConfig.update(message.jid, {
               enabled: false,

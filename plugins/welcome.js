@@ -129,13 +129,13 @@ Module({
       return await message.sendReply("_❌ Veda mesajları kapatıldı!_");
     }
 
-    if (input === "getir") {
+    if (input === "getir" || input === "get") {
       const current = await goodbye.get(message.jid);
       if (!current) return await message.sendReply("_⚙️ Veda mesajı ayarlanmamış!_");
       return await message.sendReply(`*Mevcut Veda Mesajı:*\n\n${current.message}`);
     }
 
-    if (input === "sil") {
+    if (input === "sil" || input === "del" || input === "delete") {
       await goodbye.delete(message.jid);
       return await message.sendReply("_Veda mesajı silindi!_ 🗑️");
     }

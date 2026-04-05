@@ -267,7 +267,7 @@ Module(
     pattern: "efektsinema ?(.*)",
     fromMe: x,
     desc: "Fotoğrafa sinematik film efekti uygular",
-    usage: ".sinema (görsel yanıtla)",
+    usage: ".efektsinema (görsel yanıtla)",
     use: "edit",
   },
   async (message) => applyEphoto(message, "/ephoto/cinematic", "🎬 *Sinematik efekt uygulandı!*")

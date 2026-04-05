@@ -35,8 +35,8 @@ Module(
           `• \`group\` - Tüm gruplar\n` +
           `• \`dm\` - Tüm DM'ler\n\n` +
           `*Seçenekler:*\n` +
-          `• \`exact\` - Sadece tam kelime eşleşmesi\n` +
-          `• \`case\` - Büyük/küçük harf duyarlı eşleşme`
+          `• \`tam-eşleşme\` - Sadece tam kelime eşleşmesi\n` +
+          `• \`büyük-küçük\` - Büyük/küçük harf duyarlı eşleşme`
       );
     }
 
@@ -62,8 +62,8 @@ Module(
     }
 
     const filterOptions = {
-      caseSensitive: options.includes("case"),
-      exactMatch: options.includes("exact"),
+      caseSensitive: options.includes("büyük-küçük") || options.includes("case"),
+      exactMatch: options.includes("tam-eşleşme") || options.includes("exact"),
     };
 
     try {
@@ -108,7 +108,7 @@ Module(
     pattern: "filtreler ?(.*)",
     fromMe: false,
     desc: "Tüm filtreleri listele",
-    usage: ".filters\n.filters global\n.filters group",
+    usage: ".filtreler\n.filtreler global\n.filtreler group",
     use: "group",
   },
   async (message, match) => {
@@ -165,7 +165,7 @@ Module(
     pattern: "filtresil ?(.*)",
     fromMe: false,
     desc: "Bir filtreyi sil",
-    usage: ".delfilter trigger\n.delfilter trigger global",
+    usage: ".filtresil trigger\n.filtresil trigger global",
     use: "group",
   },
   async (message, match) => {
@@ -266,7 +266,7 @@ Module(
     pattern: "filtretest ?(.*)",
     fromMe: false,
     desc: "Bir mesajın filtreleri tetikleyip tetiklemeyeceğini test edin",
-    usage: ".testfilter hello world",
+    usage: ".filtretest merhaba dünya",
     use: "group",
   },
   async (message, match) => {

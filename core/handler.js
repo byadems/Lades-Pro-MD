@@ -638,7 +638,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
  
         // Core Logic Filters - fromMe: true komutlar için hata mesajı
         if (cmd.fromMe && !fromMe && !ownerOrSudo) {
-          await message.reply("_🔒 Bu komut yalnızca bot yöneticisi tarafından kullanılabilir._");
+          await message.reply("_🔒 OPS! Komut *yalnızca Yazılım Geliştiricim* tarafından kullanılabilir._");
           return;
         }
 

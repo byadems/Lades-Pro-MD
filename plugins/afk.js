@@ -143,7 +143,7 @@ Module(
     const userJid = message.sender;
     const input = match[1]?.trim();
 
-    if (input?.toLowerCase() === "list") {
+    if (input?.toLowerCase() === "list" || input?.toLowerCase() === "liste") {
       if (afkCache.size === 0) {
         return await message.sendReply("_👤 Şu anda AFK olan kullanıcı yok._");
       }
