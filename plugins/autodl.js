@@ -551,7 +551,7 @@ Module({
     const cmd = parts[0].toLowerCase();
     const target = parts[1]?.toLowerCase();
 
-    if (cmd === "aç" || cmd === "on") {
+    if (cmd === "aç") {
       if (target === "gruplar") {
         await setVar("AUTODL_ALL_GROUPS", "true");
         return await message.sendReply("_✅ Tüm gruplarda AutoDL aktif_\n_Kapatmak için .otodl kapat gruplar kullanın_"
@@ -569,7 +569,7 @@ Module({
       }
     }
 
-    if (cmd === "kapat" || cmd === "off") {
+    if (cmd === "kapat") {
       if (target === "gruplar") {
         await setVar("AUTODL_ALL_GROUPS", "false");
         return await message.sendReply("_✨ Tüm gruplarda AutoDL devre dışı ❌_\n_Açmak için .otodl aç gruplar kullanın_"

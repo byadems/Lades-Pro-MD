@@ -9,12 +9,12 @@ const {
 } = require("./utils/welcome-parser");
 
 Module({
-    pattern: "welcome ?(.*)",
-    fromMe: true,
-    desc: "Grup karşılama mesajını ayarlar. $user, $group vb. etiketler kullanılabilir.",
-    usage: ".welcome Merhaba $mention, $group grubuna hoş geldin! $pp\n.welcome aç/kapat\n.welcome getir\n.welcome sil",
-    use: "group",
-  },
+  pattern: "welcome ?(.*)",
+  fromMe: true,
+  desc: "Grup karşılama mesajını ayarlar. $user, $group vb. etiketler kullanılabilir.",
+  usage: ".welcome Merhaba $mention, $group grubuna hoş geldin! $pp\n.welcome aç/kapat\n.welcome getir\n.welcome sil",
+  use: "group",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
     const userIsAdmin = await isAdmin(message);
@@ -32,8 +32,8 @@ Module({
 • \`.welcome aç/kapat\` - Karşılamayı aç/kapat
 • \`.welcome getir\` - Mevcut mesajı görüntüle
 • \`.welcome sil\` - Karşılama mesajını sil
-• \`.welcome status\` - Tüm grupların durumunu göster (sadece sahip)
-• \`.welcome help\` - Örneklerle ayrıntılı yardımı göster
+• \`.welcome durum\` - Tüm grupların durumunu göster (sadece sahip)
+• \`.welcome yardım\` - Örneklerle ayrıntılı yardımı göster
 
 *Yer Tutucular:*
 • \`$mention\` - Kullanıcıyı etiketle
@@ -51,7 +51,7 @@ Module({
 \`.welcome Hoş geldin $user! Harika grubumuzda artık $count üyeyiz! $gpp\``);
     }
 
-    if (input === "aç" || input === "on") {
+    if (input === "aç") {
       const current = await welcome.get(message.jid);
       if (!current) {
         return await message.sendReply("_⚙️ Karşılama mesajı ayarlanmamış! Önce şunu kullanarak bir tane ayarlayın:_\n*.welcome <mesajınız>*");
@@ -60,18 +60,18 @@ Module({
       return await message.sendReply("_✅ Karşılama mesajları etkinleştirildi!_ ✅");
     }
 
-    if (input === "kapat" || input === "off") {
+    if (input === "kapat") {
       await welcome.toggle(message.jid, false);
       return await message.sendReply("_💬 Karşılama mesajları devre dışı!_ ❌");
     }
 
-    if (input === "getir" || input === "get") {
+    if (input === "getir") {
       const current = await welcome.get(message.jid);
       if (!current) return await message.sendReply("_⚙️ Bu grup için karşılama mesajı ayarlanmamış!_");
       return await message.sendReply(`*Mevcut Karşılama Mesajı:*\n\n${current.message}\n\n*Durum:* ${current.enabled ? "Açık ✅" : "Kapalı ❌"}`);
     }
 
-    if (input === "sil" || input === "del" || input === "delete") {
+    if (input === "sil") {
       const deleted = await welcome.delete(message.jid);
       if (deleted) {
         return await message.sendReply("_Karşılama mesajı başarıyla silindi!_ 🗑️");
@@ -79,7 +79,7 @@ Module({
       return await message.sendReply("_❌ Silinecek karşılama mesajı bulunamadı!_");
     }
 
-    if (input === "status" && message.fromOwner) {
+    if (input === "durum" && message.fromOwner) {
       const welcomeData = await welcome.get();
       let statusText = "*🎉 KARŞILAMA DURUMU 🎉*\n\n";
       for (let data of welcomeData) {
@@ -99,12 +99,12 @@ Module({
 );
 
 Module({
-    pattern: "goodbye ?(.*)",
-    fromMe: true,
-    desc: "Grup çıkış mesajını ayarlar.",
-    usage: ".goodbye Hoşça kal $mention! $pp",
-    use: "group",
-  },
+  pattern: "goodbye ?(.*)",
+  fromMe: true,
+  desc: "Grup çıkış mesajını ayarlar.",
+  usage: ".goodbye Hoşça kal $mention! $pp",
+  use: "group",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
     const userIsAdmin = await isAdmin(message);
@@ -117,25 +117,25 @@ Module({
       return await message.sendReply(`🥺 *Veda Mesajı Ayarları*\nℹ️ *Mevcut Durum:* ${status}\n\n*Kullanım:* .goodbye <mesaj>, .goodbye aç/kapat, .goodbye sil`);
     }
 
-    if (input === "aç" || input === "on") {
+    if (input === "aç") {
       const current = await goodbye.get(message.jid);
       if (!current) return await message.sendReply("_⚙️ Veda mesajı ayarlanmamış!_");
       await goodbye.toggle(message.jid, true);
       return await message.sendReply("_✅ Veda mesajları açıldı!_");
     }
 
-    if (input === "kapat" || input === "off") {
+    if (input === "kapat") {
       await goodbye.toggle(message.jid, false);
       return await message.sendReply("_❌ Veda mesajları kapatıldı!_");
     }
 
-    if (input === "getir" || input === "get") {
+    if (input === "getir") {
       const current = await goodbye.get(message.jid);
       if (!current) return await message.sendReply("_⚙️ Veda mesajı ayarlanmamış!_");
       return await message.sendReply(`*Mevcut Veda Mesajı:*\n\n${current.message}`);
     }
 
-    if (input === "sil" || input === "del" || input === "delete") {
+    if (input === "sil") {
       await goodbye.delete(message.jid);
       return await message.sendReply("_Veda mesajı silindi!_ 🗑️");
     }
@@ -147,11 +147,11 @@ Module({
 );
 
 Module({
-    pattern: "testwelcome ?(.*)",
-    fromMe: true,
-    desc: "Karşılama mesajını test eder",
-    use: "group",
-  },
+  pattern: "testwelcome ?(.*)",
+  fromMe: true,
+  desc: "Karşılama mesajını test eder",
+  use: "group",
+},
   async (message) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
     const userIsAdmin = await isAdmin(message);
@@ -168,11 +168,11 @@ Module({
 );
 
 Module({
-    pattern: "testgoodbye ?(.*)",
-    fromMe: true,
-    desc: "Veda mesajını test eder",
-    use: "group",
-  },
+  pattern: "testgoodbye ?(.*)",
+  fromMe: true,
+  desc: "Veda mesajını test eder",
+  use: "group",
+},
   async (message) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
     const userIsAdmin = await isAdmin(message);

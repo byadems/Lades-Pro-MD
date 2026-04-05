@@ -146,7 +146,7 @@ Module({
       if (match.includes("am") || match.includes("pm"))
         return await message.sendReply("_⏰ Zaman SS DD (24 saat) formatında olmalıdır (Örn: 22 00)_"
         );
-      if (match == "off" || match == "kapat") {
+      if (match == "kapat") {
         await automute.delete(message.jid);
         return await message.sendReply("📴 *Otomatik sohbet kapatma devre dışı bırakıldı ❗*"
         );
@@ -185,7 +185,7 @@ Module({
       if (match.includes("am") || match.includes("pm"))
         return await message.sendReply("_⏰ Zaman SS DD (24 saat) formatında olmalıdır (Örn: 08 00)_"
         );
-      if (match === "off" || match === "kapat") {
+      if (match === "kapat") {
         await autounmute.delete(message.jid);
         return await message.sendReply("*📴 _Otomatik sohbet açma devre dışı bırakıldı ❗_*"
         );
@@ -245,16 +245,16 @@ Module({
     if (message.fromOwner || adminAccesValidated) {
       const adminCheck = await isAdmin(message);
       if (!adminCheck) return await message.sendReply(Lang.NEED_ADMIN);
-      if (match[1] === "aç" || match[1] === "on") {
+      if (match[1] === "aç") {
         await antifake.set(message.jid);
         return await message.sendReply("_✅ Anti-Numara açıldı!_");
       }
-      if (match[1] === "izinli" || match[1] === "allow") {
+      if (match[1] === "izinli") {
         return await message.sendReply(
           `_İzin verilen alan kodları: ${ALLOWED} (tüm gruplar için geçerlidir)_`
         );
       }
-      if (match[1] === "kapat" || match[1] === "off") {
+      if (match[1] === "kapat") {
         await antifake.delete(message.jid);
         return await message.sendReply("_❌ Anti-Numara kapatıldı!_");
       }

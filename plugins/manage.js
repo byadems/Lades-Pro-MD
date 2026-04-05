@@ -105,12 +105,12 @@ async function delVar(key, message = false) {
   return true;
 }
 Module({
-    pattern: "setvar ?(.*)",
-    fromMe: true,
-    desc: "Bot değişkenlerini (variables) uzaktan ayarla",
-    usage: ".setvar MY_VAR=some_value",
-    dontAddCommandList: true,
-  },
+  pattern: "setvar ?(.*)",
+  fromMe: true,
+  desc: "Bot değişkenlerini (variables) uzaktan ayarla",
+  usage: ".setvar MY_VAR=some_value",
+  dontAddCommandList: true,
+},
   async (message, args) => {
     const input = args[1];
     if (!input || !input.includes("=")) {
@@ -137,12 +137,12 @@ Module({
 );
 
 Module({
-    pattern: "değişkengetir ?(.*)",
-    fromMe: true,
-    desc: "Bot değişkeninin değerini getir",
-    usage: ".değişkengetir MY_VAR",
-    use: "system",
-  },
+  pattern: "değişkengetir ?(.*)",
+  fromMe: true,
+  desc: "Bot değişkeninin değerini getir",
+  usage: ".değişkengetir MY_VAR",
+  use: "system",
+},
   async (message, args) => {
     const key = args[1]?.trim();
     if (!key) {
@@ -160,12 +160,12 @@ Module({
 );
 
 Module({
-    pattern: "değişkensil ?(.*)",
-    fromMe: true,
-    desc: "Bot değişkenini sil",
-    usage: ".değişkensil MY_VAR",
-    use: "system",
-  },
+  pattern: "değişkensil ?(.*)",
+  fromMe: true,
+  desc: "Bot değişkenini sil",
+  usage: ".değişkensil MY_VAR",
+  use: "system",
+},
   async (message, args) => {
     const key = args[1]?.trim();
     if (!key) {
@@ -186,12 +186,12 @@ Module({
 );
 
 Module({
-    pattern: "setenv ?(.*)",
-    fromMe: true,
-    desc: "Botun temel yapılandırma (env) değişken ayarlarını düzenler.",
-    usage: ".setenv MY_VAR=some_value",
-    dontAddCommandList: true,
-  },
+  pattern: "setenv ?(.*)",
+  fromMe: true,
+  desc: "Botun temel yapılandırma (env) değişken ayarlarını düzenler.",
+  usage: ".setenv MY_VAR=some_value",
+  dontAddCommandList: true,
+},
   async (message, args) => {
     const input = args[1];
     if (!input || !input.includes("=")) {
@@ -239,11 +239,11 @@ Module({
 );
 
 Module({
-    pattern: "değişkenler",
-    fromMe: true,
-    desc: "Tüm bot değişkenlerini getir",
-    use: "system",
-  },
+  pattern: "değişkenler",
+  fromMe: true,
+  desc: "Tüm bot değişkenlerini getir",
+  use: "system",
+},
   async (message, match) => {
     try {
       const variables = await BotVariable.findAll();
@@ -265,22 +265,22 @@ Module({
 );
 
 Module({
-    pattern: "platform",
-    fromMe: true,
-    desc: "Sunucu, işletim sistemi ve versiyon bilgilerini gösterir.",
-    use: "system",
-  },
+  pattern: "platform",
+  fromMe: true,
+  desc: "Sunucu, işletim sistemi ve versiyon bilgilerini gösterir.",
+  use: "system",
+},
   async (message, match) => {
     return await message.sendReply(`_Bot ${config.PLATFORM} üzerinde çalışıyor_`);
   }
 );
 
 Module({
-    pattern: "dil ?(.*)",
-    fromMe: true,
-    desc: "Bot dilini bazı komutlar için değiştir",
-    use: "system",
-  },
+  pattern: "dil ?(.*)",
+  fromMe: true,
+  desc: "Bot dilini bazı komutlar için değiştir",
+  use: "system",
+},
   async (message, match) => {
     if (
       !match[1] ||
@@ -293,11 +293,11 @@ Module({
 );
 
 Module({
-    pattern: "ayarlar ?(.*)",
-    fromMe: true,
-    desc: "Ek WhatsApp bot seçeneklerini aktifleştirmek için ayarlar.",
-    use: "system",
-  },
+  pattern: "ayarlar ?(.*)",
+  fromMe: true,
+  desc: "Ek WhatsApp bot seçeneklerini aktifleştirmek için ayarlar.",
+  use: "system",
+},
   async (message, match) => {
     let configs = settingsMenu || [];
     if (match[1]) {
@@ -326,12 +326,12 @@ Module({
 );
 
 Module({
-    pattern: "mod ?(.*)",
-    fromMe: true,
-    desc: "Bot modunu genel (public) ve özel (private) olarak değiştirin",
-    use: "system",
-    dontAddCommandList: true,
-  },
+  pattern: "mod ?(.*)",
+  fromMe: true,
+  desc: "Bot modunu genel (public) ve özel (private) olarak değiştirin",
+  use: "system",
+  dontAddCommandList: true,
+},
   async (message, match) => {
     const input = match[1]?.toLowerCase();
     if (input === "public" || input === "genel") {
@@ -348,11 +348,11 @@ Module({
 );
 
 Module({
-    pattern: "antisilme ?(.*)",
-    fromMe: true,
-    desc: "Mesaj silme engelini aktifleştirir",
-    use: "system",
-  },
+  pattern: "antisilme ?(.*)",
+  fromMe: true,
+  desc: "Mesaj silme engelini aktifleştirir",
+  use: "system",
+},
   async (message, match) => {
     let target = match[1]?.trim();
     if (!target) {
@@ -364,11 +364,11 @@ Module({
 
     target = target.toLowerCase();
 
-    if (target === "off" || target === "kapat" || target === "disable") {
+    if (target === "kapat") {
       await setVar("ANTI_DELETE", "off");
       await setVar("ANTI_DELETE_JID", "");
       return await message.sendReply(`_❌ Mesaj silme engeli kapatıldı ❌_`);
-    } else if (target === "chat" || target === "aç" || target === "on" || target === "enable") {
+    } else if (target === "chat" || target === "aç") {
       await setVar("ANTI_DELETE", "chat");
       await setVar("ANTI_DELETE_JID", "");
       return await message.sendReply(`_✅ Mesaj silme engellendi açıldı! ✅_\n\n_Kurtarılan mesajlar orijinal sohbete gönderilecek_`
@@ -396,12 +396,12 @@ Module({
 );
 
 Module({
-    pattern: "setsudo ?(.*)",
-    fromMe: true,
-    desc: "Belirtilen numaraya üst düzey yönetici (SUDO) yetkisi verir.",
-    use: "system",
-    dontAddCommandList: true,
-  },
+  pattern: "setsudo ?(.*)",
+  fromMe: true,
+  desc: "Belirtilen numaraya üst düzey yönetici (SUDO) yetkisi verir.",
+  use: "system",
+  dontAddCommandList: true,
+},
   async (message, mm) => {
     const m = message;
     let targetLid;
@@ -458,11 +458,11 @@ Module({
 );
 
 Module({
-    pattern: "sudolar ?(.*)",
-    fromMe: true,
-    desc: "Üst düzey ynetici yetkisine (SUDO) sahip numaraları listeler.",
-    use: "system",
-  },
+  pattern: "sudolar ?(.*)",
+  fromMe: true,
+  desc: "Üst düzey ynetici yetkisine (SUDO) sahip numaraları listeler.",
+  use: "system",
+},
   async (message, match) => {
     let sudoMap = [];
     if (config.SUDO_MAP) {
@@ -492,12 +492,12 @@ Module({
 );
 
 Module({
-    pattern: "sudosil ?(.*)",
-    fromMe: true,
-    desc: "Yöneticiyi (sudo) siler",
-    use: "system",
-    dontAddCommandList: true,
-  },
+  pattern: "sudosil ?(.*)",
+  fromMe: true,
+  desc: "Yöneticiyi (sudo) siler",
+  use: "system",
+  dontAddCommandList: true,
+},
   async (m, mm) => {
     let targetLid;
 
@@ -553,12 +553,12 @@ Module({
 );
 
 Module({
-    pattern: "toggle ?(.*)",
-    fromMe: true,
-    desc: "Komutları açıp kapatmak için",
-    usage: ".toggle img",
-    use: "group",
-  },
+  pattern: "toggle ?(.*)",
+  fromMe: true,
+  desc: "Komutları açıp kapatmak için",
+  usage: ".toggle img",
+  use: "group",
+},
   async (message, match) => {
     if (match[0].includes("filter")) return;
     match = match[1];
@@ -609,11 +609,11 @@ Module({
 );
 
 Module({
-    pattern: "antibot ?(.*)",
-    fromMe: true,
-    desc: "Diğer botların mesajlarını tespit eder ve atar.",
-    use: "group",
-  },
+  pattern: "antibot ?(.*)",
+  fromMe: true,
+  desc: "Diğer botların mesajlarını tespit eder ve atar.",
+  use: "group",
+},
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
@@ -623,15 +623,15 @@ Module({
       db.map((data) => {
         jids.push(data.jid);
       });
-      if (match[1] === "aç" || match[1] === "on") {
+      if (match[1] === "aç") {
         if (!message.isBotAdmin)
           return await message.sendReply(Lang.NEED_ADMIN);
         await antibot.set(message.jid);
       }
-      if (match[1] === "kapat" || match[1] === "off") {
+      if (match[1] === "kapat") {
         await antibot.delete(message.jid);
       }
-      if (match[1] !== "aç" && match[1] !== "kapat" && match[1] !== "on" && match[1] !== "off") {
+      if (match[1] !== "aç" && match[1] !== "kapat") {
         const status = jids.includes(message.jid) ? "Açık" : "Kapalı";
         const { subject } = await message.client.groupMetadata(message.jid);
         return await message.sendReply(
@@ -641,18 +641,18 @@ Module({
         );
       }
       await message.sendReply(
-        (match[1] === "aç" || match[1] === "on") ? "_Antibot etkinleştirildi!_" : "_Antibot kapatıldı!_"
+        match[1] === "aç" ? "_Antibot etkinleştirildi!_" : "_Antibot kapatıldı!_"
       );
     }
   }
 );
 
 Module({
-    pattern: "antispam ?(.*)",
-    fromMe: true,
-    desc: "Spam mesajları tespit eder ve kullanıcıyı çıkarır.",
-    use: "group",
-  },
+  pattern: "antispam ?(.*)",
+  fromMe: true,
+  desc: "Spam mesajları tespit eder ve kullanıcıyı çıkarır.",
+  use: "group",
+},
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
@@ -662,15 +662,15 @@ Module({
       db.map((data) => {
         jids.push(data.jid);
       });
-      if (match[1] === "aç" || match[1] === "on") {
+      if (match[1] === "aç") {
         if (!message.isBotAdmin)
           return await message.sendReply(Lang.NEED_ADMIN);
         await antispam.set(message.jid);
       }
-      if (match[1] === "kapat" || match[1] === "off") {
+      if (match[1] === "kapat") {
         await antispam.delete(message.jid);
       }
-      if (match[1] !== "aç" && match[1] !== "kapat" && match[1] !== "on" && match[1] !== "off") {
+      if (match[1] !== "aç" && match[1] !== "kapat") {
         const status = jids.includes(message.jid) ? "Açık" : "Kapalı";
         const { subject } = await message.client.groupMetadata(message.jid);
         return await message.sendReply(
@@ -680,18 +680,18 @@ Module({
         );
       }
       await message.sendReply(
-        (match[1] === "aç" || match[1] === "on") ? "_Anti-Spam etkinleştirildi!_" : "_Anti-Spam kapatıldı!_"
+        (match[1] === "aç") ? "_Anti-Spam etkinleştirildi!_" : "_Anti-Spam kapatıldı!_"
       );
     }
   }
 );
 
 Module({
-    pattern: "pdm ?(.*)",
-    fromMe: true,
-    desc: "Yetki verme/alma durumlarını tespit eder ve uyarı gönderir.",
-    use: "group",
-  },
+  pattern: "pdm ?(.*)",
+  fromMe: true,
+  desc: "Yetki verme/alma durumlarını tespit eder ve uyarı gönderir.",
+  use: "group",
+},
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
@@ -701,13 +701,13 @@ Module({
       db.map((data) => {
         jids.push(data.jid);
       });
-      if (match[1] === "aç" || match[1] === "on") {
+      if (match[1] === "aç") {
         await pdm.set(message.jid);
       }
-      if (match[1] === "kapat" || match[1] === "off") {
+      if (match[1] === "kapat") {
         await pdm.delete(message.jid);
       }
-      if (match[1] !== "aç" && match[1] !== "kapat" && match[1] !== "on" && match[1] !== "off") {
+      if (match[1] !== "aç" && match[1] !== "kapat") {
         const status = jids.includes(message.jid) ? "Açık" : "Kapalı";
         const { subject } = await message.client.groupMetadata(message.jid);
         return await message.sendReply(
@@ -717,18 +717,18 @@ Module({
         );
       }
       await message.sendReply(
-        (match[1] === "aç" || match[1] === "on") ? "_PDM etkinleştirildi!_" : "_PDM kapatıldı!_"
+        (match[1] === "aç") ? "_PDM etkinleştirildi!_" : "_PDM kapatıldı!_"
       );
     }
   }
 );
 
 Module({
-    pattern: "antiyetkidüşürme ?(.*)",
-    fromMe: true,
-    desc: "Yetki alınmasını tespit eder ve yapanın yetkisini alıp, mağdura yetkiyi verir.",
-    use: "group",
-  },
+  pattern: "antiyetkidüşürme ?(.*)",
+  fromMe: true,
+  desc: "Yetki alınmasını tespit eder ve yapanın yetkisini alıp, mağdura yetkiyi verir.",
+  use: "group",
+},
   async (message, match) => {
     match[1] = match[1] ? match[1].toLowerCase() : "";
     const db = await antidemote.get();
@@ -736,13 +736,13 @@ Module({
     db.map((data) => {
       jids.push(data.jid);
     });
-    if (match[1] === "aç" || match[1] === "on") {
+    if (match[1] === "aç") {
       await antidemote.set(message.jid);
     }
-    if (match[1] === "kapat" || match[1] === "off") {
+    if (match[1] === "kapat") {
       await antidemote.delete(message.jid);
     }
-    if (match[1] !== "aç" && match[1] !== "kapat" && match[1] !== "on" && match[1] !== "off") {
+    if (match[1] !== "aç" && match[1] !== "kapat") {
       const status = jids.includes(message.jid) ? "Açık" : "Kapalı";
       const { subject } = await message.client.groupMetadata(message.jid);
       return await message.sendReply(
@@ -752,17 +752,17 @@ Module({
       );
     }
     await message.sendReply(
-      (match[1] === "aç" || match[1] === "on") ? "_✅ Anti Yetki Düşürme Tespit etkinleştirildi!_" : "_❌ Anti Yetki Düşürme Tespit kapatıldı!_"
+      (match[1] === "aç") ? "_✅ Anti Yetki Düşürme Tespit etkinleştirildi!_" : "_❌ Anti Yetki Düşürme Tespit kapatıldı!_"
     );
   }
 );
 
 Module({
-    pattern: "antiyetkiverme ?(.*)",
-    fromMe: true,
-    desc: "Yetki verilmesini tespit eder ve yapanın ile yeni yetkilinin yetkilerini alır.",
-    use: "group",
-  },
+  pattern: "antiyetkiverme ?(.*)",
+  fromMe: true,
+  desc: "Yetki verilmesini tespit eder ve yapanın ile yeni yetkilinin yetkilerini alır.",
+  use: "group",
+},
   async (message, match) => {
     match[1] = match[1] ? match[1].toLowerCase() : "";
     const db = await antipromote.get();
@@ -770,13 +770,13 @@ Module({
     db.map((data) => {
       jids.push(data.jid);
     });
-    if (match[1] === "aç" || match[1] === "on") {
+    if (match[1] === "aç") {
       await antipromote.set(message.jid);
     }
-    if (match[1] === "kapat" || match[1] === "off") {
+    if (match[1] === "kapat") {
       await antipromote.delete(message.jid);
     }
-    if (match[1] !== "aç" && match[1] !== "kapat" && match[1] !== "on" && match[1] !== "off") {
+    if (match[1] !== "aç" && match[1] !== "kapat") {
       const status = jids.includes(message.jid) ? "Açık" : "Kapalı";
       const { subject } = await message.client.groupMetadata(message.jid);
       return await message.sendReply(
@@ -786,7 +786,7 @@ Module({
       );
     }
     await message.sendReply(
-      (match[1] === "aç" || match[1] === "on")
+      (match[1] === "aç")
         ? "_✅ Anti Yetki Verme Tespit etkinleştirildi!_"
         : "_❌ Anti Yetki Verme Tespit kapatıldı!_"
     );
@@ -794,11 +794,11 @@ Module({
 );
 
 Module({
-    pattern: "antibağlantı ?(.*)",
-    fromMe: true,
-    desc: "Gelişmiş antilink (link engelleme) sistemi (uyarı/at/sil modlu)",
-    use: "group",
-  },
+  pattern: "antibağlantı ?(.*)",
+  fromMe: true,
+  desc: "Gelişmiş antilink (link engelleme) sistemi (uyarı/at/sil modlu)",
+  use: "group",
+},
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
 
@@ -813,8 +813,6 @@ Module({
 
     try {
       switch (command) {
-        case "on":
-        case "enable":
         case "aç":
           if (!message.isBotAdmin) {
             return await message.sendReply(Lang.NEED_ADMIN);
@@ -838,9 +836,6 @@ Module({
             `• Tür: *${config.isWhitelist ? "BEYAZ LİSTE" : "KARA LİSTE"}*\n` +
             `• Daha fazla seçenek için \`${handler}antibağlantı help\` kullanın`
           );
-
-        case "off":
-        case "disable":
         case "kapat":
           if (config) {
             await antilinkConfig.update(message.jid, {
@@ -851,8 +846,8 @@ Module({
 
           return await message.sendReply("❌ *Anti-Bağlantı Engelleme Kapatıldı!*");
 
-        case "mode":
-          if (!value || !["uyar", "kick", "delete"].includes(value)) {
+        case "mod":
+          if (!value || !["uyar", "çıkar", "sil"].includes(value)) {
             return await message.sendReply(`_❌ Geçersiz mod! Mevcut modlar:_\n\n` +
               `• \`uyar\` - Bağlantı gönderenleri uyar\n` +
               `• \`çıkar\` - Bağlantı gönderenleri at\n` +
@@ -889,7 +884,6 @@ Module({
           );
 
         case "istisna":
-        case "whitelist":
           if (!value) {
             return await message.sendReply(`_💬 Alan adlarını beyaz listeye ekleyin:_\n\n` +
               `_Kullanım:_ \`${handler}antibağlantı istisna google.com,youtube.com\`\n` +
@@ -923,7 +917,6 @@ Module({
           );
 
         case "engelle":
-        case "blacklist":
           if (!value) {
             return await message.sendReply(`_💬 Alan adlarını kara listeye ekleyin:_\n\n` +
               `_Kullanım:_ \`${handler}antibağlantı engelle facebook.com,twitter.com\`\n` +
@@ -988,7 +981,7 @@ Module({
           return await message.sendReply("🔄 *Anti-Bağlantı Engelleme ayarları sıfırlandı!*"
           );
 
-        case "help":
+        case "yardım":
           return await message.sendReply(`🛡️ *Anti-Bağlantı Engelleme Sistemi Yardımı*\n\n` +
             `*Temel Komutlar:*\n` +
             `• \`${handler}antibağlantı aç/kapat\` - Aç/Kapat\n` +
@@ -1049,11 +1042,11 @@ Module({
 );
 
 Module({
-    pattern: "antikelime ?(.*)",
-    fromMe: true,
-    desc: "Yasaklı kelime (antiword) engelini aktifleştirir, gönderen atılır",
-    use: "group",
-  },
+  pattern: "antikelime ?(.*)",
+  fromMe: true,
+  desc: "Yasaklı kelime (antiword) engelini aktifleştirir, gönderen atılır",
+  use: "group",
+},
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
@@ -1065,7 +1058,7 @@ Module({
       });
       const antiwordWarn = config.ANTIWORD_WARN?.split(",") || [];
       if (match[1].includes("warn")) {
-        if (match[1].endsWith("on") || match[1].endsWith("aç")) {
+        if (match[1].endsWith("aç")) {
           if (!(await isAdmin(message)))
             return await message.sendReply(Lang.NEED_ADMIN);
           if (!antiwordWarn.includes(message.jid)) {
@@ -1075,7 +1068,7 @@ Module({
           return await message.sendReply(`_✅ Bu grupta kelime uyarı sistemi aktif edildi!_`
           );
         }
-        if (match[1].endsWith("off") || match[1].endsWith("kapat")) {
+        if (match[1].endsWith("kapat")) {
           if (!(await isAdmin(message)))
             return await message.sendReply(Lang.NEED_ADMIN);
           if (antiwordWarn.includes(message.jid)) {
@@ -1088,15 +1081,15 @@ Module({
           }
         }
       }
-      if (match[1] === "aç" || match[1] === "on") {
+      if (match[1] === "aç") {
         if (!await isAdmin(message))
           return await message.sendReply(Lang.NEED_ADMIN);
         await antiword.set(message.jid);
       }
-      if (match[1] === "kapat" || match[1] === "off") {
+      if (match[1] === "kapat") {
         await antiword.delete(message.jid);
       }
-      if (match[1] !== "aç" && match[1] !== "kapat" && match[1] !== "on" && match[1] !== "off") {
+      if (match[1] !== "aç" && match[1] !== "kapat") {
         const status =
           jids.includes(message.jid) || antiwordWarn.includes(message.jid)
             ? "Açık"
@@ -1110,20 +1103,20 @@ Module({
         );
       }
       await message.sendReply(
-        match[1] === "on" ? "_Yasaklı kelime engeli etkinleştirildi!_" : "_Yasaklı kelime engeli kapatıldı!_"
+        match[1] === "aç" ? "_Yasaklı kelime engeli etkinleştirildi!_" : "_Yasaklı kelime engeli kapatıldı!_"
       );
     }
   }
 );
 
 Module({
-    pattern: "aramaengel ?(.*)",
-    fromMe: true,
-    desc: "Kapsamlı arama reddetme yönetim sistemi",
-    usage:
-      ".aramaengel aç/kapat\n.aramaengel beyazlisteyeekle <numara>\n.aramaengel beyazlistelerisil <numara>\n.aramaengel beyazlistelerigöster\n.aramaengel beyazlistelerisil\n.aramaengel mesaj <mesaj>\n.aramaengel mesaj kapat",
-    use: "system",
-  },
+  pattern: "aramaengel ?(.*)",
+  fromMe: true,
+  desc: "Kapsamlı arama reddetme yönetim sistemi",
+  usage:
+    ".aramaengel aç/kapat\n.aramaengel beyazlisteyeekle <numara>\n.aramaengel beyazlistelerisil <numara>\n.aramaengel beyazlistelerigöster\n.aramaengel beyazlistelerisil\n.aramaengel mesaj <mesaj>\n.aramaengel mesaj kapat",
+  use: "system",
+},
   async (message, match) => {
     const input = match[1]?.trim();
 
@@ -1145,24 +1138,19 @@ Module({
     const rest = restParts.join(" ");
 
     switch (action.toLowerCase()) {
-      case "on":
-      case "enable":
       case "aç":
         await setVar("REJECT_CALLS", "true", false);
         await message.sendReply("*✅ Arama reddetme etkin*\n\nBeyaz listedekiler dışındaki tüm gelen aramalar reddedilecektir."
         );
         break;
 
-      case "off":
-      case "disable":
       case "kapat":
         await setVar("REJECT_CALLS", "false", false);
         await message.sendReply("*❌ Arama reddetme kapalı*\n\nTüm gelen aramalar kabul edilecektir."
         );
         break;
 
-      case "allow":
-      case "beyazlisteyeekle":
+      case "beyazliste":
         if (!rest) {
           if (!message.jid.includes("@g.us")) {
             const chatNumber = message.jid.split("@")[0];
@@ -1191,13 +1179,13 @@ Module({
               `*✅ +${chatNumber} beyaz listeye eklendi*\n\nBu numara arama reddetme etkin olsa bile sizi arayabilir.`
             );
           } else {
-            return await message.sendReply("*❌ Lütfen bir telefon numarası girin*\n\n*Kullanım:* `.callreject allow 905554443322`\n\n*Not:* DM sohbetlerinde, numarayı eklemeden kişiyi beyaz listeye almak için `.callreject allow` kullanabilirsiniz."
+            return await message.sendReply("*❌ Lütfen bir telefon numarası girin*\n\n*Kullanım:* `.aramaengel beyazliste 905554443322`\n\n*Not:* DM sohbetlerinde, numarayı eklemeden kişiyi beyaz listeye almak için `.aramaengel beyazliste` kullanabilirsiniz."
             );
           }
         } else {
           const number = rest.replace(/[^0-9]/g, "");
           if (!number) {
-            return await message.sendReply("*❌ Lütfen geçerli bir telefon numarası girin*\n\n*Kullanım:* `.callreject allow 905554443322`"
+            return await message.sendReply("*❌ Lütfen geçerli bir telefon numarası girin*\n\n*Kullanım:* `.aramaengel beyazliste 905554443322`"
             );
           }
 
@@ -1221,8 +1209,7 @@ Module({
         }
         break;
 
-      case "remove":
-      case "beyazlistelerisil":
+      case "beyazlistesil":
         if (!rest) {
           if (!message.jid.includes("@g.us")) {
             const chatNumber = message.jid.split("@")[0];
@@ -1244,13 +1231,13 @@ Module({
               `*🚫 +${chatNumber} beyaz listeden kaldırıldı*\n\nArama reddetme etkin olduğunda bu numara engellenecektir.`
             );
           } else {
-            return await message.sendReply("*❌ Lütfen bir telefon numarası girin*\n\n*Kullanım:* `.callreject remove 905554443322`\n\n*Not:* DM'de o kişiyi beyaz listeden çıkarmak için numara olmadan `.callreject remove` kullanabilirsiniz."
+            return await message.sendReply("*❌ Lütfen bir telefon numarası girin*\n\n*Kullanım:* `.aramaengel beyazlistesil 905554443322`\n\n*Not:* DM'de o kişiyi beyaz listeden çıkarmak için numara olmadan `.aramaengel beyazliste` kullanabilirsiniz."
             );
           }
         } else {
           const number = rest.replace(/[^0-9]/g, "");
           if (!number) {
-            return await message.sendReply("*❌ Lütfen geçerli bir telefon numarası girin*\n\n*Kullanım:* `.callreject remove 905554443322`"
+            return await message.sendReply("*❌ Lütfen geçerli bir telefon numarası girin*\n\n*Kullanım:* `.aramaengel beyazlistesil 905554443322`"
             );
           }
 
@@ -1274,8 +1261,7 @@ Module({
         }
         break;
 
-      case "list":
-      case "beyazlistelerigöster":
+      case "beyazlistegöster":
         const allowedNumbers = config.ALLOWED_CALLS
           ? config.ALLOWED_CALLS.split(",")
             .map((n) => n.trim())
@@ -1295,7 +1281,6 @@ Module({
         );
         break;
 
-      case "clear":
       case "temizle":
         const currentAllowed = config.ALLOWED_CALLS
           ? config.ALLOWED_CALLS.split(",")
@@ -1320,13 +1305,13 @@ Module({
           return await message.sendReply("*📞 Arama Reddetme Mesajı*\n\n" +
             `*Mevcut Mesaj:* ${currentMsg || "Ayarlanmamış"}\n\n` +
             "*Komutlar:*\n" +
-            "• `.aramaengel msg <mesajınız>` - Reddetme mesajı ayarla\n" +
-            "• `.aramaengel msg kapat` - Reddetme mesajını kapat\n\n" +
-            "*Örnek:* `.aramaengel msg Üzgünüm, şu an meşgulüm. Sizi daha sonra ararım.`"
+            "• `.aramaengel mesaj <mesajınız>` - Reddetme mesajı ayarla\n" +
+            "• `.aramaengel mesaj kapat` - Reddetme mesajını kapat\n\n" +
+            "*Örnek:* `.aramaengel mesaj Üzgünüm, şu an meşgulüm. Sizi daha sonra ararım.`"
           );
         }
 
-        if (rest.toLowerCase() === "off" || rest.toLowerCase() === "disable") {
+        if (rest.toLowerCase() === "kapat") {
           await setVar("CALL_REJECT_MESSAGE", "", false);
           await message.sendReply("*🔇 Arama reddetme mesajı kapatıldı*\n\nReddedilen arayanlara hiçbir mesaj gönderilmeyecek."
           );
@@ -1340,11 +1325,11 @@ Module({
 
       default:
         await message.sendReply("*❌ Geçersiz komut*\n\n" +
-          "*Geçerli komutlar:* aç, kapat, beyazlisteyeekle, beyazlistelerisil, beyazlistelerigöster, temizle, mesaj\n\n" +
+          "*Geçerli komutlar:* aç, kapat, beyazliste, beyazlistesil, beyazlistegöster, temizle, mesaj\n\n" +
           "*Örnekler:*\n" +
           "• `.aramaengel aç` - Arama reddetmeyi aç\n" +
-          "• `.aramaengel allow 905554443322` - Numara beyaz listeye ekle\n" +
-          "• `.aramaengel msg Meşgulüm` - Reddetme mesajı ayarla\n\n" +
+          "• `.aramaengel beyazliste 905554443322` - Numara beyaz listeye ekle\n" +
+          "• `.aramaengel mesaj Meşgulüm` - Reddetme mesajı ayarla\n\n" +
           "Tam yardım menüsü için `.aramaengel` yazın."
         );
         break;
@@ -1353,9 +1338,9 @@ Module({
 );
 
 Module({
-    on: "text",
-    fromMe: false,
-  },
+  on: "text",
+  fromMe: false,
+},
   async (message, match) => {
     const configs = settingsMenu;
     const sMatch = message.message?.match(/^\d+$/);
@@ -1615,11 +1600,11 @@ Module({
   }
 );
 Module({
-    pattern: "uptime",
-    fromMe: true,
-    use: "system",
-    desc: "Sistem (OS) / işlem çalışma süresini gösterir (uptime)",
-  },
+  pattern: "uptime",
+  fromMe: false,
+  use: "system",
+  desc: "Sistem (OS) / işlem çalışma süresini gösterir (uptime)",
+},
   async (message, match) => {
     const os = require("os");
     const formatTime = (seconds) => {
@@ -1673,9 +1658,9 @@ Module({
   }
 );
 Module({
-    on: "text",
-    fromMe: !0,
-  },
+  on: "text",
+  fromMe: !0,
+},
   async (message) => {
     if (message.message?.startsWith(">")) {
       const m = message;

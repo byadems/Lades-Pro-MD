@@ -49,12 +49,12 @@ async function sendBanAudio(message) {
 
 
 Module({
-    pattern: "sohbetsil ?(.*)",
-    fromMe: true,
-    desc: "Sohbeti temizle",
-    use: "system",
-    usage: ".sohbetsil (mevcut sohbeti temizler)",
-  },
+  pattern: "sohbetsil ?(.*)",
+  fromMe: true,
+  desc: "Sohbeti temizle",
+  use: "system",
+  usage: ".sohbetsil (mevcut sohbeti temizler)",
+},
   async (message, match) => {
     await message.client.chatModify(
       {
@@ -73,13 +73,13 @@ Module({
 );
 
 Module({
-    pattern: "ban ?(.*)",
-    fromMe: false,
-    desc: Lang.KICK_DESC,
-    use: "group",
-    usage:
-      ".ban @etiket veya yanıtla\n.ban herkes (herkesi at)\n.ban 90 (90 ile başlayan numaraları atar)",
-  },
+  pattern: "ban ?(.*)",
+  fromMe: false,
+  desc: Lang.KICK_DESC,
+  use: "group",
+  usage:
+    ".ban @etiket veya yanıtla\n.ban herkes (herkesi at)\n.ban 90 (90 ile başlayan numaraları atar)",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
@@ -144,11 +144,11 @@ Module({
 );
 
 Module({
-    pattern: "at ?(.*)",
-    fromMe: false,
-    desc: Lang.KICK_DESC,
-    use: "group",
-  },
+  pattern: "at ?(.*)",
+  fromMe: false,
+  desc: Lang.KICK_DESC,
+  use: "group",
+},
   async (message, match) => {
     if (!message.isGroup) {
       return await message.sendReply(Lang.GROUP_COMMAND);
@@ -223,7 +223,7 @@ Module({
         const isTargetAdmin = message.groupAdmins.includes(user);
         if (isTargetAdmin) {
           await message.sendReply(
-            `❌ ${mentionjid(user)} _bir yönetici olduğu için atılamaz!_`,
+            `❌ ${mentionjid(user)} _ yönetici olduğu için atılamaz!_`,
             { mentions: [user] }
           );
           continue;
@@ -282,12 +282,12 @@ Module({
 */
 
 Module({
-    pattern: "yetkiver ?(.*)",
-    fromMe: false,
-    desc: Lang.PROMOTE_DESC,
-    use: "group",
-    usage: ".yetkiver @etiket veya yanıtla",
-  },
+  pattern: "yetkiver ?(.*)",
+  fromMe: false,
+  desc: Lang.PROMOTE_DESC,
+  use: "group",
+  usage: ".yetkiver @etiket veya yanıtla",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
@@ -309,12 +309,12 @@ Module({
   }
 );
 Module({
-    pattern: "istekler ?(.*)",
-    fromMe: false,
-    desc: "Bekleyen katılma isteklerinin listesini al",
-    use: "group",
-    usage: ".istekler (bekleyen istekleri gör)\n.istekler hepsi onayla (tüm istekleri onayla)\n.istekler hepsi reddet (tüm istekleri reddet)",
-  },
+  pattern: "istekler ?(.*)",
+  fromMe: false,
+  desc: "Bekleyen katılma isteklerinin listesini al",
+  use: "group",
+  usage: ".istekler (bekleyen istekleri gör)\n.istekler hepsi onayla (tüm istekleri onayla)\n.istekler hepsi reddet (tüm istekleri reddet)",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
@@ -397,12 +397,12 @@ Module({
   }
 );
 Module({
-    pattern: "ayrıl",
-    fromMe: true,
-    desc: Lang.LEAVE_DESC,
-    usage: ".ayrıl (mevcut gruptan çıkar)",
-    use: "group",
-  },
+  pattern: "ayrıl",
+  fromMe: true,
+  desc: Lang.LEAVE_DESC,
+  usage: ".ayrıl (mevcut gruptan çıkar)",
+  use: "group",
+},
   async (message, match) => {
     if (!message.isGroup)
       return await message.sendReply("_ℹ️ Nereden çıkayım? Bu bir grup komutu!_"
@@ -412,12 +412,12 @@ Module({
   }
 );
 Module({
-    pattern: "quoted",
-    fromMe: true,
-    desc: "Yanıtlanan mesajın alıntıladığı mesajı gönderir. Silinen mesajları kurtarmak için kullanışlıdır.",
-    usage: ".quoted (alıntılanmış bir mesaja yanıtla)",
-    use: "group",
-  },
+  pattern: "quoted",
+  fromMe: true,
+  desc: "Yanıtlanan mesajın alıntıladığı mesajı gönderir. Silinen mesajları kurtarmak için kullanışlıdır.",
+  usage: ".quoted (alıntılanmış bir mesaja yanıtla)",
+  use: "group",
+},
   async (message, match) => {
     try {
       if (!message.reply_message || !message.reply_message.id) {
@@ -479,12 +479,12 @@ Module({
 );
 
 Module({
-    pattern: "yetkial ?(.*)",
-    fromMe: false,
-    desc: Lang.DEMOTE_DESC,
-    use: "group",
-    usage: ".yetkial @etiket veya yanıtla",
-  },
+  pattern: "yetkial ?(.*)",
+  fromMe: false,
+  desc: Lang.DEMOTE_DESC,
+  use: "group",
+  usage: ".yetkial @etiket veya yanıtla",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
@@ -506,13 +506,13 @@ Module({
   }
 );
 Module({
-    pattern: "sohbetkapat ?(.*)",
-    fromMe: false,
-    desc: Lang.MUTE_DESC,
-    use: "group",
-    usage:
-      ".sohbetkapat (grubu süresiz olarak sessize alır)\n.sohbetkapat 1s (1 saat sessize alır)\n.sohbetkapat 5d (5 dakika sessize alır)",
-  },
+  pattern: "sohbetkapat ?(.*)",
+  fromMe: false,
+  desc: Lang.MUTE_DESC,
+  use: "group",
+  usage:
+    ".sohbetkapat (grubu süresiz olarak sessize alır)\n.sohbetkapat 1s (1 saat sessize alır)\n.sohbetkapat 5d (5 dakika sessize alır)",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
@@ -547,12 +547,12 @@ Module({
   }
 );
 Module({
-    pattern: "sohbetaç",
-    fromMe: false,
-    desc: Lang.UNMUTE_DESC,
-    use: "group",
-    usage: ".sohbetaç (grubun sessizini açar)",
-  },
+  pattern: "sohbetaç",
+  fromMe: false,
+  desc: Lang.UNMUTE_DESC,
+  use: "group",
+  usage: ".sohbetaç (grubun sessizini açar)",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
@@ -565,12 +565,12 @@ Module({
   }
 );
 Module({
-    pattern: "jid",
-    fromMe: false,
-    desc: Lang.JID_DESC,
-    use: "group",
-    usage: ".jid (mevcut sohbet kimliğini alır)\n.jid (kullanıcı kimliğini almak için yanıtla)",
-  },
+  pattern: "jid",
+  fromMe: false,
+  desc: Lang.JID_DESC,
+  use: "group",
+  usage: ".jid (mevcut sohbet kimliğini alır)\n.jid (kullanıcı kimliğini almak için yanıtla)",
+},
   async (message) => {
     const isAdminUser = await isAdmin(message);
     if (message.isGroup) {
@@ -587,31 +587,31 @@ Module({
   }
 );
 Module({
-    pattern: 'davet',
-    fromMe: true,
-    use: 'group',
-    desc: Lang.INVITE_DESC
-  },
+  pattern: 'davet',
+  fromMe: true,
+  use: 'group',
+  desc: Lang.INVITE_DESC
+},
   (async (message, match) => {
-  if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND)
-  const userIsAdmin = await isAdmin(message, message.sender);
-  if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
-  const botIsAdmin = await isAdmin(message);
-  if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
+    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND)
+    const userIsAdmin = await isAdmin(message, message.sender);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    const botIsAdmin = await isAdmin(message);
+    if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
-  const code = await message.client.groupInviteCode(message.jid)
-  await message.client.sendMessage(message.jid, {
-    text: "*Grubun Davet Bağlantısı: 👇🏻*\n https://chat.whatsapp.com/" + code, detectLinks: true
-  }, { detectLinks: true })
-}))
+    const code = await message.client.groupInviteCode(message.jid)
+    await message.client.sendMessage(message.jid, {
+      text: "*Grubun Davet Bağlantısı: 👇🏻*\n https://chat.whatsapp.com/" + code, detectLinks: true
+    }, { detectLinks: true })
+  }))
 
 Module({
-    pattern: "davetyenile",
-    fromMe: false,
-    use: "group",
-    desc: Lang.REVOKE_DESC,
-    usage: ".davetyenile (grup davet bağlantısını sıfırlar)",
-  },
+  pattern: "davetyenile",
+  fromMe: false,
+  use: "group",
+  desc: Lang.REVOKE_DESC,
+  usage: ".davetyenile (grup davet bağlantısını sıfırlar)",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
@@ -624,12 +624,12 @@ Module({
   }
 );
 Module({
-    pattern: "gayaryt ?(.*)",
-    fromMe: false,
-    use: "group",
-    desc: "Grup ayarlarını sadece yöneticilerin düzenleyebileceği şekilde değiştirir!",
-    usage: ".gayaryt (grup ayarlarını kilitler)",
-  },
+  pattern: "gayaryt ?(.*)",
+  fromMe: false,
+  use: "group",
+  desc: "Grup ayarlarını sadece yöneticilerin düzenleyebileceği şekilde değiştirir!",
+  usage: ".gayaryt (grup ayarlarını kilitler)",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
@@ -641,12 +641,12 @@ Module({
   }
 );
 Module({
-    pattern: "gayarherkes ?(.*)",
-    fromMe: false,
-    use: "group",
-    desc: "Grup ayarlarını herkesin düzenleyebileceği şekilde değiştirir!",
-    usage: ".gayarherkes (grup ayarlarının kilidini açar)",
-  },
+  pattern: "gayarherkes ?(.*)",
+  fromMe: false,
+  use: "group",
+  desc: "Grup ayarlarını herkesin düzenleyebileceği şekilde değiştirir!",
+  usage: ".gayarherkes (grup ayarlarının kilidini açar)",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
@@ -658,12 +658,12 @@ Module({
   }
 );
 Module({
-    pattern: "gadı ?(.*)",
-    fromMe: false,
-    use: "group",
-    desc: "Grup adını (başlığını) değiştir",
-    usage: ".gadı Yeni Grup Adı",
-  },
+  pattern: "gadı ?(.*)",
+  fromMe: false,
+  use: "group",
+  desc: "Grup adını (başlığını) değiştir",
+  usage: ".gadı Yeni Grup Adı",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
@@ -690,12 +690,12 @@ Module({
   }
 );
 Module({
-    pattern: "gaçıklama ?(.*)",
-    fromMe: false,
-    use: "group",
-    desc: "Grup açıklamasını değiştir",
-    usage: ".gaçıklama Yeni grup açıklaması!",
-  },
+  pattern: "gaçıklama ?(.*)",
+  fromMe: false,
+  use: "group",
+  desc: "Grup açıklamasını değiştir",
+  usage: ".gaçıklama Yeni grup açıklaması!",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
@@ -720,12 +720,12 @@ Module({
   }
 );
 Module({
-    pattern: "common ?(.*)",
-    fromMe: false,
-    use: "group",
-    desc: "İki gruptaki ortak katılımcıları bulur",
-    usage: ".common jid1,jid2\n.common çıkar grup_jid",
-  },
+  pattern: "common ?(.*)",
+  fromMe: false,
+  use: "group",
+  desc: "İki gruptaki ortak katılımcıları bulur",
+  usage: ".common jid1,jid2\n.common çıkar grup_jid",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
@@ -736,7 +736,7 @@ Module({
     if (!match[1])
       return await message.sendReply("_*⚠️ Jid'ler gerekli*_\n_*.common jid1,jid2*_\n _VEYA_ \n_*.common kick grup_jid*_"
       );
-    if (match[1].includes("kick") || match[1].includes("at")) {
+    if (match[1].includes("çıkar")) {
       const co = match[1].split(" ")[1];
       const g1 = await message.client.groupMetadata(co);
       const g2 = await message.client.groupMetadata(message.jid);
@@ -789,12 +789,12 @@ Module({
   }
 );
 Module({
-    pattern: "diff ?(.*)",
-    fromMe: false,
-    use: "group",
-    desc: "İki gruptaki farklı katılımcıları bulur",
-    usage: ".diff jid1,jid2",
-  },
+  pattern: "diff ?(.*)",
+  fromMe: false,
+  use: "group",
+  desc: "İki gruptaki farklı katılımcıları bulur",
+  usage: ".diff jid1,jid2",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
@@ -817,13 +817,13 @@ Module({
   }
 );
 Module({
-    pattern: "tag ?(.*)",
-    fromMe: false,
-    desc: Lang.TAGALL_DESC,
-    use: "group",
-    usage:
-      ".tag metin\n.tag (mesaja yanıtla)\n.tagherkes (herkesi etiketle)\n.tagyt (sadece yöneticileri etiketle)\n.tag 120363355307899193@g.us (belirli grupta etiketle)",
-  },
+  pattern: "tag ?(.*)",
+  fromMe: false,
+  desc: Lang.TAGALL_DESC,
+  use: "group",
+  usage:
+    ".tag metin\n.tag (mesaja yanıtla)\n.tagherkes (herkesi etiketle)\n.tagyt (sadece yöneticileri etiketle)\n.tag 120363355307899193@g.us (belirli grupta etiketle)",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
@@ -831,13 +831,13 @@ Module({
 
     const input = (match[1] || "").toLowerCase().trim();
     const isTagAdmin = input === "yt" || input === "admin";
-    const isTagAll = input === "hepsi" || input === "herkes" || input === "all" || input === "";
+    const isTagAll = input === "herkes" || input === "";
     const isReply = !!message.reply_message;
 
     // Sadece .tag yazıldıysa veya metin yoksa bilgilendirme (Emoji ile sade)
     if (!isReply && !input) {
       return await message.sendReply(`📢 *Grup Etiketleme Modülü* 📢\n\n💡 *Örnek Kullanım:* \`.tag Merhaba!\`\n\n🚀 *Hızlı Komutlar:*
-• \`.tag herkes\` (veya \`all\`) 👥
+• \`.tag herkes\` 👥
 • \`.tag yt\` (veya \`admin\`) 🛡️
 • \`.tag <metin>\` 📝`);
     }
@@ -874,12 +874,12 @@ Module({
   }
 );
 Module({
-    pattern: "engelle ?(.*)",
-    fromMe: true,
-    use: "system",
-    desc: "Kullanıcıyı engelle",
-    usage: ".engelle (bir mesaja yanıtla)\n.engelle @etiket",
-  },
+  pattern: "engelle ?(.*)",
+  fromMe: true,
+  use: "system",
+  desc: "Kullanıcıyı engelle",
+  usage: ".engelle (bir mesaja yanıtla)\n.engelle @etiket",
+},
   async (message, match) => {
     const isGroup = message.jid.endsWith("@g.us");
     let user = message.jid;
@@ -889,12 +889,12 @@ Module({
   }
 );
 Module({
-    pattern: "katıl ?(.*)",
-    fromMe: false,
-    use: "system",
-    desc: "Davet bağlantısını kullanarak bir WhatsApp grubuna katılın",
-    usage: ".join https://chat.whatsapp.com/lades",
-  },
+  pattern: "katıl ?(.*)",
+  fromMe: false,
+  use: "system",
+  desc: "Davet bağlantısını kullanarak bir WhatsApp grubuna katılın",
+  usage: ".join https://chat.whatsapp.com/lades",
+},
   async (message, match) => {
     let rgx =
       /^(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]{22})(?:\?.*)?$/;
@@ -905,12 +905,12 @@ Module({
   }
 );
 Module({
-    pattern: "engelkaldır ?(.*)",
-    fromMe: true,
-    use: "system",
-    desc: "Kullanıcının engelini kaldır",
-    usage: ".engelkaldır (bir mesaja yanıtla)\n.engelkaldır @etiket",
-  },
+  pattern: "engelkaldır ?(.*)",
+  fromMe: true,
+  use: "system",
+  desc: "Kullanıcının engelini kaldır",
+  usage: ".engelkaldır (bir mesaja yanıtla)\n.engelkaldır @etiket",
+},
   async (message) => {
     const isGroup = message.jid.endsWith("@g.us");
     if (!isGroup) return;
@@ -1083,13 +1083,13 @@ Module({
 );
 
 Module({
-    pattern: "tümjid ?(.*)",
-    fromMe: true,
-    desc: "Sohbetlerin veya grupların tüm JID adreslerini listeler.",
-    use: "tools",
-    usage:
-      ".getjids all (shows all group JIDs)\n.getjids recent (shows recent chat JIDs)\n.getjids recent 15 (shows 15 recent chats)",
-  },
+  pattern: "tümjid ?(.*)",
+  fromMe: true,
+  desc: "Sohbetlerin veya grupların tüm JID adreslerini listeler.",
+  use: "tools",
+  usage:
+    ".getjids all (shows all group JIDs)\n.getjids recent (shows recent chat JIDs)\n.getjids recent 15 (shows 15 recent chats)",
+},
   async (message, match) => {
     const args = match[1]?.trim().split(" ") || [];
     const command = args[0]?.toLowerCase();
@@ -1251,18 +1251,18 @@ const estimateTime = (groupCount, hasPin) => {
 };
 
 Module({
-    pattern: "duyuru ?(.*)",
-    fromMe: true,
-    desc: "Bot'un bulunduğu tüm gruplara duyuru iletir ve isteğe bağlı olarak sabitler.",
-    use: "system",
-    usage:
-      ".duyuru <mesaj>\n" +
-      ".duyuru <mesaj> | sabitle:24s\n" +
-      ".duyuru karalist ekle <jid>\n" +
-      ".duyuru karalist çıkar <jid>\n" +
-      ".duyuru karalist liste\n" +
-      ".duyuru karalist bu",
-  },
+  pattern: "duyuru ?(.*)",
+  fromMe: true,
+  desc: "Bot'un bulunduğu tüm gruplara duyuru iletir ve isteğe bağlı olarak sabitler.",
+  use: "system",
+  usage:
+    ".duyuru <mesaj>\n" +
+    ".duyuru <mesaj> | sabitle:24s\n" +
+    ".duyuru karalist ekle <jid>\n" +
+    ".duyuru karalist çıkar <jid>\n" +
+    ".duyuru karalist liste\n" +
+    ".duyuru karalist bu",
+},
   async (message, match) => {
     const adminAccess = message.isAdmin;
     if (!message.fromOwner && !adminAccess) {
@@ -1468,13 +1468,13 @@ Module({
 );
 
 Module({
-    pattern: "sabitle ?(.*)",
-    fromMe: false,
-    desc: "Yanıtlanan mesajı belirli bir süre için sabitler",
-    use: "group",
-    usage:
-      ".sabitle 24s (24 saat)\n.sabitle 7g (7 gün)\n.sabitle 30g (30 gün)\n.sabitle (varsayılan: 7 gün)",
-  },
+  pattern: "sabitle ?(.*)",
+  fromMe: false,
+  desc: "Yanıtlanan mesajı belirli bir süre için sabitler",
+  use: "group",
+  usage:
+    ".sabitle 24s (24 saat)\n.sabitle 7g (7 gün)\n.sabitle 30g (30 gün)\n.sabitle (varsayılan: 7 gün)",
+},
   async (message, match) => {
     if (!message.isGroup) {
       return await message.sendReply("_❌ Bu komut sadece gruplarda kullanılabilir._");
@@ -1545,13 +1545,13 @@ Module({
 );
 
 Module({
-    pattern: "pp ?(.*)",
-    fromMe: true,
-    use: "system",
-    desc: "Profil resmini değiştir/al (tam ekran destekli)",
-    usage:
-      ".pp (reply to image to set profile pic)\n.pp (reply to user to get their profile pic)",
-  },
+  pattern: "pp ?(.*)",
+  fromMe: true,
+  use: "system",
+  desc: "Profil resmini değiştir/al (tam ekran destekli)",
+  usage:
+    ".pp (reply to image to set profile pic)\n.pp (reply to user to get their profile pic)",
+},
   async (message, match) => {
     if (message.reply_message && message.reply_message.image) {
       const image = await message.reply_message.download();
@@ -1575,12 +1575,12 @@ Module({
   }
 );
 Module({
-    pattern: "grupfoto ?(.*)",
-    fromMe: false,
-    use: "system",
-    desc: "Grup simgesini değiştir/al (tam ekran destekli)",
-    usage: ".gpp (reply to image to set group icon)",
-  },
+  pattern: "grupfoto ?(.*)",
+  fromMe: false,
+  use: "system",
+  desc: "Grup simgesini değiştir/al (tam ekran destekli)",
+  usage: ".gpp (reply to image to set group icon)",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
@@ -1627,11 +1627,11 @@ function parseSarrafiye(html) {
 }
 
 Module({
-    pattern: "altın ?(.*)",
-    fromMe: false,
-    desc: "Güncel altın fiyatlarını gösterir",
-    use: "tools",
-  },
+  pattern: "altın ?(.*)",
+  fromMe: false,
+  desc: "Güncel altın fiyatlarını gösterir",
+  use: "tools",
+},
   async (message) => {
     const loading = await message.send("🔄 _Altın fiyatlarına bakıyorum..._");
 
@@ -1698,43 +1698,43 @@ Module({
 
 
 Module({
-    pattern: 'etiket',
-    fromMe: false,
-    desc: 'Tüm üyeleri etiketler.',
-    use: 'group',
-  },
+  pattern: 'etiket',
+  fromMe: false,
+  desc: 'Tüm üyeleri etiketler.',
+  use: 'group',
+},
   async (message, match) => {
-  const userIsAdmin = await isAdmin(message, message.sender);
-  if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
-  if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
-  const target = message.jid;
-  const group = await message.client.groupMetadata(target);
-  const allMembers = group.participants.map(participant => participant.id);
-  let text = "✅ *Herkes başarıyla etiketlendi!*";
-  allMembers.forEach((jid, index) => {
-    text += `
+    const userIsAdmin = await isAdmin(message, message.sender);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    const target = message.jid;
+    const group = await message.client.groupMetadata(target);
+    const allMembers = group.participants.map(participant => participant.id);
+    let text = "✅ *Herkes başarıyla etiketlendi!*";
+    allMembers.forEach((jid, index) => {
+      text += `
 ${index + 1}. @${jid.split('@')[0]}`;
+    });
+    await message.client.sendMessage(target, {
+      text: text,
+      contextInfo: { mentionedJid: allMembers }
+    });
   });
-  await message.client.sendMessage(target, {
-    text: text,
-    contextInfo: { mentionedJid: allMembers }
-  });
-});
 
 Module({
-    pattern: 'ytetiket',
-    fromMe: false,
-    desc: 'Tüm yöneticileri etiketler.',
-    use: 'group',
-  },
+  pattern: 'ytetiket',
+  fromMe: false,
+  desc: 'Tüm yöneticileri etiketler.',
+  use: 'group',
+},
   async (message, match) => {
-  const target = message.jid;
-  const group = await message.client.groupMetadata(target);
-  const admins = group.participants.filter(v => v.admin !== null).map(x => x.id);
-  let text = "🚨 *Yöneticiler:*";
-  admins.forEach(jid => {
-    text += `
+    const target = message.jid;
+    const group = await message.client.groupMetadata(target);
+    const admins = group.participants.filter(v => v.admin !== null).map(x => x.id);
+    let text = "🚨 *Yöneticiler:*";
+    admins.forEach(jid => {
+      text += `
 @${jid.split('@')[0]}`;
+    });
+    await message.client.sendMessage(target, { text: text, contextInfo: { mentionedJid: admins } });
   });
-  await message.client.sendMessage(target, { text: text, contextInfo: { mentionedJid: admins } });
-});

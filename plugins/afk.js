@@ -136,19 +136,19 @@ Module(
     fromMe: false,
     desc: "Kendinizi AFK (Klavyeden Uzakta) olarak ayarlayın",
     usage:
-      ".uzakta [sebep] - _İsteğe bağlı sebeple AFK ol_\n.uzakta - _Mevcut durumu kontrol et_\n.uzakta list - _Tüm AFK kullanıcıları göster_",
+      ".uzakta [sebep] - _İsteğe bağlı sebeple AFK ol_\n.uzakta durum - _Mevcut üyelerin durumunu kontrol eder_\n.uzakta list - _Tüm AFK kullanıcıları göster_",
     use: "genel",
   },
   async (message, match) => {
     const userJid = message.sender;
     const input = match[1]?.trim();
 
-    if (input?.toLowerCase() === "list" || input?.toLowerCase() === "liste") {
+    if (input?.toLowerCase() === "durum") {
       if (afkCache.size === 0) {
-        return await message.sendReply("_👤 Şu anda AFK olan kullanıcı yok._");
+        return await message.sendReply("_👤 Şu anda AFK olan üye yok._");
       }
 
-      let afkList = `*_🌙 AFK Kullanıcı Listesi (${afkCache.size})_*\n\n`;
+      let afkList = `*_🌙 AFK Üye Listesi (${afkCache.size})_*\n\n`;
       let count = 1;
 
       for (const [jid, data] of afkCache.entries()) {
@@ -178,18 +178,18 @@ Module(
         const lastSeen = timeSince(afkData.lastSeen);
 
         return await message.sendReply(`*_🌙 Şu anda AFK modundasınız_*\n\n` +
-            `📝 _Sebep:_ \`${afkData.reason}\`\n` +
-            `⏰ _AFK süresi:_ \`${timeAFK}\`\n` +
-            `👁️ _Son görülme:_ \`${lastSeen}\`\n` +
-            `💬 _Alınan mesajlar:_ \`${afkData.messageCount}\`\n\n` +
-            `_Çevrimiçi olmak için herhangi bir mesaj yazın._`
+          `📝 _Sebep:_ \`${afkData.reason}\`\n` +
+          `⏰ _AFK süresi:_ \`${timeAFK}\`\n` +
+          `👁️ _Son görülme:_ \`${lastSeen}\`\n` +
+          `💬 _Alınan mesajlar:_ \`${afkData.messageCount}\`\n\n` +
+          `_Çevrimiçi olmak için herhangi bir mesaj yazın._`
         );
       } else {
         const censoredInput = censorBadWords(input);
         await setAFK(userJid, censoredInput);
         return await message.sendReply(`*_🌙 AFK nedeni güncellendi_*\n\n` +
-            `📝 _Yeni sebep:_ \`${censoredInput}\`\n\n` +
-            `_Biri size mesaj attığında veya sizi etiketlediğinde otomatik yanıt vereceğim._`
+          `📝 _Yeni sebep:_ \`${censoredInput}\`\n\n` +
+          `_Biri size mesaj attığında veya sizi etiketlediğinde otomatik yanıt vereceğim._`
         );
       }
     } else {
@@ -197,10 +197,10 @@ Module(
       await setAFK(userJid, reason);
 
       return await message.sendReply(`*_🌙 Artık AFK modundasınız_*\n\n` +
-          `📝 _Sebep:_ \`${reason}\`\n` +
-          `⏰ _Bu zamandan beri:_ \`${new Date().toLocaleTimeString()}\`\n\n` +
-          `_Biri size mesaj attığında veya sizi etiketlediğinde otomatik yanıt vereceğim._\n` +
-          `_Çevrimiçi olmak için herhangi bir mesaj yazın._`
+        `📝 _Sebep:_ \`${reason}\`\n` +
+        `⏰ _Bu zamandan beri:_ \`${new Date().toLocaleTimeString()}\`\n\n` +
+        `_Biri size mesaj attığında veya sizi etiketlediğinde otomatik yanıt vereceğim._\n` +
+        `_Çevrimiçi olmak için herhangi bir mesaj yazın._`
       );
     }
   }
@@ -222,7 +222,7 @@ Module(
         const text = message.text || "";
         const prefixes = (config.PREFIX || ".").split("");
         const isCommand = prefixes.some(p => text.startsWith(p));
-        
+
         const afkData = await removeAFK(senderJid);
         if (afkData && !isCommand) {
           const timeAFK = formatDuration(
@@ -309,7 +309,7 @@ Module(
 
           await incrementMessageCount(repliedToJid);
 
-            const afkReply =
+          const afkReply =
             `*_🌙 @${repliedToJid.split("@")[0]} şu anda AFK_*\n\n` +
             `📝 _Sebep:_ \`${afkData.reason}\`\n` +
             `⏰ _AFK süresi:_ \`${timeAFK}\`\n` +
