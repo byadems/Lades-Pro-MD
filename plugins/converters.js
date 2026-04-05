@@ -805,86 +805,55 @@ Module(
     }
   }
 );
-Module(
-  {
-    pattern: "indir ?(.*)",
-    fromMe: false,
-    desc: "URL üzerindeki dosyayı indirir ve sohbete yükler.",
-    use: "media",
-  },
+Module({
+  pattern: "indir ?(.*)",
+  fromMe: false,
+  desc: "URL üzerindeki dosyayı indirir ve sohbete yükler.",
+  use: "media",
+},
   async (message, match) => {
-    let url =
-      match[1] || (message.reply_message ? message.reply_message.text : "");
-
+    let url = match[1] || (message.reply_message ? message.reply_message.text : "");
     const urlMatch = url.match(/https?:\/\/[^\s]+/);
-    if (urlMatch) {
-      url = urlMatch[0];
-    }
+    if (urlMatch) url = urlMatch[0];
 
     if (!url || !url.startsWith("http")) {
-      return await message.send(
-        "_💬 Geçerli bir URL girin veya URL içeren bir mesaja yanıt verin_"
-      );
+      return await message.send("_ Kullanım: .indir https://ornek.com/dosya.pdf_");
     }
 
     try {
       await message.send("_⏳ Dosya indiriliyor..._");
 
       const response = await axios.get(url, {
-        responseType: "stream",
+        responseType: "arraybuffer",
         timeout: 60000,
+        maxRedirects: 5,
+        headers: {
+          "User-Agent": "Mozilla/5.0",
+        },
       });
 
-      const randomHash = Math.random().toString(36).substring(2, 8);
-      let fileName = `downloaded_file_${randomHash}`;
-      let mimetype =
-        response.headers["content-type"] || "application/octet-stream";
+      let fileName = "downloaded_file";
+      let mimetype = response.headers["content-type"] || "application/octet-stream";
 
       const contentDisposition = response.headers["content-disposition"];
       if (contentDisposition && contentDisposition.includes("filename=")) {
-        const filenameMatch = contentDisposition.match(
-          /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
-        );
-        if (filenameMatch) {
-          fileName = filenameMatch[1].replace(/['"]/g, "");
-        }
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (filenameMatch) fileName = filenameMatch[1].replace(/['"]/g, "");
       } else {
         const urlPath = new URL(url).pathname;
         const urlFileName = urlPath.split("/").pop();
-        if (urlFileName && urlFileName.includes(".")) {
-          fileName = urlFileName;
-        }
+        if (urlFileName && urlFileName.includes(".")) fileName = urlFileName;
       }
 
-      if (!fileName.includes(".") && response.headers["content-type"]) {
-        const ext = response.headers["content-type"].split("/")[1];
-        if (ext && ext !== "octet-stream") {
-          fileName += `.${ext}`;
-        }
-      }
-      await message.sendMessage({ stream: response.data }, "document", {
+      await message.sendMessage(Buffer.from(response.data), "document", {
         quoted: message.quoted,
-        fileName: fileName,
-        mimetype: mimetype,
-        caption: `_✅ İndirildi: ${url}_`,
+        fileName,
+        mimetype,
+        caption: `_✅ İndirildi:_ ${url}`,
       });
     } catch (error) {
-      console.error("Yükleme hatası:", error);
-      if (error.code === "ECONNABORTED") {
-        await message.send(
-          "_⏱️ İndirme zaman aşımı. Dosya çok büyük veya sunucu yavaş olabilir_"
-        );
-      } else if (error.response && error.response.status === 404) {
-        await message.send("_❌ Dosya bulunamadı (404). Lütfen URL'yi kontrol edin_");
-      } else if (error.response && error.response.status >= 400) {
-        await message.send(
-          `_❌ İndirme başarısız (durum: ${error.response.status})_`
-        );
-      } else {
-        await message.send(
-          "_❌ Dosya indirilemedi. Lütfen URL'yi kontrol edip tekrar deneyin_"
-        );
-      }
+      console.error("İndir komutu hatası:", error);
+      await message.send(`_❌ İndirme başarısız: ${error.message}_`);
     }
   }
 );

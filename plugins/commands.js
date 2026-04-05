@@ -193,7 +193,7 @@ _Kullanıcılar: $users_ $pp\`
 
     const input = match[1].toLowerCase();
 
-    if (input === "help") {
+    if (input === "yardım") {
       const helpText = `*📖 Çevrimiçi Mesaj Biçimlendirme Yardımı*
 
 *Kullanılabilir Yer Tutucular:*
@@ -253,7 +253,7 @@ _Merhaba $user!_
       return await message.sendReply(helpText);
     }
 
-    if (input === "get") {
+    if (input === "getir") {
       const current = ALIVE;
       if (!current) {
         return await message.sendReply("_⚙️ Özel çevrimiçi mesajı ayarlanmadı! Varsayılan mesaj kullanılıyor._"
@@ -264,7 +264,7 @@ _Merhaba $user!_
       );
     }
 
-    if (input === "del" || input === "delete") {
+    if (input === "sil") {
       await setVar("ALIVE", "");
       return await message.sendReply("_🗑️ Özel çevrimiçi mesaj silindi! Bot varsayılan mesajı kullanacak._"
       );
