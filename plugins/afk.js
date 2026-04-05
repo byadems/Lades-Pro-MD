@@ -130,8 +130,7 @@ function getAFKData(userJid) {
   return afkCache.get(userJid);
 }
 
-Module(
-  {
+Module({
     pattern: "uzakta ?(.*)",
     fromMe: false,
     desc: "Kendinizi AFK (Klavyeden Uzakta) olarak ayarlayın",
@@ -206,8 +205,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     on: "message",
     fromMe: false,
   },
@@ -328,8 +326,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     on: "message",
     fromMe: false,
   },

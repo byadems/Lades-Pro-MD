@@ -116,10 +116,10 @@ const config = {
   VERSION: process.env.VERSION || "1.0.0",
 
   // Bot bilgisi: "Ad;Sahip;GörselURL"
-  BOT_INFO: process.env.BOT_INFO || "Lades-MD;Geliştirici;",
+  BOT_INFO: process.env.BOT_INFO || "Lades-MD;Lades Yönetimi;",
 
   // Çıkartma paketi: "PaketAdı;Yazar;Emojiler"
-  STICKER_DATA: process.env.STICKER_DATA || "Lades-MD;Bot;😂",
+  STICKER_DATA: process.env.STICKER_DATA || "Lades-Pro;Lades-Pro;😂",
 
   // Grup yöneticileri admin komutlarını kullanabilir mi?
   ADMIN_ACCESS: process.env.ADMIN_ACCESS === "true" || process.env.ADMIN_ACCESS === "1",

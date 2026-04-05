@@ -10,8 +10,7 @@ const { Module } = require("../main");
 let config = require("../config");
 const isFromMe = true;
 let fs = require("fs");
-Module(
-  {
+Module({
     pattern: "take ?(.*)",
     fromMe: false,
     desc: "Çıkartma/ses paketi ve yazar adını değiştirir.",
@@ -103,8 +102,7 @@ Module(
       );
   }
 );
-Module(
-  {
+Module({
     pattern: "mp4 ?(.*)",
     fromMe: false,
     desc: "Hareketli çıkartmayı videoya dönüştürür",
@@ -134,8 +132,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "url ?(.*)",
     fromMe: false,
     desc: "Resmi internete yükleyerek paylaşılabilir bağlantı oluşturur.",

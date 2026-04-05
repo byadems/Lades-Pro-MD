@@ -22,8 +22,7 @@ try {
 
 // Register dynamic commands for each bolum
 for (const [key, data] of Object.entries(bolumler)) {
-  Module(
-    {
+  Module({
       pattern: key + ' ?(.*)',
       fromMe,
       use: "tools",
@@ -50,8 +49,7 @@ for (const [key, data] of Object.entries(bolumler)) {
 }
 
 // Help / index command
-Module(
-  {
+Module({
     pattern: 'bilgikaçnet ?(.*)',
     fromMe,
     use: "tools",

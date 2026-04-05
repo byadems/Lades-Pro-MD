@@ -338,10 +338,10 @@ Module({
     const used = bytesToSize(os.freemem());
     const total = bytesToSize(os.totalmem());
     const totalUsers = await getTotalUserCount();
-    const botInfo = config.BOT_INFO || "Lades-MD;Antigravity;https://files.catbox.moe/u0f6f7.jpg";
+    const botInfo = config.BOT_INFO || "Lades-Pro;Lades-Pro;";
     const infoParts = botInfo.split(";");
-    const botName = infoParts[0] || "Lades-MD";
-    const botOwner = infoParts[1] || "Antigravity";
+    const botName = infoParts[0] || "Lades-Pro";
+    const botOwner = infoParts[1] || "Lades-Pro";
     const botVersion = VERSION;
     // Görsel: Sadece Northflank/env'de HTTP URL ayarlıysa dış kaynak kullanılır. Aksi halde repo içi varsayılan dosya.
     const imagePart = infoParts.find((p) => (p || "").trim().startsWith("http"));
@@ -640,14 +640,14 @@ Module({
     if (message.isGroup) {
       try {
         const meta = await message.client.groupMetadata(message.jid);
-        grupBilgisi = `👥 *Grup:* ${meta.subject}\n🆔 *Grup JID:* \`${message.jid}\``;
+        grupBilgisi = `👥 *Grup:* ${meta.subject}\n🆔 *Grup JID:* ${message.jid}`;
       } catch {
-        grupBilgisi = `👥 *Grup JID:* \`${message.jid}\``;
+        grupBilgisi = `👥 *Grup JID:* ${message.jid}`;
       }
     }
 
     const bildirimMesaji =
-      `${emoji} *Yeni ${label} Bildirimi*\n` +
+      `${emoji} *Yeni ${label} Bildirimi!*\n` +
       `${"─".repeat(30)}\n` +
       `👤 *Gönderen:* @${gonderenJid.split("@")[0]}\n` +
       `${grupBilgisi}\n` +

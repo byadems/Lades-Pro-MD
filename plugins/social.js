@@ -24,8 +24,7 @@ async function checkRedirect(url) {
   } catch (_) {}
   return url;
 }
-Module(
-  {
+Module({
     pattern: "insta ?(.*)",
     fromMe: false,
     desc: "Instagram gönderi/Reels/TV indirici - çoklu bağlantı destekler",
@@ -147,8 +146,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "fb ?(.*)",
     fromMe: false,
     desc: "Facebook video indirici",
@@ -198,8 +196,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "igara ?(.*)",
     fromMe: false,
     desc: "Instagram kullanıcı profili bilgilerini gösterir",
@@ -245,8 +242,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "twara ?(.*)",
     fromMe: false,
     desc: "Twitter/X kullanıcı profili bilgilerini gösterir",
@@ -292,8 +288,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "hikaye ?(.*)",
     fromMe: false,
     desc: "Instagram hikaye (story) indirici",
@@ -354,8 +349,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "pinterest ?(.*)",
     fromMe: false,
     desc: "Pinterest indirici",
@@ -454,8 +448,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "twitter ?(.*)",
     fromMe: false,
     desc: "Twitter/X video indirici",
@@ -488,8 +481,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "tiktok ?(.*)",
     fromMe: false,
     desc: "TikTok video indirici",
@@ -539,8 +531,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "capcut ?(.*)",
     fromMe: false,
     desc: "CapCut şablon/video indirici",
@@ -598,8 +589,7 @@ function extractTikTokUsername(input) {
   return null;
 }
 
-Module(
-  {
+Module({
     pattern: 'ttara ?(.*)',
     fromMe: false,
     desc: 'TikTok kullanıcı bilgilerini getirir. (Gizli hesaplar hariç)',

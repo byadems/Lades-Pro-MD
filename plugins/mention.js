@@ -53,8 +53,7 @@ function isSudoUser(jid) {
   return sudoMap.includes(jid);
 }
 
-Module(
-  {
+Module({
     pattern: "bahsetme ?(.*)",
     fromMe: false,
     desc: "Otomatik etiket yanıt yönetimi",
@@ -228,8 +227,7 @@ _ℹ️ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
   }
 );
 
-Module(
-  {
+Module({
     on: "text",
     fromMe: false,
   },

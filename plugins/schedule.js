@@ -158,8 +158,7 @@ async function createMessageObject(
   return JSON.stringify(messageObj);
 }
 
-Module(
-  {
+Module({
     pattern: "planla ?(.*)",
     fromMe: false,
     desc: "⏰ Mesaj planla - Gruba veya özele zamanlanmış mesaj gönder",
@@ -255,8 +254,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "plandurum ?(.*)",
     fromMe: false,
     desc: "📋 Planlanan tüm mesajları listeler",
@@ -303,8 +301,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "plansil ?(.*)",
     fromMe: false,
     desc: "🗑️ Planlanan mesajı ID ile iptal eder",

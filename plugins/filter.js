@@ -4,8 +4,7 @@ const { filter, isAdmin } = require("./utils");
 
 const handler = HANDLER_PREFIX;
 
-Module(
-  {
+Module({
     pattern: "filtre ?(.*)",
     fromMe: false,
     desc: "Otomatik yanıt filtreleri oluşturur. Kullanım: .filtre tetikleyici | yanıt",
@@ -103,8 +102,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "filtreler ?(.*)",
     fromMe: false,
     desc: "Tüm filtreleri listele",
@@ -159,8 +157,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "filtresil ?(.*)",
     fromMe: false,
     desc: "Bir filtreyi sil",
@@ -203,8 +200,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "filtredurum ?(.*)",
     fromMe: false,
     desc: "Bir filtreyi aç/kapat",
@@ -259,8 +255,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "testfiltre ?(.*)",
     fromMe: false,
     desc: "Bir mesajın filtreleri tetikleyip tetiklemeyeceğini test edin",
@@ -302,8 +297,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "filtreyardım",
     fromMe: false,
     desc: "Filtre sistemi için ayrıntılı yardım",

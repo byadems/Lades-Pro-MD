@@ -2,6 +2,7 @@ const { Module } = require("../main");
 const axios = require("axios");
 const FormData = require("form-data");
 const fs = require("fs");
+const fsPromises = fs.promises;
 const Path = require("path");
 const config = require("../config");
 
@@ -29,8 +30,7 @@ function getDateBasedName(prefix = "Arkaplan") {
   return `${prefix}-${yyyy}${mm}${dd}_${HH}${MM}${SS}`;
 }
 
-Module(
-  {
+Module({
     pattern: "apsil ?(.*)",
     fromMe: false,
     desc: `Yapay zeka kullanarak görüntünün arka planını kaldırır veya düz renk/resim ile değiştirir.
@@ -109,7 +109,6 @@ Module(
 
     try {
       imagePath = await message.reply_message.download();
-      const fsPromises = require("fs").promises;
       const imageBuffer = await fsPromises.readFile(imagePath);
 
       let response = null;
@@ -170,7 +169,6 @@ Module(
       const mimeType = response.headers["content-type"] || "image/png";
       const extension = (mimeType.split("/")[1] || "png").split(";")[0];
       outputPath = `rbg_${Date.now()}.${extension}`;
-      const fsPromises = require("fs").promises;
       await fsPromises.writeFile(outputPath, response.data);
 
       let originalFileName = "";
@@ -191,7 +189,6 @@ Module(
       }
 
       await message.edit(okMsg, message.jid, processing.key);
-      const fsPromises = require("fs").promises;
       await message.client.sendMessage(
         message.jid,
         {
@@ -205,7 +202,6 @@ Module(
       console.error("APSil komutu hatası:", error);
       await message.edit("❌ _Dosya gönderilirken bir hata oluştu!_", message.jid, processing.key);
     } finally {
-      const fsPromises = require("fs").promises;
       if (imagePath) await fsPromises.unlink(imagePath).catch(() => {});
       if (outputPath) await fsPromises.unlink(outputPath).catch(() => {});
     }

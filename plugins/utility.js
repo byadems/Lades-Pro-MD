@@ -33,8 +33,7 @@ const tar = require("tar");
 // ═══════════════════════════════════
 // 📅 Yaş Hesaplayıcı
 // ═══════════════════════════════════
-Module(
-  {
+Module({
     pattern: "yaşhesap ?(.*)",
     fromMe: false,
     desc: "Yaş hesaplayıcı",
@@ -67,8 +66,7 @@ Module(
 // ═══════════════════════════════════
 // ⏳ Geri Sayım
 // ═══════════════════════════════════
-Module(
-  {
+Module({
     pattern: "gerisayım ?(.*)",
     fromMe: false,
     desc: "Tarihe geri sayım yapar",
@@ -101,8 +99,7 @@ Module(
 // ═══════════════════════════════════
 // 🏓 Ping Testi
 // ═══════════════════════════════════
-Module(
-  {
+Module({
     pattern: "ping",
     fromMe: false,
     desc: "Ağ gecikmesini (ping) ölçer",
@@ -144,8 +141,7 @@ function downloadFile(url, dest) {
 // ═══════════════════════════════════
 // ⚡ Gerçek Speedtest (CLI Binary)
 // ═══════════════════════════════════
-Module(
-  {
+Module({
     pattern: "hıztesti",
     fromMe: false,
     desc: "Ookla Speedtest ile gerçek hız testi",

@@ -95,8 +95,7 @@ const listAllEarthquakes = async (m, { limit, region } = {}) => {
   }
 };
 
-Module(
-  {
+Module({
     pattern: "sondepremler ?(.*)",
     fromMe: auto,
     desc: "Türkiye genelinde gerçekleşen son depremleri listeler.",
@@ -122,8 +121,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "sondeprem",
     fromMe: auto,
     desc: "Son deprem kaydını gösterir.",

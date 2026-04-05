@@ -11,7 +11,6 @@ const { Jimp, JimpMime } = require("jimp");
 const { Image } = require("node-webpmux");
 const fs = require("fs");
 const path = require("path");
-// const ID3Writer = require("browser-id3-writer"); // Removed due to ESM mismatch in Node 22
 
 const { getTempPath, cleanTempFile } = require("../../core/helpers");
 const nx = require("./nexray");
@@ -21,22 +20,44 @@ ffmpeg.setFfmpegPath(ffmpegStatic);
 
 /**
  * Adds Exif metadata to a WebP sticker.
+ * Supports: (buffer/path, packname, author) OR (buffer/path, {packname, author})
  */
-async function addExif(webpBuffer, packname = "Lades-MD", author = "NexBot") {
+async function addExif(webpInput, packname = "Lades-Pro", author = "Lades-Pro") {
+  let webpBuffer;
+  if (Buffer.isBuffer(webpInput)) {
+    webpBuffer = webpInput;
+  } else if (typeof webpInput === "string" && fs.existsSync(webpInput)) {
+    webpBuffer = await fs.promises.readFile(webpInput);
+  } else {
+    throw new Error("addExif: Geçersiz girdi (Buffer veya dosya yolu gerekli)");
+  }
+
+  // Handle object as second argument
+  if (typeof packname === "object" && packname !== null) {
+    const meta = packname;
+    packname = (meta.packname || meta.pack || "Lades-Pro").toString();
+    author = (meta.author || "Lades-Pro").toString();
+  } else {
+    packname = (packname || "Lades-Pro").toString();
+    author = (author || "Lades-Pro").toString();
+  }
+
   const img = new Image();
   await img.load(webpBuffer);
-  const exif = {
+  const json = JSON.stringify({
     "sticker-pack-id": `lades-${Date.now()}`,
     "sticker-pack-name": packname,
     "sticker-pack-publisher": author,
-    "android-app-store-link": "https://github.com/byadems",
-    "ios-app-store-link": "https://github.com/byadems",
-  };
-  const json = JSON.stringify({ "sticker-pack-id": exif["sticker-pack-id"], "sticker-pack-name": exif["sticker-pack-name"], "sticker-pack-publisher": exif["sticker-pack-publisher"] });
-  const exifAttr = Buffer.from([0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x41, 0x57, 0x07, 0x00, json.length & 0xff, (json.length >> 8) & 0xff, (json.length >> 16) & 0xff, (json.length >> 24) & 0xff, 0x16, 0x00, 0x00, 0x00]);
-  const exifBuffer = Buffer.concat([exifAttr, Buffer.from(json)]);
-  exifBuffer.fill(0, 0, 4);
-  exifBuffer[0] = 0x45; exifBuffer[1] = 0x78; exifBuffer[2] = 0x69; exifBuffer[3] = 0x66;
+    "emojis": ["\u2764\uFE0F", "\uD83D\uDE0D", "\uD83D\uDE02"]
+  });
+
+  const exifAttr = Buffer.from([0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x41, 0x57, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00]);
+  const jsonBuffer = Buffer.from(json, "utf-8");
+  const exifBuffer = Buffer.concat([exifAttr, jsonBuffer]);
+  
+  // Set json length in header
+  exifBuffer.writeUIntLE(jsonBuffer.length, 14, 4);
+  
   img.exif = exifBuffer;
   return await img.save(null);
 }
@@ -113,7 +134,7 @@ async function sticker(buffer, isVideo = false) {
       ff.addOptions([
         "-vcodec", "libwebp",
         "-vf", "scale='min(320,iw)':min'(320,ih)':force_original_aspect_ratio=decrease,fps=15, pad=320:320:(320-iw)/2:(320-ih)/2:color=0x00000000,setsar=1",
-        "-loop", "0", "-ss", "00:00:00", "-t", "00:00:05", "-preset", "superfast", "-an", "-vsync", "0"
+        "-loop", "0", "-ss", "00:00:00", "-t", "00:00:05", "-an", "-vsync", "0"
       ]);
     } else {
       ff.addOptions([

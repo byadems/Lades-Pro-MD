@@ -1,6 +1,8 @@
 const { Module } = require("../main");
 const fs = require("fs");
 const ffmpeg = require("fluent-ffmpeg");
+const ffmpegStatic = require("ffmpeg-static");
+ffmpeg.setFfmpegPath(ffmpegStatic);
 const https = require("https");
 const { getTempPath, getTempSubdir } = require("../core/helpers");
 
@@ -231,8 +233,7 @@ Module({
     }
   });
 
-Module(
-  {
+Module({
     pattern: "trim ?(.*)",
     fromMe: false,
     desc: Lang.TRIM_DESC,
@@ -265,8 +266,7 @@ Module(
     }
   }
 );
-Module(
-  {
+Module({
     pattern: "renklendir",
     fromMe: false,
     desc: "Siyah-beyaz fotoğrafı renklendirir (yanıtlanan görsel)",
@@ -303,8 +303,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "siyahvideo",
     fromMe: false,
     desc: "Sesi siyah videoya dönüştürür",
@@ -359,8 +358,7 @@ Module(
     }
   }
 );
-Module(
-  {
+Module({
     pattern: "birleştir",
     fromMe: false,
     desc: Lang.AVMIX_DESC,
@@ -405,8 +403,7 @@ Module(
     }
   }
 );
-Module(
-  {
+Module({
     pattern: "vmix ?(.*)",
     fromMe: false,
     desc: "İki videoyu birleştirir",
@@ -469,8 +466,7 @@ Module(
     }
   }
 );
-Module(
-  {
+Module({
     pattern: "ağırçekim",
     fromMe: false,
     desc: "Videoyu pürüzsüz ağır çekime dönüştürür",
@@ -495,8 +491,7 @@ Module(
       });
   }
 );
-Module(
-  {
+Module({
     pattern: "oval",
     fromMe: false,
     desc: "Çıkartma/fotoğrafı yuvarlak olarak kırpar",
@@ -506,8 +501,7 @@ Module(
     await circle(message);
   }
 );
-Module(
-  {
+Module({
     pattern: "gif",
     fromMe: false,
     use: "media",
@@ -533,8 +527,7 @@ Module(
       });
   }
 );
-Module(
-  {
+Module({
     pattern: "interp ?(.*)",
     fromMe: false,
     desc: "Videonun kare hızını (FPS) artırır",
@@ -561,8 +554,7 @@ Module(
       });
   }
 );
-Module(
-  {
+Module({
     pattern: "bul ?(.*)",
     fromMe: false,
     desc: "Yapay zeka aracılığıyla çalan şarkının adını bulur.",
@@ -609,8 +601,7 @@ Module(
     await message.client.sendMessage(message.jid, Message);
   }
 );
-Module(
-  {
+Module({
     pattern: "döndür ?(.*)",
     fromMe: false,
     use: "media",
@@ -634,8 +625,7 @@ Module(
     await fs.promises.unlink(rotatedFilePath).catch(() => { });
   }
 );
-Module(
-  {
+Module({
     pattern: "flip ?(.*)",
     fromMe: false,
     use: "media",
@@ -656,8 +646,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "ss ?(.*)",
     fromMe: false,
     desc: "Web sitesinin ekran görüntüsünü alır",
@@ -687,8 +676,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "metin ?(.*)",
     fromMe: false,
     desc: "Görseldeki metni okur (OCR)",
@@ -723,8 +711,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "hd ?(.*)",
     fromMe: false,
     desc: "Görseli HD kaliteye yükseltir",
@@ -758,8 +745,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "meme ?(.*)",
     fromMe: false,
     desc: "Meme görseli oluşturur (üst ve alt metin)",
@@ -791,8 +777,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "kodgörsel ?(.*)",
     fromMe: false,
     desc: "Kodu güzel bir görsel olarak oluşturur",

@@ -93,8 +93,7 @@ async function getPrayerTimes(cityInput, type = 'ezan', date = moment().format('
   return { error: '⚠️ Tüm vakit kaynakları başarısız oldu. Lütfen daha sonra tekrar deneyiniz.' };
 }
 
-Module(
-  {
+Module({
     pattern: 'ezan ?(.*)',
     fromMe: false,
     use: 'dini',
@@ -163,8 +162,7 @@ Module(
   );
 });
 
-Module(
-  {
+Module({
     pattern: 'sahur ?(.*)',
     fromMe: false,
     use: 'dini',
@@ -214,8 +212,7 @@ Module(
   );
 });
 
-Module(
-  {
+Module({
     pattern: 'iftar ?(.*)',
     fromMe: false,
     use: 'dini',

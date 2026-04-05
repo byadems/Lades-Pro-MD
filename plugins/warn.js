@@ -34,8 +34,7 @@ async function sendBanAudio(message) {
   } catch (err) { }
 }
 
-Module(
-  {
+Module({
     pattern: "uyar(.*)",
     fromMe: true,
     desc: "Grup üyelerini uyarmaya yarar. Limit aşıldığında üye gruptan atılır.",

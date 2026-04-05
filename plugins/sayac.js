@@ -45,8 +45,7 @@ function findClosestDate(dates) {
   return closestDate;
 }
 
-Module(
-  {
+Module({
     pattern: 'ykssayaç',
     fromMe: false,
     desc: yks,
@@ -92,8 +91,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: 'kpsssayaç',
     fromMe: false,
     desc: kpss,
@@ -110,8 +108,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: 'msüsayaç',
     fromMe: false,
     desc: msu,
@@ -134,8 +131,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: 'okulsayaç',
     fromMe: false,
     desc: okul,
@@ -169,8 +165,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: 'ramazansayaç',
     fromMe: false,
     desc: oruc,

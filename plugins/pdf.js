@@ -27,8 +27,7 @@ const getFileType = async (buffer) => {
 const imageInputDirectory = getTempSubdir("pdf");
 const finalPdfOutputPath = getTempPath("converted.pdf");
 
-Module(
-  {
+Module({
     pattern: "pdf ?(.*)",
     fromMe: MODE === "private",
     desc: "Yanıtlanan resimleri bir PDF dosyasına dönüştürür.",

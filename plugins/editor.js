@@ -111,8 +111,7 @@ async function applyEffect(message, route) {
   return await message.sendMessage(buffer, "image");
 }
 
-Module(
-  {
+Module({
     pattern: "editör",
     fromMe: x,
     desc: "Fotoğraf düzenleme araçlarını getirir.",
@@ -124,8 +123,7 @@ Module(
 );
 
 function registerEffect(command, desc, route) {
-  Module(
-    {
+  Module({
       pattern: `${command} ?(.*)`,
       fromMe: x,
       desc,
@@ -142,8 +140,7 @@ for (const effect of EFFECTS) {
   registerEffect(effect.command, effect.desc, effect.route);
 }
 
-Module(
-  {
+Module({
     pattern: "wasted ?(.*)",
     fromMe: x,
     desc: "GTA tarzı 'Wasted' efekti uygular",
@@ -170,8 +167,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "wanted ?(.*)",
     fromMe: x,
     desc: "Aranıyor posteri oluşturur",
@@ -229,8 +225,7 @@ async function applyEphoto(message, endpoint, caption) {
   }
 }
 
-Module(
-  {
+Module({
     pattern: "anime ?(.*)",
     fromMe: x,
     desc: "Fotoğrafı anime stiline dönüştürür",
@@ -240,8 +235,7 @@ Module(
   async (message) => applyEphoto(message, "/ephoto/anime", "🎌 *Anime dönüşümü tamamlandı!*")
 );
 
-Module(
-  {
+Module({
     pattern: "ghiblistil ?(.*)",
     fromMe: x,
     desc: "Fotoğrafı Studio Ghibli stiline dönüştürür",
@@ -251,8 +245,7 @@ Module(
   async (message) => applyEphoto(message, "/ephoto/ghibli", "🌿 *Studio Ghibli dönüşümü tamamlandı!*")
 );
 
-Module(
-  {
+Module({
     pattern: "chibi ?(.*)",
     fromMe: x,
     desc: "Fotoğrafı chibi stiline dönüştürür",
@@ -262,8 +255,7 @@ Module(
   async (message) => applyEphoto(message, "/ephoto/chibi", "🧸 *Chibi dönüşümü tamamlandı!*")
 );
 
-Module(
-  {
+Module({
     pattern: "efektsinema ?(.*)",
     fromMe: x,
     desc: "Fotoğrafa sinematik film efekti uygular",
@@ -273,8 +265,7 @@ Module(
   async (message) => applyEphoto(message, "/ephoto/cinematic", "🎬 *Sinematik efekt uygulandı!*")
 );
 
-Module(
-  {
+Module({
     pattern: "grafitisokak ?(.*)",
     fromMe: x,
     desc: "Fotoğrafı sokak grafiti sanatına dönüştürür",
@@ -284,8 +275,7 @@ Module(
   async (message) => applyEphoto(message, "/ephoto/street", "🎨 *Grafiti dönüşümü tamamlandı!*")
 );
 
-Module(
-  {
+Module({
     pattern: "pikselart ?(.*)",
     fromMe: x,
     desc: "Fotoğrafı piksel NFT sanatına dönüştürür",
@@ -295,8 +285,7 @@ Module(
   async (message) => applyEphoto(message, "/ephoto/nft", "👾 *Piksel sanat dönüşümü tamamlandı!*")
 );
 
-Module(
-  {
+Module({
     pattern: "komik ?(.*)",
     fromMe: x,
     desc: "Fotoğrafı çizgi roman stiline dönüştürür",
@@ -306,8 +295,7 @@ Module(
   async (message) => applyEphoto(message, "/ephoto/comic", "💥 *Çizgi roman dönüşümü tamamlandı!*")
 );
 
-Module(
-  {
+Module({
     pattern: "mafia ?(.*)",
     fromMe: x,
     desc: "Fotoğrafı mafia stiline dönüştürür",

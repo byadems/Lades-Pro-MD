@@ -1,8 +1,7 @@
 const { Module } = require('../main');
 const { fancy } = require('./utils');
 
-Module(
-  {
+Module({
     pattern: 'fancy ?(.*)',
     fromMe: false,
     use: 'edit',

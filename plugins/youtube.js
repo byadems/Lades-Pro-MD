@@ -26,8 +26,7 @@ function formatViews(views) {
   return views?.toString() || "Belirtilmedi";
 }
 
-Module(
-  {
+Module({
     pattern: "spotify ?(.*)",
     fromMe: fromMe,
     desc: "Spotify şarkısı indir",
@@ -113,8 +112,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "ytara ?(.*)",
     fromMe: fromMe,
     desc: "YouTube araması (detaylı bilgi ile)",
@@ -159,8 +157,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "ytvideo ?(.*)",
     fromMe: fromMe,
     desc: "Video arayarak veya bağlantıdan doğrudan en yüksek kaliteyi indirir",
@@ -307,8 +304,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "video ?(.*)",
     fromMe: fromMe,
     desc: "YouTube üzerinden video indirir (anahtar kelime veya bağlantı ile).",
@@ -449,8 +445,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "ytses ?(.*)",
     fromMe: fromMe,
     desc: "YouTube sesini belge olarak indir",
@@ -520,8 +515,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "şarkı ?(.*)",
     fromMe: fromMe,
     desc: "YouTube üzerinden ses/şarkı indirir (anahtar kelime veya bağlantı ile).",
@@ -653,8 +647,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     on: "text",
     fromMe: fromMe,
   },

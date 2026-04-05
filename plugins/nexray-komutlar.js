@@ -73,8 +73,7 @@ async function nexGet(path, opts = {}) {
 // ══════════════════════════════════════════════════════════
 // 1. EMOJİMİX — İki emojiyi birleştirir
 // ══════════════════════════════════════════════════════════
-Module(
-  {
+Module({
     pattern: "emojimix ?(.*)",
     fromMe: false,
     desc: "İki emojiyi birleştirip yeni emoji oluşturur",
@@ -99,8 +98,7 @@ Module(
 // ══════════════════════════════════════════════════════════
 // 2. YAZI — Glitch efektli metin görseli
 // ══════════════════════════════════════════════════════════
-Module(
-  {
+Module({
     pattern: "yazı ?(.*)",
     fromMe: false,
     desc: "Glitch efektli metin görseli oluşturur",
@@ -122,8 +120,7 @@ Module(
 // ══════════════════════════════════════════════════════════
 // 3. NARUTO — Naruto stili metin logosu
 // ══════════════════════════════════════════════════════════
-Module(
-  {
+Module({
     pattern: "naruto ?(.*)",
     fromMe: false,
     desc: "Naruto stili metin logosu oluşturur",
@@ -145,8 +142,7 @@ Module(
 // ══════════════════════════════════════════════════════════
 // 4. MARVEL — Marvel stili logo (2 kelime)
 // ══════════════════════════════════════════════════════════
-Module(
-  {
+Module({
     pattern: "marvel ?(.*)",
     fromMe: false,
     desc: "Marvel stili logo oluşturur (2 kelime)",
@@ -169,8 +165,7 @@ Module(
 // ══════════════════════════════════════════════════════════
 // 5. BLACKPINK — Blackpink stili metin
 // ══════════════════════════════════════════════════════════
-Module(
-  {
+Module({
     pattern: "blackpink ?(.*)",
     fromMe: false,
     desc: "Blackpink stili metin görseli oluşturur",
@@ -192,8 +187,7 @@ Module(
 // ══════════════════════════════════════════════════════════
 // 6. BRAT — Charli XCX Brat stili metin
 // ══════════════════════════════════════════════════════════
-Module(
-  {
+Module({
     pattern: "brat ?(.*)",
     fromMe: false,
     desc: "Brat (Charli XCX) stili yeşil metin görseli",
@@ -215,8 +209,7 @@ Module(
 // ══════════════════════════════════════════════════════════
 // 7. SÖZ — Şarkı sözü bulma (lyrics.ovh + LRCLib + Nexray fallback)
 // ══════════════════════════════════════════════════════════
-Module(
-  {
+Module({
     pattern: "şarkısözü ?(.*)",
     fromMe: false,
     desc: "Şarkı sözlerini bulur",
@@ -287,8 +280,7 @@ Module(
 // ══════════════════════════════════════════════════════════
 // 8. DUVAR — HD duvar kağıdı arama
 // ══════════════════════════════════════════════════════════
-Module(
-  {
+Module({
     pattern: "duvarkağıdı ?(.*)",
     fromMe: false,
     desc: "HD duvar kağıdı arar ve gönderir",
@@ -317,8 +309,7 @@ Module(
 // ══════════════════════════════════════════════════════════
 // 9. ÇIKARTMABUL — WhatsApp sticker paketi arama
 // ══════════════════════════════════════════════════════════
-Module(
-  {
+Module({
     pattern: "çıkartmabul ?(.*)",
     fromMe: false,
     desc: "WhatsApp çıkartma paketi arar",
@@ -348,8 +339,7 @@ Module(
 // ══════════════════════════════════════════════════════════
 // 10. WİKİ — Wikipedia bilgi çekme
 // ══════════════════════════════════════════════════════════
-Module(
-  {
+Module({
     pattern: "vikipedi ?(.*)",
     fromMe: false,
     desc: "Vikipedi üzerinden bilgi arar.",
@@ -378,8 +368,7 @@ Module(
 // ══════════════════════════════════════════════════════════
 // 11. ALINTI — WhatsApp tarzı alıntı görseli
 // ══════════════════════════════════════════════════════════
-Module(
-  {
+Module({
     pattern: "alıntı ?(.*)",
     fromMe: false,
     desc: "WhatsApp tarzı alıntı görseli oluşturur",
@@ -409,8 +398,7 @@ Module(
 // ══════════════════════════════════════════════════════════
 // 12. RÜYA — AI rüya yorumu
 // ══════════════════════════════════════════════════════════
-Module(
-  {
+Module({
     pattern: "rüya ?(.*)",
     fromMe: false,
     desc: "Rüyanızı yapay zeka ile yorumlar",
@@ -439,8 +427,7 @@ Module(
 // ══════════════════════════════════════════════════════════
 // 13. GÖRSEL — AI ile metin→görsel oluşturma (Ideogram)
 // ══════════════════════════════════════════════════════════
-Module(
-  {
+Module({
     pattern: "görsel ?(.*)",
     fromMe: false,
     desc: "Yapay zeka ile açıklamadan görsel oluşturur",
@@ -467,8 +454,7 @@ Module(
 // ══════════════════════════════════════════════════════════
 // 14. THREADS — Threads video/görsel indirme
 // ══════════════════════════════════════════════════════════
-Module(
-  {
+Module({
     pattern: "threads ?(.*)",
     fromMe: false,
     desc: "Threads video/görsel indirir",
@@ -503,8 +489,7 @@ Module(
 // ══════════════════════════════════════════════════════════
 // 15. SOUNDCLOUD — SoundCloud ses indirme
 // ══════════════════════════════════════════════════════════
-Module(
-  {
+Module({
     pattern: "soundcloud ?(.*)",
     fromMe: false,
     desc: "SoundCloud'dan ses indirir",
@@ -537,8 +522,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "çevir ?(.*)",
     fromMe: false,
     desc: "Metni iki dil arasında çevirir. Örnek: .çevir en tr",

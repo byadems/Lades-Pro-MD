@@ -22,8 +22,7 @@ const retrieveCommandDetails = (commandName) => {
   };
 };
 
-Module(
-  {
+Module({
     pattern: 'komut ?(.*)',
     fromMe: false,
     desc: 'Bot komutlarını listeler veya belirtilen komutun detaylarını gösterir.',

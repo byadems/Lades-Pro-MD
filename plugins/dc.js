@@ -2,8 +2,7 @@ const { Module } = require('../main')
 
 let choices = ['⚖️ Doğruluk', '🙌🏻 Cesaret'];
 
-Module(
-  {
+Module({
     pattern: 'dc ?(.*)',
     fromMe: false,
     use: 'group',

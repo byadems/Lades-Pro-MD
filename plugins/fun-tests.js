@@ -22,8 +22,7 @@ async function runSingleRateCommand(message, { introText, resultText }) {
   return await message.send(resultText(randomPercent()));
 }
 
-Module(
-  {
+Module({
     pattern: "testgay ?(.*)",
     fromMe: false,
     desc: "Etiketlediğiniz üyenin gaylik yüzdesini ölçer.",
@@ -37,8 +36,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "testlez ?(.*)",
     fromMe: false,
     desc: "Etiketlediğiniz üyenin lezlik yüzdesini ölçer.",
@@ -52,8 +50,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "testprenses ?(.*)",
     fromMe: false,
     desc: "Etiketlediğiniz üyenin prenseslik seviyesini ölçer.",
@@ -67,8 +64,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "testregl ?(.*)",
     fromMe: false,
     desc: "Etiketlediğiniz üyenin Regl olma ihtimalini ölçer.",
@@ -82,8 +78,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "testinanç ?(.*)",
     fromMe: false,
     desc: "Etiketlediğiniz üyenin inanç seviyesini ölçer.",
@@ -97,8 +92,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "aşkölç ?(.*)",
     fromMe: false,
     desc: "İki kişi arasındaki aşk yüzdesini ölçer.",
@@ -136,8 +130,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "beyin",
     fromMe: false,
     desc: "Rastgele beyin jimnastiği sorusu gönderir",
@@ -163,8 +156,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "bilmece",
     fromMe: false,
     desc: "Rastgele bilmece sorusu gönderir",
@@ -190,8 +182,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "kimyasoru",
     fromMe: false,
     desc: "Rastgele kimya sorusu gönderir",
@@ -220,8 +211,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "alay ?(.*)",
     fromMe: false,
     desc: "Metni alay/slang formatına dönüştürür",
@@ -242,8 +232,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "dragonyazı ?(.*)",
     fromMe: false,
     desc: "Dragon Ball stili metin logosu oluşturur",
@@ -262,8 +251,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "neonyazı ?(.*)",
     fromMe: false,
     desc: "Neon ışıklı metin logosu oluşturur",
@@ -282,8 +270,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "grafitiyazı ?(.*)",
     fromMe: false,
     desc: "Grafiti stili metin logosu oluşturur",
@@ -302,8 +289,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "devilyazı ?(.*)",
     fromMe: false,
     desc: "Şeytan kanadı stili metin logosu oluşturur",
@@ -322,8 +308,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "müzikkart ?(.*)",
     fromMe: false,
     desc: "Müzik kartı görseli oluşturur",

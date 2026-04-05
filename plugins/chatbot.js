@@ -425,8 +425,7 @@ if (_chatbotCleanupTimer.unref) _chatbotCleanupTimer.unref();
 initChatbotData();
 logValidGeminiModels();
 
-Module(
-  {
+Module({
     on: "text",
     fromMe: false,
   },
@@ -520,8 +519,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "yz ?(.*)",
     fromMe: false,
     desc: "Yapay zeka komutları. .yz yazarak tüm alt komutları görebilirsiniz.",
