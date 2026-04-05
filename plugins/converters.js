@@ -812,12 +812,21 @@ Module({
   use: "media",
 },
   async (message, match) => {
+    console.log("[indir] match[1]:", match[1], "reply_message:", !!message.reply_message);
+    
     let url = match[1] || (message.reply_message ? message.reply_message.text : "");
+    
+    console.log("[indir] URL after check:", url);
+    
     const urlMatch = url.match(/https?:\/\/[^\s]+/);
     if (urlMatch) url = urlMatch[0];
 
+    console.log("[indir] Final URL:", url);
+    
     if (!url || !url.startsWith("http")) {
-      return await message.send("_ Kullanım: .indir https://ornek.com/dosya.pdf_");
+      return await message.send(
+        "_📥 Kullanım: .indir <URL>\n\nÖrnek: .indir https://ornek.com/dosya.pdf"
+      );
     }
 
     try {

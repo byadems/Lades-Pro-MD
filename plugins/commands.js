@@ -52,11 +52,11 @@ const retrieveCommandDetails = (commandName) => {
 
 
 Module({
-    pattern: "liste ?(.*)",
-    fromMe: true,
-    desc: "Tüm komutları kategorili bir liste halinde gösterir.",
-    excludeFromCommands: true,
-  },
+  pattern: "liste ?(.*)",
+  fromMe: false,
+  desc: "Tüm komutları kategorili bir liste halinde gösterir.",
+  excludeFromCommands: true,
+},
   async (message, args) => {
     const cmds = typeof commands === 'function' ? commands() : commands;
     const availableCommands = cmds.filter(
@@ -154,23 +154,23 @@ const manage = {
 };
 
 Module({
-    pattern: "kontrol",
-    fromMe: true,
-    desc: "Botun çevrimiçi olup olmadığını kontrol eder.",
-  },
+  pattern: "kontrol",
+  fromMe: false,
+  desc: "Botun çevrimiçi olup olmadığını kontrol eder.",
+},
   async (message, match) => {
     await parseAlive(message, ALIVE);
   }
 );
 
 Module({
-    pattern: "setalive ?(.*)",
-    fromMe: true,
-    desc: "Bot için çevrimiçi (alive) mesajı ayarlar.",
-    usage:
-      ".setalive <message> (with placeholders)\n.setalive help (show formatting help)",
-    dontAddCommandList: true,
-  },
+  pattern: "setalive ?(.*)",
+  fromMe: true,
+  desc: "Bot için çevrimiçi (alive) mesajı ayarlar.",
+  usage:
+    ".setalive <message> (with placeholders)\n.setalive help (show formatting help)",
+  dontAddCommandList: true,
+},
   async (message, match) => {
     if (!match[1]) {
       return await message.sendReply(`*📝 Çevrimiçi Mesaj Ayarları*
@@ -284,11 +284,11 @@ _Merhaba $user!_
 );
 
 Module({
-    pattern: "menü",
-    fromMe: true,
-    desc: "Bot komut menüsünü gösterir.",
-    use: "genel",
-  },
+  pattern: "menü",
+  fromMe: false,
+  desc: "Bot komut menüsünü gösterir.",
+  use: "genel",
+},
   async (message, match) => {
     const stars = ["✦", "✯", "✯", "✰", "◬"];
     const star = stars[Math.floor(Math.random() * stars.length)];
@@ -397,10 +397,10 @@ ${cmdmenu}`;
   }
 );
 Module({
-    pattern: "oyunlar ?(.*)",
-    fromMe: true,
-    desc: "Mevcut tüm oyunları listeler",
-  },
+  pattern: "oyunlar ?(.*)",
+  fromMe: false,
+  desc: "Mevcut tüm oyunları listeler",
+},
   async (message, args) => {
     const cmds = typeof commands === 'function' ? commands() : commands;
     const gameCommands = cmds.filter(
@@ -427,11 +427,11 @@ Module({
 );
 
 Module({
-    pattern: "setinfo ?(.*)",
-    fromMe: true,
-    desc: "Bot yapılandırma komutları hakkında bilgi gösterir.",
-    use: "owner",
-  },
+  pattern: "setinfo ?(.*)",
+  fromMe: true,
+  desc: "Bot yapılandırma komutları hakkında bilgi gösterir.",
+  use: "owner",
+},
   async (message, match) => {
     const infoText = `*⚙️ ───「 Bot Bilgi Yapılandırması 」───*
 
@@ -461,11 +461,11 @@ _Bot bilgisi şu şekilde saklanır: \`ad;sahip;görselbağlantısı\`_
 );
 
 Module({
-    pattern: "setname ?(.*)",
-    fromMe: true,
-    desc: "Bot adını ayarlar",
-    use: "owner",
-  },
+  pattern: "setname ?(.*)",
+  fromMe: true,
+  desc: "Bot adını ayarlar",
+  use: "owner",
+},
   async (message, match) => {
     const name = match[1]?.trim();
     if (!name)
@@ -480,11 +480,11 @@ Module({
 );
 
 Module({
-    pattern: "setimage",
-    fromMe: true,
-    desc: "Bot resmini ayarlar (bir resme yanıt verin)",
-    use: "owner",
-  },
+  pattern: "setimage",
+  fromMe: true,
+  desc: "Bot resmini ayarlar (bir resme yanıt verin)",
+  use: "owner",
+},
   async (message, match) => {
     if (!message.reply_message || !message.reply_message.image) {
       return await message.sendReply("_🖼️ Bir resmi .setimage ile yanıtlayın_");
@@ -521,12 +521,12 @@ Module({
   }
 );
 Module({
-    pattern: "testalive",
-    fromMe: true,
-    desc: "Mevcut çevrimiçi (alive) mesajını biçimlendirmesiyle test eder.",
-    usage: ".testalive",
-    use: "owner",
-  },
+  pattern: "testalive",
+  fromMe: true,
+  desc: "Mevcut çevrimiçi (alive) mesajını biçimlendirmesiyle test eder.",
+  usage: ".testalive",
+  use: "owner",
+},
   async (message, match) => {
     const aliveMessage = ALIVE;
 
@@ -566,17 +566,17 @@ const normalizeKategori = (raw) => {
 };
 
 Module({
-    pattern: "bildir ?(.*)",
-    fromMe: false,
-    desc: "Bot hakkında istek, şikayet, hata, öneri veya talep iletir.",
-    use: "tools",
-    usage:
-      ".bildir istek <mesaj>\n" +
-      ".bildir şikayet <mesaj>\n" +
-      ".bildir hata <mesaj>\n" +
-      ".bildir öneri <mesaj>\n" +
-      ".bildir talep <mesaj>",
-  },
+  pattern: "bildir ?(.*)",
+  fromMe: false,
+  desc: "Bot hakkında istek, şikayet, hata, öneri veya talep iletir.",
+  use: "tools",
+  usage:
+    ".bildir istek <mesaj>\n" +
+    ".bildir şikayet <mesaj>\n" +
+    ".bildir hata <mesaj>\n" +
+    ".bildir öneri <mesaj>\n" +
+    ".bildir talep <mesaj>",
+},
   async (message, match) => {
     const input = match[1]?.trim() || "";
     if (!input) {
@@ -762,11 +762,11 @@ function getTimeBasedEmoji(temp) {
 }
 
 Module({
-    pattern: "hava ?(.*)",
-    fromMe: false,
-    desc: "Hava durumu bilgisi gönderir.",
-    use: "search",
-  },
+  pattern: "hava ?(.*)",
+  fromMe: false,
+  desc: "Hava durumu bilgisi gönderir.",
+  use: "search",
+},
   async (m, match) => {
     const restrictedGroupId = "905396978235-1601666238@g.us";
     if (m.jid === restrictedGroupId) {
@@ -863,63 +863,63 @@ const createApiUrl = (fromCurrency, toCurrency, amount) =>
   `https://v6.exchangerate-api.com/v6/9f2e3e44d65670cb05593bd9/pair/${fromCurrency}/${toCurrency}/${amount}`;
 
 Module({
-    pattern: 'kur ?(.*)',
-    fromMe: false,
-    desc: 'Belirli bir miktarın iki para birimi arasındaki döviz kuru dönüşümünü hesaplar.',
-    usage: '.kur 2,375.99 dolar tl',
-    use: 'tools',
-  },
+  pattern: 'kur ?(.*)',
+  fromMe: false,
+  desc: 'Belirli bir miktarın iki para birimi arasındaki döviz kuru dönüşümünü hesaplar.',
+  usage: '.kur 2,375.99 dolar tl',
+  use: 'tools',
+},
   async (message, match) => {
-  if (message.jid === "905396978235-1601666238@g.us") {
-    return message.client.sendMessage(message.jid,
-      { text: "❗ *Bu komut sadece sohbet grubunda kullanılabilir!*" }
-    );
-  }
-  const userInput = (match[1] || '').trim();
-  if (!userInput) {
-    return message.sendReply('❗️ Lütfen geçerli bir giriş yapınız. Örnek: *.kur 1 dolar tl*');
-  }
-  const parts = userInput.split(/\s+/);
-  if (parts.length < 3) {
-    return message.sendReply('❗️ Lütfen geçerli bir giriş yapınız. Örnek: *.kur 1 dolar tl*');
-  }
-  const rawAmount = parts.shift();
-  const rawToCurrency = parts.pop();
-  const rawFromCurrency = parts.join(' ');
-  const amount = parseAmount(rawAmount);
-  const fromCurrency = currencyMap[rawFromCurrency.toLowerCase()] || rawFromCurrency.toUpperCase();
-  const toCurrency = currencyMap[rawToCurrency.toLowerCase()] || rawToCurrency.toUpperCase();
-  if (amount === null || !isFinite(amount) || !fromCurrency || !toCurrency) {
-    return message.sendReply('❗️ Lütfen geçerli bir giriş yapınız. Örneğin: *.kur 1 dolar tl*');
-  }
-  try {
-    const apiUrl = createApiUrl(fromCurrency, toCurrency, amount);
-    const response = await axios.get(apiUrl);
-    if (response.data.result === 'success') {
-      const converted = Number(response.data.conversion_result).toFixed(2);
-      const today = new Date();
-      const dateStr = `${today.getDate()}.${today.getMonth() + 1}.${today.getFullYear()}`;
-      return message.sendReply(
-        `📆 ${dateStr} itibariyle
-💱 *${amount} ${fromCurrency} = ${converted} ${toCurrency}*`
+    if (message.jid === "905396978235-1601666238@g.us") {
+      return message.client.sendMessage(message.jid,
+        { text: "❗ *Bu komut sadece sohbet grubunda kullanılabilir!*" }
       );
-    } else {
-      throw new Error('API dönüş hatası');
     }
-  } catch (err) {
-    console.error('Döviz kuru dönüşümü yapılamadı:', err.message);
-    return message.sendReply(
-      '⚠️ Döviz kuru dönüşümü yapılamadı! Lütfen para birimlerini kontrol ediniz.'
-    );
-  }
-});
+    const userInput = (match[1] || '').trim();
+    if (!userInput) {
+      return message.sendReply('❗️ Lütfen geçerli bir giriş yapınız. Örnek: *.kur 1 dolar tl*');
+    }
+    const parts = userInput.split(/\s+/);
+    if (parts.length < 3) {
+      return message.sendReply('❗️ Lütfen geçerli bir giriş yapınız. Örnek: *.kur 1 dolar tl*');
+    }
+    const rawAmount = parts.shift();
+    const rawToCurrency = parts.pop();
+    const rawFromCurrency = parts.join(' ');
+    const amount = parseAmount(rawAmount);
+    const fromCurrency = currencyMap[rawFromCurrency.toLowerCase()] || rawFromCurrency.toUpperCase();
+    const toCurrency = currencyMap[rawToCurrency.toLowerCase()] || rawToCurrency.toUpperCase();
+    if (amount === null || !isFinite(amount) || !fromCurrency || !toCurrency) {
+      return message.sendReply('❗️ Lütfen geçerli bir giriş yapınız. Örneğin: *.kur 1 dolar tl*');
+    }
+    try {
+      const apiUrl = createApiUrl(fromCurrency, toCurrency, amount);
+      const response = await axios.get(apiUrl);
+      if (response.data.result === 'success') {
+        const converted = Number(response.data.conversion_result).toFixed(2);
+        const today = new Date();
+        const dateStr = `${today.getDate()}.${today.getMonth() + 1}.${today.getFullYear()}`;
+        return message.sendReply(
+          `📆 ${dateStr} itibariyle
+💱 *${amount} ${fromCurrency} = ${converted} ${toCurrency}*`
+        );
+      } else {
+        throw new Error('API dönüş hatası');
+      }
+    } catch (err) {
+      console.error('Döviz kuru dönüşümü yapılamadı:', err.message);
+      return message.sendReply(
+        '⚠️ Döviz kuru dönüşümü yapılamadı! Lütfen para birimlerini kontrol ediniz.'
+      );
+    }
+  });
 
 Module({
-    pattern: "resim ?(.*)",
-    fromMe: false,
-    desc: "İnternetten görsel arar ve indirir.",
-    use: "search",
-  },
+  pattern: "resim ?(.*)",
+  fromMe: false,
+  desc: "İnternetten görsel arar ve indirir.",
+  use: "search",
+},
   async (message, match) => {
     const query = (match[1] || "").trim();
     if (!query) return await message.sendReply("🔍 _Konu girin:_ `.resim kedi`");
@@ -943,12 +943,12 @@ Module({
 );
 
 Module({
-    pattern: "yemekt ?(.*)",
-    fromMe: false,
-    desc: "Yemek tarifi arar",
-    usage: ".yemekt pilav",
-    use: "search",
-  },
+  pattern: "yemekt ?(.*)",
+  fromMe: false,
+  desc: "Yemek tarifi arar",
+  usage: ".yemekt pilav",
+  use: "search",
+},
   async (message, match) => {
     const query = (match[1] || "").trim();
     if (!query) return await message.sendReply("🍳 _Yemek adı girin:_ `.yemekt pilav`");
