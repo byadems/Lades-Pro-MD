@@ -76,7 +76,7 @@ async function nexGet(path, opts = {}) {
 Module(
   {
     pattern: "emojimix ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "İki emojiyi birleştirip yeni emoji oluşturur",
     usage: ".emojimix 😀 🔥",
     use: "fun",
@@ -102,7 +102,7 @@ Module(
 Module(
   {
     pattern: "yazı ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Glitch efektli metin görseli oluşturur",
     usage: ".yazı LADES",
     use: "edit",
@@ -125,7 +125,7 @@ Module(
 Module(
   {
     pattern: "naruto ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Naruto stili metin logosu oluşturur",
     usage: ".naruto LADES",
     use: "edit",
@@ -148,7 +148,7 @@ Module(
 Module(
   {
     pattern: "marvel ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Marvel stili logo oluşturur (2 kelime)",
     usage: ".marvel LADES BOT",
     use: "edit",
@@ -172,7 +172,7 @@ Module(
 Module(
   {
     pattern: "blackpink ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Blackpink stili metin görseli oluşturur",
     usage: ".blackpink LADES",
     use: "edit",
@@ -195,7 +195,7 @@ Module(
 Module(
   {
     pattern: "brat ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Brat (Charli XCX) stili yeşil metin görseli",
     usage: ".brat lades bot",
     use: "edit",
@@ -218,7 +218,7 @@ Module(
 Module(
   {
     pattern: "şarkısözü ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Şarkı sözlerini bulur",
     usage: ".şarkısözü Never Gonna Give You Up",
     use: "search",
@@ -290,7 +290,7 @@ Module(
 Module(
   {
     pattern: "duvarkağıdı ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "HD duvar kağıdı arar ve gönderir",
     usage: ".duvarkağıdı doğa",
     use: "search",
@@ -320,7 +320,7 @@ Module(
 Module(
   {
     pattern: "çıkartmabul ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "WhatsApp çıkartma paketi arar",
     usage: ".çıkartmabul kedi",
     use: "search",
@@ -351,7 +351,7 @@ Module(
 Module(
   {
     pattern: "vikipedi ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Vikipedi üzerinden bilgi arar.",
     usage: ".vikipedi İstanbul",
     use: "search",
@@ -381,7 +381,7 @@ Module(
 Module(
   {
     pattern: "alıntı ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "WhatsApp tarzı alıntı görseli oluşturur",
     usage: ".alıntı Merhaba dünya!",
     use: "edit",
@@ -412,7 +412,7 @@ Module(
 Module(
   {
     pattern: "rüya ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Rüyanızı yapay zeka ile yorumlar",
     usage: ".rüya Gökyüzünde uçuyordum",
     use: "ai",
@@ -442,7 +442,7 @@ Module(
 Module(
   {
     pattern: "görsel ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Yapay zeka ile açıklamadan görsel oluşturur",
     usage: ".görsel sevimli bir kedi anime stili",
     use: "ai",
@@ -470,7 +470,7 @@ Module(
 Module(
   {
     pattern: "threads ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Threads video/görsel indirir",
     usage: ".threads <bağlantı>",
     use: "download",
@@ -506,7 +506,7 @@ Module(
 Module(
   {
     pattern: "soundcloud ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "SoundCloud'dan ses indirir",
     usage: ".soundcloud <bağlantı>",
     use: "download",
@@ -540,7 +540,7 @@ Module(
 Module(
   {
     pattern: "çevir ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Metni iki dil arasında çevirir. Örnek: .çevir en tr",
     usage: ".çevir en tr",
     use: "search",

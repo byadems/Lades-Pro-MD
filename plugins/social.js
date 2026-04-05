@@ -27,7 +27,7 @@ async function checkRedirect(url) {
 Module(
   {
     pattern: "insta ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Instagram gönderi/Reels/TV indirici - çoklu bağlantı destekler",
     usage: "insta bağlantı(lar)ı veya bağlantıyı yanıtlayın",
     use: "download",
@@ -150,7 +150,7 @@ Module(
 Module(
   {
     pattern: "fb ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Facebook video indirici",
     usage: "fb bağlantısı veya bağlantıyı yanıtlayın",
     use: "download",
@@ -201,7 +201,7 @@ Module(
 Module(
   {
     pattern: "igara ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Instagram kullanıcı profili bilgilerini gösterir",
     usage: ".igara kullanıcıadı",
     use: "tools",
@@ -248,7 +248,7 @@ Module(
 Module(
   {
     pattern: "twara ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Twitter/X kullanıcı profili bilgilerini gösterir",
     usage: ".twara kullanıcı adı",
     use: "tools",
@@ -295,7 +295,7 @@ Module(
 Module(
   {
     pattern: "hikaye ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Instagram hikaye (story) indirici",
     usage: ".hikaye kullanıcı adı veya bağlantı",
     use: "download",
@@ -357,7 +357,7 @@ Module(
 Module(
   {
     pattern: "pinterest ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Pinterest indirici",
     usage: ".pinterest arama veya bağlantı",
     use: "download",
@@ -457,7 +457,7 @@ Module(
 Module(
   {
     pattern: "twitter ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Twitter/X video indirici",
     usage: ".twitter <bağlantı> veya bağlantıyı yanıtlayın",
     use: "download",
@@ -491,7 +491,7 @@ Module(
 Module(
   {
     pattern: "tiktok ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "TikTok video indirici",
     usage: ".tiktok yanıtla veya bağlantı",
     use: "download",
@@ -542,7 +542,7 @@ Module(
 Module(
   {
     pattern: "capcut ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "CapCut şablon/video indirici",
     usage: ".capcut (bağlantı)",
     use: "download",
@@ -601,7 +601,7 @@ function extractTikTokUsername(input) {
 Module(
   {
     pattern: 'ttara ?(.*)',
-    fromMe: true,
+    fromMe: false,
     desc: 'TikTok kullanıcı bilgilerini getirir. (Gizli hesaplar hariç)',
     usage: '.ttara lades\n.ttara @lades\n.ttara https://www.tiktok.com/@lades',
     use: "tools",

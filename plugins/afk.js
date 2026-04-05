@@ -133,7 +133,7 @@ function getAFKData(userJid) {
 Module(
   {
     pattern: "uzakta ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Kendinizi AFK (Klavyeden Uzakta) olarak ayarlayın",
     usage:
       ".uzakta [sebep] - _İsteğe bağlı sebeple AFK ol_\n.uzakta - _Mevcut durumu kontrol et_\n.uzakta list - _Tüm AFK kullanıcıları göster_",

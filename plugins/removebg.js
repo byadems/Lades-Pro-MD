@@ -32,7 +32,7 @@ function getDateBasedName(prefix = "Arkaplan") {
 Module(
   {
     pattern: "apsil ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: `Yapay zeka kullanarak görüntünün arka planını kaldırır veya düz renk/resim ile değiştirir.
 👤 *Kullanım Örnekleri:*
 • .apsil                → Arka planı şeffaf (kaldırır)

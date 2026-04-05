@@ -7,6 +7,8 @@ const {
   goodbye,
   isAdmin,
 } = require("./utils");
+const { getString } = require("./utils/lang");
+const Lang = getString("group");
 const { automute, autounmute, stickcmd } = require("./utils/db/schedulers");
 const {
   parseWelcomeMessage,
@@ -39,10 +41,9 @@ function tConvert(time) {
 async function extractData(message) {
   return message.quoted.message.stickerMessage.fileSha256.toString();
 }
-Module(
-  {
+Module({
     pattern: "otoçıkartma ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Komutları çıkartmalara yapıştırır. Çıkartma gönderilirse komut gibi çalışır!",
     use: "tools",
     usage: ".otoçıkartma .ban",
@@ -69,10 +70,9 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "otoçıkartmasil ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Çıkartmalardaki komutları siler",
     usage: ".otoçıkartmasil .ban",
     use: "tools",
@@ -115,10 +115,9 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "otoçıkartmalar ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Çıkartmalardaki komutları gösterir",
     use: "tools",
   },
@@ -130,8 +129,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "otosohbetkapat ?(.*)",
     fromMe: true,
     desc: "Grup sohbetinin otomatik kapanma özelliğini aktif eder.",
@@ -158,7 +156,7 @@ Module(
         return await message.sendReply("*_⚠️ Yanlış format!_\n_.otosohbetkapat 22 00 (Saat 22:00 için)_\n_.otosohbetkapat 06 00 (Saat 06:00 için)_*"
         );
       const admin = await isAdmin(message);
-      if (!admin) return await message.sendReply("_❌ Ben yönetici değilim!_");
+      if (!admin) return await message.sendReply(Lang.NEED_ADMIN);
       await automute.set(message.jid, match.match(/(\d+)/g)?.join(" "));
       await message.sendReply(
         `*_⏰ Grup ${tConvert(
@@ -170,8 +168,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "otosohbetaç ?(.*)",
     fromMe: true,
     desc: "Grup sohbetinin otomatik açılma özelliğini aktif eder.",
@@ -208,8 +205,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "otosohbet ?(.*)",
     fromMe: true,
     desc: "Grup sohbetinin otomatik açılış ve kapanış saatlerini ayarlar. (Örn: .otosohbet 09:00|23:00)",
@@ -238,8 +234,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "antinumara ?(.*)",
     fromMe: false,
     desc: "Belirli ülke koduna sahip numaraların gruba girişini engeller/yönetir.",
@@ -249,7 +244,7 @@ Module(
     let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
       const adminCheck = await isAdmin(message);
-      if (!adminCheck) return await message.sendReply("_❌ Ben yönetici değilim!_");
+      if (!adminCheck) return await message.sendReply(Lang.NEED_ADMIN);
       if (match[1] === "aç" || match[1] === "on") {
         await antifake.set(message.jid);
         return await message.sendReply("_✅ Anti-Numara açıldı!_");
@@ -307,8 +302,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     on: "groupParticipants",
     fromMe: false,
   },

@@ -51,8 +51,7 @@ const retrieveCommandDetails = (commandName) => {
 };
 
 
-Module(
-  {
+Module({
     pattern: "liste ?(.*)",
     fromMe: true,
     desc: "Tüm komutları kategorili bir liste halinde gösterir.",
@@ -154,8 +153,7 @@ const manage = {
   },
 };
 
-Module(
-  {
+Module({
     pattern: "kontrol",
     fromMe: true,
     desc: "Botun çevrimiçi olup olmadığını kontrol eder.",
@@ -165,8 +163,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "setalive ?(.*)",
     fromMe: true,
     desc: "Bot için çevrimiçi (alive) mesajı ayarlar.",
@@ -286,8 +283,7 @@ _Merhaba $user!_
   }
 );
 
-Module(
-  {
+Module({
     pattern: "menü",
     fromMe: true,
     desc: "Bot komut menüsünü gösterir.",
@@ -400,8 +396,7 @@ ${cmdmenu}`;
     }
   }
 );
-Module(
-  {
+Module({
     pattern: "oyunlar ?(.*)",
     fromMe: true,
     desc: "Mevcut tüm oyunları listeler",
@@ -431,8 +426,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "setinfo ?(.*)",
     fromMe: true,
     desc: "Bot yapılandırma komutları hakkında bilgi gösterir.",
@@ -466,8 +460,7 @@ _Bot bilgisi şu şekilde saklanır: \`ad;sahip;görselbağlantısı\`_
   }
 );
 
-Module(
-  {
+Module({
     pattern: "setname ?(.*)",
     fromMe: true,
     desc: "Bot adını ayarlar",
@@ -486,8 +479,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "setimage",
     fromMe: true,
     desc: "Bot resmini ayarlar (bir resme yanıt verin)",
@@ -528,8 +520,7 @@ Module(
     }
   }
 );
-Module(
-  {
+Module({
     pattern: "testalive",
     fromMe: true,
     desc: "Mevcut çevrimiçi (alive) mesajını biçimlendirmesiyle test eder.",
@@ -574,8 +565,7 @@ const normalizeKategori = (raw) => {
   return map[raw.toLowerCase()] || null;
 };
 
-Module(
-  {
+Module({
     pattern: "bildir ?(.*)",
     fromMe: false,
     desc: "Bot hakkında istek, şikayet, hata, öneri veya talep iletir.",
@@ -771,8 +761,7 @@ function getTimeBasedEmoji(temp) {
   return { start: "🌡️", end: "📍" };
 }
 
-Module(
-  {
+Module({
     pattern: "hava ?(.*)",
     fromMe: false,
     desc: "Hava durumu bilgisi gönderir.",
@@ -873,8 +862,7 @@ function parseAmount(input) {
 const createApiUrl = (fromCurrency, toCurrency, amount) =>
   `https://v6.exchangerate-api.com/v6/9f2e3e44d65670cb05593bd9/pair/${fromCurrency}/${toCurrency}/${amount}`;
 
-Module(
-  {
+Module({
     pattern: 'kur ?(.*)',
     fromMe: false,
     desc: 'Belirli bir miktarın iki para birimi arasındaki döviz kuru dönüşümünü hesaplar.',
@@ -926,10 +914,9 @@ Module(
   }
 });
 
-Module(
-  {
+Module({
     pattern: "resim ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "İnternetten görsel arar ve indirir.",
     use: "search",
   },
@@ -955,10 +942,9 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "yemekt ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Yemek tarifi arar",
     usage: ".yemekt pilav",
     use: "search",

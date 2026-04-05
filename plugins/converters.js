@@ -63,7 +63,7 @@ const Lang = getString("converters");
 Module(
   {
     pattern: "görselara ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Google Görseller üzerinden resim arar ve indirir.",
     use: "search",
   },
@@ -133,7 +133,7 @@ Module(
 Module(
   {
     pattern: "çıkartma ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: Lang.STICKER_DESC,
     use: "media",
   },
@@ -238,7 +238,7 @@ Module(
 Module(
   {
     pattern: "mp3 ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: Lang.MP3_DESC,
     use: "media",
   },
@@ -307,7 +307,7 @@ Module(
 Module(
   {
     pattern: "slow",
-    fromMe: true,
+    fromMe: false,
     desc: "Müziği yavaşlatır ve ses tonunu düşürür. Slowed+reverb sesleri yapmak için",
     use: "media",
   },
@@ -382,7 +382,7 @@ Module(
 Module(
   {
     pattern: "sped ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Müziği hızlandırır ve ses tonunu yükseltir. Sped-up+reverb sesleri yapmak için",
     use: "media",
   },
@@ -457,7 +457,7 @@ Module(
 Module(
   {
     pattern: "basartır ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: Lang.BASS_DESC,
     use: "media",
   },
@@ -505,7 +505,7 @@ Module(
 Module(
   {
     pattern: "foto ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: Lang.PHOTO_DESC,
     use: "media",
   },
@@ -539,7 +539,7 @@ Module(
 Module(
   {
     pattern: "yazı1 ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Metinden hareketli çıkartmaya",
     use: "media",
   },
@@ -684,7 +684,7 @@ Module(
 Module(
   {
     pattern: "belge ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Yanıtlanan medyayı belge (document) formatına dönüştürür",
     use: "media",
   },
@@ -808,7 +808,7 @@ Module(
 Module(
   {
     pattern: "indir ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "URL üzerindeki dosyayı indirir ve sohbete yükler.",
     use: "media",
   },
@@ -892,7 +892,7 @@ Module(
 Module(
   {
     pattern: "square ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Video/resmi 1:1 oranında (kare formatında) kırpar",
     use: "media",
   },
@@ -981,7 +981,7 @@ Module(
 Module(
   {
     pattern: "boyut ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Video/resim en-boy oranını değiştirin. Kullanım: .boyut 16:9, .boyut 9:16",
     use: "media",
   },
@@ -1113,7 +1113,7 @@ Module(
 Module(
   {
     pattern: "sıkıştır ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Video/resmi yüzdeyle sıkıştırın. Kullanım: .sıkıştır 50 (%50 sıkıştırma)",
     use: "media",
   },

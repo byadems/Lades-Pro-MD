@@ -29,8 +29,7 @@ async function getRemoteVersion() {
   }
 }
 
-Module(
-  {
+Module({
     pattern: "güncelle ?(.*)",
     fromMe: true,
     desc: "Bot güncellemelerini kontrol eder ve uygular.",

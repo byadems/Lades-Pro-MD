@@ -48,8 +48,7 @@ async function sendBanAudio(message) {
 }
 
 
-Module(
-  {
+Module({
     pattern: "sohbetsil ?(.*)",
     fromMe: true,
     desc: "Sohbeti temizle",
@@ -73,8 +72,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "ban ?(.*)",
     fromMe: false,
     desc: Lang.KICK_DESC,
@@ -85,7 +83,7 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
     const botIsAdmin = await isAdmin(message);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
@@ -145,8 +143,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "at ?(.*)",
     fromMe: false,
     desc: Lang.KICK_DESC,
@@ -159,7 +156,7 @@ Module(
 
     const userIsAdmin = await isAdmin(message);
     if (!userIsAdmin) {
-      return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+      return await message.sendReply(Lang.NEED_ADMIN);
     }
 
     const botIsAdmin = await isAdmin(message);
@@ -252,8 +249,7 @@ Module(
 );
 
 
-/*Module(
-  {
+/*Module({
     pattern: "ekle ?(.*)",
     fromMe: true,
     desc: Lang.ADD_DESC,
@@ -264,7 +260,7 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
     const botIsAdmin = await isAdmin(message);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
     
@@ -285,8 +281,7 @@ Module(
 );
 */
 
-Module(
-  {
+Module({
     pattern: "yetkiver ?(.*)",
     fromMe: false,
     desc: Lang.PROMOTE_DESC,
@@ -296,7 +291,7 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
     const botIsAdmin = await isAdmin(message);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
@@ -313,8 +308,7 @@ Module(
     );
   }
 );
-Module(
-  {
+Module({
     pattern: "istekler ?(.*)",
     fromMe: false,
     desc: "Bekleyen katılma isteklerinin listesini al",
@@ -324,7 +318,7 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
     const botIsAdmin = await isAdmin(message);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
@@ -402,8 +396,7 @@ Module(
     );
   }
 );
-Module(
-  {
+Module({
     pattern: "ayrıl",
     fromMe: true,
     desc: Lang.LEAVE_DESC,
@@ -418,8 +411,7 @@ Module(
     setImmediate(() => message.client.groupLeave(jid));
   }
 );
-Module(
-  {
+Module({
     pattern: "quoted",
     fromMe: true,
     desc: "Yanıtlanan mesajın alıntıladığı mesajı gönderir. Silinen mesajları kurtarmak için kullanışlıdır.",
@@ -486,8 +478,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "yetkial ?(.*)",
     fromMe: false,
     desc: Lang.DEMOTE_DESC,
@@ -497,7 +488,7 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
     const botIsAdmin = await isAdmin(message);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
@@ -514,8 +505,7 @@ Module(
     );
   }
 );
-Module(
-  {
+Module({
     pattern: "sohbetkapat ?(.*)",
     fromMe: false,
     desc: Lang.MUTE_DESC,
@@ -526,7 +516,7 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
     const botIsAdmin = await isAdmin(message);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
@@ -556,8 +546,7 @@ Module(
     await message.send(Lang.MUTED);
   }
 );
-Module(
-  {
+Module({
     pattern: "sohbetaç",
     fromMe: false,
     desc: Lang.UNMUTE_DESC,
@@ -567,7 +556,7 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
     const botIsAdmin = await isAdmin(message);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
@@ -575,8 +564,7 @@ Module(
     await message.send(Lang.UNMUTED);
   }
 );
-Module(
-  {
+Module({
     pattern: "jid",
     fromMe: false,
     desc: Lang.JID_DESC,
@@ -590,7 +578,7 @@ Module(
         const jid = message.reply_message?.jid || message.jid;
         await message.sendReply(jid);
       } else {
-        await message.sendReply("❌ _Üzgünüm! Bu komutu kullanabilmek için yönetici olmalısınız._");
+        await message.sendReply(Lang.NEED_ADMIN);
       }
     } else {
       if (MODE !== "public" && !message.fromOwner) return;
@@ -598,8 +586,7 @@ Module(
     }
   }
 );
-Module(
-  {
+Module({
     pattern: 'davet',
     fromMe: true,
     use: 'group',
@@ -608,7 +595,7 @@ Module(
   (async (message, match) => {
   if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND)
   const userIsAdmin = await isAdmin(message, message.sender);
-  if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+  if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
   const botIsAdmin = await isAdmin(message);
   if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
@@ -618,8 +605,7 @@ Module(
   }, { detectLinks: true })
 }))
 
-Module(
-  {
+Module({
     pattern: "davetyenile",
     fromMe: false,
     use: "group",
@@ -629,7 +615,7 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
     const botIsAdmin = await isAdmin(message);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
@@ -637,8 +623,7 @@ Module(
     await message.send(Lang.REVOKED);
   }
 );
-Module(
-  {
+Module({
     pattern: "gayaryt ?(.*)",
     fromMe: false,
     use: "group",
@@ -648,15 +633,14 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
     const botIsAdmin = await isAdmin(message);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
     return await message.client.groupSettingUpdate(message.jid, "locked");
   }
 );
-Module(
-  {
+Module({
     pattern: "gayarherkes ?(.*)",
     fromMe: false,
     use: "group",
@@ -666,15 +650,14 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
     const botIsAdmin = await isAdmin(message);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
     return await message.client.groupSettingUpdate(message.jid, "unlocked");
   }
 );
-Module(
-  {
+Module({
     pattern: "gadı ?(.*)",
     fromMe: false,
     use: "group",
@@ -684,7 +667,7 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
     const botIsAdmin = await isAdmin(message);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
@@ -706,8 +689,7 @@ Module(
     }
   }
 );
-Module(
-  {
+Module({
     pattern: "gaçıklama ?(.*)",
     fromMe: false,
     use: "group",
@@ -717,7 +699,7 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
     const botIsAdmin = await isAdmin(message);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
@@ -737,8 +719,7 @@ Module(
     }
   }
 );
-Module(
-  {
+Module({
     pattern: "common ?(.*)",
     fromMe: false,
     use: "group",
@@ -748,7 +729,7 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
     const botIsAdmin = await isAdmin(message);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
@@ -807,8 +788,7 @@ Module(
     });
   }
 );
-Module(
-  {
+Module({
     pattern: "diff ?(.*)",
     fromMe: false,
     use: "group",
@@ -818,7 +798,7 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
 
     if (!match[1])
       return await message.sendReply("_*⚠️ Jid'ler gerekli*_\n_*.diff jid1,jid2*_");
@@ -836,8 +816,7 @@ Module(
     return await message.sendReply(msg);
   }
 );
-Module(
-  {
+Module({
     pattern: "tag ?(.*)",
     fromMe: false,
     desc: Lang.TAGALL_DESC,
@@ -894,8 +873,7 @@ Module(
     }
   }
 );
-Module(
-  {
+Module({
     pattern: "engelle ?(.*)",
     fromMe: true,
     use: "system",
@@ -906,13 +884,13 @@ Module(
     const isGroup = message.jid.endsWith("@g.us");
     let user = message.jid;
     if (isGroup) user = message.mention?.[0] || message.reply_message?.jid;
+    if (!user) return await message.sendReply("_❗ Üye etiketleyin veya mesajına yanıt verin!_");
     await message.client.updateBlockStatus(user, "block");
   }
 );
-Module(
-  {
+Module({
     pattern: "katıl ?(.*)",
-    fromMe: true,
+    fromMe: false,
     use: "system",
     desc: "Davet bağlantısını kullanarak bir WhatsApp grubuna katılın",
     usage: ".join https://chat.whatsapp.com/lades",
@@ -926,8 +904,7 @@ Module(
     await message.client.groupAcceptInvite(inviteCode);
   }
 );
-Module(
-  {
+Module({
     pattern: "engelkaldır ?(.*)",
     fromMe: true,
     use: "system",
@@ -938,6 +915,7 @@ Module(
     const isGroup = message.jid.endsWith("@g.us");
     if (!isGroup) return;
     const user = message.mention?.[0] || message.reply_message?.jid;
+    if (!user) return await message.sendReply("_❗ Üye etiketleyin veya mesajına yanıt verin!_");
     await message.client.updateBlockStatus(user, "unblock");
   }
 );
@@ -1104,8 +1082,7 @@ Module({
   }
 );
 
-Module(
-  {
+Module({
     pattern: "tümjid ?(.*)",
     fromMe: true,
     desc: "Sohbetlerin veya grupların tüm JID adreslerini listeler.",
@@ -1273,8 +1250,7 @@ const estimateTime = (groupCount, hasPin) => {
   return Math.ceil(totalMs / 1000);
 };
 
-Module(
-  {
+Module({
     pattern: "duyuru ?(.*)",
     fromMe: true,
     desc: "Bot'un bulunduğu tüm gruplara duyuru iletir ve isteğe bağlı olarak sabitler.",
@@ -1491,8 +1467,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "sabitle ?(.*)",
     fromMe: false,
     desc: "Yanıtlanan mesajı belirli bir süre için sabitler",
@@ -1569,8 +1544,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "pp ?(.*)",
     fromMe: true,
     use: "system",
@@ -1600,8 +1574,7 @@ Module(
     }
   }
 );
-Module(
-  {
+Module({
     pattern: "grupfoto ?(.*)",
     fromMe: false,
     use: "system",
@@ -1611,7 +1584,7 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
     const botIsAdmin = await isAdmin(message);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
@@ -1653,8 +1626,7 @@ function parseSarrafiye(html) {
   return results;
 }
 
-Module(
-  {
+Module({
     pattern: "altın ?(.*)",
     fromMe: false,
     desc: "Güncel altın fiyatlarını gösterir",
@@ -1725,8 +1697,7 @@ Module(
 );
 
 
-Module(
-  {
+Module({
     pattern: 'etiket',
     fromMe: false,
     desc: 'Tüm üyeleri etiketler.',
@@ -1734,7 +1705,7 @@ Module(
   },
   async (message, match) => {
   const userIsAdmin = await isAdmin(message, message.sender);
-  if (!userIsAdmin && !message.fromOwner) return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+  if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
   if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
   const target = message.jid;
   const group = await message.client.groupMetadata(target);
@@ -1750,8 +1721,7 @@ ${index + 1}. @${jid.split('@')[0]}`;
   });
 });
 
-Module(
-  {
+Module({
     pattern: 'ytetiket',
     fromMe: false,
     desc: 'Tüm yöneticileri etiketler.',

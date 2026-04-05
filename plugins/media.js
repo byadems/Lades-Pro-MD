@@ -196,7 +196,7 @@ async function transcribeVoiceMessage(message, targetMessage) {
 
 Module({
   pattern: "dinle",
-  fromMe: true,
+  fromMe: false,
   desc: "Sesli mesajı metne dönüştürür. (Tek seferlik sesler de dahil)",
   usage: ".dinle (bir ses mesajına yanıtlayarak)",
   use: "tools",
@@ -211,7 +211,7 @@ Module({
 
 Module({
   on: 'message',
-  fromMe: true,
+  fromMe: false,
   desc: "Ses mesajını otomatik olarak metne dönüştürür.",
   use: "tools",
 },
@@ -234,7 +234,7 @@ Module({
 Module(
   {
     pattern: "trim ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: Lang.TRIM_DESC,
     usage: Lang.TRIM_USE,
     use: "media",
@@ -268,7 +268,7 @@ Module(
 Module(
   {
     pattern: "renklendir",
-    fromMe: true,
+    fromMe: false,
     desc: "Siyah-beyaz fotoğrafı renklendirir (yanıtlanan görsel)",
     usage: ".renklendir (görsele yanıt verin)",
     use: "media",
@@ -306,7 +306,7 @@ Module(
 Module(
   {
     pattern: "siyahvideo",
-    fromMe: true,
+    fromMe: false,
     desc: "Sesi siyah videoya dönüştürür",
     use: "media",
   },
@@ -362,7 +362,7 @@ Module(
 Module(
   {
     pattern: "birleştir",
-    fromMe: true,
+    fromMe: false,
     desc: Lang.AVMIX_DESC,
     use: "media",
   },
@@ -408,7 +408,7 @@ Module(
 Module(
   {
     pattern: "vmix ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "İki videoyu birleştirir",
     use: "media",
   },
@@ -472,7 +472,7 @@ Module(
 Module(
   {
     pattern: "ağırçekim",
-    fromMe: true,
+    fromMe: false,
     desc: "Videoyu pürüzsüz ağır çekime dönüştürür",
     use: "media",
   },
@@ -498,7 +498,7 @@ Module(
 Module(
   {
     pattern: "oval",
-    fromMe: true,
+    fromMe: false,
     desc: "Çıkartma/fotoğrafı yuvarlak olarak kırpar",
     use: "media",
   },
@@ -509,7 +509,7 @@ Module(
 Module(
   {
     pattern: "gif",
-    fromMe: true,
+    fromMe: false,
     use: "media",
     desc: "Videoyu sesli bir GIF (hareketli resim) formatına dönüştürür.",
   },
@@ -536,7 +536,7 @@ Module(
 Module(
   {
     pattern: "interp ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Videonun kare hızını (FPS) artırır",
     use: "media",
   },
@@ -564,7 +564,7 @@ Module(
 Module(
   {
     pattern: "bul ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Yapay zeka aracılığıyla çalan şarkının adını bulur.",
     usage: "Ses dosyasına etiketleyerek .bul yazın.",
     use: "tools",
@@ -612,7 +612,7 @@ Module(
 Module(
   {
     pattern: "döndür ?(.*)",
-    fromMe: true,
+    fromMe: false,
     use: "media",
     desc: "Videoyu döndürür (sol/sağ)",
   },
@@ -637,7 +637,7 @@ Module(
 Module(
   {
     pattern: "flip ?(.*)",
-    fromMe: true,
+    fromMe: false,
     use: "media",
     desc: "Videoyu ters çevirir (flip)"
   },
@@ -659,7 +659,7 @@ Module(
 Module(
   {
     pattern: "ss ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Web sitesinin ekran görüntüsünü alır",
     usage: ".ss https://fenomensen.net",
     use: "tools",
@@ -690,7 +690,7 @@ Module(
 Module(
   {
     pattern: "metin ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Görseldeki metni okur (OCR)",
     usage: ".metin (görsel yanıtla)",
     use: "tools",
@@ -726,7 +726,7 @@ Module(
 Module(
   {
     pattern: "hd ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Görseli HD kaliteye yükseltir",
     usage: ".hd (görsele yanıtla)",
     use: "media",
@@ -761,7 +761,7 @@ Module(
 Module(
   {
     pattern: "meme ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Meme görseli oluşturur (üst ve alt metin)",
     usage: ".meme ÜSTMETIN|ALTMETIN (görsel yanıtla)",
     use: "media",
@@ -794,7 +794,7 @@ Module(
 Module(
   {
     pattern: "kodgörsel ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Kodu güzel bir görsel olarak oluşturur",
     usage: ".kodgörsel const x = 1",
     use: "media",

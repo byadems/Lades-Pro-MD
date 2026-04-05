@@ -1,7 +1,6 @@
 const { Module } = require("../main");
 
-Module(
-  {
+Module({
     pattern: "ybaşlat",
     fromMe: true,
     desc: "Botu yeniden başlatır",

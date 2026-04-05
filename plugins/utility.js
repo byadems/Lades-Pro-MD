@@ -36,7 +36,7 @@ const tar = require("tar");
 Module(
   {
     pattern: "yaşhesap ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Yaş hesaplayıcı",
     use: "tools",
   },
@@ -70,7 +70,7 @@ Module(
 Module(
   {
     pattern: "gerisayım ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Tarihe geri sayım yapar",
     use: "tools",
   },
@@ -104,7 +104,7 @@ Module(
 Module(
   {
     pattern: "ping",
-    fromMe: true,
+    fromMe: false,
     desc: "Ağ gecikmesini (ping) ölçer",
     use: "tools",
   },
@@ -147,7 +147,7 @@ function downloadFile(url, dest) {
 Module(
   {
     pattern: "hıztesti",
-    fromMe: true,
+    fromMe: false,
     desc: "Ookla Speedtest ile gerçek hız testi",
     use: "tools",
   },

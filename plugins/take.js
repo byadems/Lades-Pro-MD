@@ -13,7 +13,7 @@ let fs = require("fs");
 Module(
   {
     pattern: "take ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Çıkartma/ses paketi ve yazar adını değiştirir.",
     usage: ".take paket;yazar\n(bir çıkartmaya veya sese yanıt vererek)",
     use: "media",
@@ -106,7 +106,7 @@ Module(
 Module(
   {
     pattern: "mp4 ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Hareketli çıkartmayı videoya dönüştürür",
     usage: ".mp4 (bir hareketli çıkartmaya yanıt vererek)",
     use: "media",
@@ -137,7 +137,7 @@ Module(
 Module(
   {
     pattern: "url ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Resmi internete yükleyerek paylaşılabilir bağlantı oluşturur.",
     usage: ".url (bir görsele, videoya veya sese yanıt vererek)",
     use: "media",

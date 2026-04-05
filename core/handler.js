@@ -576,7 +576,10 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     if (textHandlers.length > 0) {
       for (const h of textHandlers) {
         // fromMe filtresi
-        if (h.fromMe && !fromMe && !isOwnerOrSudo(senderJid)) continue;
+        if (h.fromMe && !fromMe && !isOwnerOrSudo(senderJid)) {
+          await message.reply("_🔒 Bu komut yalnızca bot yöneticisi tarafından kullanılabilir._");
+          continue;
+        }
         try {
           await h.run(message, [text]);
         } catch (e) {
@@ -635,7 +638,10 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
         message.isBotAdmin = isBotAdmin;
 
         // Core Logic Filters
-        if (cmd.fromMe && !fromMe && !ownerOrSudo) continue;
+        if (cmd.fromMe && !fromMe && !ownerOrSudo) {
+          await message.reply("_🔒 Bu komut yalnızca bot yöneticisi tarafından kullanılabilir._");
+          return;
+        }
 
         if (cmd.onlyOwner && !ownerCheck) {
           await message.reply("❌ Bu komut yalnızca bot sahibi tarafından kullanılabilir.");

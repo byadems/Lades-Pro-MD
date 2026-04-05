@@ -1,4 +1,6 @@
 const { Module } = require("../main");
+const { getString } = require("./utils/lang");
+const Lang = getString("group");
 const config = require("../config");
 const { welcome, goodbye, censorBadWords, isAdmin } = require("./utils");
 const {
@@ -6,8 +8,7 @@ const {
   sendWelcomeMessage,
 } = require("./utils/welcome-parser");
 
-Module(
-  {
+Module({
     pattern: "welcome ?(.*)",
     fromMe: true,
     desc: "Grup karşılama mesajını ayarlar. $user, $group vb. etiketler kullanılabilir.",
@@ -17,7 +18,7 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("_⚠️ Bu komut sadece yöneticiler içindir!_");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
 
     const input = match[1]?.toLowerCase();
     if (!input) {
@@ -97,8 +98,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "goodbye ?(.*)",
     fromMe: true,
     desc: "Grup çıkış mesajını ayarlar.",
@@ -108,7 +108,7 @@ Module(
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("_⚠️ Bu komut sadece yöneticiler içindir!_");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
 
     const input = match[1]?.toLowerCase();
     if (!input) {
@@ -146,8 +146,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "testwelcome ?(.*)",
     fromMe: true,
     desc: "Karşılama mesajını test eder",
@@ -156,7 +155,7 @@ Module(
   async (message) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("_⚠️ Bu komut sadece yöneticiler içindir!_");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
 
     const welcomeData = await welcome.get(message.jid);
     if (!welcomeData || !welcomeData.enabled) return await message.sendReply("_❌ Karşılama kapalı veya ayarlanmamış!_");
@@ -168,8 +167,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "testgoodbye ?(.*)",
     fromMe: true,
     desc: "Veda mesajını test eder",
@@ -178,7 +176,7 @@ Module(
   async (message) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("_⚠️ Bu komut sadece yöneticiler içindir!_");
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
 
     const goodbyeData = await goodbye.get(message.jid);
     if (!goodbyeData || !goodbyeData.enabled) return await message.sendReply("_❌ Veda kapalı veya ayarlanmamış!_");

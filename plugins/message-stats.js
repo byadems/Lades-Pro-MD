@@ -1,4 +1,6 @@
 const { mentionjid, isAdmin } = require("./utils");
+const { getString } = require("./utils/lang");
+const Lang = getString("group");
 const { ADMIN_ACCESS } = require("../config");
 const { Module } = require("../main");
 const {
@@ -79,8 +81,7 @@ function parseDurationInput(duration) {
   return new Date(Date.now() - ms);
 }
 
-Module(
-  {
+Module({
     pattern: "mesajlar ?(.*)",
     fromMe: false,
     desc: "En az bir mesajı olan üyelerin gönderdiği mesaj sayılarını gösterir. (sayıya göre sıralanmış şekilde)",
@@ -159,8 +160,7 @@ Module(
 );
 
 
-Module(
-  {
+Module({
     pattern: "inactive ?(.*)",
     fromMe: true,
     desc: "Son mesaj zamanına göre pasif üyeleri gösterir. İstenirse atabilir.",
@@ -339,8 +339,7 @@ Module(
 );
 
 
-Module(
-  {
+Module({
     pattern: "üyetemizle ?(.*)",
     fromMe: false,
     desc: "Belirtilen süre boyunca mesaj atmayan üyeleri listeler veya çıkarır.",
@@ -356,7 +355,7 @@ Module(
       }
       const admin = await isAdmin(message);
       if (!admin) {
-        return await message.sendReply("❌ _Bu komut yalnızca grup yöneticileri tarafından kullanılabilir!_");
+        return await message.sendReply(Lang.NEED_ADMIN);
       }
       if (!match[1]) {
         return await message.sendReply(
@@ -472,8 +471,7 @@ Module(
 );
 
 
-Module(
-  {
+Module({
     pattern: "users ?(.*)",
     fromMe: true,
     desc: "Mesaj sayısına göre en iyi kullanıcıları gösterir.",
@@ -577,8 +575,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     on: "message",
     fromMe: false, // Track others
     desc: "Mesaj istatistiklerini günceller.",
@@ -599,8 +596,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     on: "text",
     fromMe: true, // Track self (pattern matching for commands usually excludes this, but 'on: message'/text catches it)
   },

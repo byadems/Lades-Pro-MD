@@ -22,8 +22,7 @@ function isTrustedHost(urlStr) {
   }
 }
 
-Module(
-  {
+Module({
     pattern: "modülyükle ?(.*)",
     fromMe: true,
     desc: Lang.INSTALL_DESC,
@@ -89,8 +88,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "modül ?(.*)",
     fromMe: true,
     desc: Lang.PLUGIN_DESC,
@@ -131,8 +129,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "modülsil ?(.*)",
     fromMe: true,
     desc: Lang.REMOVE_DESC,
@@ -157,8 +154,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "mgüncelle ?(.*)",
     fromMe: true,
     desc: "Bir eklentiyi (plugin) günceller",

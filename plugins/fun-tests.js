@@ -139,7 +139,7 @@ Module(
 Module(
   {
     pattern: "beyin",
-    fromMe: true,
+    fromMe: false,
     desc: "Rastgele beyin jimnastiği sorusu gönderir",
     usage: ".beyin",
     use: "game",
@@ -166,7 +166,7 @@ Module(
 Module(
   {
     pattern: "bilmece",
-    fromMe: true,
+    fromMe: false,
     desc: "Rastgele bilmece sorusu gönderir",
     usage: ".bilmece",
     use: "game",
@@ -193,7 +193,7 @@ Module(
 Module(
   {
     pattern: "kimyasoru",
-    fromMe: true,
+    fromMe: false,
     desc: "Rastgele kimya sorusu gönderir",
     usage: ".kimyasoru",
     use: "game",
@@ -223,7 +223,7 @@ Module(
 Module(
   {
     pattern: "alay ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Metni alay/slang formatına dönüştürür",
     usage: ".alay Merhaba nasılsın",
     use: "fun",
@@ -245,7 +245,7 @@ Module(
 Module(
   {
     pattern: "dragonyazı ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Dragon Ball stili metin logosu oluşturur",
     usage: ".dragonyazı LADES",
     use: "edit",
@@ -265,7 +265,7 @@ Module(
 Module(
   {
     pattern: "neonyazı ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Neon ışıklı metin logosu oluşturur",
     usage: ".neonyazı LADES",
     use: "edit",
@@ -285,7 +285,7 @@ Module(
 Module(
   {
     pattern: "grafitiyazı ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Grafiti stili metin logosu oluşturur",
     usage: ".grafitiyazı LADES",
     use: "edit",
@@ -305,7 +305,7 @@ Module(
 Module(
   {
     pattern: "devilyazı ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Şeytan kanadı stili metin logosu oluşturur",
     usage: ".devilyazı LADES",
     use: "edit",
@@ -325,7 +325,7 @@ Module(
 Module(
   {
     pattern: "müzikkart ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Müzik kartı görseli oluşturur",
     usage: ".müzikkart Şarkı Adı|Sanatçı|<resim_url>",
     use: "edit",

@@ -1,4 +1,6 @@
 const { Module } = require("../main");
+const { getString } = require("./utils/lang");
+const Lang = getString("group");
 const config = require("../config");
 const { ADMIN_ACCESS, HANDLER_PREFIX, WARN, SUDO } = config;
 const {
@@ -49,7 +51,7 @@ Module(
 
     const userIsAdmin = await isAdmin(message);
     if (!userIsAdmin)
-      return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+      return await message.sendReply(Lang.NEED_ADMIN);
 
     const botIsAdmin = await isAdmin(message);
     if (!botIsAdmin) {
@@ -220,10 +222,9 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "kaçuyarı ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Bir üyenin uyarılarını kontrol etmeyi sağlar.",
     usage: ".kaçuyarı @üye",
     use: "group",
@@ -234,7 +235,7 @@ Module(
 
     const userIsAdmin = await isAdmin(message);
     if (!userIsAdmin)
-      return await message.sendReply("❌ _Üzgünüm! Öncelikle yönetici olmalısınız._");
+      return await message.sendReply(Lang.NEED_ADMIN);
 
     const targetUser = message.mention?.[0] || message.reply_message?.jid || message.sender;
     const targetNumericId = getNumericId(targetUser);

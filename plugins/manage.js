@@ -29,6 +29,8 @@ function checkLinks(links, allowedWords) {
   }
   return testArray.includes(false);
 }
+const { getString } = require("./utils/lang");
+const Lang = getString("group");
 const { Module } = require("../main");
 const {
   antilinkConfig,
@@ -102,8 +104,7 @@ async function delVar(key, message = false) {
   }
   return true;
 }
-Module(
-  {
+Module({
     pattern: "setvar ?(.*)",
     fromMe: true,
     desc: "Bot değişkenlerini (variables) uzaktan ayarla",
@@ -135,8 +136,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "değişkengetir ?(.*)",
     fromMe: true,
     desc: "Bot değişkeninin değerini getir",
@@ -159,8 +159,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "değişkensil ?(.*)",
     fromMe: true,
     desc: "Bot değişkenini sil",
@@ -186,8 +185,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "setenv ?(.*)",
     fromMe: true,
     desc: "Botun temel yapılandırma (env) değişken ayarlarını düzenler.",
@@ -240,8 +238,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "değişkenler",
     fromMe: true,
     desc: "Tüm bot değişkenlerini getir",
@@ -267,8 +264,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "platform",
     fromMe: true,
     desc: "Sunucu, işletim sistemi ve versiyon bilgilerini gösterir.",
@@ -279,8 +275,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "dil ?(.*)",
     fromMe: true,
     desc: "Bot dilini bazı komutlar için değiştir",
@@ -297,8 +292,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "ayarlar ?(.*)",
     fromMe: true,
     desc: "Ek WhatsApp bot seçeneklerini aktifleştirmek için ayarlar.",
@@ -331,8 +325,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "mod ?(.*)",
     fromMe: true,
     desc: "Bot modunu genel (public) ve özel (private) olarak değiştirin",
@@ -354,8 +347,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "antisilme ?(.*)",
     fromMe: true,
     desc: "Mesaj silme engelini aktifleştirir",
@@ -403,8 +395,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "setsudo ?(.*)",
     fromMe: true,
     desc: "Belirtilen numaraya üst düzey yönetici (SUDO) yetkisi verir.",
@@ -466,8 +457,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "sudolar ?(.*)",
     fromMe: true,
     desc: "Üst düzey ynetici yetkisine (SUDO) sahip numaraları listeler.",
@@ -501,8 +491,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "sudosil ?(.*)",
     fromMe: true,
     desc: "Yöneticiyi (sudo) siler",
@@ -563,8 +552,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "toggle ?(.*)",
     fromMe: true,
     desc: "Komutları açıp kapatmak için",
@@ -620,8 +608,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "antibot ?(.*)",
     fromMe: true,
     desc: "Diğer botların mesajlarını tespit eder ve atar.",
@@ -638,7 +625,7 @@ Module(
       });
       if (match[1] === "aç" || match[1] === "on") {
         if (!message.isBotAdmin)
-          return await message.sendReply("_❌ Ben bir yönetici değilim!_");
+          return await message.sendReply(Lang.NEED_ADMIN);
         await antibot.set(message.jid);
       }
       if (match[1] === "kapat" || match[1] === "off") {
@@ -660,8 +647,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "antispam ?(.*)",
     fromMe: true,
     desc: "Spam mesajları tespit eder ve kullanıcıyı çıkarır.",
@@ -678,7 +664,7 @@ Module(
       });
       if (match[1] === "aç" || match[1] === "on") {
         if (!message.isBotAdmin)
-          return await message.sendReply("_❌ Ben bir yönetici değilim!_");
+          return await message.sendReply(Lang.NEED_ADMIN);
         await antispam.set(message.jid);
       }
       if (match[1] === "kapat" || match[1] === "off") {
@@ -700,8 +686,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "pdm ?(.*)",
     fromMe: true,
     desc: "Yetki verme/alma durumlarını tespit eder ve uyarı gönderir.",
@@ -738,8 +723,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "antiyetkidüşürme ?(.*)",
     fromMe: true,
     desc: "Yetki alınmasını tespit eder ve yapanın yetkisini alıp, mağdura yetkiyi verir.",
@@ -773,8 +757,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "antiyetkiverme ?(.*)",
     fromMe: true,
     desc: "Yetki verilmesini tespit eder ve yapanın ile yeni yetkilinin yetkilerini alır.",
@@ -810,8 +793,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "antibağlantı ?(.*)",
     fromMe: true,
     desc: "Gelişmiş antilink (link engelleme) sistemi (uyarı/at/sil modlu)",
@@ -834,7 +816,7 @@ Module(
         case "on":
         case "enable":
           if (!message.isBotAdmin) {
-            return await message.sendReply("_❌ Ben bir yönetici değilim!_");
+            return await message.sendReply(Lang.NEED_ADMIN);
           }
 
           if (!config) {
@@ -878,7 +860,7 @@ Module(
           }
 
           if (!message.isBotAdmin) {
-            return await message.sendReply("_❌ Ben bir yönetici değilim!_");
+            return await message.sendReply(Lang.NEED_ADMIN);
           }
 
           if (!config) {
@@ -1064,8 +1046,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "antikelime ?(.*)",
     fromMe: true,
     desc: "Yasaklı kelime (antiword) engelini aktifleştirir, gönderen atılır",
@@ -1084,7 +1065,7 @@ Module(
       if (match[1].includes("warn")) {
         if (match[1].endsWith("on") || match[1].endsWith("aç")) {
           if (!(await isAdmin(message)))
-            return await message.sendReply("_❌ Ben bir yönetici değilim!_");
+            return await message.sendReply(Lang.NEED_ADMIN);
           if (!antiwordWarn.includes(message.jid)) {
             antiwordWarn.push(message.jid);
             await setVar("ANTIWORD_WARN", antiwordWarn.join(","), false);
@@ -1094,7 +1075,7 @@ Module(
         }
         if (match[1].endsWith("off") || match[1].endsWith("kapat")) {
           if (!(await isAdmin(message)))
-            return await message.sendReply("_❌ Ben bir yönetici değilim!_");
+            return await message.sendReply(Lang.NEED_ADMIN);
           if (antiwordWarn.includes(message.jid)) {
             await message.sendReply(`_❌ Kelime uyarı sistemi kapatıldı!_`);
             return await setVar(
@@ -1107,7 +1088,7 @@ Module(
       }
       if (match[1] === "aç" || match[1] === "on") {
         if (!await isAdmin(message))
-          return await message.sendReply("_❌ Ben bir yönetici değilim!_");
+          return await message.sendReply(Lang.NEED_ADMIN);
         await antiword.set(message.jid);
       }
       if (match[1] === "kapat" || match[1] === "off") {
@@ -1133,8 +1114,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     pattern: "aramaengel ?(.*)",
     fromMe: true,
     desc: "Kapsamlı arama reddetme yönetim sistemi",
@@ -1370,8 +1350,7 @@ Module(
   }
 );
 
-Module(
-  {
+Module({
     on: "text",
     fromMe: false,
   },
@@ -1633,8 +1612,7 @@ Module(
     }
   }
 );
-Module(
-  {
+Module({
     pattern: "uptime",
     fromMe: true,
     use: "system",
@@ -1692,8 +1670,7 @@ Module(
     );
   }
 );
-Module(
-  {
+Module({
     on: "text",
     fromMe: !0,
   },

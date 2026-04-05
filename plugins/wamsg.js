@@ -1,11 +1,12 @@
 const { Module } = require("../main");
+const { getString } = require("./utils/lang");
+const Lang = getString("group");
 const { censorBadWords, isAdmin } = require("./utils");
 const { ADMIN_ACCESS, MODE } = require("../config");
-Module(
-  {
-    pattern: "tepki ?(.*)",
-    fromMe: true,
-    desc: "Yanıtlanan mesaja belirtilen emoji ile tepki verir.",
+Module({
+    pattern: "ifade ?(.*)",
+    fromMe: false,
+    desc: "Yanıtlanan mesaja belirtilen emoji ile ifade bırakır.",
     use: "tools",
   },
   async (m, t) => {
@@ -24,8 +25,7 @@ Module(
     await m.client.sendMessage(m.jid, reactionMessage);
   }
 );
-Module(
-  {
+Module({
     pattern: "düzenle ?(.*)",
     fromMe: true,
     desc: "Botun gönderdiği mesajı düzenler.",
@@ -44,8 +44,7 @@ Module(
     }
   }
 );
-Module(
-  {
+Module({
     pattern: "msjat ?(.*)",
     fromMe: true,
     desc: "Sohbeti veya mesajı, belirtilen JID adresine (numaraya) doğrudan iletir.",
@@ -88,8 +87,7 @@ Module(
     return await m.sendReply("_✅ Mesaj gönderildi!_");
   }
 );
-Module(
-  {
+Module({
     pattern: "msjyönlendir ?(.*)",
     fromMe: true,
     desc: "Sohbeti veya mesajı, belirtilen JID adresine `İletildi` olarak gönderir.",
@@ -134,10 +132,9 @@ Module(
     return await m.sendReply("_✅ Mesaj gönderildi!_");
   }
 );
-Module(
-  {
+Module({
     pattern: "tekrar ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Yanıtlanan komutu tekrar çalıştırmayı dener",
     use: "tools",
   },
@@ -151,8 +148,7 @@ Module(
     });
   }
 );
-Module(
-  {
+Module({
     pattern: "vv ?(.*)",
     fromMe: true,
     desc: "Tek görünürlü (view once) mesajları yakalar",
@@ -202,8 +198,7 @@ Module(
     await m.sendReply("_❌ Tek gösterimlik mesaj değil!_");
   }
 );
-Module(
-  {
+Module({
     pattern: "msjsil",
     fromMe: true,
     desc: "Mesajı herkesten siler. Yönetici silmesini destekler",
@@ -221,12 +216,12 @@ Module(
       }
       if (!m.quoted.key.fromMe) {
         var admin = await isAdmin(m);
-        if (!admin) return await m.sendReply("_❌ Ben bir yönetici değilim!_");
+        if (!admin) return await m.sendReply(Lang.NEED_ADMIN);
         await m.client.sendMessage(m.jid, { delete: m.quoted.key });
         return await m.sendReply("_✅ Mesaj yönetici yetkisiyle silindi!_");
       }
     } else {
-      await m.sendReply("_❌ Bu işlem için yetkiniz yok!_");
+      await m.sendReply(Lang.NEED_ADMIN);
     }
   }
 );

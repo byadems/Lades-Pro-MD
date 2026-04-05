@@ -57,8 +57,7 @@ function isAlreadyCommand(text) {
 
 const { bytesToSize: formatBytes } = require("./utils");
 
-Module(
-  {
+Module({
     on: "text",
     fromMe,
   },
@@ -503,8 +502,7 @@ Module(
   }
 });
 
-Module(
-  {
+Module({
     pattern: "otodl ?(.*)",
     fromMe: true,
     desc: "URL izleyici otomatik indirme - sohbetlerde veya küresel olarak etkinleştirin",
