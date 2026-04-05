@@ -635,11 +635,11 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
         // Mesaj nesnesine ekle (pluginler için)
         message.isAdmin = isAdmin;
         message.isBotAdmin = isBotAdmin;
-
+ 
         // Core Logic Filters - fromMe: true komutlar için hata mesajı
         if (cmd.fromMe && !fromMe && !ownerOrSudo) {
           await message.reply("_🔒 Bu komut yalnızca bot yöneticisi tarafından kullanılabilir._");
-          continue;
+          return;
         }
 
         if (cmd.onlyOwner && !ownerCheck) {
