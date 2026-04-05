@@ -85,9 +85,14 @@ function createMockMsg(ownJid, text) {
     senderName: "Test User",
     pushName: "Test User",
     fromMe: true,
-    text,
-    client: mockClient, // Baileys connection object mock
+    fromOwner: true,
+    isAdmin: true,
+    isBotAdmin: true,
     isGroup: false,
+    isGroupAdmins: false,
+    groupAdmins: [],
+    text,
+    client: mockClient,
     quoted: null,
     reply_message: false,
     mentions: [],
@@ -105,17 +110,9 @@ function createMockMsg(ownJid, text) {
     forward: noop,
     delete: noop,
     download: noop,
-    _isStale: false // Zaman aşımı kontrolü için
+    _isStale: false
   };
 }
-
-async function testOne(cmd, ownJid, prefix) {
-  const key = makeKey(cmd.pattern);
-  if (!key) return null;
-
-  if (isDangerous(key)) {
-    return { key, result: { status: "skipped", ms: 0, lastRun: new Date().toISOString(), error: "Güvenlik: state değiştiren komut", runs: 0 } };
-  }
 
   const text = prefix + key;
   const mock = createMockMsg(ownJid, text);
