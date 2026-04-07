@@ -56,10 +56,9 @@ function isSudoUser(jid) {
 Module({
     pattern: "bahsetme ?(.*)",
     fromMe: false,
-    desc: "Otomatik etiket yanıt yönetimi",
+    desc: "Biri sizi etiketlediğinde botun vereceği otomatik yanıtı ayarlamanıza, görüntülemenize veya silmenize olanak tanır.",
     use: "tools",
-    usage:
-      ".bahsetme mesaj (mesajı yanıtlayın) | .bahsetme mesaj <metin> | .bahsetme getir | .bahsetme sil | .bahsetme yardım",
+    usage: ".bahsetme [mesaj/getir/sil/yardım]",
   },
   async (message, match) => {
     const args = match[1]?.trim().split(" ");

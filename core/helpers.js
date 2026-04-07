@@ -13,7 +13,7 @@ const { logger } = require("../config");
 // ─────────────────────────────────────────────────────────
 //  Temp directory
 // ─────────────────────────────────────────────────────────
-const TEMP_DIR = path.join(os.tmpdir(), "nexbot-temp");
+const TEMP_DIR = path.join(os.tmpdir(), "lades-pro-temp");
 
 function ensureTempDir() {
   if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });

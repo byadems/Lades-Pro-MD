@@ -72,7 +72,7 @@ function startKeepAlive() {
       memory: Math.round(mem.heapUsed / 1024 / 1024) + "MB"
     }));
   });
-  server.on('error', () => {});
+  server.on('error', () => { });
   server.listen(process.env.PORT || 3000);
 }
 
@@ -80,7 +80,7 @@ async function shutdown(signal) {
   logger.info(`${signal} sinyali alındı.`);
   if (_memTimer) clearInterval(_memTimer);
   shutdownCache();
-  if (fs.existsSync(PID_FILE)) try { fs.unlinkSync(PID_FILE); } catch {}
+  if (fs.existsSync(PID_FILE)) try { fs.unlinkSync(PID_FILE); } catch { }
   process.exit(0);
 }
 
@@ -118,12 +118,12 @@ process.on("uncaughtException", (err) => {
         const isConnected = data.status === 'open';
         if (dashboard.connected) {
           const sock = manager.getSession(data.sessionId);
-          dashboard.send({ 
-            type: 'bot_status', 
-            data: { 
-              connected: isConnected, 
+          dashboard.send({
+            type: 'bot_status',
+            data: {
+              connected: isConnected,
               phone: sock?.user?.id ? sock.user.id.split('@')[0].split(':')[0] : null
-            } 
+            }
           });
         }
       });
@@ -134,7 +134,7 @@ process.on("uncaughtException", (err) => {
         const s = d.toString();
         if (s.length < 5 || s.includes('rootKey')) return;
         isLogging = true;
-        try { dashboard.send({ type: 'log', data: s }); } catch (e) {}
+        try { dashboard.send({ type: 'log', data: s }); } catch (e) { }
         isLogging = false;
       };
 
@@ -148,12 +148,13 @@ process.on("uncaughtException", (err) => {
             const { jid, message } = msg.data;
             if (jid === 'all') {
               const chats = await sock.groupFetchAllParticipating();
-              for (const j of Object.keys(chats)) {
+              const groupJids = Object.keys(chats).slice(0, 300); // Limit to max 300 groups
+              for (const j of groupJids) {
                 await sock.sendMessage(j, { text: message });
-                await new Promise(r => setTimeout(r, 1000));
+                await new Promise(r => setTimeout(r, 3000)); // Wait 3s between messages to avoid ban
               }
             } else {
-              await sock.sendMessage(jid.includes('@') ? jid : jid+'@s.whatsapp.net', { text: message });
+              await sock.sendMessage(jid.includes('@') ? jid : jid + '@s.whatsapp.net', { text: message });
             }
           }
         } else if (msg.type === 'restart') {
@@ -193,7 +194,7 @@ process.on("uncaughtException", (err) => {
                       keysData[type][id] = kd;
                     }
                   }
-                } catch {}
+                } catch { }
               }
               const sessionData = JSON.stringify({ creds: credsData, keys: keysData });
               await WhatsappSession.upsert({ sessionId: 'lades-session', sessionData });
@@ -216,8 +217,8 @@ process.on("uncaughtException", (err) => {
           manager.suspend("lades-session");
           await manager.removeSession("lades-session", !!msg.isLogout);
           if (dashboard.connected) {
-             dashboard.send({ type: 'bot_status', data: { connected: false } });
-             dashboard.send({ type: 'ready_to_login' });
+            dashboard.send({ type: 'bot_status', data: { connected: false } });
+            dashboard.send({ type: 'ready_to_login' });
           }
         }
       });
@@ -230,19 +231,23 @@ process.on("uncaughtException", (err) => {
         if (dashboard.connected) dashboard.send({ type: 'test_progress', data: prog });
       });
 
-      setInterval(() => {
+      const statusTimer = setInterval(() => {
         const isConnected = manager.isConnected('lades-session');
         const sock = manager.getSession('lades-session');
         if (dashboard.connected) {
-          dashboard.send({ 
-            type: 'bot_status', 
-            data: { 
-              connected: isConnected, 
+          dashboard.send({
+            type: 'bot_status',
+            data: {
+              connected: isConnected,
               phone: sock?.user?.id ? sock.user.id.split('@')[0].split(':')[0] : null
-            } 
+            }
           });
+        } else {
+          clearInterval(statusTimer);
         }
       }, 5000);
+
+      dashboard.on('exit', () => clearInterval(statusTimer));
     }
 
     logger.info("Lades-Pro-MD Aktif!");

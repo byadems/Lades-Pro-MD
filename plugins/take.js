@@ -11,12 +11,12 @@ let config = require("../config");
 const isFromMe = true;
 let fs = require("fs");
 Module({
-    pattern: "take ?(.*)",
-    fromMe: false,
-    desc: "Çıkartma/ses paketi ve yazar adını değiştirir.",
-    usage: ".take paket;yazar\n(bir çıkartmaya veya sese yanıt vererek)",
-    use: "media",
-  },
+  pattern: "take ?(.*)",
+  fromMe: false,
+  desc: "Yanıtladığınız çıkartma veya ses dosyasının paket adını ve yazar bilgilerini günceller.",
+  usage: ".take [paket];[yazar]",
+  use: "media",
+},
   async (m, match) => {
     if (!m.reply_message)
       return await m.sendMessage("_🎵 Bir sesi veya çıkartmayı yanıtlayın_");
@@ -29,16 +29,16 @@ Module({
           author: match[1].includes(";") ? match[1].split(";")[1] : "",
           packname: match[1].includes(";") ? match[1].split(";")[0] : match[1],
           categories: config.STICKER_DATA.split(";")[2] || "😂",
-          android: "https://github.com/byadems/Lades-MD/",
-          ios: "https://github.com/byadems/Lades-MD/",
+          android: "",
+          ios: "",
         };
       } else {
         var exif = {
           author: config.STICKER_DATA.split(";")[1] || "",
           packname: config.STICKER_DATA.split(";")[0] || "",
           categories: config.STICKER_DATA.split(";")[2] || "😂",
-          android: "https://github.com/byadems/Lades-MD/",
-          ios: "https://github.com/byadems/Lades-MD/",
+          android: "",
+          ios: "",
         };
       }
       return await m.client.sendMessage(
@@ -103,12 +103,12 @@ Module({
   }
 );
 Module({
-    pattern: "mp4 ?(.*)",
-    fromMe: false,
-    desc: "Hareketli çıkartmayı videoya dönüştürür",
-    usage: ".mp4 (bir hareketli çıkartmaya yanıt vererek)",
-    use: "media",
-  },
+  pattern: "mp4 ?(.*)",
+  fromMe: false,
+  desc: "Hareketli çıkartmaları MP4 video formatına dönüştürür.",
+  usage: ".mp4 [yanıtla]",
+  use: "media",
+},
   async (m, t) => {
     if (m.reply_message.sticker) {
       const q = await m.reply_message.download("buffer");
@@ -133,12 +133,12 @@ Module({
 );
 
 Module({
-    pattern: "url ?(.*)",
-    fromMe: false,
-    desc: "Resmi internete yükleyerek paylaşılabilir bağlantı oluşturur.",
-    usage: ".url (bir görsele, videoya veya sese yanıt vererek)",
-    use: "media",
-  },
+  pattern: "url ?(.*)",
+  fromMe: false,
+  desc: "Medya dosyalarını bulut sunuculara yükleyerek paylaşılabilir bir bağlantı oluşturur.",
+  usage: ".url (bir görsele, videoya veya sese yanıt vererek)",
+  use: "media",
+},
   async (m, match) => {
     let result;
     if (m.reply_message?.image || m.reply_message?.sticker) {

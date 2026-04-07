@@ -97,7 +97,8 @@ Module({
     pattern: 'ezan ?(.*)',
     fromMe: false,
     use: 'dini',
-    desc: 'Belirtilen şehrin günlük ezan vakitlerini ve ezana ne kadar süre kaldığını gösterir.'
+    desc: "Belirlediğiniz şehrin günlük ezan vakitlerini ve bir sonraki ezana kalan süreyi gösterir.",
+    usage: ".ezan [şehir/plaka]",
   },
   async (message, match) => {
   const cityInput = match[1] ? match[1].toUpperCase() : null;
@@ -166,7 +167,8 @@ Module({
     pattern: 'sahur ?(.*)',
     fromMe: false,
     use: 'dini',
-    desc: 'Belirtilen şehrin sahur vaktine ne kadar süre kaldığını hesaplar.'
+    desc: "Belirlediğiniz şehir için sahur vaktine (imsak) ne kadar süre kaldığını hesaplar.",
+    usage: ".sahur [şehir/plaka]",
   },
   async (message, match) => {
   const cityInput = match[1] ? match[1].toUpperCase() : null;
@@ -216,7 +218,8 @@ Module({
     pattern: 'iftar ?(.*)',
     fromMe: false,
     use: 'dini',
-    desc: 'Belirtilen şehrin iftar vaktine ne kadar süre kaldığını hesaplar.'
+    desc: "Belirlediğiniz şehir için iftar vaktine (akşam) ne kadar süre kaldığını hesaplar.",
+    usage: ".iftar [şehir/plaka]",
   },
   async (message, match) => {
   const cityInput = match[1] ? match[1].toUpperCase() : null;

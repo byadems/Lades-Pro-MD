@@ -54,7 +54,8 @@ const retrieveCommandDetails = (commandName) => {
 Module({
   pattern: "liste ?(.*)",
   fromMe: false,
-  desc: "Tüm komutları kategorili bir liste halinde gösterir.",
+  desc: "Tüm komutları kategorilere ayrılmış detaylı bir liste halinde sunar.",
+  usage: ".liste",
   excludeFromCommands: true,
 },
   async (message, args) => {
@@ -156,7 +157,8 @@ const manage = {
 Module({
   pattern: "kontrol",
   fromMe: false,
-  desc: "Botun çevrimiçi olup olmadığını kontrol eder.",
+  desc: "Sistemin çalışma durumunu kontrol eder.",
+  usage: ".kontrol",
 },
   async (message, match) => {
     await parseAlive(message, ALIVE);
@@ -166,9 +168,8 @@ Module({
 Module({
   pattern: "setalive ?(.*)",
   fromMe: true,
-  desc: "Bot için çevrimiçi (alive) mesajı ayarlar.",
-  usage:
-    ".setalive <message> (with placeholders)\n.setalive help (show formatting help)",
+  desc: "Botun çevrimiçi olduğunu gösteren (alive) mesajını kişiselleştirmenizi sağlar.",
+  usage: ".setalive [mesaj] | .setalive yardım | .setalive getir",
   dontAddCommandList: true,
 },
   async (message, match) => {
@@ -286,7 +287,8 @@ _Merhaba $user!_
 Module({
   pattern: "menü",
   fromMe: false,
-  desc: "Bot komut menüsünü gösterir.",
+  desc: "Botun ana komut menüsünü ve temel istatistiklerini gösteren şık bir arayüz açar.",
+  usage: ".menü",
   use: "genel",
 },
   async (message, match) => {
@@ -399,7 +401,8 @@ ${cmdmenu}`;
 Module({
   pattern: "oyunlar ?(.*)",
   fromMe: false,
-  desc: "Mevcut tüm oyunları listeler",
+  desc: "Bot üzerinde oynanabilecek tüm eğlenceli oyunları ve kurallarını listeler.",
+  usage: ".oyunlar",
 },
   async (message, args) => {
     const cmds = typeof commands === 'function' ? commands() : commands;
@@ -427,43 +430,10 @@ Module({
 );
 
 Module({
-  pattern: "setinfo ?(.*)",
-  fromMe: true,
-  desc: "Bot yapılandırma komutları hakkında bilgi gösterir.",
-  use: "owner",
-},
-  async (message, match) => {
-    const infoText = `*⚙️ ───「 Bot Bilgi Yapılandırması 」───*
-
-_\`.setinfo\` yerine bu ayrı komutları kullanın:_
-
-*Bot Adı:*
-- Komut: \`.setname <ad>\`
-- Örnek: \`.setname Lades\`
-- Açıklama: _Botun görünen adını ayarlar_
-
-
-*Bot Görseli:*
-- Komut: \`.setimage\`
-- Kullanım: _\`.setimage\` ile bir görsele yanıt verin_
-- Açıklama: _Botun profil görselini ayarlar_
-
-*Mevcut Format:*
-_Bot bilgisi şu şekilde saklanır: \`ad;sahip;görselbağlantısı\`_
-
-*İpuçları:*
-- _Yerel varsayılan görsel için \`varsayılan\` kullanın_
-- _Değişiklikler otomatik kaydedilir_
-- _Güncel bilgiyi görmek için \`.menü\` kullanın_`;
-
-    return await message.sendReply(infoText);
-  }
-);
-
-Module({
   pattern: "setname ?(.*)",
   fromMe: true,
-  desc: "Bot adını ayarlar",
+  desc: "Grup üzerinde görünen üye etiketini belirlediğiniz yeni isimle günceller.",
+  usage: ".setname [yeni_isim]",
   use: "owner",
 },
   async (message, match) => {
@@ -482,7 +452,8 @@ Module({
 Module({
   pattern: "setimage",
   fromMe: true,
-  desc: "Bot resmini ayarlar (bir resme yanıt verin)",
+  desc: "Botun profil görselini yanıtladığınız görselle değiştirir.",
+  usage: ".setimage [yanıtla]",
   use: "owner",
 },
   async (message, match) => {
@@ -523,7 +494,7 @@ Module({
 Module({
   pattern: "testalive",
   fromMe: true,
-  desc: "Mevcut çevrimiçi (alive) mesajını biçimlendirmesiyle test eder.",
+  desc: "Belirlediğiniz çevrimiçi mesajının bot üzerinde nasıl göründüğünü test etmenizi sağlar.",
   usage: ".testalive",
   use: "owner",
 },
@@ -568,7 +539,7 @@ const normalizeKategori = (raw) => {
 Module({
   pattern: "bildir ?(.*)",
   fromMe: false,
-  desc: "Bot hakkında istek, şikayet, hata, öneri veya talep iletir.",
+  desc: "Bot hakkında istek, şikayet, hata, öneri veya talebinizi iletir.",
   use: "tools",
   usage:
     ".bildir istek <mesaj>\n" +
@@ -764,7 +735,8 @@ function getTimeBasedEmoji(temp) {
 Module({
   pattern: "hava ?(.*)",
   fromMe: false,
-  desc: "Hava durumu bilgisi gönderir.",
+  desc: "Belirlediğiniz konuma ait güncel hava durumu verilerini, sıcaklık ve nem bilgilerini getirir.",
+  usage: ".hava [şehir/ilçe]",
   use: "search",
 },
   async (m, match) => {
@@ -917,7 +889,8 @@ Module({
 Module({
   pattern: "resim ?(.*)",
   fromMe: false,
-  desc: "İnternetten görsel arar ve indirir.",
+  desc: "İnternet üzerinden belirlediğiniz anahtar kelimeye uygun görseller bulur ve gönderir.",
+  usage: ".resim [sorgu]",
   use: "search",
 },
   async (message, match) => {
@@ -945,8 +918,8 @@ Module({
 Module({
   pattern: "yemekt ?(.*)",
   fromMe: false,
-  desc: "Yemek tarifi arar",
-  usage: ".yemekt pilav",
+  desc: "Geniş bir yemek tarifi kütüphanesinden istediğiniz yemeğin hazırlanışını ve malzemelerini getirir.",
+  usage: ".yemekt [yemek_adı]",
   use: "search",
 },
   async (message, match) => {

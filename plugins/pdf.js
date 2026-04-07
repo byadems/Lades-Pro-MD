@@ -2,7 +2,6 @@ const { Module } = require("../main");
 const { convert: imageToPdf, sizes } = require("image-to-pdf");
 const fileSystem = require("node:fs/promises");
 const fileType = require("file-type");
-const { MODE } = require("../config");
 const path = require("path");
 const fs = require("fs");
 const { getTempSubdir, getTempPath } = require("../core/helpers");
@@ -29,10 +28,9 @@ const finalPdfOutputPath = getTempPath("converted.pdf");
 
 Module({
     pattern: "pdf ?(.*)",
-    fromMe: MODE === "private",
-    desc: "Yanıtlanan resimleri bir PDF dosyasına dönüştürür.",
-    use: "tools",
-    usage: ".pdf yardım",
+    fromMe: false,
+    desc: "Seçtiğiniz veya yanıtladığınız görselleri tek bir PDF belgesi haline getirir.",
+    usage: ".pdf | .pdf getir | .pdf sil",
   },
   async (message, commandArguments) => {
     const subCommand = commandArguments[1]?.toLowerCase();

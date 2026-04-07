@@ -40,7 +40,7 @@ async function start() {
       const sessionData = JSON.stringify({ creds: state.creds, keys: state.keys });
       const sessionB64 = Buffer.from(sessionData).toString("base64");
       fs.writeFileSync(path.join(__dirname, "../sessions/session.txt"), sessionB64, "utf8");
-      
+
       // Update config.env
       const envPath = path.join(__dirname, "../config.env");
       if (fs.existsSync(envPath)) {
@@ -48,11 +48,11 @@ async function start() {
         envVal = envVal.replace(/^SESSION=.*$/m, `SESSION=${sessionB64}`);
         fs.writeFileSync(envPath, envVal);
       }
-      
+
       console.log("SESSION_SAVED");
       process.exit(0);
     }
-    
+
     if (connection === "close") {
       console.log("CLOSED", lastDisconnect?.error);
       process.exit(1);

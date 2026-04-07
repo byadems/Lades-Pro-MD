@@ -31,7 +31,7 @@ async function nexGet(path, opts = {}) {
     // Path üzerinden kategori belirle (örn: /ai/dreamanalyze -> ai)
     const category = path.split("/")[1] || "default";
     const breaker = getBreaker(category);
-    
+
     const res = await breaker.fire(path, opts);
     let payload = res.data;
     const contentType = (res.headers?.["content-type"] || "").toLowerCase();
@@ -74,12 +74,12 @@ async function nexGet(path, opts = {}) {
 // 1. EMOJİMİX — İki emojiyi birleştirir
 // ══════════════════════════════════════════════════════════
 Module({
-    pattern: "emojimix ?(.*)",
-    fromMe: false,
-    desc: "İki emojiyi birleştirip yeni emoji oluşturur",
-    usage: ".emojimix 😀 🔥",
-    use: "fun",
-  },
+  pattern: "emojimix ?(.*)",
+  fromMe: false,
+  desc: "İki farklı emojiyi birleştirerek özel bir çıkartma oluşturur.",
+  usage: ".emojimix 😀 🔥",
+  use: "fun",
+},
   async (message, match) => {
     const input = (match[1] || "").trim();
     const emojis = [...input].filter((c) => /\p{Emoji}/u.test(c));
@@ -99,12 +99,12 @@ Module({
 // 2. YAZI — Glitch efektli metin görseli
 // ══════════════════════════════════════════════════════════
 Module({
-    pattern: "yazı ?(.*)",
-    fromMe: false,
-    desc: "Glitch efektli metin görseli oluşturur",
-    usage: ".yazı LADES",
-    use: "edit",
-  },
+  pattern: "yazı ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni glitch efektli profesyonel bir görsele dönüştürür.",
+  usage: ".yazı LADES",
+  use: "edit",
+},
   async (message, match) => {
     const text = (match[1] || "").trim();
     if (!text) return await message.sendReply("✏️ _Metin girin:_ `.yazı LADES`");
@@ -121,12 +121,12 @@ Module({
 // 3. NARUTO — Naruto stili metin logosu
 // ══════════════════════════════════════════════════════════
 Module({
-    pattern: "naruto ?(.*)",
-    fromMe: false,
-    desc: "Naruto stili metin logosu oluşturur",
-    usage: ".naruto LADES",
-    use: "edit",
-  },
+  pattern: "naruto ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni Naruto stili bir logoya dönüştürür.",
+  usage: ".naruto LADES",
+  use: "edit",
+},
   async (message, match) => {
     const text = (match[1] || "").trim();
     if (!text) return await message.sendReply("🍥 _Metin girin:_ `.naruto LADES`");
@@ -143,12 +143,12 @@ Module({
 // 4. MARVEL — Marvel stili logo (2 kelime)
 // ══════════════════════════════════════════════════════════
 Module({
-    pattern: "marvel ?(.*)",
-    fromMe: false,
-    desc: "Marvel stili logo oluşturur (2 kelime)",
-    usage: ".marvel LADES BOT",
-    use: "edit",
-  },
+  pattern: "marvel ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni Marvel stili bir logoya dönüştürür. (2 kelime gerektirir)",
+  usage: ".marvel LADES BOT",
+  use: "edit",
+},
   async (message, match) => {
     const input = (match[1] || "").trim();
     const words = input.split(/\s+/);
@@ -166,12 +166,12 @@ Module({
 // 5. BLACKPINK — Blackpink stili metin
 // ══════════════════════════════════════════════════════════
 Module({
-    pattern: "blackpink ?(.*)",
-    fromMe: false,
-    desc: "Blackpink stili metin görseli oluşturur",
-    usage: ".blackpink LADES",
-    use: "edit",
-  },
+  pattern: "blackpink ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni Blackpink stili bir görsele dönüştürür.",
+  usage: ".blackpink LADES",
+  use: "edit",
+},
   async (message, match) => {
     const text = (match[1] || "").trim();
     if (!text) return await message.sendReply("💗 _Metin girin:_ `.blackpink LADES`");
@@ -188,12 +188,12 @@ Module({
 // 6. BRAT — Charli XCX Brat stili metin
 // ══════════════════════════════════════════════════════════
 Module({
-    pattern: "brat ?(.*)",
-    fromMe: false,
-    desc: "Brat (Charli XCX) stili yeşil metin görseli",
-    usage: ".brat lades bot",
-    use: "edit",
-  },
+  pattern: "brat ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni Brat (Charli XCX) stili yeşil bir görsele dönüştürür.",
+  usage: ".brat Lades Bot",
+  use: "edit",
+},
   async (message, match) => {
     const text = (match[1] || "").trim();
     if (!text) return await message.sendReply("💚 _Metin girin:_ `.brat lades bot`");
@@ -210,15 +210,15 @@ Module({
 // 7. SÖZ — Şarkı sözü bulma (lyrics.ovh + LRCLib + Nexray fallback)
 // ══════════════════════════════════════════════════════════
 Module({
-    pattern: "şarkısözü ?(.*)",
-    fromMe: false,
-    desc: "Şarkı sözlerini bulur",
-    usage: ".şarkısözü Never Gonna Give You Up",
-    use: "search",
-  },
+  pattern: "şarkısözü ?(.*)",
+  fromMe: false,
+  desc: "İstediğiniz şarkının sözlerini farklı kaynaklardan arayarak getirir.",
+  usage: ".şarkısözü [şarkı adı]",
+  use: "search",
+},
   async (message, match) => {
     const query = (match[1] || "").trim();
-    if (!query) return await message.sendReply("🎵 _Şarkı adı girin:_ `.söz Tarkan Şımarık`");
+    if (!query) return await message.sendReply("🎵 _Şarkı adı girin:_ `.şarkısözü Tarkan Şımarık`");
 
     let lyrics = null;
     let title = query;
@@ -281,12 +281,12 @@ Module({
 // 8. DUVAR — HD duvar kağıdı arama
 // ══════════════════════════════════════════════════════════
 Module({
-    pattern: "duvarkağıdı ?(.*)",
-    fromMe: false,
-    desc: "HD duvar kağıdı arar ve gönderir",
-    usage: ".duvarkağıdı doğa",
-    use: "search",
-  },
+  pattern: "duvarkağıdı ?(.*)",
+  fromMe: false,
+  desc: "Belirlediğiniz konuya uygun HD kalitede duvar kağıtları bulur.",
+  usage: ".duvarkağıdı [konu]",
+  use: "search",
+},
   async (message, match) => {
     const query = (match[1] || "").trim();
     if (!query) return await message.sendReply("🖼️ _Konu girin:_ `.duvarkağıdı doğa`");
@@ -310,12 +310,12 @@ Module({
 // 9. ÇIKARTMABUL — WhatsApp sticker paketi arama
 // ══════════════════════════════════════════════════════════
 Module({
-    pattern: "çıkartmabul ?(.*)",
-    fromMe: false,
-    desc: "WhatsApp çıkartma paketi arar",
-    usage: ".çıkartmabul kedi",
-    use: "search",
-  },
+  pattern: "çıkartmabul ?(.*)",
+  fromMe: false,
+  desc: "WhatsApp için hazır çıkartma paketleri aramanızı sağlar.",
+  usage: ".çıkartmabul [konu]",
+  use: "search",
+},
   async (message, match) => {
     const query = (match[1] || "").trim();
     if (!query) return await message.sendReply("🔍 _Çıkartma konusu girin:_ `.çıkartmabul kedi`");
@@ -340,12 +340,12 @@ Module({
 // 10. WİKİ — Wikipedia bilgi çekme
 // ══════════════════════════════════════════════════════════
 Module({
-    pattern: "vikipedi ?(.*)",
-    fromMe: false,
-    desc: "Vikipedi üzerinden bilgi arar.",
-    usage: ".vikipedi İstanbul",
-    use: "search",
-  },
+  pattern: "vikipedi ?(.*)",
+  fromMe: false,
+  desc: "Vikipedi üzerinden belirttiğiniz konu hakkında özet bilgi getirir.",
+  usage: ".vikipedi [konu]",
+  use: "search",
+},
   async (message, match) => {
     const query = (match[1] || "").trim();
     if (!query) return await message.sendReply("📚 _Konu girin:_ `.vikipedi İstanbul`");
@@ -369,12 +369,12 @@ Module({
 // 11. ALINTI — WhatsApp tarzı alıntı görseli
 // ══════════════════════════════════════════════════════════
 Module({
-    pattern: "alıntı ?(.*)",
-    fromMe: false,
-    desc: "WhatsApp tarzı alıntı görseli oluşturur",
-    usage: ".alıntı Merhaba dünya!",
-    use: "edit",
-  },
+  pattern: "alıntı ?(.*)",
+  fromMe: false,
+  desc: "Mesajı veya metni WhatsApp tarzı şık bir alıntı çıkartmasına dönüştürür.",
+  usage: ".alıntı [metin]",
+  use: "edit",
+},
   async (message, match) => {
     let text = (match[1] || "").trim();
     if (!text && message.reply_message) {
@@ -399,12 +399,12 @@ Module({
 // 12. RÜYA — AI rüya yorumu
 // ══════════════════════════════════════════════════════════
 Module({
-    pattern: "rüya ?(.*)",
-    fromMe: false,
-    desc: "Rüyanızı yapay zeka ile yorumlar",
-    usage: ".rüya Gökyüzünde uçuyordum",
-    use: "ai",
-  },
+  pattern: "rüya ?(.*)",
+  fromMe: false,
+  desc: "Gördüğünüz rüyayı yapay zeka desteğiyle detaylıca yorumlar.",
+  usage: ".rüya [anlatım]",
+  use: "ai",
+},
   async (message, match) => {
     let text = (match[1] || "").trim();
     if (!text && message.reply_message) {
@@ -428,12 +428,12 @@ Module({
 // 13. GÖRSEL — AI ile metin→görsel oluşturma (Ideogram)
 // ══════════════════════════════════════════════════════════
 Module({
-    pattern: "görsel ?(.*)",
-    fromMe: false,
-    desc: "Yapay zeka ile açıklamadan görsel oluşturur",
-    usage: ".görsel sevimli bir kedi anime stili",
-    use: "ai",
-  },
+  pattern: "görsel ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metin açıklamasını yapay zeka ile görsel bir sanat eserine çevirir.",
+  usage: ".görsel [açıklama]",
+  use: "ai",
+},
   async (message, match) => {
     const prompt = (match[1] || "").trim();
     if (!prompt) return await message.sendReply("🎨 _Görsel açıklaması girin:_ `.görsel sevimli bir kedi anime stili`");
@@ -455,12 +455,12 @@ Module({
 // 14. THREADS — Threads video/görsel indirme
 // ══════════════════════════════════════════════════════════
 Module({
-    pattern: "threads ?(.*)",
-    fromMe: false,
-    desc: "Threads video/görsel indirir",
-    usage: ".threads <bağlantı>",
-    use: "download",
-  },
+  pattern: "threads ?(.*)",
+  fromMe: false,
+  desc: "Threads üzerinden video veya fotoğraf içeriklerini indirmenizi sağlar.",
+  usage: ".threads [bağlantı]",
+  use: "download",
+},
   async (message, match) => {
     let url = (match[1] || "").trim();
     if (!url && message.reply_message?.text) {
@@ -490,12 +490,12 @@ Module({
 // 15. SOUNDCLOUD — SoundCloud ses indirme
 // ══════════════════════════════════════════════════════════
 Module({
-    pattern: "soundcloud ?(.*)",
-    fromMe: false,
-    desc: "SoundCloud'dan ses indirir",
-    usage: ".soundcloud <bağlantı>",
-    use: "download",
-  },
+  pattern: "soundcloud ?(.*)",
+  fromMe: false,
+  desc: "SoundCloud üzerindeki şarkıları yüksek kalitede MP3 olarak indirir.",
+  usage: ".soundcloud [bağlantı]",
+  use: "download",
+},
   async (message, match) => {
     let url = (match[1] || "").trim();
     if (!url && message.reply_message?.text) {
@@ -523,12 +523,12 @@ Module({
 );
 
 Module({
-    pattern: "çevir ?(.*)",
-    fromMe: false,
-    desc: "Metni iki dil arasında çevirir. Örnek: .çevir en tr",
-    usage: ".çevir en tr",
-    use: "search",
-  },
+  pattern: "çevir ?(.*)",
+  fromMe: false,
+  desc: "Metni belirlediğiniz diller arasında anlık olarak çevirir.",
+  usage: ".çevir [dil1] [dil2]",
+  use: "search",
+},
   async (message, match) => {
     try {
       const raw = (match?.[1] || "").trim();

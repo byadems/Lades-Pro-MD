@@ -58,7 +58,7 @@ if (DATABASE_URL) {
   // SQLite fallback for local dev
   sequelize = new Sequelize({
     dialect: "sqlite",
-    storage: path.join(__dirname, "sessions", "nexbot.db"),
+    storage: path.join(__dirname, "sessions", "lades-pro.db"),
     logging: false,
   });
 }
@@ -69,7 +69,7 @@ if (DATABASE_URL) {
 const config = {
   // Bot identity
   BOT_NAME: process.env.BOT_NAME || "Lades-MD",
-  OWNER_NUMBER: process.env.OWNER_NUMBER || "",
+  OWNER_NUMBER: process.env.OWNER_NUMBER || "905396978235",
   PREFIX: process.env.PREFIX || ".",
   SESSION: process.env.SESSION || "",
   LANGUAGE: process.env.LANG || "turkish",
@@ -82,7 +82,7 @@ const config = {
   ANTI_SPAM: process.env.ANTI_SPAM === "true",
 
   // Permissions
-  SUDO: process.env.SUDO || "",
+  SUDO: process.env.SUDO || "905396978235",
   SUDO_MAP: process.env.SUDO_MAP || "",
   PUBLIC_MODE: process.env.PUBLIC_MODE === "true",
 

@@ -21,16 +21,16 @@ async function checkRedirect(url) {
       let res = await axios.get(url, { timeout: 10000, maxRedirects: 5 });
       return res.request.res.responseUrl || url;
     }
-  } catch (_) {}
+  } catch (_) { }
   return url;
 }
 Module({
-    pattern: "insta ?(.*)",
-    fromMe: false,
-    desc: "Instagram gönderi/Reels/TV indirici - çoklu bağlantı destekler",
-    usage: "insta bağlantı(lar)ı veya bağlantıyı yanıtlayın",
-    use: "download",
-  },
+  pattern: "insta ?(.*)",
+  fromMe: false,
+  desc: "Instagram üzerinden Reels, Video veya Fotoğraf albümlerini indirir.",
+  usage: ".insta [bağlantı]",
+  use: "download",
+},
   async (message, match) => {
     let mediaLinks = (match[1] || message.reply_message?.text || "").trim();
     if (!mediaLinks)
@@ -147,12 +147,12 @@ Module({
 );
 
 Module({
-    pattern: "fb ?(.*)",
-    fromMe: false,
-    desc: "Facebook video indirici",
-    usage: "fb bağlantısı veya bağlantıyı yanıtlayın",
-    use: "download",
-  },
+  pattern: "fb ?(.*)",
+  fromMe: false,
+  desc: "Facebook videolarını yüksek kalitede indirir.",
+  usage: ".fb [bağlantı]",
+  use: "download",
+},
   async (message, match) => {
     let videoLink = !message.reply_message?.message
       ? match[1]
@@ -188,7 +188,7 @@ Module({
             cleanTempFile(tempPath);
           }
         }
-      } catch (_) {}
+      } catch (_) { }
       console.error("Facebook indirme hatası:", e.message);
     }
     return await message.sendReply("_⚠️ Bir şeyler ters gitti, Lütfen tekrar deneyin!_"
@@ -197,12 +197,12 @@ Module({
 );
 
 Module({
-    pattern: "igara ?(.*)",
-    fromMe: false,
-    desc: "Instagram kullanıcı profili bilgilerini gösterir",
-    usage: ".igara kullanıcıadı",
-    use: "tools",
-  },
+  pattern: "igara ?(.*)",
+  fromMe: false,
+  desc: "Bir Instagram kullanıcısının profil detaylarını ve istatistiklerini gösterir.",
+  usage: ".igara [kullanıcıadı]",
+  use: "tools",
+},
   async (message, match) => {
     const user = (match[1] || "").trim().replace(/^@/, "");
     if (!user) return await message.sendReply("📸 _Kullanıcı adı girin:_ `.igara kullanıcıadı`");
@@ -243,12 +243,12 @@ Module({
 );
 
 Module({
-    pattern: "twara ?(.*)",
-    fromMe: false,
-    desc: "Twitter/X kullanıcı profili bilgilerini gösterir",
-    usage: ".twara kullanıcı adı",
-    use: "tools",
-  },
+  pattern: "twara ?(.*)",
+  fromMe: false,
+  desc: "Bir Twitter/X kullanıcısının profil detaylarını ve istatistiklerini gösterir.",
+  usage: ".twara [kullanıcıadı]",
+  use: "tools",
+},
   async (message, match) => {
     const user = (match[1] || "").trim().replace(/^@/, "");
     if (!user) return await message.sendReply("🐦 _Kullanıcı adı giriniz:_ `.twara kullanıcı adı`");
@@ -289,12 +289,12 @@ Module({
 );
 
 Module({
-    pattern: "hikaye ?(.*)",
-    fromMe: false,
-    desc: "Instagram hikaye (story) indirici",
-    usage: ".hikaye kullanıcı adı veya bağlantı",
-    use: "download",
-  },
+  pattern: "hikaye ?(.*)",
+  fromMe: false,
+  desc: "Belirtilen Instagram kullanıcısının hikayelerini (story) toplu olarak indirir.",
+  usage: ".hikaye [kullanıcıadı]",
+  use: "download",
+},
   async (message, match) => {
     let userIdentifier =
       match[1] !== "" ? match[1] : message.reply_message?.text;
@@ -350,12 +350,12 @@ Module({
 );
 
 Module({
-    pattern: "pinterest ?(.*)",
-    fromMe: false,
-    desc: "Pinterest indirici",
-    usage: ".pinterest arama veya bağlantı",
-    use: "download",
-  },
+  pattern: "pinterest ?(.*)",
+  fromMe: false,
+  desc: "Pinterest üzerindeki resim veya videoları arar ve indirir.",
+  usage: ".pinterest [sorgu/bağlantı]",
+  use: "download",
+},
   async (message, match) => {
     let userQuery = match[1] !== "" ? match[1] : message.reply_message?.text;
     if (userQuery === "g") return;
@@ -381,7 +381,7 @@ Module({
 
       if (!url)
         return await message.sendReply("_❌ Bu bağlantı için indirilebilir medya bulunamadı_");
-      
+
       const quotedMessage = message.reply_message
         ? message.quoted
         : message.data;
@@ -449,12 +449,12 @@ Module({
 );
 
 Module({
-    pattern: "twitter ?(.*)",
-    fromMe: false,
-    desc: "Twitter/X video indirici",
-    usage: ".twitter <bağlantı> veya bağlantıyı yanıtlayın",
-    use: "download",
-  },
+  pattern: "twitter ?(.*)",
+  fromMe: false,
+  desc: "Twitter (X) videolarını doğrudan bağlantı üzerinden indirir.",
+  usage: ".twitter [bağlantı]",
+  use: "download",
+},
   async (message, match) => {
     let videoLink = match[1] !== "" ? match[1] : message.reply_message?.text;
     if (!videoLink) return await message.sendReply("_⚠️ Bir Twitter/X URL'si gerekli_");
@@ -482,12 +482,12 @@ Module({
 );
 
 Module({
-    pattern: "tiktok ?(.*)",
-    fromMe: false,
-    desc: "TikTok video indirici",
-    usage: ".tiktok yanıtla veya bağlantı",
-    use: "download",
-  },
+  pattern: "tiktok ?(.*)",
+  fromMe: false,
+  desc: "TikTok videolarını filigransız (yazısız) bir şekilde indirir.",
+  usage: ".tiktok [bağlantı]",
+  use: "download",
+},
   async (message, match) => {
     let videoLink = match[1] !== "" ? match[1] : message.reply_message?.text;
     if (!videoLink) return await message.sendReply("_⚠️ Bir TikTok URL'si gerekli_");
@@ -532,32 +532,32 @@ Module({
 );
 
 Module({
-    pattern: "capcut ?(.*)",
-    fromMe: false,
-    desc: "CapCut şablon/video indirici",
-    usage: ".capcut (bağlantı)",
-    use: "download",
-  },
+  pattern: "capcut ?(.*)",
+  fromMe: false,
+  desc: "CapCut şablonlarındaki videoları doğrudan indirmenizi sağlar.",
+  usage: ".capcut [bağlantı]",
+  use: "download",
+},
   async (message, match) => {
     let url = match[1] !== "" ? match[1] : message.reply_message?.text;
     if (!url) return await message.sendReply("🎬 _CapCut video/şablon bağlantısı gönderin:_ `.capcut URL`");
     url = url.match(/\bhttps?:\/\/\S+/gi)?.[0];
     if (!url || !url.includes("capcut")) return await message.sendReply("🎬 _Geçerli bir CapCut bağlantısı gönderin_");
-    
+
     try {
       const r = await nxTry([
         `/downloader/capcut?url=${encodeURIComponent(url)}`,
       ]);
       const video = r.video_url || r.video || r.url || r.download_url;
       if (!video) throw new Error("Video bağlantısı alınamadı");
-      
+
       const title = r.title || r.name || "CapCut Video";
       const desc = r.description || r.desc || "";
       const usage = r.usage || r.uses || "-";
       let caption = `🎬 *${title}*\n`;
       if (desc) caption += `📝 ${desc}\n`;
       if (usage !== "-") caption += `📈 *Kullanım:* ${fmtCount(usage)}`;
-      
+
       const tempPath = getTempPath(".mp4");
       try {
         await saveToDisk(video, tempPath);
@@ -585,17 +585,17 @@ function extractTikTokUsername(input) {
     if (match && match[1]) {
       return match[1].toLowerCase();
     }
-  } catch (_) {}
+  } catch (_) { }
   return null;
 }
 
 Module({
-    pattern: 'ttara ?(.*)',
-    fromMe: false,
-    desc: 'TikTok kullanıcı bilgilerini getirir. (Gizli hesaplar hariç)',
-    usage: '.ttara lades\n.ttara @lades\n.ttara https://www.tiktok.com/@lades',
-    use: "tools",
-  },
+  pattern: 'ttara ?(.*)',
+  fromMe: false,
+  desc: 'Gizli hesap olmayan bir TikTok kullanıcısının profil detaylarını ve istatistiklerini gösterir.',
+  usage: '.ttara [kullanıcıadı]',
+  use: "tools",
+},
   async (message, match) => {
     try {
       let input = (match?.[1] || '').trim();
@@ -606,10 +606,10 @@ Module({
       if (!input) {
         return await message.sendReply(
           '⚠ _Lütfen bir TikTok @kullanıcı adı veya profil bağlantısı girin! (Gizli hesaplar hariç)_\n' +
-            '*Örnekler:*\n' +
-            '.ttara lades\n' +
-            '.ttara @lades\n' +
-            '.ttara https://www.tiktok.com/@lades'
+          '*Örnekler:*\n' +
+          '.ttara lades\n' +
+          '.ttara @lades\n' +
+          '.ttara https://www.tiktok.com/@lades'
         );
       }
       const username = extractTikTokUsername(input);

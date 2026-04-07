@@ -11,9 +11,8 @@ const {
 Module({
   pattern: "welcome ?(.*)",
   fromMe: true,
-  desc: "Grup karşılama mesajını ayarlar. $user, $group vb. etiketler kullanılabilir.",
-  usage: ".welcome Merhaba $mention, $group grubuna hoş geldin! $pp\n.welcome aç/kapat\n.welcome getir\n.welcome sil",
-  use: "group",
+  desc: "Yeni üye katıldığında gönderilecek olan grup karşılama mesajını özelleştirmenizi ve yönetmenizi sağlar.",
+  usage: ".welcome Merhaba $mention, $group grubuna hoş geldin! $pp\n.welcome aç/kapat\n.welcome getir\n.welcome sil", use: "group",
 },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
@@ -101,8 +100,8 @@ Module({
 Module({
   pattern: "goodbye ?(.*)",
   fromMe: true,
-  desc: "Grup çıkış mesajını ayarlar.",
-  usage: ".goodbye Hoşça kal $mention! $pp",
+  desc: "Üye ayrıldığında gönderilecek olan grup veda mesajını özelleştirmenizi ve yönetmenizi sağlar.",
+  usage: ".goodbye [mesaj] | .goodbye aç/kapat",
   use: "group",
 },
   async (message, match) => {
@@ -149,7 +148,8 @@ Module({
 Module({
   pattern: "testwelcome ?(.*)",
   fromMe: true,
-  desc: "Karşılama mesajını test eder",
+  desc: "Mevcut gruptaki karşılama mesajının nasıl göründüğünü denemeniz için bir test mesajı gönderir.",
+  usage: ".testwelcome",
   use: "group",
 },
   async (message) => {
@@ -170,7 +170,8 @@ Module({
 Module({
   pattern: "testgoodbye ?(.*)",
   fromMe: true,
-  desc: "Veda mesajını test eder",
+  desc: "Mevcut gruptaki veda mesajının nasıl göründüğünü denemeniz için bir test mesajı gönderir.",
+  usage: ".testgoodbye",
   use: "group",
 },
   async (message) => {

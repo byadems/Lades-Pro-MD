@@ -695,16 +695,38 @@ async function fetchConfig() {
   try {
     const r = await fetch('/api/config');
     const d = await r.json();
+    // Identity & Core
     setVal('s_BOT_NAME', d.BOT_NAME);
     setVal('s_OWNER_NUMBER', d.OWNER_NUMBER);
     setVal('s_PREFIX', d.PREFIX);
     setVal('s_SUDO', d.SUDO);
-    setVal('s_GEMINI_API_KEY', d.GEMINI_API_KEY);
+    setVal('s_LANG', d.LANG);
+    setVal('s_ALIVE', d.ALIVE);
+    setVal('s_BOT_INFO', d.BOT_INFO);
+    setVal('s_STICKER_DATA', d.STICKER_DATA);
+
+    // Toggles
     setChk('s_PUBLIC_MODE', d.PUBLIC_MODE === 'true');
     setChk('s_AUTO_READ', d.AUTO_READ === 'true');
-    setChk('s_AUTO_TYPING', d.AUTO_TYPING !== 'false');
+    setChk('s_AUTO_TYPING', d.AUTO_TYPING === 'true');
+    setChk('s_AUTO_RECORDING', d.AUTO_RECORDING === 'true');
     setChk('s_ANTI_LINK', d.ANTI_LINK === 'true');
     setChk('s_ANTI_SPAM', d.ANTI_SPAM === 'true');
+    setChk('s_ADMIN_ACCESS', d.ADMIN_ACCESS === 'true');
+    setChk('s_DEBUG', d.DEBUG === 'true');
+
+    // AI & APIs
+    setVal('s_GEMINI_API_KEY', d.GEMINI_API_KEY);
+    setVal('s_OPENAI_API_KEY', d.OPENAI_API_KEY);
+    setVal('s_GROQ_API_KEY', d.GROQ_API_KEY);
+    setVal('s_AI_MODEL', d.AI_MODEL);
+    setVal('s_ACR_A', d.ACR_A);
+    setVal('s_ACR_S', d.ACR_S);
+
+    // Systems
+    setVal('s_MAX_STICKER_SIZE', d.MAX_STICKER_SIZE);
+    setVal('s_MAX_DL_SIZE', d.MAX_DL_SIZE);
+    setVal('s_PM2_RESTART_LIMIT_MB', d.PM2_RESTART_LIMIT_MB);
   } catch { }
 }
 
@@ -726,12 +748,30 @@ function setupSettings() {
       OWNER_NUMBER: getVal('s_OWNER_NUMBER'),
       PREFIX: getVal('s_PREFIX'),
       SUDO: getVal('s_SUDO'),
-      GEMINI_API_KEY: getVal('s_GEMINI_API_KEY'),
+      LANG: getVal('s_LANG'),
+      ALIVE: getVal('s_ALIVE'),
+      BOT_INFO: getVal('s_BOT_INFO'),
+      STICKER_DATA: getVal('s_STICKER_DATA'),
+      
       PUBLIC_MODE: getChk('s_PUBLIC_MODE') ? 'true' : 'false',
       AUTO_READ: getChk('s_AUTO_READ') ? 'true' : 'false',
       AUTO_TYPING: getChk('s_AUTO_TYPING') ? 'true' : 'false',
+      AUTO_RECORDING: getChk('s_AUTO_RECORDING') ? 'true' : 'false',
       ANTI_LINK: getChk('s_ANTI_LINK') ? 'true' : 'false',
       ANTI_SPAM: getChk('s_ANTI_SPAM') ? 'true' : 'false',
+      ADMIN_ACCESS: getChk('s_ADMIN_ACCESS') ? 'true' : 'false',
+      DEBUG: getChk('s_DEBUG') ? 'true' : 'false',
+
+      GEMINI_API_KEY: getVal('s_GEMINI_API_KEY'),
+      OPENAI_API_KEY: getVal('s_OPENAI_API_KEY'),
+      GROQ_API_KEY: getVal('s_GROQ_API_KEY'),
+      AI_MODEL: getVal('s_AI_MODEL'),
+      ACR_A: getVal('s_ACR_A'),
+      ACR_S: getVal('s_ACR_S'),
+
+      MAX_STICKER_SIZE: getVal('s_MAX_STICKER_SIZE'),
+      MAX_DL_SIZE: getVal('s_MAX_DL_SIZE'),
+      PM2_RESTART_LIMIT_MB: getVal('s_PM2_RESTART_LIMIT_MB'),
     };
     try {
       const r = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -744,11 +784,13 @@ function setupSettings() {
   });
 
   document.getElementById('btnRefreshEnv')?.addEventListener('click', loadEnvPreview);
-  document.getElementById('toggleKey')?.addEventListener('click', () => {
-    const inp = document.getElementById('s_GEMINI_API_KEY'); if (!inp) return;
-    inp.type = inp.type === 'password' ? 'text' : 'password';
-  });
 }
+
+function toggleVisibility(id) {
+  const inp = document.getElementById(id); if (!inp) return;
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+window.toggleVisibility = toggleVisibility;
 
 // ══════════════════════════════
 //  TOAST

@@ -51,9 +51,9 @@ async function sendBanAudio(message) {
 Module({
   pattern: "sohbetsil ?(.*)",
   fromMe: true,
-  desc: "Sohbeti temizle",
+  desc: "Mevcut grup sohbet geçmişini tamamen temizler ve konuşmayı siler.",
   use: "system",
-  usage: ".sohbetsil (mevcut sohbeti temizler)",
+  usage: ".sohbetsil",
 },
   async (message, match) => {
     await message.client.chatModify(
@@ -147,6 +147,7 @@ Module({
   pattern: "at ?(.*)",
   fromMe: false,
   desc: Lang.KICK_DESC,
+  usage: ".at [@etiket/yanıtla]",
   use: "group",
 },
   async (message, match) => {
@@ -286,7 +287,7 @@ Module({
   fromMe: false,
   desc: Lang.PROMOTE_DESC,
   use: "group",
-  usage: ".yetkiver @etiket veya yanıtla",
+  usage: ".yetkiver [@etiket/yanıtla]",
 },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
@@ -311,7 +312,7 @@ Module({
 Module({
   pattern: "istekler ?(.*)",
   fromMe: false,
-  desc: "Bekleyen katılma isteklerinin listesini al",
+  desc: "Gruptaki bekleyen katılım isteklerini listeler ve yönetmenizi sağlar.",
   use: "group",
   usage: ".istekler (bekleyen istekleri gör)\n.istekler hepsi onayla (tüm istekleri onayla)\n.istekler hepsi reddet (tüm istekleri reddet)",
 },
@@ -414,8 +415,8 @@ Module({
 Module({
   pattern: "quoted",
   fromMe: true,
-  desc: "Yanıtlanan mesajın alıntıladığı mesajı gönderir. Silinen mesajları kurtarmak için kullanışlıdır.",
-  usage: ".quoted (alıntılanmış bir mesaja yanıtla)",
+  desc: "Yanıtlanan mesajın asıl alıntıladığı mesajı bulur ve tekrar gönderir. Silinen mesajları görmek için idealdir.",
+  usage: ".quoted [yanıtla]",
   use: "group",
 },
   async (message, match) => {
@@ -483,7 +484,7 @@ Module({
   fromMe: false,
   desc: Lang.DEMOTE_DESC,
   use: "group",
-  usage: ".yetkial @etiket veya yanıtla",
+  usage: ".yetkial [@etiket/yanıtla]",
 },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
@@ -551,7 +552,7 @@ Module({
   fromMe: false,
   desc: Lang.UNMUTE_DESC,
   use: "group",
-  usage: ".sohbetaç (grubun sessizini açar)",
+  usage: ".sohbetaç",
 },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
@@ -590,7 +591,8 @@ Module({
   pattern: 'davet',
   fromMe: true,
   use: 'group',
-  desc: Lang.INVITE_DESC
+  desc: Lang.INVITE_DESC,
+  usage: ".davet"
 },
   (async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND)
@@ -610,7 +612,7 @@ Module({
   fromMe: false,
   use: "group",
   desc: Lang.REVOKE_DESC,
-  usage: ".davetyenile (grup davet bağlantısını sıfırlar)",
+  usage: ".davetyenile",
 },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
@@ -661,8 +663,8 @@ Module({
   pattern: "gadı ?(.*)",
   fromMe: false,
   use: "group",
-  desc: "Grup adını (başlığını) değiştir",
-  usage: ".gadı Yeni Grup Adı",
+  desc: "Grup ismini (başlığını) belirlediğiniz yeni isimle değiştirir.",
+  usage: ".gadı [yeni_isim]",
 },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
@@ -693,8 +695,8 @@ Module({
   pattern: "gaçıklama ?(.*)",
   fromMe: false,
   use: "group",
-  desc: "Grup açıklamasını değiştir",
-  usage: ".gaçıklama Yeni grup açıklaması!",
+  desc: "Grup açıklamasını belirlediğiniz yeni metinle günceller.",
+  usage: ".gaçıklama [yeni_açıklama]",
 },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
@@ -723,8 +725,8 @@ Module({
   pattern: "common ?(.*)",
   fromMe: false,
   use: "group",
-  desc: "İki gruptaki ortak katılımcıları bulur",
-  usage: ".common jid1,jid2\n.common çıkar grup_jid",
+  desc: "Verdiğiniz iki farklı gruptaki ortak olan üyeleri listeler veya gruptan çıkarmanızı sağlar.",
+  usage: ".common [jid1,jid2] | .common çıkar [jid]",
 },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
@@ -792,8 +794,8 @@ Module({
   pattern: "diff ?(.*)",
   fromMe: false,
   use: "group",
-  desc: "İki gruptaki farklı katılımcıları bulur",
-  usage: ".diff jid1,jid2",
+  desc: "Verdiğiniz iki gruptaki birbirinden farklı (benzersiz) üyeleri listeler.",
+  usage: ".diff [jid1,jid2]",
 },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
@@ -877,8 +879,8 @@ Module({
   pattern: "engelle ?(.*)",
   fromMe: true,
   use: "system",
-  desc: "Kullanıcıyı engelle",
-  usage: ".engelle (bir mesaja yanıtla)\n.engelle @etiket",
+  desc: "Belirtilen kullanıcıyı bot üzerinden engeller.",
+  usage: ".engelle [@etiket/yanıtla]",
 },
   async (message, match) => {
     const isGroup = message.jid.endsWith("@g.us");
@@ -892,8 +894,8 @@ Module({
   pattern: "katıl ?(.*)",
   fromMe: false,
   use: "system",
-  desc: "Davet bağlantısını kullanarak bir WhatsApp grubuna katılın",
-  usage: ".join https://chat.whatsapp.com/lades",
+  desc: "Verdiğiniz grup davet bağlantısını kullanarak bir gruba katılmamı sağlar.",
+  usage: ".katıl [link]",
 },
   async (message, match) => {
     let rgx =
@@ -908,8 +910,8 @@ Module({
   pattern: "engelkaldır ?(.*)",
   fromMe: true,
   use: "system",
-  desc: "Kullanıcının engelini kaldır",
-  usage: ".engelkaldır (bir mesaja yanıtla)\n.engelkaldır @etiket",
+  desc: "Daha önce engellenmiş kullanıcının engelini kaldırır.",
+  usage: ".engelkaldır [@etiket/yanıtla]",
 },
   async (message) => {
     const isGroup = message.jid.endsWith("@g.us");
@@ -949,8 +951,8 @@ Module({
   pattern: "toplukatıl ?(.*)",
   fromMe: false,
   use: "system",
-  desc: "Davet bağlantılarını kullanarak birden fazla WhatsApp grubuna katılmayı sağlar",
-  usage: ".toplukatıl link1, link2, link3 veya .toplukatıl link1 link2 link3",
+  desc: "Birden fazla grup bağlantısını toplu olarak işleyerek gruplara sırayla katılmamı sağlar.",
+  usage: ".toplukatıl [link1, link2...]",
 },
   async (message, match) => {
     const rgx = /(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]{22})(?:\?[^\s,]*)*/g;
@@ -1085,10 +1087,9 @@ Module({
 Module({
   pattern: "tümjid ?(.*)",
   fromMe: true,
-  desc: "Sohbetlerin veya grupların tüm JID adreslerini listeler.",
+  desc: "Dahil olduğum tüm grupların veya son sohbetlerin JID adreslerini listeler.",
   use: "tools",
-  usage:
-    ".getjids all (shows all group JIDs)\n.getjids recent (shows recent chat JIDs)\n.getjids recent 15 (shows 15 recent chats)",
+  usage: ".tümjid hepsi | .tümjid son",
 },
   async (message, match) => {
     const args = match[1]?.trim().split(" ") || [];
@@ -1253,7 +1254,7 @@ const estimateTime = (groupCount, hasPin) => {
 Module({
   pattern: "duyuru ?(.*)",
   fromMe: true,
-  desc: "Bot'un bulunduğu tüm gruplara duyuru iletir ve isteğe bağlı olarak sabitler.",
+  desc: "Bulunduğum tüm gruplara duyuru iletir ve isteğe bağlı olarak sabitler.",
   use: "system",
   usage:
     ".duyuru <mesaj>\n" +
@@ -1470,7 +1471,7 @@ Module({
 Module({
   pattern: "sabitle ?(.*)",
   fromMe: false,
-  desc: "Yanıtlanan mesajı belirli bir süre için sabitler",
+  desc: "Yanıtlanan mesajı grup sohbetinin üst kısmına belirlediğiniz süre boyunca sabitler.",
   use: "group",
   usage:
     ".sabitle 24s (24 saat)\n.sabitle 7g (7 gün)\n.sabitle 30g (30 gün)\n.sabitle (varsayılan: 7 gün)",
@@ -1548,9 +1549,8 @@ Module({
   pattern: "pp ?(.*)",
   fromMe: true,
   use: "system",
-  desc: "Profil resmini değiştir/al (tam ekran destekli)",
-  usage:
-    ".pp (reply to image to set profile pic)\n.pp (reply to user to get their profile pic)",
+  desc: "Profil resmimi değiştirir veya belirtilen kullanıcının profil resmini alır.",
+  usage: ".pp [görsel/yanıtla]",
 },
   async (message, match) => {
     if (message.reply_message && message.reply_message.image) {
@@ -1575,23 +1575,23 @@ Module({
   }
 );
 Module({
-  pattern: "grupfoto ?(.*)",
+  pattern: "gfoto ?(.*)",
   fromMe: false,
   use: "system",
-  desc: "Grup simgesini değiştir/al (tam ekran destekli)",
-  usage: ".gpp (reply to image to set group icon)",
+  desc: "Grubun profil fotoğrafını değiştirir veya mevcut fotoğrafı tam boyut olarak gönderir.",
+  usage: ".gfoto [görsel/yanıtla]",
 },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
     const userIsAdmin = await isAdmin(message);
     if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
     const botIsAdmin = await isAdmin(message);
-    if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
+    if (!botIsAdmin) return await message.sendReply("❌ _Bu işlemi yapabilmem için yönetici olmam gerekiyor!_");
 
     if (message.reply_message && message.reply_message.image) {
       const image = await message.reply_message.download();
       await message.client.setProfilePicture(message.jid, { url: image });
-      return await message.sendReply("_*⚙️ Grup simgesi güncellendi ✅*_");
+      return await message.sendReply("_*⚙️ Grup fotoğrafı güncellendi ✅*_");
     }
     if (!message.reply_message.image) {
       try {
@@ -1629,7 +1629,8 @@ function parseSarrafiye(html) {
 Module({
   pattern: "altın ?(.*)",
   fromMe: false,
-  desc: "Güncel altın fiyatlarını gösterir",
+  desc: "Anlık Altın fiyatlarını ve piyasa değişim verilerini listeler.",
+  usage: ".altın",
   use: "tools",
 },
   async (message) => {
@@ -1700,7 +1701,8 @@ Module({
 Module({
   pattern: 'etiket',
   fromMe: false,
-  desc: 'Tüm üyeleri etiketler.',
+  desc: "Gruptaki tüm üyeleri etiketleyerek duyuru yapmanızı sağlar.",
+  usage: ".etiket",
   use: 'group',
 },
   async (message, match) => {
@@ -1724,7 +1726,8 @@ ${index + 1}. @${jid.split('@')[0]}`;
 Module({
   pattern: 'ytetiket',
   fromMe: false,
-  desc: 'Tüm yöneticileri etiketler.',
+  desc: "Grup yöneticilerini etiketler.",
+  usage: ".ytetiket",
   use: 'group',
 },
   async (message, match) => {

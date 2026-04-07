@@ -96,11 +96,12 @@ const listAllEarthquakes = async (m, { limit, region } = {}) => {
 };
 
 Module({
-    pattern: "sondepremler ?(.*)",
-    fromMe: auto,
-    desc: "Türkiye genelinde gerçekleşen son depremleri listeler.",
-    use: "tools",
-  },
+  pattern: "sondepremler ?(.*)",
+  fromMe: auto,
+  desc: "Türkiye genelinde son gerçekleşen depremleri liste halinde sunar. Şehir filtresi eklenebilir.",
+  usage: ".sondepremler | .sondepremler [şehir] [limit]",
+  use: "tools",
+},
   async (m, match) => {
     const rawArgs = (match && match[1] ? match[1] : "").trim();
     const args = rawArgs.split(/\s+/).filter(Boolean);
@@ -122,12 +123,13 @@ Module({
 );
 
 Module({
-    pattern: "sondeprem",
-    fromMe: auto,
-    desc: "Son deprem kaydını gösterir.",
-    use: "tools",
-    dontAddCommandList: true,
-  },
+  pattern: "sondeprem",
+  fromMe: auto,
+  desc: "Türkiye'de kaydedilen en son deprem verisini detaylı olarak gösterir.",
+  usage: ".sondeprem",
+  use: "tools",
+  dontAddCommandList: true,
+},
   async (m) => {
     try {
       const { earthquakes } = await getEarthquakeData();

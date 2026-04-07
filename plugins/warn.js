@@ -37,8 +37,8 @@ async function sendBanAudio(message) {
 Module({
     pattern: "uyar(.*)",
     fromMe: true,
-    desc: "Grup üyelerini uyarmaya yarar. Limit aşıldığında üye gruptan atılır.",
-    usage: ".uyar @üye sebep\n.uyar sebep",
+    desc: "Grup üyelerini uyarmaya yarar. Belirlenen uyarı limitine ulaşıldığında üye otomatik olarak gruptan uzaklaştırılır.",
+    usage: ".uyar [@üye] [sebep] | .uyarısil | .uyarısıfırla | .uyarıliste | .uyarılimit [sayı]",
     use: "group",
   },
   async (message, match) => {
@@ -224,8 +224,8 @@ Module({
 Module({
     pattern: "kaçuyarı ?(.*)",
     fromMe: false,
-    desc: "Bir üyenin uyarılarını kontrol etmeyi sağlar.",
-    usage: ".kaçuyarı @üye",
+    desc: "Bir üyenin toplamda kaç uyarı aldığını ve uyarı geçmişini detaylıca listeler.",
+    usage: ".kaçuyarı [@üye]",
     use: "group",
   },
   async (message) => {

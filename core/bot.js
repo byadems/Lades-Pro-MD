@@ -236,7 +236,14 @@ async function createBot(sessionId = "lades-session", options = {}) {
         reconnectCount++;
         const delay = Math.min(RECONNECT_BASE_MS * Math.pow(2, reconnectCount - 1), RECONNECT_MAX_MS);
         logger.info(`${delay}ms içinde yeniden bağlanılıyor (Deneme ${reconnectCount})...`);
+
+        if (reconnectCount > 15) {
+            logger.error("Maksimum yeniden bağlanma denemesine ulaşıldı. Bot kapatılıyor.");
+            process.exit(1);
+        }
+
         setTimeout(async () => {
+          sock.ev.removeAllListeners(); // Temizlik
           const newSock = await createBot(sessionId, { ...options, reconnectCount });
           if (options.manager) {
             options.manager.updateSocket(sessionId, newSock);

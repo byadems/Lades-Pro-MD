@@ -2,7 +2,7 @@
 
 /**
  * core/handler.js
- * Raganork-MD Style Command Handler
+ * Lades-Pro Style Command Handler
  * Standard: Module({ pattern, fromMe, desc, type }, callback)
  * Callback: async (message, match) => { ... }
  */
@@ -85,7 +85,7 @@ function cleanJid(jid) {
 }
 
 // ─────────────────────────────────────────────────────────
-//  BaseMessage Class (Raganork-MD Style)
+//  BaseMessage Class (Lades-Pro Style)
 // ─────────────────────────────────────────────────────────
 
 class ReplyMessage {
@@ -141,7 +141,7 @@ class ReplyMessage {
    * Median mesajı (alıntılanan) indir.
    * Varsayılan: dosya yolu döndürür (ffmpeg, sticker, createReadStream uyumlu).
    * download("buffer") çağrılırsa buffer döner.
-   * Upstream raganork-md davranışıyla birebir uyumlu.
+   * Lades-Pro altyapısıyla birebir uyumlu.
    */
   async download(type = "path") {
     try {
@@ -239,7 +239,7 @@ class BaseMessage {
 
     if (contextInfo?.quotedMessage) {
       this.quoted = new ReplyMessage(client, contextInfo, this);
-      this.reply_message = this.quoted; // Lades/NexBot uyumluluk alias'ı
+      this.reply_message = this.quoted; // Lades-Pro uyumluluk alias'ı
     } else {
       this.quoted = null;
       this.reply_message = false;
@@ -285,7 +285,7 @@ class BaseMessage {
   }
 
   /**
-   * Generic send message (Raganork-MD / Baileys style compatibility)
+   * Generic send message (Lades-Pro style compatibility)
    */
   async sendMessage(arg1, arg2, arg3, arg4) {
     let jid = this.jid;
@@ -295,7 +295,7 @@ class BaseMessage {
       return this.client.sendMessage(arg1, arg2, arg3 || {});
     }
 
-    // 2. Raganork-MD signature: sendMessage(content, type, options, jid?)
+    // 2. Lades-Pro signature: sendMessage(content, type, options, jid?)
     let r_content = arg1;
     let r_type = arg2;
     let r_options = arg3 || {};
@@ -391,7 +391,7 @@ const eventHandlers = new Map();
 const onHandlers = { text: [], message: [], group: [], groupParticipants: [] };
 
 /**
- * Module (Raganork-MD standard registration)
+ * Module (Lades-Pro standard registration)
  * Pattern ve on: alanlarını destekler.
  */
 function Module(options, callback) {
@@ -580,9 +580,9 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           continue;
         }
         try {
-          await h.run(message, [text]);
+          if (h._disabled) continue; await h.run(message, [text]); h._errorCount = 0;
         } catch (e) {
-          logger.debug({ err: e.message, pattern: h.on }, "on-event handler error");
+          h._errorCount = (h._errorCount || 0) + 1; logger.warn({ err: e.message, pattern: h.on, count: h._errorCount }, "on-event handler error"); if (h._errorCount >= 3) { h._disabled = true; logger.error({ pattern: h.on }, "Handler devredışı bırakıldı (3 ardışık hata)"); const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, ""); if (ownerNum && message.client) { try { message.client.sendMessage(ownerNum + "@s.whatsapp.net", { text: "🚨 *Kritik Hata Uyarısı*\nBir `on:` event handler 3 ardışık hata nedeniyle devredışı bırakıldı.\n\n*Type:* " + (h.on || "Bilinmiyor") + "\n*Son Hata:* " + e.message }); } catch (_) {} } }
         }
       }
     }

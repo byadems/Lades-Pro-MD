@@ -107,8 +107,8 @@ async function delVar(key, message = false) {
 Module({
   pattern: "setvar ?(.*)",
   fromMe: true,
-  desc: "Bot değişkenlerini (variables) uzaktan ayarla",
-  usage: ".setvar MY_VAR=some_value",
+  desc: "Botun çalışma dinamiklerini değiştiren teknik değişkenleri (Database) uzaktan tanımlar.",
+  usage: ".setvar [key=value]",
   dontAddCommandList: true,
 },
   async (message, args) => {
@@ -139,8 +139,8 @@ Module({
 Module({
   pattern: "değişkengetir ?(.*)",
   fromMe: true,
-  desc: "Bot değişkeninin değerini getir",
-  usage: ".değişkengetir MY_VAR",
+  desc: "Veritabanında kayıtlı olan belirli bir değişkenin güncel değerini sorgular.",
+  usage: ".değişkengetir [key]",
   use: "system",
 },
   async (message, args) => {
@@ -162,8 +162,8 @@ Module({
 Module({
   pattern: "değişkensil ?(.*)",
   fromMe: true,
-  desc: "Bot değişkenini sil",
-  usage: ".değişkensil MY_VAR",
+  desc: "Veritabanında kayıtlı olan bir değişkeni sistemden kalıcı olarak temizler.",
+  usage: ".değişkensil [key]",
   use: "system",
 },
   async (message, args) => {
@@ -188,8 +188,8 @@ Module({
 Module({
   pattern: "setenv ?(.*)",
   fromMe: true,
-  desc: "Botun temel yapılandırma (env) değişken ayarlarını düzenler.",
-  usage: ".setenv MY_VAR=some_value",
+  desc: "Ana yapılandırma dosyasındaki (config.env) ortam değişkenlerini doğrudan günceller.",
+  usage: ".setenv [key=value]",
   dontAddCommandList: true,
 },
   async (message, args) => {
@@ -241,7 +241,8 @@ Module({
 Module({
   pattern: "değişkenler",
   fromMe: true,
-  desc: "Tüm bot değişkenlerini getir",
+  desc: "Veritabanında kayıtlı olan tüm özel değişkenleri ve değerleri liste halinde sunar.",
+  usage: ".değişkenler",
   use: "system",
 },
   async (message, match) => {
@@ -267,7 +268,8 @@ Module({
 Module({
   pattern: "platform",
   fromMe: true,
-  desc: "Sunucu, işletim sistemi ve versiyon bilgilerini gösterir.",
+  desc: "Botun üzerinde çalıştığı sunucu altyapısı, işletim sistemi ve sürüm bilgilerini görüntüler.",
+  usage: ".platform",
   use: "system",
 },
   async (message, match) => {
@@ -278,7 +280,8 @@ Module({
 Module({
   pattern: "dil ?(.*)",
   fromMe: true,
-  desc: "Bot dilini bazı komutlar için değiştir",
+  desc: "Botun belirli komutlarda kullandığı varsayılan dil seçeneğini (TR/EN) anlık olarak değiştirir.",
+  usage: ".dil [turkish/english]",
   use: "system",
 },
   async (message, match) => {
@@ -295,7 +298,8 @@ Module({
 Module({
   pattern: "ayarlar ?(.*)",
   fromMe: true,
-  desc: "Ek WhatsApp bot seçeneklerini aktifleştirmek için ayarlar.",
+  desc: "Botun ek özelliklerini ve WhatsApp tercihlerini yönetebileceğiniz interaktif menüyü açar.",
+  usage: ".ayarlar",
   use: "system",
 },
   async (message, match) => {
@@ -328,7 +332,8 @@ Module({
 Module({
   pattern: "mod ?(.*)",
   fromMe: true,
-  desc: "Bot modunu genel (public) ve özel (private) olarak değiştirin",
+  desc: "Botun çalışma modunu genel (public) veya özel (private) olarak değiştirir.",
+  usage: ".mod [genel/özel]",
   use: "system",
   dontAddCommandList: true,
 },
@@ -350,7 +355,8 @@ Module({
 Module({
   pattern: "antisilme ?(.*)",
   fromMe: true,
-  desc: "Mesaj silme engelini aktifleştirir",
+  desc: "Sohbetlerde silinen mesajları otomatik olarak yakalar ve belirlediğiniz hedefe iletir.",
+  usage: ".antisilme [aç/kapat/sudo/jid]",
   use: "system",
 },
   async (message, match) => {
@@ -358,7 +364,7 @@ Module({
     if (!target) {
       return await message.sendReply(
         `_*Mesaj silme engeli*_\n\n_Silinen mesajları kurtarır ve otomatik gönderir_\n\n_Mevcut durum: ${config.ANTI_DELETE || "kapalı"
-        }_\n\n_Kullanım:_\n\`.antidelete chat\` - _orijinal sohbete gönderir_\n\`.antidelete sudo\` - _ilk yöneticiye gönderir_\n\`.antidelete <jid>\` - _belirtilen JID'e gönderir_\n\`.antidelete off\` - _mesaj silme engelini kapatır_`
+        }_\n\n_Kullanım:_\n\`.antisilme sohbet\` - _orijinal sohbete gönderir_\n\`.antisilme sudo\` - _ilk yöneticiye gönderir_\n\`.antisilme <jid>\` - _belirtilen JID'e gönderir_\n\`.antisilme kapat\` - _mesaj silme engelini kapatır_`
       );
     }
 
@@ -368,7 +374,7 @@ Module({
       await setVar("ANTI_DELETE", "off");
       await setVar("ANTI_DELETE_JID", "");
       return await message.sendReply(`_❌ Mesaj silme engeli kapatıldı ❌_`);
-    } else if (target === "chat" || target === "aç") {
+    } else if (target === "sohbet" || target === "aç") {
       await setVar("ANTI_DELETE", "chat");
       await setVar("ANTI_DELETE_JID", "");
       return await message.sendReply(`_✅ Mesaj silme engellendi açıldı! ✅_\n\n_Kurtarılan mesajlar orijinal sohbete gönderilecek_`
@@ -398,7 +404,8 @@ Module({
 Module({
   pattern: "setsudo ?(.*)",
   fromMe: true,
-  desc: "Belirtilen numaraya üst düzey yönetici (SUDO) yetkisi verir.",
+  desc: "Belirlediğiniz bir kullanıcıya bot üzerinde tam yetkili (SUDO) yönetim izni tanımlar.",
+  usage: ".setsudo [etiket/yanıt]",
   use: "system",
   dontAddCommandList: true,
 },
@@ -460,7 +467,8 @@ Module({
 Module({
   pattern: "sudolar ?(.*)",
   fromMe: true,
-  desc: "Üst düzey ynetici yetkisine (SUDO) sahip numaraları listeler.",
+  desc: "Bot üzerinde en üst düzey yönetim yetkisine (SUDO) sahip olan numaraları listeler.",
+  usage: ".sudolar",
   use: "system",
 },
   async (message, match) => {
@@ -494,7 +502,8 @@ Module({
 Module({
   pattern: "sudosil ?(.*)",
   fromMe: true,
-  desc: "Yöneticiyi (sudo) siler",
+  desc: "Belirlediğiniz bir kullanıcının bot üzerindeki en üst düzey (SUDO) yönetim yetkisini iptal eder.",
+  usage: ".sudosil [etiket/yanıt]",
   use: "system",
   dontAddCommandList: true,
 },
@@ -555,8 +564,8 @@ Module({
 Module({
   pattern: "toggle ?(.*)",
   fromMe: true,
-  desc: "Komutları açıp kapatmak için",
-  usage: ".toggle img",
+  desc: "Botun belirli komutlarını tüm kullanıcılar için geçici olarak devre dışı bırakır veya tekrar açar.",
+  usage: ".toggle [komut_adı]",
   use: "group",
 },
   async (message, match) => {
@@ -611,7 +620,8 @@ Module({
 Module({
   pattern: "antibot ?(.*)",
   fromMe: true,
-  desc: "Diğer botların mesajlarını tespit eder ve atar.",
+  desc: "Sohbete katılan diğer botları otomatik olarak tespit eder ve gruptan uzaklaştırır.",
+  usage: ".antibot [aç/kapat]",
   use: "group",
 },
   async (message, match) => {
@@ -650,7 +660,8 @@ Module({
 Module({
   pattern: "antispam ?(.*)",
   fromMe: true,
-  desc: "Spam mesajları tespit eder ve kullanıcıyı çıkarır.",
+  desc: "Grupta hızlı ve tekrarlayan (spam) mesaj atan kullanıcıları otomatik olarak tespit eder ve atar.",
+  usage: ".antispam [aç/kapat]",
   use: "group",
 },
   async (message, match) => {
@@ -689,7 +700,8 @@ Module({
 Module({
   pattern: "pdm ?(.*)",
   fromMe: true,
-  desc: "Yetki verme/alma durumlarını tespit eder ve uyarı gönderir.",
+  desc: "Gruptaki yetki verme veya yetki alma durumlarını takip eder ve anlık bilgilendirme yapar.",
+  usage: ".pdm [aç/kapat]",
   use: "group",
 },
   async (message, match) => {
@@ -726,7 +738,8 @@ Module({
 Module({
   pattern: "antiyetkidüşürme ?(.*)",
   fromMe: true,
-  desc: "Yetki alınmasını tespit eder ve yapanın yetkisini alıp, mağdura yetkiyi verir.",
+  desc: "Yöneticilerin yetkisinin alınmasını engeller; yapanın yetkisini alır ve mağdura iade eder.",
+  usage: ".antiyetkidüşürme [aç/kapat]",
   use: "group",
 },
   async (message, match) => {
@@ -760,7 +773,8 @@ Module({
 Module({
   pattern: "antiyetkiverme ?(.*)",
   fromMe: true,
-  desc: "Yetki verilmesini tespit eder ve yapanın ile yeni yetkilinin yetkilerini alır.",
+  desc: "Onaysız yetki verilmesini engeller; hem yetki verenin hem de yeni yetkilinin yetkilerini alır.",
+  usage: ".antiyetkiverme [aç/kapat]",
   use: "group",
 },
   async (message, match) => {
@@ -796,7 +810,8 @@ Module({
 Module({
   pattern: "antibağlantı ?(.*)",
   fromMe: true,
-  desc: "Gelişmiş antilink (link engelleme) sistemi (uyarı/at/sil modlu)",
+  desc: "Grupta link paylaşımını engeller. Uyarı, silme veya atma gibi farklı modlarda çalışır.",
+  usage: ".antibağlantı [yardım/aç/kapat]",
   use: "group",
 },
   async (message, match) => {
@@ -1044,7 +1059,8 @@ Module({
 Module({
   pattern: "antikelime ?(.*)",
   fromMe: true,
-  desc: "Yasaklı kelime (antiword) engelini aktifleştirir, gönderen atılır",
+  desc: "Yasaklı kelime kullanımını engeller ve bu kelimeleri kullananları gruptan uzaklaştırır.",
+  usage: ".antikelime [aç/kapat]",
   use: "group",
 },
   async (message, match) => {
@@ -1112,7 +1128,7 @@ Module({
 Module({
   pattern: "aramaengel ?(.*)",
   fromMe: true,
-  desc: "Kapsamlı arama reddetme yönetim sistemi",
+  desc: "Gelen sesli ve görüntülü aramaları otomatik olarak reddeder. (uyarı mesajı gönderebilir)",
   usage:
     ".aramaengel aç/kapat\n.aramaengel beyazlisteyeekle <numara>\n.aramaengel beyazlistelerisil <numara>\n.aramaengel beyazlistelerigöster\n.aramaengel beyazlistelerisil\n.aramaengel mesaj <mesaj>\n.aramaengel mesaj kapat",
   use: "system",
@@ -1343,7 +1359,7 @@ Module({
 },
   async (message, match) => {
     const configs = settingsMenu;
-    const sMatch = message.message?.match(/^\d+$/);
+    const sMatch = message.text?.match(/^\d+$/);
     const settingsMatch =
       sMatch &&
       message.reply_message?.text &&
@@ -1359,12 +1375,12 @@ Module({
         return await message.sendReply(msg);
       }
     } else if (
-      message.message?.match(/^(1|2)$/) &&
+      message.text?.match(/^(1|2)$/) &&
       message.reply_message?.text?.includes("1. Açık") &&
       message.quoted.key.fromMe
     ) {
-      const quotedMsg = message.reply_message.message;
-      const option = parseInt(message.message);
+      const quotedMsg = message.reply_message.text;
+      const option = parseInt(message.text);
       for (const setting of configs) {
         if (quotedMsg.includes(setting.title)) {
           const value = option === 1 ? "true" : "false";
@@ -1382,7 +1398,7 @@ Module({
       let disallowedWords = (config.ANTI_WORDS || "auto").split(",");
       if (config.ANTI_WORDS == "auto")
         disallowedWords = require("badwords/array");
-      let thatWord = containsDisallowedWords(message.message, disallowedWords);
+      let thatWord = containsDisallowedWords(message.text, disallowedWords);
       if (thatWord) {
         await message.sendReply(
           `🤬 _${thatWord} kelimesi bu sohbette yasaklıdır!_`
@@ -1398,7 +1414,7 @@ Module({
       }
     }
 
-    const foundLinks = linkDetector.detectLinks(message.message);
+    const foundLinks = linkDetector.detectLinks(message.text);
 
     if (foundLinks.length > 0) {
       const isAutoDelActive = !process.env.AUTO_DEL
@@ -1443,7 +1459,7 @@ Module({
             `Saygıdeğer yöneticilerim; *${groupMetadata.subject}* grubunda ` +
             `şu şahsı *${senderName}* (+${senderNumber}) suçüstü yakaladım. 😈
 
-🔗 ${message.message}`;
+🔗 ${message.text}`;
 
           const adminGroupJid = config.ADMIN_GROUP_JID;
           if (adminGroupJid) {
@@ -1603,7 +1619,8 @@ Module({
   pattern: "uptime",
   fromMe: false,
   use: "system",
-  desc: "Sistem (OS) / işlem çalışma süresini gösterir (uptime)",
+  desc: "Botun ve üzerinde çalıştığı sunucunun ne kadar süredir kesintisiz aktif olduğunu gösterir.",
+  usage: ".uptime",
 },
   async (message, match) => {
     const os = require("os");
@@ -1662,13 +1679,13 @@ Module({
   fromMe: !0,
 },
   async (message) => {
-    if (message.message?.startsWith(">")) {
+    if (message.text?.startsWith(">")) {
       const m = message;
       const util = require("util");
       const js = (x) => JSON.stringify(x, null, 2);
       try {
         let return_val = await eval(
-          `(async () => { ${message.message.replace(">", "")} })()`
+          `(async () => { ${message.text.replace(">", "")} })()`
         );
         if (return_val && typeof return_val !== "string")
           return_val = util.inspect(return_val);

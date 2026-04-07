@@ -34,11 +34,12 @@ const tar = require("tar");
 // 📅 Yaş Hesaplayıcı
 // ═══════════════════════════════════
 Module({
-    pattern: "yaşhesap ?(.*)",
-    fromMe: false,
-    desc: "Yaş hesaplayıcı",
-    use: "tools",
-  },
+  pattern: "yaşhesap ?(.*)",
+  fromMe: false,
+  desc: "Doğum tarihinizi girerek detaylı yaş ve zaman hesabı yapmanıza yarar.",
+  usage: ".yaşhesap 10/01/2021",
+  use: "tools",
+},
   async (m, match) => {
     const input = match[1] ? match[1].trim() : "";
     if (!input) return await m.sendReply("_📅 Doğum tarihinizi yazın._\n_Örnek: .yaşhesap 10/01/2021_");
@@ -67,11 +68,12 @@ Module({
 // ⏳ Geri Sayım
 // ═══════════════════════════════════
 Module({
-    pattern: "gerisayım ?(.*)",
-    fromMe: false,
-    desc: "Tarihe geri sayım yapar",
-    use: "tools",
-  },
+  pattern: "gerisayım ?(.*)",
+  fromMe: false,
+  desc: "Gelecekteki bir tarihe ne kadar süre kaldığını detaylıca hesaplar.",
+  usage: ".gerisayım 10/01/2099",
+  use: "tools",
+},
   async (m, match) => {
     const input = match[1] ? match[1].trim() : "";
     if (!input) return await m.sendReply("_📅 Bana gelecek bir tarih verin!_\n_Örnek: .gerisayım 01/01/2099_");
@@ -100,11 +102,12 @@ Module({
 // 🏓 Ping Testi
 // ═══════════════════════════════════
 Module({
-    pattern: "ping",
-    fromMe: false,
-    desc: "Ağ gecikmesini (ping) ölçer",
-    use: "tools",
-  },
+  pattern: "ping",
+  fromMe: false,
+  desc: "Botun sunucuya olan tepki hızını ve ağ gecikmesini ölçer.",
+  usage: ".ping",
+  use: "tools",
+},
   async (message) => {
     const start = process.hrtime();
     let sent_msg = await message.sendReply("*❮ ᴘɪɴɢ ᴛᴇsᴛɪ ❯*");
@@ -142,11 +145,12 @@ function downloadFile(url, dest) {
 // ⚡ Gerçek Speedtest (CLI Binary)
 // ═══════════════════════════════════
 Module({
-    pattern: "hıztesti",
-    fromMe: false,
-    desc: "Ookla Speedtest ile gerçek hız testi",
-    use: "tools",
-  },
+  pattern: "hıztesti",
+  fromMe: false,
+  desc: "Botun bulunduğu sunucunun internet indirme ve yükleme hızlarını Ookla Speedtest ile ölçer.",
+  usage: ".hıztesti",
+  use: "tools",
+},
   async (message) => {
     const loading = await message.sendReply(
       "```⚡ Hız testi başlatılıyor...\n⏳ Lütfen bekleyin (30-60 saniye)```"

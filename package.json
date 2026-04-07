@@ -1,7 +1,7 @@
 {
-  "name": "lades-md",
+  "name": "lades-pro-md",
   "version": "1.0.0",
-  "description": "Ultra-stable WhatsApp bot framework - Lades-MD",
+  "description": "Ultra-premium WhatsApp bot framework - Lades-Pro-MD",
   "main": "index.js",
   "scripts": {
     "start": "node --no-warnings --experimental-require-module index.js",
@@ -9,15 +9,15 @@
     "pair": "node --no-warnings scripts/pair.js",
     "dashboard": "node --no-warnings --experimental-require-module scripts/dashboard.js",
     "pm2:start": "pm2 start ecosystem.config.js",
-    "pm2:stop": "pm2 stop lades-md",
-    "pm2:restart": "pm2 restart lades-md",
-    "pm2:logs": "pm2 logs lades-md"
+    "pm2:stop": "pm2 stop lades-pro-md",
+    "pm2:restart": "pm2 restart lades-pro-md",
+    "pm2:logs": "pm2 logs lades-pro-md"
   },
   "keywords": [
     "whatsapp",
     "bot",
     "baileys",
-    "nexbot"
+    "lades-pro"
   ],
   "license": "GPL-3.0",
   "dependencies": {

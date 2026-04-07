@@ -115,7 +115,12 @@ async function useSessionStringAuthState(sessionString) {
     state = {};
   }
 
-  const saveCreds = async () => { /* no-op for session string mode */ };
+  const saveCreds = async () => {
+    try {
+      const b64 = Buffer.from(JSON.stringify({ creds: state.creds, keys: state.keys }, BufferJSON.replacer)).toString("base64");
+      process.env.SESSION = b64;
+    } catch { }
+  };
 
   const keys = makeCacheableSignalKeyStore({
     get: async (type, ids) => {

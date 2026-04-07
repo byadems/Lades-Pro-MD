@@ -4,11 +4,11 @@ const moment = require('moment-timezone');
 moment.tz.setDefault('Europe/Istanbul');
 moment.locale('tr');
 
-const yks = 'YKS Sınavlarına ne kadar süre kaldığını belirtir.';
-const msu = 'MSÜ Sınavına ne kadar süre kaldığını belirtir.';
-const kpss = 'KPSS Sınavına ne kadar süre kaldığını belirtir.';
-const okul = 'Okulların kapanmasına ne kadar süre kaldığını belirtir.';
-const oruc = 'Ramazan ayına ne kadar süre kaldığını belirtir.';
+const yks = 'YKS (TYT/AYT/YDT) sınavlarına kalan süreyi veya tercih tarihlerini gösterir.';
+const msu = 'MSÜ sınavına kalan süreyi gösterir.';
+const kpss = 'KPSS (Lisans/Önlisans/Ortaöğretim/E-KPSS) sınavlarına kalan süreyi gösterir.';
+const okul = 'Okulların kapanmasına, ara tatillere veya yeni döneme kalan süreyi gösterir.';
+const oruc = 'Ramazan ayının başlangıcına veya bitişine kalan süreyi gösterir.';
 
 function calculateTime(futureTime) {
   const future = moment(futureTime, 'YYYY-MM-DD HH:mm:ss');
@@ -46,11 +46,12 @@ function findClosestDate(dates) {
 }
 
 Module({
-    pattern: 'ykssayaç',
-    fromMe: false,
-    desc: yks,
-    use: 'tools',
-  },
+  pattern: 'ykssayaç',
+  fromMe: false,
+  desc: yks,
+  usage: '.ykssayaç',
+  use: 'tools',
+},
   async (m) => {
     const sinavsonuc = '2026-07-22 07:30:00';
     const tercihbaslangic = '2025-07-30 00:00:00';
@@ -64,8 +65,8 @@ Module({
 
       await m.sendReply(
         `⏳ *TYT* sınavına *${time1.days} gün ${time1.hours} saat ${time1.minutes} dakika ${time1.seconds} saniye* kaldı!\n📅 *20 Haziran 2026 - 10:15*\n\n` +
-          `⏳ *AYT* sınavına *${time2.days} gün ${time2.hours} saat ${time2.minutes} dakika ${time2.seconds} saniye* kaldı!\n📅 *21 Haziran 2026 - 10:15*\n\n` +
-          `⏳ *YDT* sınavına *${time3.days} gün ${time3.hours} saat ${time3.minutes} dakika ${time3.seconds} saniye* kaldı!\n📅 *21 Haziran 2026 - 15:45*`
+        `⏳ *AYT* sınavına *${time2.days} gün ${time2.hours} saat ${time2.minutes} dakika ${time2.seconds} saniye* kaldı!\n📅 *21 Haziran 2026 - 10:15*\n\n` +
+        `⏳ *YDT* sınavına *${time3.days} gün ${time3.hours} saat ${time3.minutes} dakika ${time3.seconds} saniye* kaldı!\n📅 *21 Haziran 2026 - 15:45*`
       );
     } else if (now.isBefore(moment(sinavsonuc, 'YYYY-MM-DD HH:mm:ss'))) {
       const timeToResults = calculateTime(sinavsonuc);
@@ -92,11 +93,12 @@ Module({
 );
 
 Module({
-    pattern: 'kpsssayaç',
-    fromMe: false,
-    desc: kpss,
-    use: 'tools',
-  },
+  pattern: 'kpsssayaç',
+  fromMe: false,
+  desc: kpss,
+  usage: '.kpsssayaç',
+  use: 'tools',
+},
   async (m) => {
     const lisans = calculateTime('2026-09-06 10:15:00');
     const onlisans = calculateTime('2026-10-04 10:15:00');
@@ -109,11 +111,12 @@ Module({
 );
 
 Module({
-    pattern: 'msüsayaç',
-    fromMe: false,
-    desc: msu,
-    use: 'tools',
-  },
+  pattern: 'msüsayaç',
+  fromMe: false,
+  desc: msu,
+  usage: '.msüsayaç',
+  use: 'tools',
+},
   async (m) => {
     const targetDate = moment('2026-03-01 10:15:00');
     const now = moment();
@@ -132,11 +135,12 @@ Module({
 );
 
 Module({
-    pattern: 'okulsayaç',
-    fromMe: false,
-    desc: okul,
-    use: 'tools',
-  },
+  pattern: 'okulsayaç',
+  fromMe: false,
+  desc: okul,
+  usage: '.okulsayaç',
+  use: 'tools',
+},
   async (m) => {
     const schoolDates = [
       { date: '2025-11-10 08:00:00', label: '1. Dönem ara tatili' },
@@ -156,21 +160,21 @@ Module({
     const formattedDate = moment(closestDateObj.date).format('DD MMMM YYYY - dddd');
 
     await m.sendReply(
-      `🧐 En yakın tarih: *${closestDateObj.label}*\n⏳ ${
-        closestDateObj.label === 'Okulların açılışı'
-          ? 'Okulların açılmasına'
-          : 'Okulların kapanmasına'
+      `🧐 En yakın tarih: *${closestDateObj.label}*\n⏳ ${closestDateObj.label === 'Okulların açılışı'
+        ? 'Okulların açılmasına'
+        : 'Okulların kapanmasına'
       } *${time.days} gün ${time.hours} saat ${time.minutes} dakika ${time.seconds}* saniye kaldı! 🥳\n📅 *${formattedDate}*`
     );
   }
 );
 
 Module({
-    pattern: 'ramazansayaç',
-    fromMe: false,
-    desc: oruc,
-    use: 'tools',
-  },
+  pattern: 'ramazansayaç',
+  fromMe: false,
+  desc: oruc,
+  usage: '.ramazansayaç',
+  use: 'tools',
+},
   async (m) => {
     const ramazanStart = '2026-02-19 02:23:00';
     const ramazanEnd = '2026-03-19 19:30:00';

@@ -5,13 +5,12 @@ const { filter, isAdmin } = require("./utils");
 const handler = HANDLER_PREFIX;
 
 Module({
-    pattern: "filtre ?(.*)",
-    fromMe: false,
-    desc: "Otomatik yanıt filtreleri oluşturur. Kullanım: .filtre tetikleyici | yanıt",
-    usage:
-      ".filtre merhaba | Merhaba! | sohbet\n.filtre yardım | Size yardım edebilirim | herkes\n.filtre güle | Güle güle! | grup | tam-eşleşme",
-    use: "group",
-  },
+  pattern: "filtre ?(.*)",
+  fromMe: false,
+  "Belirli kelimelere botun otomatik olarak vermesini istediğiniz yanıtları (filtreleri) oluşturur.",
+  usage: ".filtre merhaba | Merhaba! | sohbet\n.filtre yardım | Size yardım edebilirim | herkes\n.filtre güle | Güle güle! | grup | tam-eşleşme",
+  use: "group",
+},
   async (message, match) => {
     if (match[0].includes("filtreler")) return;
     let adminAccess = await isAdmin(message);
@@ -103,12 +102,12 @@ Module({
 );
 
 Module({
-    pattern: "filtreler ?(.*)",
-    fromMe: false,
-    desc: "Tüm filtreleri listele",
-    usage: ".filtreler\n.filtreler herkes\n.filtreler grup",
-    use: "group",
-  },
+  pattern: "filtreler ?(.*)",
+  fromMe: false,
+  desc: "Sohbet veya genel kapsamda oluşturulmuş olan tüm aktif filtreleri listeler.",
+  usage: ".filtreler\n.filtreler herkes\n.filtreler grup",
+  use: "group",
+},
   async (message, match) => {
     let adminAccess = await isAdmin(message);
     if (!message.fromOwner && !adminAccess) return;
@@ -158,12 +157,12 @@ Module({
 );
 
 Module({
-    pattern: "filtresil ?(.*)",
-    fromMe: false,
-    desc: "Bir filtreyi sil",
-    usage: ".filtresil trigger\n.filtresil trigger herkes",
-    use: "group",
-  },
+  pattern: "filtresil ?(.*)",
+  fromMe: false,
+  desc: "Daha önce oluşturulmuş olan bir filtre tetikleyicisini sistemden kalıcı olarak siler.",
+  usage: ".filtresil tetikleyici\n.filtresil tetikleyici herkes",
+  use: "group",
+},
   async (message, match) => {
     let adminAccess = await isAdmin(message);
     if (!message.fromOwner && !adminAccess) return;
@@ -201,12 +200,12 @@ Module({
 );
 
 Module({
-    pattern: "filtredurum ?(.*)",
-    fromMe: false,
-    desc: "Bir filtreyi aç/kapat",
-    usage: ".filtredurum tetikleyici\n.filtredurum tetikleyici herkes",
-    use: "group",
-  },
+  pattern: "filtredurum ?(.*)",
+  fromMe: false,
+  desc: "Belirlediğiniz bir filtreyi geçici olarak devre dışı bırakır veya tekrar aktif eder.",
+  usage: ".filtredurum tetikleyici\n.filtredurum tetikleyici herkes",
+  use: "group",
+},
   async (message, match) => {
     let adminAccess = await isAdmin(message);
     if (!message.fromOwner && !adminAccess) return;
@@ -256,12 +255,12 @@ Module({
 );
 
 Module({
-    pattern: "testfiltre ?(.*)",
-    fromMe: false,
-    desc: "Bir mesajın filtreleri tetikleyip tetiklemeyeceğini test edin",
-    usage: ".testfiltre merhaba dünya",
-    use: "group",
-  },
+  pattern: "testfiltre ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız bir kelimenin herhangi bir filtreyle eşleşip eşleşmediğini test eder.",
+  usage: ".testfiltre [metin]",
+  use: "group",
+},
   async (message, match) => {
     let adminAccess = await isAdmin(message);
     if (!message.fromOwner && !adminAccess) return;
@@ -298,11 +297,12 @@ Module({
 );
 
 Module({
-    pattern: "filtreyardım",
-    fromMe: false,
-    desc: "Filtre sistemi için ayrıntılı yardım",
-    use: "group",
-  },
+  pattern: "filtreyardım",
+  fromMe: false,
+  desc: "Filtreleme sistemi ve gelişmiş seçenekleri hakkında detaylı yardım sunar.",
+  usage: ".filtreyardım",
+  use: "group",
+},
   async (message) => {
     const helpText =
       `*🔧 Filtre Sistemi Yardımı*\n\n` +

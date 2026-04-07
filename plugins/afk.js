@@ -131,13 +131,12 @@ function getAFKData(userJid) {
 }
 
 Module({
-    pattern: "uzakta ?(.*)",
-    fromMe: false,
-    desc: "Kendinizi AFK (Klavyeden Uzakta) olarak ayarlayın",
-    usage:
-      ".uzakta [sebep] - _İsteğe bağlı sebeple AFK ol_\n.uzakta durum - _Mevcut üyelerin durumunu kontrol eder_\n.uzakta list - _Tüm AFK kullanıcıları göster_",
-    use: "genel",
-  },
+  pattern: "uzakta ?(.*)",
+  fromMe: false,
+  desc: "AFK (Uzakta) modunu başlatarak sizi etiketleyenlere veya size mesaj atanlara otomatik bilgi verir.",
+  usage: ".uzakta [sebep] - _İsteğe bağlı sebeple AFK ol_\n.uzakta durum - _Mevcut üyelerin durumunu kontrol eder_\n.uzakta list - _Tüm AFK kullanıcıları göster_",
+  use: "genel",
+},
   async (message, match) => {
     const userJid = message.sender;
     const input = match[1]?.trim();
@@ -206,9 +205,9 @@ Module({
 );
 
 Module({
-    on: "message",
-    fromMe: false,
-  },
+  on: "message",
+  fromMe: false,
+},
   async (message) => {
     try {
       const senderJid = message.sender;
@@ -327,9 +326,9 @@ Module({
 );
 
 Module({
-    on: "message",
-    fromMe: false,
-  },
+  on: "message",
+  fromMe: false,
+},
   async (message) => {
     try {
       const senderJid = message.sender;

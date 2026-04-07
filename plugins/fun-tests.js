@@ -23,11 +23,12 @@ async function runSingleRateCommand(message, { introText, resultText }) {
 }
 
 Module({
-    pattern: "testgay ?(.*)",
-    fromMe: false,
-    desc: "Etiketlediğiniz üyenin gaylik yüzdesini ölçer.",
-    use: "game",
-  },
+  pattern: "testgay ?(.*)",
+  fromMe: false,
+  desc: "Etiketlediğiniz üyenin gaylik yüzdesini ölçer.",
+  usage: ".testgay [etiket/yanıt]",
+  use: "game",
+},
   async (message) => {
     await runSingleRateCommand(message, {
       introText: "üyesinin *Gay* olma ihtimalini hesaplıyorum... 🧐",
@@ -37,11 +38,12 @@ Module({
 );
 
 Module({
-    pattern: "testlez ?(.*)",
-    fromMe: false,
-    desc: "Etiketlediğiniz üyenin lezlik yüzdesini ölçer.",
-    use: "game",
-  },
+  pattern: "testlez ?(.*)",
+  fromMe: false,
+  desc: "Etiketlediğiniz üyenin lezlik yüzdesini ölçer.",
+  usage: ".testlez [etiket/yanıt]",
+  use: "game",
+},
   async (message) => {
     await runSingleRateCommand(message, {
       introText: "üyesinin *Lez* olma ihtimalini hesaplıyorum... 🧐",
@@ -51,11 +53,12 @@ Module({
 );
 
 Module({
-    pattern: "testprenses ?(.*)",
-    fromMe: false,
-    desc: "Etiketlediğiniz üyenin prenseslik seviyesini ölçer.",
-    use: "game",
-  },
+  pattern: "testprenses ?(.*)",
+  fromMe: false,
+  desc: "Etiketlediğiniz üyenin prenseslik seviyesini ölçer.",
+  usage: ".testprenses [etiket/yanıt]",
+  use: "game",
+},
   async (message) => {
     await runSingleRateCommand(message, {
       introText: "üyesinin *Prenses* olma ihtimalini hesaplıyorum... 🧐",
@@ -65,11 +68,12 @@ Module({
 );
 
 Module({
-    pattern: "testregl ?(.*)",
-    fromMe: false,
-    desc: "Etiketlediğiniz üyenin Regl olma ihtimalini ölçer.",
-    use: "game",
-  },
+  pattern: "testregl ?(.*)",
+  fromMe: false,
+  desc: "Etiketlediğiniz üyenin Regl olma ihtimalini ölçer.",
+  usage: ".testregl [etiket/yanıt]",
+  use: "game",
+},
   async (message) => {
     await runSingleRateCommand(message, {
       introText: "üyesinin *Regl* olma ihtimalini hesaplıyorum... 🧐",
@@ -79,11 +83,12 @@ Module({
 );
 
 Module({
-    pattern: "testinanç ?(.*)",
-    fromMe: false,
-    desc: "Etiketlediğiniz üyenin inanç seviyesini ölçer.",
-    use: "game",
-  },
+  pattern: "testinanç ?(.*)",
+  fromMe: false,
+  desc: "Etiketlediğiniz üyenin inanç seviyesini ölçer.",
+  usage: ".testinanç [etiket/yanıt]",
+  use: "game",
+},
   async (message) => {
     await runSingleRateCommand(message, {
       introText: "üyesinin *İnanç* seviyesini hesaplıyorum... 🧐",
@@ -93,11 +98,12 @@ Module({
 );
 
 Module({
-    pattern: "aşkölç ?(.*)",
-    fromMe: false,
-    desc: "İki kişi arasındaki aşk yüzdesini ölçer.",
-    use: "game",
-  },
+  pattern: "aşkölç ?(.*)",
+  fromMe: false,
+  desc: "İki kişi arasındaki aşk yüzdesini ölçer.",
+  usage: ".aşkölç [etiket1] [etiket2]",
+  use: "game",
+},
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
 
@@ -131,12 +137,12 @@ Module({
 );
 
 Module({
-    pattern: "beyin",
-    fromMe: false,
-    desc: "Rastgele beyin jimnastiği sorusu gönderir",
-    usage: ".beyin",
-    use: "game",
-  },
+  pattern: "beyin",
+  fromMe: false,
+  desc: "Zeka gelişimine katkıda bulunan rastgele bir beyin jimnastiği sorusu sorar.",
+  usage: ".beyin",
+  use: "game",
+},
   async (message) => {
     try {
       const r = await nx("/games/asahotak");
@@ -157,12 +163,12 @@ Module({
 );
 
 Module({
-    pattern: "bilmece",
-    fromMe: false,
-    desc: "Rastgele bilmece sorusu gönderir",
-    usage: ".bilmece",
-    use: "game",
-  },
+  pattern: "bilmece",
+  fromMe: false,
+  desc: "Keyifli vakit geçirmeniz için rastgele ve düşündürücü bir bilmece sorar.",
+  usage: ".bilmece",
+  use: "game",
+},
   async (message) => {
     try {
       const r = await nx("/games/tebaktebakan");
@@ -183,12 +189,12 @@ Module({
 );
 
 Module({
-    pattern: "kimyasoru",
-    fromMe: false,
-    desc: "Rastgele kimya sorusu gönderir",
-    usage: ".kimyasoru",
-    use: "game",
-  },
+  pattern: "kimyasoru",
+  fromMe: false,
+  desc: "Kimya bilginizi tazeleyecek element sembolleri üzerine bir soru sorar.",
+  usage: ".kimyasoru",
+  use: "game",
+},
   async (message) => {
     try {
       const r = await nx("/games/tebakkimia");
@@ -212,12 +218,12 @@ Module({
 );
 
 Module({
-    pattern: "alay ?(.*)",
-    fromMe: false,
-    desc: "Metni alay/slang formatına dönüştürür",
-    usage: ".alay Merhaba nasılsın",
-    use: "fun",
-  },
+  pattern: "alay ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni eğlenceli ve alaycı bir slang formatına dönüştürür.",
+  usage: ".alay [metin]",
+  use: "fun",
+},
   async (message, match) => {
     let text = (match[1] || "").trim();
     if (!text && message.reply_message?.text) text = message.reply_message.text.trim();
@@ -233,12 +239,12 @@ Module({
 );
 
 Module({
-    pattern: "dragonyazı ?(.*)",
-    fromMe: false,
-    desc: "Dragon Ball stili metin logosu oluşturur",
-    usage: ".dragonyazı LADES",
-    use: "edit",
-  },
+  pattern: "dragonyazı ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni Dragon Ball tarzında şık bir logoya dönüştürür.",
+  usage: ".dragonyazı [metin]",
+  use: "edit",
+},
   async (message, match) => {
     const text = trToEn((match[1] || "").trim());
     if (!text) return await message.sendReply("🐉 _Metin girin:_ `.dragonyazı LADES`");
@@ -252,12 +258,12 @@ Module({
 );
 
 Module({
-    pattern: "neonyazı ?(.*)",
-    fromMe: false,
-    desc: "Neon ışıklı metin logosu oluşturur",
-    usage: ".neonyazı LADES",
-    use: "edit",
-  },
+  pattern: "neonyazı ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni neon ışıklı ve dikkat çekici bir tabela logosu haline getirir.",
+  usage: ".neonyazı [metin]",
+  use: "edit",
+},
   async (message, match) => {
     const text = trToEn((match[1] || "").trim());
     if (!text) return await message.sendReply("💡 _Metin girin:_ `.neonyazı LADES`");
@@ -271,12 +277,12 @@ Module({
 );
 
 Module({
-    pattern: "grafitiyazı ?(.*)",
-    fromMe: false,
-    desc: "Grafiti stili metin logosu oluşturur",
-    usage: ".grafitiyazı LADES",
-    use: "edit",
-  },
+  pattern: "grafitiyazı ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni sokak sanatı olan grafiti stiliyle bir logoya dönüştürür.",
+  usage: ".grafitiyazı [metin]",
+  use: "edit",
+},
   async (message, match) => {
     const text = trToEn((match[1] || "").trim());
     if (!text) return await message.sendReply("🖊️ _Metin girin:_ `.grafitiyazı LADES`");
@@ -290,12 +296,12 @@ Module({
 );
 
 Module({
-    pattern: "devilyazı ?(.*)",
-    fromMe: false,
-    desc: "Şeytan kanadı stili metin logosu oluşturur",
-    usage: ".devilyazı LADES",
-    use: "edit",
-  },
+  pattern: "devilyazı ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni şeytan kanatları temalı karanlık bir logoya dönüştürür.",
+  usage: ".devilyazı [metin]",
+  use: "edit",
+},
   async (message, match) => {
     const text = trToEn((match[1] || "").trim());
     if (!text) return await message.sendReply("😈 _Metin girin:_ `.devilyazı LADES`");
@@ -309,12 +315,12 @@ Module({
 );
 
 Module({
-    pattern: "müzikkart ?(.*)",
-    fromMe: false,
-    desc: "Müzik kartı görseli oluşturur",
-    usage: ".müzikkart Şarkı Adı|Sanatçı|<resim_url>",
-    use: "edit",
-  },
+  pattern: "müzikkart ?(.*)",
+  fromMe: false,
+  desc: "Şarkı ve sanatçı ismine özel şık bir Spotify tarzı müzik kartı tasarımı oluşturur.",
+  usage: ".müzikkart [şarkı|sanatçı]",
+  use: "edit",
+},
   async (message, match) => {
     const parts = (match[1] || "").split("|").map(s => s.trim());
     if (parts.length < 2) return await message.sendReply("🎵 _Kullanım:_ `.müzikkart Şarkı Adı|Sanatçı` veya `Şarkı|Sanatçı|<resim_url>`");

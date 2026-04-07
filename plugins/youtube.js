@@ -12,7 +12,6 @@ const { censorBadWords } = require("./utils");
 const nexray = require("./utils/nexray");
 
 const config = require("../config");
-const fromMe = config.isPrivate;
 const { bytesToSize: formatBytes } = require("./utils");
 
 const VIDEO_SIZE_LIMIT = 150 * 1024 * 1024;
@@ -27,12 +26,12 @@ function formatViews(views) {
 }
 
 Module({
-    pattern: "spotify ?(.*)",
-    fromMe: fromMe,
-    desc: "Spotify şarkısı indir",
-    usage: ".spotify <şarkı adı veya bağlantı>",
-    use: "download",
-  },
+  pattern: "spotify ?(.*)",
+  fromMe: false,
+  desc: "Spotify üzerinden şarkı araması yapar ve yüksek kalitede indirir.",
+  usage: ".spotify [şarkı/bağlantı]",
+  use: "download",
+},
   async (message, match) => {
     const input = match[1] || message.reply_message?.text;
     if (!input) {
@@ -113,16 +112,16 @@ Module({
 );
 
 Module({
-    pattern: "ytara ?(.*)",
-    fromMe: fromMe,
-    desc: "YouTube araması (detaylı bilgi ile)",
-    usage: ".ytara <sorgu>",
-    use: "download",
-  },
+  pattern: "ytara ?(.*)",
+  fromMe: false,
+  desc: "YouTube üzerinde detaylı arama yaparak video ve kanal bilgilerini listeler.",
+  usage: ".ytara [sorgu]",
+  use: "download",
+},
   async (message, match) => {
     const query = match[1];
     if (!query) {
-      return await message.sendReply("_⚠️ Lütfen aranacak kelimeyi girin!_\n_Örnek: .ytara ncs music_"
+      return await message.sendReply("_⚠️ Lütfen aranacak kelimeyi girin!_\n_Örnek: .ytara Eşref Rüya_"
       );
     }
 
@@ -158,12 +157,12 @@ Module({
 );
 
 Module({
-    pattern: "ytvideo ?(.*)",
-    fromMe: fromMe,
-    desc: "Video arayarak veya bağlantıdan doğrudan en yüksek kaliteyi indirir",
-    usage: ".ytvideo <sorgu/bağlantı>",
-    use: "download",
-  },
+  pattern: "ytvideo ?(.*)",
+  fromMe: false,
+  desc: "YouTube videolarını kalite seçeneği sunarak (360p, 1080p vb.) indirmenizi sağlar.",
+  usage: ".ytvideo [sorgu/bağlantı]",
+  use: "download",
+},
   async (message, match) => {
     let input = (match[1] || message.reply_message?.text || "").trim();
     if (!input) {
@@ -305,12 +304,12 @@ Module({
 );
 
 Module({
-    pattern: "video ?(.*)",
-    fromMe: fromMe,
-    desc: "YouTube üzerinden video indirir (anahtar kelime veya bağlantı ile).",
-    usage: ".video <sorgu/link>",
-    use: "download",
-  },
+  pattern: "video ?(.*)",
+  fromMe: false,
+  desc: "YouTube videolarını en hızlı ve en yüksek kalitede doğrudan indirir.",
+  usage: ".video [sorgu/bağlantı]",
+  use: "download",
+},
   async (message, match) => {
     let input = (match[1] || message.reply_message?.text || "").trim();
     if (!input) {
@@ -446,12 +445,12 @@ Module({
 );
 
 Module({
-    pattern: "ytses ?(.*)",
-    fromMe: fromMe,
-    desc: "YouTube sesini belge olarak indir",
-    usage: ".ytses <bağlantı>",
-    use: "download",
-  },
+  pattern: "ytsesb ?(.*)",
+  fromMe: false,
+  desc: "YouTube videolarını belge (.mp3/.m4a) formatında ses olarak indirir.",
+  usage: ".ytsesb [bağlantı]",
+  use: "download",
+},
   async (message, match) => {
     let url = match[1] || message.reply_message?.text;
 
@@ -460,7 +459,7 @@ Module({
     }
 
     if (!url || (!url.includes("youtube.com") && !url.includes("youtu.be"))) {
-      return await message.sendReply("_⚠️ Lütfen geçerli bir YouTube bağlantısı verin!_\n_Örnek: .ytses https://youtube.com/watch?v=xxxxx_"
+      return await message.sendReply("_⚠️ Lütfen geçerli bir YouTube bağlantısı verin!_\n_Örnek: .ytsesb https://youtube.com/watch?v=xxxxx_"
       );
     }
 
@@ -516,12 +515,12 @@ Module({
 );
 
 Module({
-    pattern: "şarkı ?(.*)",
-    fromMe: fromMe,
-    desc: "YouTube üzerinden ses/şarkı indirir (anahtar kelime veya bağlantı ile).",
-    usage: ".şarkı <sorgu/bağlantı> | .şarkıara <sorgu>",
-    use: "download",
-  },
+  pattern: "şarkı ?(.*)",
+  fromMe: false,
+  desc: "YouTube üzerinden ses/şarkı indirir. (anahtar kelime veya bağlantı ile)",
+  usage: ".şarkı <sorgu/bağlantı> | .şarkıara <sorgu>",
+  use: "download",
+},
   async (message, match) => {
     let input = (match[1] || message.reply_message?.text || "").trim();
     if (!input) {
@@ -648,9 +647,9 @@ Module({
 );
 
 Module({
-    on: "text",
-    fromMe: fromMe,
-  },
+  on: "text",
+  fromMe: false,
+},
   async (message, match) => {
     const numberMatch = message.text?.match(/^\d+$/);
     if (!numberMatch) return;

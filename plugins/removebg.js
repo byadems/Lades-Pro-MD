@@ -33,12 +33,8 @@ function getDateBasedName(prefix = "Arkaplan") {
 Module({
     pattern: "apsil ?(.*)",
     fromMe: false,
-    desc: `Yapay zeka kullanarak görüntünün arka planını kaldırır veya düz renk/resim ile değiştirir.
-👤 *Kullanım Örnekleri:*
-• .apsil                → Arka planı şeffaf (kaldırır)
-• .apsil mavi           → Arkaplan mavi
-• .apsil #ff0000        → Arkaplan kırmızı (hex kodu)
-• .apsil https://resim  → Arkaplan olarak URL'deki fotoğrafı kullan`,
+    desc: "Fotoğrafın arka planını yapay zeka ile siler veya farklı bir renkle/resimle değiştirir.",
+    usage: ".apsil | .apsil mavi | .apsil #ff0000 | .apsil <resim_url>",
     use: "ai",
   },
   async (message, match) => {

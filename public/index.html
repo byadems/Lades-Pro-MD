@@ -470,83 +470,170 @@
             </div>
           </div>
           <form id="settingsForm" class="settings-form">
-            <div class="sf-row-group">
-              <div class="sf-field">
-                <label><svg viewBox="0 0 24 24" fill="none" width="14" height="14"><rect x="3" y="11" width="18" height="10" rx="2" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>Bot İsmi</label>
-                <input type="text" id="s_BOT_NAME" placeholder="Lades-Pro" class="glass-input" />
-                <span class="sf-hint">Panelde görünen başlık</span>
-              </div>
-              <div class="sf-field">
-                <label><svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M4 19L19 4M4 4l15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Prefix (Ön Ek)</label>
-                <input type="text" id="s_PREFIX" placeholder="." class="glass-input" />
-                <span class="sf-hint">Komut tetikleyici</span>
-              </div>
-            </div>
-
-            <div class="sf-row-group">
-              <div class="sf-field">
-                <label><svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/></svg>Geliştirici No</label>
-                <input type="text" id="s_OWNER_NUMBER" placeholder="905xxx" class="glass-input" />
-                <span class="sf-hint">Bot sahibi</span>
-              </div>
-              <div class="sf-field">
-                <label><svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>Sudo (Yardımcılar)</label>
-                <input type="text" id="s_SUDO" placeholder="Virgülle ayırın..." class="glass-input" />
-                <span class="sf-hint">Ek yetkili numaralar</span>
-              </div>
-            </div>
-
-            <div class="sf-field">
-              <label><svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Gemini API Key</label>
-              <div class="glass-input-wrap">
-                <input type="password" id="s_GEMINI_API_KEY" placeholder="AIzaSy..." class="glass-input" />
-                <button type="button" id="toggleKey" class="pw-eye">
-                  <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
-                </button>
-              </div>
-            </div>
-
+            <!-- CATEGORY: IDENTITY & CORE -->
             <div class="toggle-group spot-card">
-              <div class="tg-title">Bot Özellikleri (Toggles)</div>
+              <div class="tg-title">👑 Kimlik & Temel Ayarlar</div>
+              <div class="sf-row-group">
+                <div class="sf-field">
+                  <label><svg viewBox="0 0 24 24" fill="none" width="14" height="14"><rect x="3" y="11" width="18" height="10" rx="2" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>Bot İsmi</label>
+                  <input type="text" id="s_BOT_NAME" placeholder="Lades-Pro" class="glass-input" />
+                </div>
+                <div class="sf-field">
+                  <label><svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M4 19L19 4M4 4l15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Prefix (Ön Ek)</label>
+                  <input type="text" id="s_PREFIX" placeholder="." class="glass-input" />
+                </div>
+              </div>
+              <div class="sf-row-group">
+                <div class="sf-field">
+                  <label><svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/></svg>Geliştirici No</label>
+                  <input type="text" id="s_OWNER_NUMBER" placeholder="905xxx" class="glass-input" />
+                </div>
+                <div class="sf-field">
+                  <label><svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>Sudo (Yetkililer)</label>
+                  <input type="text" id="s_SUDO" placeholder="Virgülle ayırın..." class="glass-input" />
+                </div>
+              </div>
+              <div class="sf-field">
+                <label>Dil (Language)</label>
+                <select id="s_LANG" class="glass-input" style="background: var(--bg2);">
+                  <option value="turkish">Türkçe</option>
+                  <option value="english">English</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- CATEGORY: AI & API -->
+            <div class="toggle-group spot-card">
+              <div class="tg-title">🤖 Yapay Zeka & API</div>
+              <div class="sf-field">
+                <label>Gemini API Key</label>
+                <div class="glass-input-wrap">
+                  <input type="password" id="s_GEMINI_API_KEY" placeholder="AIzaSy..." class="glass-input" />
+                  <button type="button" class="pw-eye" onclick="toggleVisibility('s_GEMINI_API_KEY')">
+                    <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="sf-field">
+                <label>OpenAI API Key</label>
+                <div class="glass-input-wrap">
+                  <input type="password" id="s_OPENAI_API_KEY" placeholder="sk-..." class="glass-input" />
+                  <button type="button" class="pw-eye" onclick="toggleVisibility('s_OPENAI_API_KEY')">
+                    <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="sf-field">
+                <label>Groq API Key (Ses Tanıma)</label>
+                <div class="glass-input-wrap">
+                  <input type="password" id="s_GROQ_API_KEY" placeholder="gsk_..." class="glass-input" />
+                  <button type="button" class="pw-eye" onclick="toggleVisibility('s_GROQ_API_KEY')">
+                    <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="sf-field">
+                <label>Varsayılan Yapay Zeka Modeli</label>
+                <input type="text" id="s_AI_MODEL" placeholder="gemini / openai" class="glass-input" />
+              </div>
+            </div>
+
+            <!-- CATEGORY: MEDIA & IDENTITY -->
+            <div class="toggle-group spot-card">
+              <div class="tg-title">🎨 Medya & Kimlik</div>
+              <div class="sf-field">
+                <label>Alive Mesajı</label>
+                <textarea id="s_ALIVE" placeholder="Bot aktif mesajı..." class="glass-input" rows="3"></textarea>
+              </div>
+              <div class="sf-field">
+                <label>Bot Bilgisi (Ad;Sahip;GörselURL)</label>
+                <input type="text" id="s_BOT_INFO" placeholder="Ad;Sahip;URL" class="glass-input" />
+              </div>
+              <div class="sf-field">
+                <label>Sticker Verisi (Paket;Yazar;Emoji)</label>
+                <input type="text" id="s_STICKER_DATA" placeholder="Paket;Yazar;😂" class="glass-input" />
+              </div>
+            </div>
+
+            <!-- CATEGORY: SERVICES -->
+            <div class="toggle-group spot-card">
+              <div class="tg-title">🔍 Harici Servisler</div>
+              <div class="sf-field">
+                <label>ACRCloud Access Key (Müzik Bulma)</label>
+                <div class="glass-input-wrap">
+                  <input type="password" id="s_ACR_A" placeholder="Access Key" class="glass-input" />
+                  <button type="button" class="pw-eye" onclick="toggleVisibility('s_ACR_A')">
+                    <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="sf-field">
+                <label>ACRCloud Access Secret</label>
+                <div class="glass-input-wrap">
+                  <input type="password" id="s_ACR_S" placeholder="Access Secret" class="glass-input" />
+                  <button type="button" class="pw-eye" onclick="toggleVisibility('s_ACR_S')">
+                    <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- CATEGORY: FEATURES (TOGGLES) -->
+            <div class="toggle-group spot-card">
+              <div class="tg-title">🎮 Bot Özellikleri (Toggles)</div>
               
               <div class="tg-row">
-                <div class="tg-info">
-                   <span class="tg-label">Herkese Açık Mod</span>
-                   <span class="tg-sub">Herkes botu kullanabilir</span>
-                </div>
+                <div class="tg-info"><span class="tg-label">Herkese Açık Mod</span></div>
                 <label class="toggle"><input type="checkbox" id="s_PUBLIC_MODE"><span class="slider"></span></label>
               </div>
-
               <div class="tg-row">
-                <div class="tg-info">
-                   <span class="tg-label">Otomatik Okundu</span>
-                   <span class="tg-sub">Gelen mesajları mavi tik yap</span>
-                </div>
+                <div class="tg-info"><span class="tg-label">Otomatik Okundu</span></div>
                 <label class="toggle"><input type="checkbox" id="s_AUTO_READ"><span class="slider"></span></label>
               </div>
-
               <div class="tg-row">
-                <div class="tg-info">
-                   <span class="tg-label">Otomatik Yazıyor</span>
-                   <span class="tg-sub">Yanıt verirken 'yazıyor...' göster</span>
-                </div>
-                <label class="toggle"><input type="checkbox" id="s_AUTO_TYPING" checked><span class="slider"></span></label>
+                <div class="tg-info"><span class="tg-label">Otomatik Yazıyor</span></div>
+                <label class="toggle"><input type="checkbox" id="s_AUTO_TYPING"><span class="slider"></span></label>
               </div>
-
               <div class="tg-row">
-                <div class="tg-info">
-                   <span class="tg-label">Anti-Link Sistemi</span>
-                   <span class="tg-sub">Reklam linklerini otomatik engelle</span>
-                </div>
+                <div class="tg-info"><span class="tg-label">Otomatik Kaydediyor (Ses)</span></div>
+                <label class="toggle"><input type="checkbox" id="s_AUTO_RECORDING"><span class="slider"></span></label>
+              </div>
+              <div class="tg-row">
+                <div class="tg-info"><span class="tg-label">Anti-Link Sistemi</span></div>
                 <label class="toggle"><input type="checkbox" id="s_ANTI_LINK"><span class="slider"></span></label>
               </div>
-
               <div class="tg-row">
-                <div class="tg-info">
-                   <span class="tg-label">Anti-Spam Koruması</span>
-                   <span class="tg-sub">Hızlı mesaj gönderimini engelle</span>
-                </div>
+                <div class="tg-info"><span class="tg-label">Anti-Spam Koruması</span></div>
                 <label class="toggle"><input type="checkbox" id="s_ANTI_SPAM"><span class="slider"></span></label>
+              </div>
+              <div class="tg-row">
+                <div class="tg-info"><span class="tg-label">Grup Yöneticisi Erişimi (Admin Access)</span></div>
+                <label class="toggle"><input type="checkbox" id="s_ADMIN_ACCESS"><span class="slider"></span></label>
+              </div>
+            </div>
+
+            <!-- CATEGORY: SYSTEM LIMITS -->
+            <div class="toggle-group spot-card">
+              <div class="tg-title">🛠️ Sistem & Limitler</div>
+              <div class="sf-row-group">
+                <div class="sf-field">
+                  <label>Maks. Sticker Boyutu (MB)</label>
+                  <input type="number" id="s_MAX_STICKER_SIZE" class="glass-input" />
+                </div>
+                <div class="sf-field">
+                  <label>Maks. İndirme Boyutu (MB)</label>
+                  <input type="number" id="s_MAX_DL_SIZE" class="glass-input" />
+                </div>
+              </div>
+              <div class="sf-row-group">
+                <div class="sf-field">
+                  <label>PM2 Restart Sınırı (MB)</label>
+                  <input type="number" id="s_PM2_RESTART_LIMIT_MB" class="glass-input" />
+                </div>
+                <div class="sf-row">
+                  <div class="tg-info"><span class="tg-label">Hata Ayıklama (Debug)</span></div>
+                  <label class="toggle"><input type="checkbox" id="s_DEBUG"><span class="slider"></span></label>
+                </div>
               </div>
             </div>
 

@@ -68,7 +68,7 @@ Module({
             .map((e) => e.replace("pattern", "").replace(/[^a-zA-Z]/g, ""))
         : "temp";
       try {
-        plugin_name = plugin_name[1].split(" ")[0];
+        plugin_name = plugin_name[1].split(" ")[0].replace(/[^a-zA-Z0-9_]/g, "");
       } catch {
         return await message.sendReply("_❌ Geçersiz eklenti. Eklenti adı bulunamadı!_"
         );

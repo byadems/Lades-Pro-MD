@@ -82,13 +82,12 @@ function parseDurationInput(duration) {
 }
 
 Module({
-    pattern: "mesajlar ?(.*)",
-    fromMe: false,
-    desc: "En az bir mesajı olan üyelerin gönderdiği mesaj sayılarını gösterir. (sayıya göre sıralanmış şekilde)",
-    usage:
-      ".mesajlar (mesaj gönderen tüm üyeler)\n.mesajlar @etiket (belirli bir üye)",
-    use: "tools",
-  },
+  pattern: "mesajlar ?(.*)",
+  fromMe: false,
+  desc: "Grup üyelerinin gönderdiği toplam mesaj sayılarını ve mesaj türü dağılımlarını liste halinde sunar.",
+  usage: ".mesajlar (mesaj gönderen tüm üyeler)\n.mesajlar @etiket (belirli bir üye)",
+  use: "tools",
+},
   async (message, match) => {
     if (!message.isGroup)
       return await message.sendReply("⚠ _Bu komut sadece gruplarda kullanılabilir!_");
@@ -161,13 +160,12 @@ Module({
 
 
 Module({
-    pattern: "inactive ?(.*)",
-    fromMe: true,
-    desc: "Son mesaj zamanına göre pasif üyeleri gösterir. İstenirse atabilir.",
-    usage:
-      ".inactive 30gün (30+ gündür pasif üyeler)\n.inactive 10gün kick (10+ gündür pasif üyeleri at)\n\nDesteklenen birimler: gün, hafta, ay, yıl (veya d, w, m, y)",
-    use: "tools",
-  },
+  pattern: "inactive ?(.*)",
+  fromMe: true,
+  desc: "Belirlediğiniz süre boyunca mesaj atmayan pasif üyeleri tespit eder ve istenirse gruptan uzaklaştırır.",
+  usage: ".inactive [süre] | .inactive [süre] kick",
+  use: "tools",
+},
   async (message, match) => {
     if (!message.isGroup)
       return await message.sendReply("_ℹ️ Bu bir grup komutudur!_");
@@ -176,11 +174,11 @@ Module({
     if (message.fromOwner || adminAccesValidated) {
       if (!match[1]) {
         return await message.sendReply("_Kullanım:_\n" +
-            "• `.inactive 30gün` - 30+ gündür pasif üyeleri göster\n" +
-            "• `.inactive 10gün kick` - 10+ gündür pasif üyeleri at\n" +
-            "• `.inactive 2hafta` - 2+ haftadır pasif üyeleri göster\n" +
-            "• `.inactive 3ay kick` - 3+ aydır pasif üyeleri at\n\n" +
-            "_Desteklenen birimler:_ gün, hafta, ay, yıl (veya d, w, m, y)"
+          "• `.inactive 30gün` - 30+ gündür pasif üyeleri göster\n" +
+          "• `.inactive 10gün kick` - 10+ gündür pasif üyeleri at\n" +
+          "• `.inactive 2hafta` - 2+ haftadır pasif üyeleri göster\n" +
+          "• `.inactive 3ay kick` - 3+ aydır pasif üyeleri at\n\n" +
+          "_Desteklenen birimler:_ gün, hafta, ay, yıl (veya d, w, m, y)"
         );
       }
 
@@ -276,9 +274,8 @@ Module({
 
         for (let i = 0; i < Math.min(inactiveMembers.length, 10); i++) {
           const member = inactiveMembers[i];
-          responseMsg += `${i + 1}. @${member.jid.split("@")[0]} (${
-            member.name
-          })\n`;
+          responseMsg += `${i + 1}. @${member.jid.split("@")[0]} (${member.name
+            })\n`;
         }
 
         if (inactiveMembers.length > 10) {
@@ -340,14 +337,14 @@ Module({
 
 
 Module({
-    pattern: "üyetemizle ?(.*)",
-    fromMe: false,
-    desc: "Belirtilen süre boyunca mesaj atmayan üyeleri listeler veya çıkarır.",
-    usage:
-      ".üyetemizle 30 gün | .üyetemizle 2 hafta | .üyetemizle 3 ay | .üyetemizle 1 yıl\n\n" +
-      "Komutun sonuna 'çıkar' ekleyerek üyeleri gruptan atabilirsiniz.",
-    use: "tools",
-  },
+  pattern: "üyetemizle ?(.*)",
+  fromMe: false,
+  desc: "Belirtilen süre boyunca mesaj atmayan üyeleri listeler veya çıkarır.",
+  usage:
+    ".üyetemizle 30 gün | .üyetemizle 2 hafta | .üyetemizle 3 ay | .üyetemizle 1 yıl\n\n" +
+    "Komutun sonuna 'çıkar' ekleyerek üyeleri gruptan atabilirsiniz.",
+  use: "tools",
+},
   async (message, match) => {
     try {
       if (!message.isGroup) {
@@ -360,11 +357,11 @@ Module({
       if (!match[1]) {
         return await message.sendReply(
           "❗  *Lütfen şu şekillerde kullanınız:*\n" +
-            ".üyetemizle 30 gün\n" +
-            ".üyetemizle 2 hafta\n" +
-            ".üyetemizle 3 ay\n" +
-            ".üyetemizle 1 yıl\n" +
-            "🧹 _(Üyeleri çıkarmak için komut sonuna *çıkar* ekleyebilirsiniz.)_"
+          ".üyetemizle 30 gün\n" +
+          ".üyetemizle 2 hafta\n" +
+          ".üyetemizle 3 ay\n" +
+          ".üyetemizle 1 yıl\n" +
+          "🧹 _(Üyeleri çıkarmak için komut sonuna *çıkar* ekleyebilirsiniz.)_"
         );
       }
       const args = match[1].trim().split(/\s+/);
@@ -375,11 +372,11 @@ Module({
       if (!durationMs) {
         return await message.sendReply(
           "❌ _Geçersiz süre formatı!_\n" +
-            "Örnekler:\n" +
-            ".üyetemizle 30 gün\n" +
-            ".üyetemizle 2 hafta\n" +
-            ".üyetemizle 3 ay\n" +
-            ".üyetemizle 1 yıl çıkar"
+          "Örnekler:\n" +
+          ".üyetemizle 30 gün\n" +
+          ".üyetemizle 2 hafta\n" +
+          ".üyetemizle 3 ay\n" +
+          ".üyetemizle 1 yıl çıkar"
         );
       }
       const cutoffDate = new Date(Date.now() - durationMs);
@@ -472,13 +469,12 @@ Module({
 
 
 Module({
-    pattern: "users ?(.*)",
-    fromMe: true,
-    desc: "Mesaj sayısına göre en iyi kullanıcıları gösterir.",
-    usage:
-      ".users (en iyi 10 kullanıcıyı gösterir - DM'de genel, gruplarda sohbet özel)\n.users genel (genel en iyi kullanıcıları gösterir)\n.users 20 (en iyi 20 kullanıcıyı gösterir)\n.users genel 15 (en iyi 15 genel kullanıcıyı gösterir)",
-    use: "tools",
-  },
+  pattern: "users ?(.*)",
+  fromMe: true,
+  desc: "Tüm sohbetlerde veya mevcut grupta en çok mesaj gönderen lider kullanıcıları sıralı olarak listeler.",
+  usage: ".users | .users [sayı] | .users genel [sayı]",
+  use: "tools",
+},
   async (message, match) => {
     let adminAccesValidated =
       message.isGroup ? await isAdmin(message) : false;
@@ -548,9 +544,8 @@ Module({
 
           responseMsg += `*${rank}.* @${user.jid.split("@")[0]}\n`;
           responseMsg += `   _İsim:_ ${name}\n`;
-          responseMsg += `   _Mesajlar:_ ${user.totalMessages}${
-            isGlobal ? " (tüm sohbetlerde)" : ""
-          }\n`;
+          responseMsg += `   _Mesajlar:_ ${user.totalMessages}${isGlobal ? " (tüm sohbetlerde)" : ""
+            }\n`;
           responseMsg += `   _Son görülme:_ ${lastMessage}\n\n`;
         }
 
@@ -576,10 +571,10 @@ Module({
 );
 
 Module({
-    on: "message",
-    fromMe: false, // Track others
-    desc: "Mesaj istatistiklerini günceller.",
-  },
+  on: "message",
+  fromMe: false, // Track others
+  desc: "Mesaj istatistiklerini günceller.",
+},
   async (message) => {
     try {
       let type = "text";
@@ -597,9 +592,9 @@ Module({
 );
 
 Module({
-    on: "text",
-    fromMe: true, // Track self (pattern matching for commands usually excludes this, but 'on: message'/text catches it)
-  },
+  on: "text",
+  fromMe: true, // Track self (pattern matching for commands usually excludes this, but 'on: message'/text catches it)
+},
   async (message) => {
     // Only track if it's NOT a command (to avoid double counting with patterns, 
     // although commands usually have their own logic. But here we want to track all)

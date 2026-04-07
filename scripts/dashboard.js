@@ -157,8 +157,8 @@ app.get('/api/status', (req, res) => {
   const hasStoredSession = hasLocalSession || hasDb;
 
   res.json({
-    bot: conf.BOT_NAME || "NexBot-MD",
-    botName: conf.BOT_NAME || "NexBot-MD",
+    bot: conf.BOT_NAME || "Lades-Pro-MD",
+    botName: conf.BOT_NAME || "Lades-Pro-MD",
     hasSession: liveBotConnected,
     connected: liveBotConnected,
     hasStoredSession,
@@ -173,16 +173,38 @@ app.get('/api/status', (req, res) => {
 app.get('/api/config', (req, res) => {
   const conf = getEnvConfig();
   res.json({
-    BOT_NAME: conf.BOT_NAME || '',
+    // Identity & Core
+    BOT_NAME: conf.BOT_NAME || 'Lades-Pro',
     OWNER_NUMBER: conf.OWNER_NUMBER || '',
     PREFIX: conf.PREFIX || '.',
     SUDO: conf.SUDO || '',
-    GEMINI_API_KEY: conf.GEMINI_API_KEY || '',
-    PUBLIC_MODE: conf.PUBLIC_MODE || 'false',
+    LANG: conf.LANG || 'turkish',
+    ALIVE: conf.ALIVE || '',
+    BOT_INFO: conf.BOT_INFO || 'Lades-Pro;Lades Yönetimi;',
+    STICKER_DATA: conf.STICKER_DATA || 'Lades-Pro;Lades-Pro;😂',
+
+    // Features (Toggles)
+    PUBLIC_MODE: conf.PUBLIC_MODE || 'true',
     AUTO_READ: conf.AUTO_READ || 'false',
     AUTO_TYPING: conf.AUTO_TYPING || 'true',
+    AUTO_RECORDING: conf.AUTO_RECORDING || 'true',
     ANTI_LINK: conf.ANTI_LINK || 'false',
     ANTI_SPAM: conf.ANTI_SPAM || 'false',
+    ADMIN_ACCESS: conf.ADMIN_ACCESS || 'true',
+
+    // AI & External APIs
+    GEMINI_API_KEY: conf.GEMINI_API_KEY || '',
+    OPENAI_API_KEY: conf.OPENAI_API_KEY || '',
+    GROQ_API_KEY: conf.GROQ_API_KEY || '',
+    AI_MODEL: conf.AI_MODEL || 'gemini',
+    ACR_A: conf.ACR_A || '',
+    ACR_S: conf.ACR_S || '',
+
+    // Advanced / Internal
+    MAX_STICKER_SIZE: conf.MAX_STICKER_SIZE || '2',
+    MAX_DL_SIZE: conf.MAX_DL_SIZE || '50',
+    PM2_RESTART_LIMIT_MB: conf.PM2_RESTART_LIMIT_MB || '450',
+    DEBUG: conf.DEBUG || 'false',
   });
 });
 
@@ -193,9 +215,12 @@ app.get('/api/config/raw', (req, res) => {
 });
 
 app.post('/api/config', (req, res) => {
-  const allowed = ['BOT_NAME', 'OWNER_NUMBER', 'PREFIX', 'SUDO', 'GEMINI_API_KEY',
-    'PUBLIC_MODE', 'AUTO_READ', 'AUTO_TYPING', 'ANTI_LINK', 'ANTI_SPAM',
-    'AUTO_RECORDING', 'REJECT_CALLS', 'WARN'];
+  const allowed = [
+    'BOT_NAME', 'OWNER_NUMBER', 'PREFIX', 'SUDO', 'LANG', 'ALIVE', 'BOT_INFO', 'STICKER_DATA',
+    'PUBLIC_MODE', 'AUTO_READ', 'AUTO_TYPING', 'AUTO_RECORDING', 'ANTI_LINK', 'ANTI_SPAM', 'ADMIN_ACCESS',
+    'GEMINI_API_KEY', 'OPENAI_API_KEY', 'GROQ_API_KEY', 'AI_MODEL', 'ACR_A', 'ACR_S',
+    'MAX_STICKER_SIZE', 'MAX_DL_SIZE', 'PM2_RESTART_LIMIT_MB', 'DEBUG'
+  ];
   const updates = {};
   allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
   saveEnvConfig(updates);
@@ -303,7 +328,7 @@ app.get('/api/commands', (req, res) => {
     files.forEach(file => {
       try {
         const src = fs.readFileSync(path.join(pluginsDir, file), 'utf8');
-        
+
         // Try to find namespace: getString("namespace")
         const nsMatch = src.match(/getString\s*\(\s*["']([^"']+)["']\s*\)/);
         const namespace = nsMatch ? nsMatch[1] : null;
@@ -312,11 +337,11 @@ app.get('/api/commands', (req, res) => {
         for (const m of matches) {
           const block = m[1];
           const pattern = (block.match(/pattern\s*:\s*["'`]([^"'`]+)["'`]/) || [])[1];
-          
+
           // Extract the RAW description value (literal or variable)
           let descResult = (block.match(/desc\s*:\s*(?:["'`]([^"'`]+)["'`]|([a-zA-Z0-9_\.]+))/));
           let resolvedDesc = '';
-          
+
           if (descResult) {
             if (descResult[1]) {
               // Literal string
@@ -344,7 +369,7 @@ app.get('/api/commands', (req, res) => {
             .replace(/\|/g, " / ")               // Replace | with /
             .split(" ?")[0]                      // Remove optional space + args
             .trim();
-          
+
           // Remove trailing question mark part ONLY if it's not part of a regex group
           if (!cleanPattern.startsWith("(?:")) {
             cleanPattern = cleanPattern.split('?')[0].trim();

@@ -505,9 +505,8 @@ Module({
 Module({
     pattern: "otodl ?(.*)",
     fromMe: true,
-    desc: "URL izleyici otomatik indirme - sohbetlerde veya küresel olarak etkinleştirin",
-    usage:
-      ".otodl - menüyü göster\n.otodl aç/kapat - Mevcut sohbette etkinleştir/devre dışı bırak\n.otodl aç/kapat gruplar - Tüm gruplarda etkinleştir/devre dışı bırak\n.otodl aç/kapat dms - Tüm DM'lerde etkinleştir/devre dışı bırak\n.otodl durum - Mevcut durumu göster",
+    desc: "Belirlediğiniz sohbetlerde veya tüm gruplarda sosyal medya bağlantılarını otomatik olarak algılar ve medyayı indirir.",
+    usage: ".otodl | .otodl aç/kapat | .otodl durum",
   },
   async (message, match) => {
     const input = match[1]?.trim();

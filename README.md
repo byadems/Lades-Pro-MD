@@ -1,7 +1,7 @@
-# Lades-MD 🤖
+# Lades-Pro-MD 🤖
 
 > Ultra-stabil, ultra-hızlı, %100 açık kaynaklı WhatsApp bot altyapısı.
-> Lades-MD ve Raganork-MD'den ilham alınarak sıfırdan yazılmıştır.
+> Lades-Pro-MD mimarisi temel alınarak sıfırdan yazılmıştır.
 
 ---
 
@@ -19,11 +19,10 @@
 
 ## 🚀 Kurulum
 
-### 1. Klonla & Bağımlılıkları Yükle
+### 1. Bağımlılıkları Yükle
 
 ```bash
-git clone https://github.com/sizin-repo/lades-md
-cd lades-md
+cd lades-pro-md
 npm install
 ```
 
@@ -126,7 +125,7 @@ ai_commands         (AI üretilen komutlar)
 ## 📁 Proje Yapısı
 
 ```
-lades-md/
+lades-pro-md/
 ├── index.js                # Giriş noktası (memory monitor, graceful shutdown)
 ├── config.js               # Merkezi yapılandırma + logger
 ├── config.env.example      # Örnek .env dosyası
@@ -134,7 +133,7 @@ lades-md/
 ├── core/
 │   ├── auth.js             # QR + Pair Code + DB/file session
 │   ├── bot.js              # Baileys bağlantısı + reconnect
-│   ├── handler.js          # Temiz mesaj yönlendirici (Raganork stili)
+│   ├── handler.js          # Temiz mesaj yönlendirici (Lades-Pro stili)
 │   ├── database.js         # Sequelize ORM (9 tablo)
 │   ├── db-cache.js         # LRU cache katmanı
 │   ├── store.js            # Mesaj ve grup metadata store
@@ -168,4 +167,4 @@ lades-md/
 
 ## 📄 Lisans
 
-GPL-3.0 © NexBot-MD Contributors
+GPL-3.0 © Lades-Pro-MD Contributors

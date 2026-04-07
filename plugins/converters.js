@@ -66,7 +66,8 @@ const Lang = getString("converters");
 Module({
   pattern: "görselara ?(.*)",
   fromMe: false,
-  desc: "Google Görseller üzerinden resim arar ve indirir.",
+  desc: "Google Görseller üzerinden belirlediğiniz anahtar kelimeye uygun resimler bulur ve albüm olarak gönderir.",
+  usage: ".görselara [sorgu]",
   use: "search",
 },
   async (message, match) => {
@@ -135,7 +136,8 @@ Module({
 Module({
   pattern: "çıkartma ?(.*)",
   fromMe: false,
-  desc: Lang.STICKER_DESC,
+  desc: "Görsel, video veya GIF dosyalarını WhatsApp çıkartmasına (sticker) dönüştürür.",
+  usage: ".çıkartma | .çıkartma [metin]",
   use: "media",
 },
   async (message, match) => {
@@ -146,8 +148,8 @@ Module({
           author: STICKER_DATA.split(";")[1] || "Lades-Pro",
           packname: message.pushName || (typeof message.senderName === 'string' ? message.senderName : "Lades-Sticker"),
           categories: STICKER_DATA.split(";")[2] || "😂",
-          android: "https://github.com/byadems/Lades-MD/",
-          ios: "https://github.com/byadems/Lades-MD/",
+          android: "",
+          ios: "",
         };
         const stickerBuf = await addExif(result, exif);
         return await message.sendMessage(stickerBuf, "sticker");
@@ -164,8 +166,8 @@ Module({
       author: STICKER_DATA.split(";")[1] || "Lades-Pro",
       packname: message.pushName || (typeof message.senderName === 'string' ? message.senderName : "Lades-Sticker"),
       categories: STICKER_DATA.split(";")[2] || "😂",
-      android: "https://github.com/byadems/Lades-MD/",
-      ios: "https://github.com/byadems/Lades-MD/",
+      android: "",
+      ios: "",
     };
 
     // handle album
@@ -239,7 +241,8 @@ Module({
 Module({
   pattern: "mp3 ?(.*)",
   fromMe: false,
-  desc: Lang.MP3_DESC,
+  desc: "Videoların sesini ayrıştırarak yüksek kaliteli bir MP3 (ses) dosyasına dönüştürür.",
+  usage: ".mp3 [yanıtla]",
   use: "media",
 },
   async (message) => {
@@ -307,7 +310,8 @@ Module({
 Module({
   pattern: "slow",
   fromMe: false,
-  desc: "Müziği yavaşlatır ve ses tonunu düşürür. Slowed+reverb sesleri yapmak için",
+  desc: "Ses tonunu düşürerek müziğe yavaşlatma efekti verir.",
+  usage: ".slow [yanıtla]",
   use: "media",
 },
   async (message, match) => {
@@ -379,9 +383,10 @@ Module({
   }
 );
 Module({
-  pattern: "sped ?(.*)",
+  pattern: "hızlandır ?(.*)",
   fromMe: false,
-  desc: "Müziği hızlandırır ve ses tonunu yükseltir. Sped-up+reverb sesleri yapmak için",
+  desc: "Müziği hızlandırırak ses tonunu yükseltir.",
+  usage: ".hızlandır [yanıtla]",
   use: "media",
 },
   async (message, match) => {
@@ -453,9 +458,10 @@ Module({
   }
 );
 Module({
-  pattern: "basartır ?(.*)",
+  pattern: "bass ?(.*)",
   fromMe: false,
-  desc: Lang.BASS_DESC,
+  desc: "Sesteki bass gücünü belirlediğiniz seviyeye göre artırır.",
+  usage: ".bass [miktar]",
   use: "media",
 },
   async (message, match) => {
@@ -502,7 +508,8 @@ Module({
 Module({
   pattern: "foto ?(.*)",
   fromMe: false,
-  desc: Lang.PHOTO_DESC,
+  desc: "WhatsApp çıkartmalarını standart fotoğraf formatına dönüştürür.",
+  usage: ".foto [yanıtla]",
   use: "media",
 },
   async (message, match) => {
@@ -535,7 +542,8 @@ Module({
 Module({
   pattern: "yazı1 ?(.*)",
   fromMe: false,
-  desc: "Metinden hareketli çıkartmaya",
+  desc: "Yazdığınız metni şık, renkli ve hareketli bir çıkartma haline getirir.",
+  usage: ".yazı1 [metin]",
   use: "media",
 },
   async (message, match) => {
@@ -545,8 +553,8 @@ Module({
       author: STICKER_DATA.split(";")[1] || "",
       packname: message.senderName,
       categories: STICKER_DATA.split(";")[2] || "😂",
-      android: "https://github.com/byadems/Lades-MD/",
-      ios: "https://github.com/byadems/Lades-MD/",
+      android: "",
+      ios: "",
     };
     const stickerBuf = await addExif(result, exif);
     await message.sendMessage(stickerBuf, "sticker");
@@ -555,7 +563,8 @@ Module({
 Module({
   pattern: "ses ?(.*)",
   fromMe: false,
-  desc: Lang.TTS_DESC,
+  desc: "Yazdığınız metni farklı dil ve ses tonu seçenekleriyle sesli mesaja dönüştürür.",
+  usage: ".ses [metin]",
   use: "media",
 },
   async (message, match) => {
@@ -676,7 +685,8 @@ Module({
 Module({
   pattern: "belge ?(.*)",
   fromMe: false,
-  desc: "Yanıtlanan medyayı belge (document) formatına dönüştürür",
+  desc: "Medya dosyalarını kalite kaybı yaşanmaması için belge (dosya) formatında gönderir.",
+  usage: ".belge [mesaja yanıtla]",
   use: "media",
 },
   async (message, match) => {
@@ -800,7 +810,8 @@ Module({
 Module({
   pattern: "indir ?(.*)",
   fromMe: false,
-  desc: "URL üzerindeki dosyayı indirir ve sohbete yükler.",
+  desc: "Verilen bir dosya bağlantısındaki (URL) içeriği indirip sohbete belge olarak yükler.",
+  usage: ".indir [url]",
   use: "media",
 },
   async (message, match) => {
@@ -864,7 +875,8 @@ Module({
 Module({
   pattern: "square ?(.*)",
   fromMe: false,
-  desc: "Video/resmi 1:1 oranında (kare formatında) kırpar",
+  desc: "Videoları veya görselleri en-boy oranını koruyarak 1:1 kare formatında kırpar.",
+  usage: ".square [yanıtla]",
   use: "media",
 },
   async (message, match) => {
@@ -952,7 +964,8 @@ Module({
 Module({
   pattern: "boyut ?(.*)",
   fromMe: false,
-  desc: "Video/resim en-boy oranını değiştirin. Kullanım: .boyut 16:9, .boyut 9:16",
+  desc: "Medya dosyalarını istediğiniz en-boy oranına (16:9, 9:16 vb.) göre yeniden şekillendirir.",
+  usage: ".boyut [oran]",
   use: "media",
 },
   async (message, match) => {
@@ -1083,7 +1096,8 @@ Module({
 Module({
   pattern: "sıkıştır ?(.*)",
   fromMe: false,
-  desc: "Video/resmi yüzdeyle sıkıştırın. Kullanım: .sıkıştır 50 (%50 sıkıştırma)",
+  desc: "Video veya görsellerin dosya boyutunu kaliteden ödün vererek belirlediğiniz oranda küçültür.",
+  usage: ".sıkıştır [yüzde]",
   use: "media",
 },
   async (message, match) => {
