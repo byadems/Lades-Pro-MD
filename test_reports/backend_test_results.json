@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-07T17:42:38.657549",
+  "timestamp": "2026-04-07T18:07:14.068325",
   "summary": {
     "tests_run": 4,
     "tests_passed": 2,
@@ -13,9 +13,9 @@
       "expected_status": 200,
       "actual_status": 404,
       "success": false,
-      "response_time": 0.346804,
-      "timestamp": "2026-04-07T17:42:38.174745",
-      "error_response": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Cannot GET /api/health</pre>\n<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML=\"window.__CF$cv$params={r:'9e8ad4773ae886d5',t:'MTc3NTU4Mzc1Nw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);\";b.getElementsB"
+      "response_time": 0.220392,
+      "timestamp": "2026-04-07T18:07:13.502764",
+      "error_response": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Cannot GET /api/health</pre>\n<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML=\"window.__CF$cv$params={r:'9e8af87c98f1f15d',t:'MTc3NTU4NTIzMw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);\";b.getElementsB"
     },
     {
       "test_name": "Dashboard Info",
@@ -24,9 +24,9 @@
       "expected_status": 200,
       "actual_status": 404,
       "success": false,
-      "response_time": 0.162521,
-      "timestamp": "2026-04-07T17:42:38.337882",
-      "error_response": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Cannot GET /api/dashboard/info</pre>\n<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML=\"window.__CF$cv$params={r:'9e8ad478fa263c9c',t:'MTc3NTU4Mzc1OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);\";b.getE"
+      "response_time": 0.18177,
+      "timestamp": "2026-04-07T18:07:13.685137",
+      "error_response": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Cannot GET /api/dashboard/info</pre>\n<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML=\"window.__CF$cv$params={r:'9e8af87dbde7e5db',t:'MTc3NTU4NTIzMw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);\";b.getE"
     },
     {
       "test_name": "Bot Status API",
@@ -35,8 +35,8 @@
       "expected_status": 200,
       "actual_status": 200,
       "success": true,
-      "response_time": 0.174618,
-      "timestamp": "2026-04-07T17:42:38.513088",
+      "response_time": 0.193383,
+      "timestamp": "2026-04-07T18:07:13.879129",
       "response_data": {
         "bot": "Lades-Pro-MD",
         "botName": "Lades-Pro-MD",
@@ -45,8 +45,8 @@
         "hasStoredSession": true,
         "hasDb": false,
         "phone": "17788276641",
-        "uptime": 450.575,
-        "memory": "9 MB",
+        "uptime": 373.395,
+        "memory": "10 MB",
         "nodeVersion": "v20.20.1"
       }
     },
@@ -57,8 +57,8 @@
       "expected_status": 200,
       "actual_status": 200,
       "success": true,
-      "response_time": 0.137133,
-      "timestamp": "2026-04-07T17:42:38.655455",
+      "response_time": 0.180511,
+      "timestamp": "2026-04-07T18:07:14.067075",
       "response_data": {
         "commands": [
           {
@@ -767,31 +767,61 @@
             "pattern": "setvar",
             "desc": "Botun \u00e7al\u0131\u015fma dinamiklerini de\u011fi\u015ftiren teknik de\u011fi\u015fkenleri (Database) uzaktan tan\u0131mlar.",
             "use": "genel",
-            "stat": null
+            "stat": {
+              "status": "skipped",
+              "ms": 0,
+              "lastRun": "2026-04-07T18:00:39.563Z",
+              "error": "Tehlikeli komut",
+              "runs": 2
+            }
           },
           {
             "pattern": "de\u011fi\u015fkengetir",
             "desc": "Veritaban\u0131nda kay\u0131tl\u0131 olan belirli bir de\u011fi\u015fkenin g\u00fcncel de\u011ferini sorgular.",
             "use": "system",
-            "stat": null
+            "stat": {
+              "status": "ok",
+              "ms": 1,
+              "lastRun": "2026-04-07T18:00:39.563Z",
+              "error": null,
+              "runs": 3
+            }
           },
           {
             "pattern": "de\u011fi\u015fkensil",
             "desc": "Veritaban\u0131nda kay\u0131tl\u0131 olan bir de\u011fi\u015fkeni sistemden kal\u0131c\u0131 olarak temizler.",
             "use": "system",
-            "stat": null
+            "stat": {
+              "status": "skipped",
+              "ms": 0,
+              "lastRun": "2026-04-07T18:00:39.563Z",
+              "error": "Tehlikeli komut",
+              "runs": 2
+            }
           },
           {
             "pattern": "setenv",
             "desc": "Ana yap\u0131land\u0131rma dosyas\u0131ndaki (config.env) ortam de\u011fi\u015fkenlerini do\u011frudan g\u00fcnceller.",
             "use": "genel",
-            "stat": null
+            "stat": {
+              "status": "skipped",
+              "ms": 0,
+              "lastRun": "2026-04-07T18:00:39.563Z",
+              "error": "Tehlikeli komut",
+              "runs": 2
+            }
           },
           {
             "pattern": "de\u011fi\u015fkenler",
             "desc": "Veritaban\u0131nda kay\u0131tl\u0131 olan t\u00fcm \u00f6zel de\u011fi\u015fkenleri ve de\u011ferleri liste halinde sunar.",
             "use": "system",
-            "stat": null
+            "stat": {
+              "status": "ok",
+              "ms": 0,
+              "lastRun": "2026-04-07T18:00:39.563Z",
+              "error": null,
+              "runs": 2
+            }
           },
           {
             "pattern": "platform",
@@ -959,7 +989,13 @@
             "pattern": "oval",
             "desc": "G\u00f6rselleri veya \u00e7\u0131kartmalar\u0131 oval (yuvarlak) \u015fekilde k\u0131rpar.",
             "use": "media",
-            "stat": null
+            "stat": {
+              "status": "ok",
+              "ms": 355,
+              "lastRun": "2026-04-07T18:04:59.849Z",
+              "error": null,
+              "runs": 4
+            }
           },
           {
             "pattern": "gif",
@@ -1061,7 +1097,13 @@
             "pattern": "emojimix",
             "desc": "\u0130ki farkl\u0131 emojiyi birle\u015ftirerek \u00f6zel bir \u00e7\u0131kartma olu\u015fturur.",
             "use": "fun",
-            "stat": null
+            "stat": {
+              "status": "ok",
+              "ms": 1059,
+              "lastRun": "2026-04-07T17:50:36.831Z",
+              "error": null,
+              "runs": 1
+            }
           },
           {
             "pattern": "yaz\u0131",

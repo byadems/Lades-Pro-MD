@@ -503,7 +503,16 @@ Module({
   use: "media",
 },
   async (message, match) => {
-    await circle(message);
+    if (!message.reply_message || (!message.reply_message.image && !message.reply_message.sticker)) {
+      return await message.sendReply("*🖼️ Bir görsel veya çıkartmayı yanıtla*");
+    }
+    try {
+      const buffer = await message.reply_message.download();
+      const result = await circle(buffer);
+      await message.send(result, "image", { caption: "_✅ Oval kırpma tamamlandı!_" });
+    } catch (err) {
+      await message.sendReply(`_❌ Hata: ${err.message}_`);
+    }
   }
 );
 Module({

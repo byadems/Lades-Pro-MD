@@ -114,6 +114,15 @@ function createMockMsg(ownJid, text) {
   };
 }
 
+/**
+ * Tek bir komutu test eder ve sonuç döndürür.
+ */
+async function testCommand(cmd, prefix, ownJid) {
+  const key = makeKey(cmd.pattern);
+  if (!key || isDangerous(key)) {
+    return { key, result: { status: "skipped", ms: 0, lastRun: new Date().toISOString(), error: "Tehlikeli komut", runs: 0 } };
+  }
+
   const text = prefix + key;
   const mock = createMockMsg(ownJid, text);
   const regex = new RegExp(String(cmd.pattern), "i");
@@ -126,7 +135,7 @@ function createMockMsg(ownJid, text) {
     await Promise.race([
       cmd.run(mock, match),
       new Promise((_, rej) => setTimeout(() => {
-        mock._isStale = true; // Zaman aşımı sonrası mock aksiyonlarını durdur
+        mock._isStale = true;
         rej(new Error("timeout"));
       }, TIMEOUT_MS)),
     ]);
@@ -216,7 +225,7 @@ async function runSelfTest(sock) {
           process.emit('test_progress', global.testProgress);
         }
 
-        return testOne(cmd, ownJid, prefix);
+        return testCommand(cmd, prefix, ownJid);
       })
     );
 
