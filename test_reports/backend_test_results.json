@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-04-07T16:59:41.936051",
+  "timestamp": "2026-04-07T17:42:38.657549",
   "summary": {
     "tests_run": 4,
-    "tests_passed": 4,
-    "success_rate": 100.0
+    "tests_passed": 2,
+    "success_rate": 50.0
   },
   "test_results": [
     {
@@ -11,38 +11,22 @@
       "endpoint": "api/health",
       "method": "GET",
       "expected_status": 200,
-      "actual_status": 200,
-      "success": true,
-      "response_time": 0.188688,
-      "timestamp": "2026-04-07T16:59:41.472708",
-      "response_data": {
-        "status": "ok",
-        "service": "Lades-Pro-MD Dashboard Proxy"
-      }
+      "actual_status": 404,
+      "success": false,
+      "response_time": 0.346804,
+      "timestamp": "2026-04-07T17:42:38.174745",
+      "error_response": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Cannot GET /api/health</pre>\n<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML=\"window.__CF$cv$params={r:'9e8ad4773ae886d5',t:'MTc3NTU4Mzc1Nw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);\";b.getElementsB"
     },
     {
       "test_name": "Dashboard Info",
       "endpoint": "api/dashboard/info",
       "method": "GET",
       "expected_status": 200,
-      "actual_status": 200,
-      "success": true,
-      "response_time": 0.145685,
-      "timestamp": "2026-04-07T16:59:41.619121",
-      "response_data": {
-        "name": "Lades-Pro-MD",
-        "version": "1.0.0",
-        "owner_number": "905396978235",
-        "features": [
-          "WhatsApp Bot Y\u00f6netimi",
-          "35+ Komut",
-          "AI Entegrasyonu",
-          "Grup Y\u00f6netimi",
-          "Anti-Link/Anti-Spam",
-          "Zamanlanm\u0131\u015f Mesajlar"
-        ],
-        "status": "ready"
-      }
+      "actual_status": 404,
+      "success": false,
+      "response_time": 0.162521,
+      "timestamp": "2026-04-07T17:42:38.337882",
+      "error_response": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Cannot GET /api/dashboard/info</pre>\n<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML=\"window.__CF$cv$params={r:'9e8ad478fa263c9c',t:'MTc3NTU4Mzc1OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);\";b.getE"
     },
     {
       "test_name": "Bot Status API",
@@ -51,18 +35,18 @@
       "expected_status": 200,
       "actual_status": 200,
       "success": true,
-      "response_time": 0.173675,
-      "timestamp": "2026-04-07T16:59:41.793441",
+      "response_time": 0.174618,
+      "timestamp": "2026-04-07T17:42:38.513088",
       "response_data": {
         "bot": "Lades-Pro-MD",
         "botName": "Lades-Pro-MD",
-        "hasSession": false,
-        "connected": false,
-        "hasStoredSession": false,
+        "hasSession": true,
+        "connected": true,
+        "hasStoredSession": true,
         "hasDb": false,
-        "phone": null,
-        "uptime": 727.994,
-        "memory": "14 MB",
+        "phone": "17788276641",
+        "uptime": 450.575,
+        "memory": "9 MB",
         "nodeVersion": "v20.20.1"
       }
     },
@@ -73,8 +57,8 @@
       "expected_status": 200,
       "actual_status": 200,
       "success": true,
-      "response_time": 0.139137,
-      "timestamp": "2026-04-07T16:59:41.934870",
+      "response_time": 0.137133,
+      "timestamp": "2026-04-07T17:42:38.655455",
       "response_data": {
         "commands": [
           {
@@ -99,7 +83,13 @@
             "pattern": "yz",
             "desc": "Yapay zeka komutlar\u0131. .yz yazarak t\u00fcm alt komutlar\u0131 g\u00f6rebilirsiniz.",
             "use": "ai",
-            "stat": null
+            "stat": {
+              "status": "ok",
+              "ms": 490,
+              "lastRun": "2026-04-07T17:40:23.232Z",
+              "error": null,
+              "runs": 1
+            }
           },
           {
             "pattern": "liste",
@@ -861,7 +851,13 @@
             "pattern": "antibot",
             "desc": "Sohbete kat\u0131lan di\u011fer botlar\u0131 otomatik olarak tespit eder ve gruptan uzakla\u015ft\u0131r\u0131r.",
             "use": "group",
-            "stat": null
+            "stat": {
+              "status": "ok",
+              "ms": 228,
+              "lastRun": "2026-04-07T17:34:58.654Z",
+              "error": null,
+              "runs": 2
+            }
           },
           {
             "pattern": "antispam",
@@ -909,7 +905,13 @@
             "pattern": "uptime",
             "desc": "Botun ve \u00fczerinde \u00e7al\u0131\u015ft\u0131\u011f\u0131 sunucunun ne kadar s\u00fcredir kesintisiz aktif oldu\u011funu g\u00f6sterir.",
             "use": "system",
-            "stat": null
+            "stat": {
+              "status": "ok",
+              "ms": 260,
+              "lastRun": "2026-04-07T17:36:38.468Z",
+              "error": null,
+              "runs": 1
+            }
           },
           {
             "pattern": "dinle",
@@ -1317,13 +1319,25 @@
             "pattern": "ping",
             "desc": "Botun sunucuya olan tepki h\u0131z\u0131n\u0131 ve a\u011f gecikmesini \u00f6l\u00e7er.",
             "use": "tools",
-            "stat": null
+            "stat": {
+              "status": "ok",
+              "ms": 469,
+              "lastRun": "2026-04-07T17:37:51.367Z",
+              "error": null,
+              "runs": 5
+            }
           },
           {
             "pattern": "h\u0131ztesti",
             "desc": "Botun bulundu\u011fu sunucunun internet indirme ve y\u00fckleme h\u0131zlar\u0131n\u0131 Ookla Speedtest ile \u00f6l\u00e7er.",
             "use": "tools",
-            "stat": null
+            "stat": {
+              "status": "ok",
+              "ms": 11317,
+              "lastRun": "2026-04-07T17:37:38.299Z",
+              "error": null,
+              "runs": 1
+            }
           },
           {
             "pattern": "ifade",
@@ -1419,7 +1433,13 @@
             "pattern": "ytvideo",
             "desc": "YouTube videolar\u0131n\u0131 kalite se\u00e7ene\u011fi sunarak (360p, 1080p vb.) indirmenizi sa\u011flar.",
             "use": "download",
-            "stat": null
+            "stat": {
+              "status": "ok",
+              "ms": 1216,
+              "lastRun": "2026-04-07T17:40:48.959Z",
+              "error": null,
+              "runs": 1
+            }
           },
           {
             "pattern": "video",

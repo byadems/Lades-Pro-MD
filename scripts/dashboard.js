@@ -153,17 +153,45 @@ app.get('/api/status', (req, res) => {
   const conf = getEnvConfig();
   const mem = process.memoryUsage();
   const hasLocalSession = fs.existsSync(path.join(__dirname, "../sessions/lades-session/creds.json"));
+  const hasDashboardSession = fs.existsSync(path.join(__dirname, "../sessions/dashboard-auth/creds.json"));
   const hasDb = !!(conf.DATABASE_URL && conf.DATABASE_URL.trim());
-  const hasStoredSession = hasLocalSession || hasDb;
+  const hasStoredSession = hasLocalSession || hasDashboardSession || hasDb;
+
+  // Check if creds.json has valid credentials (registered = true)
+  let sessionPhone = null;
+  let isRegistered = false;
+  const sessionPaths = [
+    path.join(__dirname, "../sessions/dashboard-auth/creds.json"),
+    path.join(__dirname, "../sessions/lades-session/creds.json")
+  ];
+  
+  for (const credPath of sessionPaths) {
+    if (fs.existsSync(credPath)) {
+      try {
+        const creds = JSON.parse(fs.readFileSync(credPath, 'utf8'));
+        if (creds.me && creds.me.id) {
+          // Extract phone from me.id (format: 1234567890:123@s.whatsapp.net)
+          const match = creds.me.id.match(/^(\d+)/);
+          if (match) sessionPhone = match[1];
+          isRegistered = creds.registered === true || !!creds.me;
+          break;
+        }
+      } catch (e) { /* ignore */ }
+    }
+  }
+
+  // Use file-based detection when IPC is not available
+  const connected = liveBotConnected || isRegistered;
+  const phone = liveBotPhone || sessionPhone;
 
   res.json({
     bot: conf.BOT_NAME || "Lades-Pro-MD",
     botName: conf.BOT_NAME || "Lades-Pro-MD",
-    hasSession: liveBotConnected,
-    connected: liveBotConnected,
+    hasSession: connected,
+    connected: connected,
     hasStoredSession,
     hasDb,
-    phone: liveBotPhone,
+    phone: phone,
     uptime: (Date.now() - dashboardStartTime) / 1000,
     memory: Math.round(mem.heapUsed / 1024 / 1024) + " MB",
     nodeVersion: process.version

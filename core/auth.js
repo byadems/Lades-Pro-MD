@@ -158,12 +158,28 @@ async function getAuthState(config, sessionId = "lades-session") {
     try {
       return await useSessionStringAuthState(config.SESSION);
     } catch (e) {
-      logger.warn("Oturum metni ayrıştırma hatası, veri tabanına dönülüyor.");
+      logger.warn("Oturum metni ayrıştırma hatası, yerel dosyaya dönülüyor.");
     }
   }
 
-  // 2. Default to DB auth state (SQLite or Postgres)
-  logger.info(`Veri tabanı oturum yönetimi kullanılıyor (ID: ${sessionId})`);
+  // 2. Check for local session files first (dashboard-auth or lades-session)
+  const possiblePaths = [
+    path.join(__dirname, "..", "sessions", "dashboard-auth"),
+    path.join(__dirname, "..", "sessions", "lades-session"),
+    path.join(__dirname, "..", "sessions", sessionId),
+  ];
+  
+  for (const sessionPath of possiblePaths) {
+    const credsFile = path.join(sessionPath, "creds.json");
+    if (fs.existsSync(credsFile)) {
+      logger.info(`Yerel oturum dosyası bulundu: ${sessionPath}`);
+      const { useMultiFileAuthState } = await loadBaileys();
+      return await useMultiFileAuthState(sessionPath);
+    }
+  }
+
+  // 3. Fallback to DB auth state (SQLite or Postgres)
+  logger.info(`[${sessionId}] Geçerli oturum bulunamadı. Dashboard üzerinden giriş yapılması bekleniyor...`);
   return await useDbAuthState(sessionId);
 }
 

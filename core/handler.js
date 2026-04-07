@@ -635,11 +635,20 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     let resolvedSenderJid = senderJid;
 
     // ─────────────────────────────────────────────────────────
+    //  PARTICIPANTPN KONTROLÜ: WhatsApp'ın sağladığı telefon numarasını kullan
+    // ─────────────────────────────────────────────────────────
+    const participantPn = rawMsg?.key?.participantPn || rawMsg?.participant_pn || null;
+    if (participantPn) {
+      resolvedSenderJid = participantPn;
+      logger.debug(`[ParticipantPN] LID ${senderJid} -> PN ${participantPn}`);
+    }
+
+    // ─────────────────────────────────────────────────────────
     //  BOT NUMARASI KONTROLÜ: Bot'un bağlı olduğu numara OWNER'dır
     // ─────────────────────────────────────────────────────────
     const botNumber = client.user?.id ? getNumericalId(client.user.id) : null;
     const botLidNumber = client.user?.lid ? getNumericalId(client.user.lid) : null;
-    const senderNumber = getNumericalId(senderJid);
+    const senderNumber = getNumericalId(resolvedSenderJid);
     
     // Bot numarası HARD_OWNER ile aynıysa, bu bot sahibinindir
     let isBotOwnerNumber = false;
@@ -653,7 +662,8 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     }
 
     // KnightBot-Mini Yöntemi: LID -> PN Çevirisi (anlık auth state sorgusu)
-    if (senderJid && senderJid.includes('@lid')) {
+    // participantPn yoksa veya hala LID ise dene
+    if (resolvedSenderJid && resolvedSenderJid.includes('@lid')) {
        try {
          const { resolveLidToPn } = require("./lid-helper");
          const pn = await resolveLidToPn(client, senderJid);
@@ -712,9 +722,10 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
 
     if (config.DEBUG) {
         console.log(`\n--- [NEW MESSAGE] ---`);
-        console.log(`| Text: "${text}"`);
-        console.log(`| From (PN): ${resolvedSenderJid}`);
-        console.log(`| From (LID): ${senderJid}`);
+        console.log(`| Text: "${text.slice(0, 50)}"`);
+        console.log(`| From (resolved): ${resolvedSenderJid}`);
+        console.log(`| From (original): ${senderJid}`);
+        console.log(`| participantPn: ${rawMsg?.key?.participantPn || 'N/A'}`);
         console.log(`| Auth: Owner=${ownerCheck}, Sudo=${sudoCheck}, Public=${publicMode}`);
         console.log(`--------------------\n`);
     }
