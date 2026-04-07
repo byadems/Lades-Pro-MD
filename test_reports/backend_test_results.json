@@ -1,0 +1,1447 @@
+{
+  "timestamp": "2026-04-07T16:59:41.936051",
+  "summary": {
+    "tests_run": 4,
+    "tests_passed": 4,
+    "success_rate": 100.0
+  },
+  "test_results": [
+    {
+      "test_name": "Backend Health Check",
+      "endpoint": "api/health",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_time": 0.188688,
+      "timestamp": "2026-04-07T16:59:41.472708",
+      "response_data": {
+        "status": "ok",
+        "service": "Lades-Pro-MD Dashboard Proxy"
+      }
+    },
+    {
+      "test_name": "Dashboard Info",
+      "endpoint": "api/dashboard/info",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_time": 0.145685,
+      "timestamp": "2026-04-07T16:59:41.619121",
+      "response_data": {
+        "name": "Lades-Pro-MD",
+        "version": "1.0.0",
+        "owner_number": "905396978235",
+        "features": [
+          "WhatsApp Bot Y\u00f6netimi",
+          "35+ Komut",
+          "AI Entegrasyonu",
+          "Grup Y\u00f6netimi",
+          "Anti-Link/Anti-Spam",
+          "Zamanlanm\u0131\u015f Mesajlar"
+        ],
+        "status": "ready"
+      }
+    },
+    {
+      "test_name": "Bot Status API",
+      "endpoint": "api/status",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_time": 0.173675,
+      "timestamp": "2026-04-07T16:59:41.793441",
+      "response_data": {
+        "bot": "Lades-Pro-MD",
+        "botName": "Lades-Pro-MD",
+        "hasSession": false,
+        "connected": false,
+        "hasStoredSession": false,
+        "hasDb": false,
+        "phone": null,
+        "uptime": 727.994,
+        "memory": "14 MB",
+        "nodeVersion": "v20.20.1"
+      }
+    },
+    {
+      "test_name": "Commands List API",
+      "endpoint": "api/commands",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_time": 0.139137,
+      "timestamp": "2026-04-07T16:59:41.934870",
+      "response_data": {
+        "commands": [
+          {
+            "pattern": "uzakta",
+            "desc": "AFK (Uzakta) modunu ba\u015flatarak sizi etiketleyenlere veya size mesaj atanlara otomatik bilgi verir.",
+            "use": "genel",
+            "stat": null
+          },
+          {
+            "pattern": "otodl",
+            "desc": "Belirledi\u011finiz sohbetlerde veya t\u00fcm gruplarda sosyal medya ba\u011flant\u0131lar\u0131n\u0131 otomatik olarak alg\u0131lar ve medyay\u0131 indirir.",
+            "use": "genel",
+            "stat": null
+          },
+          {
+            "pattern": "ba\u011fla",
+            "desc": "WhatsApp Web ba\u011flant\u0131s\u0131",
+            "use": "owner",
+            "stat": null
+          },
+          {
+            "pattern": "yz",
+            "desc": "Yapay zeka komutlar\u0131. .yz yazarak t\u00fcm alt komutlar\u0131 g\u00f6rebilirsiniz.",
+            "use": "ai",
+            "stat": null
+          },
+          {
+            "pattern": "liste",
+            "desc": "T\u00fcm komutlar\u0131 kategorilere ayr\u0131lm\u0131\u015f detayl\u0131 bir liste halinde sunar.",
+            "use": "genel",
+            "stat": null
+          },
+          {
+            "pattern": "kontrol",
+            "desc": "Sistemin \u00e7al\u0131\u015fma durumunu kontrol eder.",
+            "use": "genel",
+            "stat": null
+          },
+          {
+            "pattern": "setalive",
+            "desc": "Botun \u00e7evrimi\u00e7i oldu\u011funu g\u00f6steren (alive) mesaj\u0131n\u0131 ki\u015fiselle\u015ftirmenizi sa\u011flar.",
+            "use": "genel",
+            "stat": null
+          },
+          {
+            "pattern": "men\u00fc",
+            "desc": "Botun ana komut men\u00fcs\u00fcn\u00fc ve temel istatistiklerini g\u00f6steren \u015f\u0131k bir aray\u00fcz a\u00e7ar.",
+            "use": "genel",
+            "stat": null
+          },
+          {
+            "pattern": "oyunlar",
+            "desc": "Bot \u00fczerinde oynanabilecek t\u00fcm e\u011flenceli oyunlar\u0131 ve kurallar\u0131n\u0131 listeler.",
+            "use": "genel",
+            "stat": null
+          },
+          {
+            "pattern": "setname",
+            "desc": "Grup \u00fczerinde g\u00f6r\u00fcnen \u00fcye etiketini belirledi\u011finiz yeni isimle g\u00fcnceller.",
+            "use": "owner",
+            "stat": null
+          },
+          {
+            "pattern": "setimage",
+            "desc": "Botun profil g\u00f6rselini yan\u0131tlad\u0131\u011f\u0131n\u0131z g\u00f6rselle de\u011fi\u015ftirir.",
+            "use": "owner",
+            "stat": null
+          },
+          {
+            "pattern": "testalive",
+            "desc": "Belirledi\u011finiz \u00e7evrimi\u00e7i mesaj\u0131n\u0131n bot \u00fczerinde nas\u0131l g\u00f6r\u00fcnd\u00fc\u011f\u00fcn\u00fc test etmenizi sa\u011flar.",
+            "use": "owner",
+            "stat": null
+          },
+          {
+            "pattern": "bildir",
+            "desc": "Bot hakk\u0131nda istek, \u015fikayet, hata, \u00f6neri veya talebinizi iletir.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "hava",
+            "desc": "Belirledi\u011finiz konuma ait g\u00fcncel hava durumu verilerini, s\u0131cakl\u0131k ve nem bilgilerini getirir.",
+            "use": "search",
+            "stat": null
+          },
+          {
+            "pattern": "kur",
+            "desc": "Belirli bir miktar\u0131n iki para birimi aras\u0131ndaki d\u00f6viz kuru d\u00f6n\u00fc\u015f\u00fcm\u00fcn\u00fc hesaplar.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "resim",
+            "desc": "\u0130nternet \u00fczerinden belirledi\u011finiz anahtar kelimeye uygun g\u00f6rseller bulur ve g\u00f6nderir.",
+            "use": "search",
+            "stat": null
+          },
+          {
+            "pattern": "yemekt",
+            "desc": "Geni\u015f bir yemek tarifi k\u00fct\u00fcphanesinden istedi\u011finiz yeme\u011fin haz\u0131rlan\u0131\u015f\u0131n\u0131 ve malzemelerini getirir.",
+            "use": "search",
+            "stat": null
+          },
+          {
+            "pattern": "g\u00f6rselara",
+            "desc": "Google G\u00f6rseller \u00fczerinden belirledi\u011finiz anahtar kelimeye uygun resimler bulur ve alb\u00fcm olarak g\u00f6nderir.",
+            "use": "search",
+            "stat": null
+          },
+          {
+            "pattern": "\u00e7\u0131kartma",
+            "desc": "G\u00f6rsel, video veya GIF dosyalar\u0131n\u0131 WhatsApp \u00e7\u0131kartmas\u0131na (sticker) d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "mp3",
+            "desc": "Videolar\u0131n sesini ayr\u0131\u015ft\u0131rarak y\u00fcksek kaliteli bir MP3 (ses) dosyas\u0131na d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "slow",
+            "desc": "Ses tonunu d\u00fc\u015f\u00fcrerek m\u00fczi\u011fe yava\u015flatma efekti verir.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "h\u0131zland\u0131r",
+            "desc": "M\u00fczi\u011fi h\u0131zland\u0131r\u0131rak ses tonunu y\u00fckseltir.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "bass",
+            "desc": "Sesteki bass g\u00fcc\u00fcn\u00fc belirledi\u011finiz seviyeye g\u00f6re art\u0131r\u0131r.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "foto",
+            "desc": "WhatsApp \u00e7\u0131kartmalar\u0131n\u0131 standart foto\u011fraf format\u0131na d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "yaz\u01311",
+            "desc": "Yazd\u0131\u011f\u0131n\u0131z metni \u015f\u0131k, renkli ve hareketli bir \u00e7\u0131kartma haline getirir.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "ses",
+            "desc": "Yazd\u0131\u011f\u0131n\u0131z metni farkl\u0131 dil ve ses tonu se\u00e7enekleriyle sesli mesaja d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "belge",
+            "desc": "Medya dosyalar\u0131n\u0131 kalite kayb\u0131 ya\u015fanmamas\u0131 i\u00e7in belge (dosya) format\u0131nda g\u00f6nderir.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "indir",
+            "desc": "Verilen bir dosya ba\u011flant\u0131s\u0131ndaki (URL) i\u00e7eri\u011fi indirip sohbete belge olarak y\u00fckler.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "square",
+            "desc": "Videolar\u0131 veya g\u00f6rselleri en-boy oran\u0131n\u0131 koruyarak 1:1 kare format\u0131nda k\u0131rpar.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "boyut",
+            "desc": "Medya dosyalar\u0131n\u0131 istedi\u011finiz en-boy oran\u0131na (16:9, 9:16 vb.) g\u00f6re yeniden \u015fekillendirir.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "s\u0131k\u0131\u015ft\u0131r",
+            "desc": "Video veya g\u00f6rsellerin dosya boyutunu kaliteden \u00f6d\u00fcn vererek belirledi\u011finiz oranda k\u00fc\u00e7\u00fclt\u00fcr.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "dc",
+            "desc": "Do\u011fruluk mu Cesaret mi oyununu oynat\u0131r.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "sondepremler",
+            "desc": "T\u00fcrkiye genelinde son ger\u00e7ekle\u015fen depremleri liste halinde sunar. \u015eehir filtresi eklenebilir.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "sondeprem",
+            "desc": "T\u00fcrkiye",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "edit\u00f6r",
+            "desc": "T\u00fcm g\u00f6rsel d\u00fczenleme ve efekt komutlar\u0131n\u0131 i\u00e7eren men\u00fcy\u00fc g\u00f6r\u00fcnt\u00fcler.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "${command}",
+            "desc": "",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "wasted",
+            "desc": "Foto\u011frafa GTA tarz\u0131 \u00f6ld\u00fcn (wasted) efekti uygular.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "wanted",
+            "desc": "Foto\u011fraf\u0131 profesyonel bir aran\u0131yor (wasted) posterine d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "anime",
+            "desc": "Se\u00e7ti\u011finiz foto\u011fraf\u0131 profesyonel anime \u00e7izgifilm karakterine d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "ghiblistil",
+            "desc": "Foto\u011fraf\u0131 Studio Ghibli animasyonlar\u0131n\u0131n b\u00fcy\u00fcleyici sanat stiline uyarlar.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "chibi",
+            "desc": "Foto\u011fraf\u0131 sevimli ve k\u00fc\u00e7\u00fck chibi karakter stiline d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "efektsinema",
+            "desc": "Foto\u011frafa profesyonel bir film karesi havas\u0131 katan sinematik efekt uygular.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "grafitisokak",
+            "desc": "Foto\u011fraf\u0131 bir sokak duvar\u0131ndaki etkileyici grafiti sanat\u0131na d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "pikselart",
+            "desc": "Foto\u011fraf\u0131 nostaljik bir piksel sanat eseri NFT stiline d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "\u00e7izgiroman",
+            "desc": "Foto\u011fraf\u0131 aksiyon dolu bir \u00e7izgi roman karesine d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "mafia",
+            "desc": "Foto\u011frafa \u015f\u0131k ve gizemli bir mafia atmosferi kazand\u0131r\u0131r.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "mod\u00fcly\u00fckle",
+            "desc": "Mod\u00fcl y\u00fckler.\n\u2328\ufe0f \u00d6rnek: .install https://gist.github.com/...",
+            "use": "owner",
+            "stat": null
+          },
+          {
+            "pattern": "mod\u00fcl",
+            "desc": "Y\u00fckledi\u011finiz pluginleri g\u00f6sterir.",
+            "use": "owner",
+            "stat": null
+          },
+          {
+            "pattern": "mod\u00fclsil",
+            "desc": "Mod\u00fcl kald\u0131r\u0131r.",
+            "use": "owner",
+            "stat": null
+          },
+          {
+            "pattern": "mg\u00fcncelle",
+            "desc": "Bir eklentiyi (plugin) g\u00fcnceller",
+            "use": "owner",
+            "stat": null
+          },
+          {
+            "pattern": "ezan",
+            "desc": "Belirledi\u011finiz \u015fehrin g\u00fcnl\u00fck ezan vakitlerini ve bir sonraki ezana kalan s\u00fcreyi g\u00f6sterir.",
+            "use": "dini",
+            "stat": null
+          },
+          {
+            "pattern": "sahur",
+            "desc": "Belirledi\u011finiz \u015fehir i\u00e7in sahur vaktine (imsak) ne kadar s\u00fcre kald\u0131\u011f\u0131n\u0131 hesaplar.",
+            "use": "dini",
+            "stat": null
+          },
+          {
+            "pattern": "iftar",
+            "desc": "Belirledi\u011finiz \u015fehir i\u00e7in iftar vaktine (ak\u015fam) ne kadar s\u00fcre kald\u0131\u011f\u0131n\u0131 hesaplar.",
+            "use": "dini",
+            "stat": null
+          },
+          {
+            "pattern": "fancy",
+            "desc": "Girdi\u011finiz metni farkl\u0131 ve \u015f\u0131k yaz\u0131 tiplerine d\u00f6n\u00fc\u015ft\u00fcrerek daha dikkat \u00e7ekici g\u00f6r\u00fcnmesini sa\u011flar.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "filtre",
+            "desc": "Belirli kelimelere botun otomatik olarak vermesini istedi\u011finiz yan\u0131tlar\u0131 (filtreleri) olu\u015fturur.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "filtreler",
+            "desc": "Sohbet veya genel kapsamda olu\u015fturulmu\u015f olan t\u00fcm aktif filtreleri listeler.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "filtresil",
+            "desc": "Daha \u00f6nce olu\u015fturulmu\u015f olan bir filtre tetikleyicisini sistemden kal\u0131c\u0131 olarak siler.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "filtredurum",
+            "desc": "Belirledi\u011finiz bir filtreyi ge\u00e7ici olarak devre d\u0131\u015f\u0131 b\u0131rak\u0131r veya tekrar aktif eder.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "testfiltre",
+            "desc": "Yazd\u0131\u011f\u0131n\u0131z bir kelimenin herhangi bir filtreyle e\u015fle\u015fip e\u015fle\u015fmedi\u011fini test eder.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "filtreyard\u0131m",
+            "desc": "Filtreleme sistemi ve geli\u015fmi\u015f se\u00e7enekleri hakk\u0131nda detayl\u0131 yard\u0131m sunar.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "testgay",
+            "desc": "Etiketledi\u011finiz \u00fcyenin gaylik y\u00fczdesini \u00f6l\u00e7er.",
+            "use": "game",
+            "stat": null
+          },
+          {
+            "pattern": "testlez",
+            "desc": "Etiketledi\u011finiz \u00fcyenin lezlik y\u00fczdesini \u00f6l\u00e7er.",
+            "use": "game",
+            "stat": null
+          },
+          {
+            "pattern": "testprenses",
+            "desc": "Etiketledi\u011finiz \u00fcyenin prenseslik seviyesini \u00f6l\u00e7er.",
+            "use": "game",
+            "stat": null
+          },
+          {
+            "pattern": "testregl",
+            "desc": "Etiketledi\u011finiz \u00fcyenin Regl olma ihtimalini \u00f6l\u00e7er.",
+            "use": "game",
+            "stat": null
+          },
+          {
+            "pattern": "testinan\u00e7",
+            "desc": "Etiketledi\u011finiz \u00fcyenin inan\u00e7 seviyesini \u00f6l\u00e7er.",
+            "use": "game",
+            "stat": null
+          },
+          {
+            "pattern": "a\u015fk\u00f6l\u00e7",
+            "desc": "\u0130ki ki\u015fi aras\u0131ndaki a\u015fk y\u00fczdesini \u00f6l\u00e7er.",
+            "use": "game",
+            "stat": null
+          },
+          {
+            "pattern": "beyin",
+            "desc": "Zeka geli\u015fimine katk\u0131da bulunan rastgele bir beyin jimnasti\u011fi sorusu sorar.",
+            "use": "game",
+            "stat": null
+          },
+          {
+            "pattern": "bilmece",
+            "desc": "Keyifli vakit ge\u00e7irmeniz i\u00e7in rastgele ve d\u00fc\u015f\u00fcnd\u00fcr\u00fcc\u00fc bir bilmece sorar.",
+            "use": "game",
+            "stat": null
+          },
+          {
+            "pattern": "kimyasoru",
+            "desc": "Kimya bilginizi tazeleyecek element sembolleri \u00fczerine bir soru sorar.",
+            "use": "game",
+            "stat": null
+          },
+          {
+            "pattern": "alay",
+            "desc": "Yazd\u0131\u011f\u0131n\u0131z metni e\u011flenceli ve alayc\u0131 bir slang format\u0131na d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "fun",
+            "stat": null
+          },
+          {
+            "pattern": "dragonyaz\u0131",
+            "desc": "Yazd\u0131\u011f\u0131n\u0131z metni Dragon Ball tarz\u0131nda \u015f\u0131k bir logoya d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "neonyaz\u0131",
+            "desc": "Yazd\u0131\u011f\u0131n\u0131z metni neon \u0131\u015f\u0131kl\u0131 ve dikkat \u00e7ekici bir tabela logosu haline getirir.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "grafitiyaz\u0131",
+            "desc": "Yazd\u0131\u011f\u0131n\u0131z metni sokak sanat\u0131 olan grafiti stiliyle bir logoya d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "devilyaz\u0131",
+            "desc": "Yazd\u0131\u011f\u0131n\u0131z metni \u015feytan kanatlar\u0131 temal\u0131 karanl\u0131k bir logoya d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "m\u00fczikkart",
+            "desc": "\u015eark\u0131 ve sanat\u00e7\u0131 ismine \u00f6zel \u015f\u0131k bir Spotify tarz\u0131 m\u00fczik kart\u0131 tasar\u0131m\u0131 olu\u015fturur.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "oto\u00e7\u0131kartma",
+            "desc": "Komutlar\u0131 \u00e7\u0131kartmalara yap\u0131\u015ft\u0131r\u0131r. \u00c7\u0131kartma g\u00f6nderilirse komut gibi \u00e7al\u0131\u015f\u0131r!",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "oto\u00e7\u0131kartmasil",
+            "desc": "\u00c7\u0131kartmalardaki komutlar\u0131 siler",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "oto\u00e7\u0131kartmalar",
+            "desc": "\u00c7\u0131kartmalardaki komutlar\u0131 g\u00f6sterir",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "otosohbetkapat",
+            "desc": "Grup sohbetinin otomatik kapanma \u00f6zelli\u011fini aktif eder.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "otosohbeta\u00e7",
+            "desc": "Grup sohbetinin otomatik a\u00e7\u0131lma \u00f6zelli\u011fini aktif eder.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "otosohbet",
+            "desc": "Grup sohbetinin otomatik a\u00e7\u0131l\u0131\u015f ve kapan\u0131\u015f saatlerini ayarlar. (\u00d6rn: .otosohbet 09:00|23:00)",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "antinumara",
+            "desc": "Belirli \u00fclke koduna sahip numaralar\u0131n gruba giri\u015fini engeller/y\u00f6netir.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "sohbetsil",
+            "desc": "Mevcut grup sohbet ge\u00e7mi\u015fini tamamen temizler ve konu\u015fmay\u0131 siler.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "ban",
+            "desc": "Gruptan ki\u015fi banlar. Yan\u0131t verin ya da komutu yazd\u0131ktan sonra ki\u015fiyi etiketleyin.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "at",
+            "desc": "Gruptan ki\u015fi banlar. Yan\u0131t verin ya da komutu yazd\u0131ktan sonra ki\u015fiyi etiketleyin.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "ekle",
+            "desc": "Gruba ki\u015fi ekler.\n\u2328\ufe0f \u00d6rnek: .add 9055xxxxxxxx",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "yetkiver",
+            "desc": "Belirtilen ki\u015fiyi y\u00f6netici yapar.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "istekler",
+            "desc": "Gruptaki bekleyen kat\u0131l\u0131m isteklerini listeler ve y\u00f6netmenizi sa\u011flar.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "ayr\u0131l",
+            "desc": "Gruptan \u00e7\u0131kmay\u0131 sa\u011flar.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "quoted",
+            "desc": "Yan\u0131tlanan mesaj\u0131n as\u0131l al\u0131nt\u0131lad\u0131\u011f\u0131 mesaj\u0131 bulur ve tekrar g\u00f6nderir. Silinen mesajlar\u0131 g\u00f6rmek i\u00e7in idealdir.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "yetkial",
+            "desc": "Belirtilen y\u00f6neticinin yetkisini d\u00fc\u015f\u00fcr\u00fcr.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "sohbetkapat",
+            "desc": "Grup sohbetini kapat\u0131r. Yaln\u0131zca adminler mesaj g\u00f6nderebilir.\n\u2328\ufe0f \u00d6rnek: .mute & .mute 5m vb.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "sohbeta\u00e7",
+            "desc": "Grup sohbetini a\u00e7ar. Herkes mesaj g\u00f6nderebilir.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "jid",
+            "desc": "Belirtilen ki\u015finin veya sohbetin JID adres bilgisini verir.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "davet",
+            "desc": "Grubun davet linkini getirir.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "davetyenile",
+            "desc": "Grubun davet linkini s\u0131f\u0131rlar.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "gayaryt",
+            "desc": "Grup ayarlar\u0131n\u0131 sadece y\u00f6neticilerin d\u00fczenleyebilece\u011fi \u015fekilde de\u011fi\u015ftirir!",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "gayarherkes",
+            "desc": "Grup ayarlar\u0131n\u0131 herkesin d\u00fczenleyebilece\u011fi \u015fekilde de\u011fi\u015ftirir!",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "gad\u0131",
+            "desc": "Grup ismini (ba\u015fl\u0131\u011f\u0131n\u0131) belirledi\u011finiz yeni isimle de\u011fi\u015ftirir.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "ga\u00e7\u0131klama",
+            "desc": "Grup a\u00e7\u0131klamas\u0131n\u0131 belirledi\u011finiz yeni metinle g\u00fcnceller.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "common",
+            "desc": "Verdi\u011finiz iki farkl\u0131 gruptaki ortak olan \u00fcyeleri listeler veya gruptan \u00e7\u0131karman\u0131z\u0131 sa\u011flar.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "diff",
+            "desc": "Verdi\u011finiz iki gruptaki birbirinden farkl\u0131 (benzersiz) \u00fcyeleri listeler.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "tag",
+            "desc": "Gruptaki herkesi etiketler. Mesaja g\u00f6m\u00fcl\u00fc etiket atmak i\u00e7in mesaj\u0131 yan\u0131tlay\u0131n ya da kelime girin.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "engelle",
+            "desc": "Belirtilen kullan\u0131c\u0131y\u0131 bot \u00fczerinden engeller.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "kat\u0131l",
+            "desc": "Verdi\u011finiz grup davet ba\u011flant\u0131s\u0131n\u0131 kullanarak bir gruba kat\u0131lmam\u0131 sa\u011flar.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "engelkald\u0131r",
+            "desc": "Daha \u00f6nce engellenmi\u015f kullan\u0131c\u0131n\u0131n engelini kald\u0131r\u0131r.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "toplukat\u0131l",
+            "desc": "Birden fazla grup ba\u011flant\u0131s\u0131n\u0131 toplu olarak i\u015fleyerek gruplara s\u0131rayla kat\u0131lmam\u0131 sa\u011flar.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "t\u00fcmjid",
+            "desc": "Dahil oldu\u011fum t\u00fcm gruplar\u0131n veya son sohbetlerin JID adreslerini listeler.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "duyuru",
+            "desc": "Bulundu\u011fum t\u00fcm gruplara duyuru iletir ve iste\u011fe ba\u011fl\u0131 olarak sabitler.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "sabitle",
+            "desc": "Yan\u0131tlanan mesaj\u0131 grup sohbetinin \u00fcst k\u0131sm\u0131na belirledi\u011finiz s\u00fcre boyunca sabitler.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "pp",
+            "desc": "Profil resmimi de\u011fi\u015ftirir veya belirtilen kullan\u0131c\u0131n\u0131n profil resmini al\u0131r.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "gfoto",
+            "desc": "Grubun profil foto\u011fraf\u0131n\u0131 de\u011fi\u015ftirir veya mevcut foto\u011fraf\u0131 tam boyut olarak g\u00f6nderir.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "alt\u0131n",
+            "desc": "Anl\u0131k Alt\u0131n fiyatlar\u0131n\u0131 ve piyasa de\u011fi\u015fim verilerini listeler.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "etiket",
+            "desc": "Gruptaki t\u00fcm \u00fcyeleri etiketleyerek duyuru yapman\u0131z\u0131 sa\u011flar.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "ytetiket",
+            "desc": "Grup y\u00f6neticilerini etiketler.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "komut",
+            "desc": "Bot komutlar\u0131n\u0131 listeler veya belirtilen komutun detaylar\u0131n\u0131 g\u00f6sterir.",
+            "use": "genel",
+            "stat": null
+          },
+          {
+            "pattern": "setvar",
+            "desc": "Botun \u00e7al\u0131\u015fma dinamiklerini de\u011fi\u015ftiren teknik de\u011fi\u015fkenleri (Database) uzaktan tan\u0131mlar.",
+            "use": "genel",
+            "stat": null
+          },
+          {
+            "pattern": "de\u011fi\u015fkengetir",
+            "desc": "Veritaban\u0131nda kay\u0131tl\u0131 olan belirli bir de\u011fi\u015fkenin g\u00fcncel de\u011ferini sorgular.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "de\u011fi\u015fkensil",
+            "desc": "Veritaban\u0131nda kay\u0131tl\u0131 olan bir de\u011fi\u015fkeni sistemden kal\u0131c\u0131 olarak temizler.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "setenv",
+            "desc": "Ana yap\u0131land\u0131rma dosyas\u0131ndaki (config.env) ortam de\u011fi\u015fkenlerini do\u011frudan g\u00fcnceller.",
+            "use": "genel",
+            "stat": null
+          },
+          {
+            "pattern": "de\u011fi\u015fkenler",
+            "desc": "Veritaban\u0131nda kay\u0131tl\u0131 olan t\u00fcm \u00f6zel de\u011fi\u015fkenleri ve de\u011ferleri liste halinde sunar.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "platform",
+            "desc": "Botun \u00fczerinde \u00e7al\u0131\u015ft\u0131\u011f\u0131 sunucu altyap\u0131s\u0131, i\u015fletim sistemi ve s\u00fcr\u00fcm bilgilerini g\u00f6r\u00fcnt\u00fcler.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "dil",
+            "desc": "Botun belirli komutlarda kulland\u0131\u011f\u0131 varsay\u0131lan dil se\u00e7ene\u011fini (TR/EN) anl\u0131k olarak de\u011fi\u015ftirir.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "ayarlar",
+            "desc": "Botun ek \u00f6zelliklerini ve WhatsApp tercihlerini y\u00f6netebilece\u011finiz interaktif men\u00fcy\u00fc a\u00e7ar.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "mod",
+            "desc": "Botun \u00e7al\u0131\u015fma modunu genel (public) veya \u00f6zel (private) olarak de\u011fi\u015ftirir.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "antisilme",
+            "desc": "Sohbetlerde silinen mesajlar\u0131 otomatik olarak yakalar ve belirledi\u011finiz hedefe iletir.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "setsudo",
+            "desc": "Belirledi\u011finiz bir kullan\u0131c\u0131ya bot \u00fczerinde tam yetkili (SUDO) y\u00f6netim izni tan\u0131mlar.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "sudolar",
+            "desc": "Bot \u00fczerinde en \u00fcst d\u00fczey y\u00f6netim yetkisine (SUDO) sahip olan numaralar\u0131 listeler.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "sudosil",
+            "desc": "Belirledi\u011finiz bir kullan\u0131c\u0131n\u0131n bot \u00fczerindeki en \u00fcst d\u00fczey (SUDO) y\u00f6netim yetkisini iptal eder.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "toggle",
+            "desc": "Botun belirli komutlar\u0131n\u0131 t\u00fcm kullan\u0131c\u0131lar i\u00e7in ge\u00e7ici olarak devre d\u0131\u015f\u0131 b\u0131rak\u0131r veya tekrar a\u00e7ar.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "antibot",
+            "desc": "Sohbete kat\u0131lan di\u011fer botlar\u0131 otomatik olarak tespit eder ve gruptan uzakla\u015ft\u0131r\u0131r.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "antispam",
+            "desc": "Grupta h\u0131zl\u0131 ve tekrarlayan (spam) mesaj atan kullan\u0131c\u0131lar\u0131 otomatik olarak tespit eder ve atar.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "pdm",
+            "desc": "Gruptaki yetki verme veya yetki alma durumlar\u0131n\u0131 takip eder ve anl\u0131k bilgilendirme yapar.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "antiyetkid\u00fc\u015f\u00fcrme",
+            "desc": "Y\u00f6neticilerin yetkisinin al\u0131nmas\u0131n\u0131 engeller; yapan\u0131n yetkisini al\u0131r ve ma\u011fdura iade eder.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "antiyetkiverme",
+            "desc": "Onays\u0131z yetki verilmesini engeller; hem yetki verenin hem de yeni yetkilinin yetkilerini al\u0131r.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "antiba\u011flant\u0131",
+            "desc": "Grupta link payla\u015f\u0131m\u0131n\u0131 engeller. Uyar\u0131, silme veya atma gibi farkl\u0131 modlarda \u00e7al\u0131\u015f\u0131r.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "antikelime",
+            "desc": "Yasakl\u0131 kelime kullan\u0131m\u0131n\u0131 engeller ve bu kelimeleri kullananlar\u0131 gruptan uzakla\u015ft\u0131r\u0131r.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "aramaengel",
+            "desc": "Gelen sesli ve g\u00f6r\u00fcnt\u00fcl\u00fc aramalar\u0131 otomatik olarak reddeder. (uyar\u0131 mesaj\u0131 g\u00f6nderebilir)",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "uptime",
+            "desc": "Botun ve \u00fczerinde \u00e7al\u0131\u015ft\u0131\u011f\u0131 sunucunun ne kadar s\u00fcredir kesintisiz aktif oldu\u011funu g\u00f6sterir.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "dinle",
+            "desc": "Sesli mesaj\u0131 metne d\u00f6n\u00fc\u015ft\u00fcr\u00fcr. (Tek seferlik sesler de dahil)",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "kes",
+            "desc": "Video veya ses dosyalar\u0131n\u0131 belirledi\u011finiz s\u00fcrelere g\u00f6re keser.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "renklendir",
+            "desc": "Siyah-beyaz olan foto\u011fraf\u0131 renklendirir.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "siyahvideo",
+            "desc": "Bir ses dosyas\u0131n\u0131 siyah ekranl\u0131 video format\u0131na d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "birle\u015ftir",
+            "desc": "Ayr\u0131 olan ses ve video dosyalar\u0131n\u0131 tek bir videoda birle\u015ftirir.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "vbirle\u015ftir",
+            "desc": "\u0130ki farkl\u0131 video dosyas\u0131n\u0131 tek bir video haline getirir.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "a\u011f\u0131r\u00e7ekim",
+            "desc": "Videoya p\u00fcr\u00fczs\u00fcz bir a\u011f\u0131r \u00e7ekim efekti uygular.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "oval",
+            "desc": "G\u00f6rselleri veya \u00e7\u0131kartmalar\u0131 oval (yuvarlak) \u015fekilde k\u0131rpar.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "gif",
+            "desc": "Videoyu sesli bir GIF (hareketli resim) format\u0131na d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "fps",
+            "desc": "Videonun kare h\u0131z\u0131n\u0131 (FPS) artt\u0131rarak daha ak\u0131c\u0131 g\u00f6r\u00fcnmesini sa\u011flar.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "bul",
+            "desc": "Arka planda \u00e7alan m\u00fczi\u011fi dinleyerek \u015fark\u0131y\u0131 bulur.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "d\u00f6nd\u00fcr",
+            "desc": "Videonun y\u00f6n\u00fcn\u00fc sola, sa\u011fa veya ters \u015fekilde d\u00f6nd\u00fcrmenizi sa\u011flar.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "flip",
+            "desc": "Videoyu yatay veya dikey eksende aynalayarak ters \u00e7evirir.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "ss",
+            "desc": "Belirledi\u011finiz bir internet sitesinin anl\u0131k ekran g\u00f6r\u00fcnt\u00fcs\u00fcn\u00fc al\u0131r.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "metin",
+            "desc": "G\u00f6rsel i\u00e7erisindeki metinleri tarayarak yaz\u0131ya d\u00f6n\u00fc\u015ft\u00fcr\u00fcr (OCR).",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "hd",
+            "desc": "D\u00fc\u015f\u00fck \u00e7\u00f6z\u00fcn\u00fcrl\u00fckl\u00fc g\u00f6rselleri netle\u015ftirir ve HD kaliteye y\u00fckseltir.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "meme",
+            "desc": "G\u00f6rsellere \u00fcst ve alt metin ekleyerek meme (caps) olu\u015fturur.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "kodg\u00f6rsel",
+            "desc": "Yazd\u0131\u011f\u0131n\u0131z programlama kodlar\u0131n\u0131 \u015f\u0131k ve okunabilir bir g\u00f6rsele d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "bahsetme",
+            "desc": "Biri sizi etiketledi\u011finde botun verece\u011fi otomatik yan\u0131t\u0131 ayarlaman\u0131za, g\u00f6r\u00fcnt\u00fclemenize veya silmenize olanak tan\u0131r.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "mesajlar",
+            "desc": "Grup \u00fcyelerinin g\u00f6nderdi\u011fi toplam mesaj say\u0131lar\u0131n\u0131 ve mesaj t\u00fcr\u00fc da\u011f\u0131l\u0131mlar\u0131n\u0131 liste halinde sunar.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "inactive",
+            "desc": "Belirledi\u011finiz s\u00fcre boyunca mesaj atmayan pasif \u00fcyeleri tespit eder ve istenirse gruptan uzakla\u015ft\u0131r\u0131r.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "\u00fcyetemizle",
+            "desc": "Belirtilen s\u00fcre boyunca mesaj atmayan \u00fcyeleri listeler veya \u00e7\u0131kar\u0131r.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "users",
+            "desc": "T\u00fcm sohbetlerde veya mevcut grupta en \u00e7ok mesaj g\u00f6nderen lider kullan\u0131c\u0131lar\u0131 s\u0131ral\u0131 olarak listeler.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "bilgika\u00e7net",
+            "desc": "\u00dcniversite b\u00f6l\u00fcmleri i\u00e7in ka\u00e7 net yapmak gerekti\u011fini, ilgili b\u00f6l\u00fcm\u00fcn tam olarak ne oldu\u011funu, ne i\u015f yapt\u0131\u011f\u0131n\u0131 ve i\u015f olanaklar\u0131na dair detayl\u0131 bilgiler payla\u015fmaya yarar.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "emojimix",
+            "desc": "\u0130ki farkl\u0131 emojiyi birle\u015ftirerek \u00f6zel bir \u00e7\u0131kartma olu\u015fturur.",
+            "use": "fun",
+            "stat": null
+          },
+          {
+            "pattern": "yaz\u0131",
+            "desc": "Yazd\u0131\u011f\u0131n\u0131z metni glitch efektli profesyonel bir g\u00f6rsele d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "naruto",
+            "desc": "Yazd\u0131\u011f\u0131n\u0131z metni Naruto stili bir logoya d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "marvel",
+            "desc": "Yazd\u0131\u011f\u0131n\u0131z metni Marvel stili bir logoya d\u00f6n\u00fc\u015ft\u00fcr\u00fcr. (2 kelime gerektirir)",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "blackpink",
+            "desc": "Yazd\u0131\u011f\u0131n\u0131z metni Blackpink stili bir g\u00f6rsele d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "brat",
+            "desc": "Yazd\u0131\u011f\u0131n\u0131z metni Brat (Charli XCX) stili ye\u015fil bir g\u00f6rsele d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "\u015fark\u0131s\u00f6z\u00fc",
+            "desc": "\u0130stedi\u011finiz \u015fark\u0131n\u0131n s\u00f6zlerini farkl\u0131 kaynaklardan arayarak getirir.",
+            "use": "search",
+            "stat": null
+          },
+          {
+            "pattern": "duvarka\u011f\u0131d\u0131",
+            "desc": "Belirledi\u011finiz konuya uygun HD kalitede duvar ka\u011f\u0131tlar\u0131 bulur.",
+            "use": "search",
+            "stat": null
+          },
+          {
+            "pattern": "\u00e7\u0131kartmabul",
+            "desc": "WhatsApp i\u00e7in haz\u0131r \u00e7\u0131kartma paketleri araman\u0131z\u0131 sa\u011flar.",
+            "use": "search",
+            "stat": null
+          },
+          {
+            "pattern": "vikipedi",
+            "desc": "Vikipedi \u00fczerinden belirtti\u011finiz konu hakk\u0131nda \u00f6zet bilgi getirir.",
+            "use": "search",
+            "stat": null
+          },
+          {
+            "pattern": "al\u0131nt\u0131",
+            "desc": "Mesaj\u0131 veya metni WhatsApp tarz\u0131 \u015f\u0131k bir al\u0131nt\u0131 \u00e7\u0131kartmas\u0131na d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "edit",
+            "stat": null
+          },
+          {
+            "pattern": "r\u00fcya",
+            "desc": "G\u00f6rd\u00fc\u011f\u00fcn\u00fcz r\u00fcyay\u0131 yapay zeka deste\u011fiyle detayl\u0131ca yorumlar.",
+            "use": "ai",
+            "stat": null
+          },
+          {
+            "pattern": "g\u00f6rsel",
+            "desc": "Yazd\u0131\u011f\u0131n\u0131z metin a\u00e7\u0131klamas\u0131n\u0131 yapay zeka ile g\u00f6rsel bir sanat eserine \u00e7evirir.",
+            "use": "ai",
+            "stat": null
+          },
+          {
+            "pattern": "threads",
+            "desc": "Threads \u00fczerinden video veya foto\u011fraf i\u00e7eriklerini indirmenizi sa\u011flar.",
+            "use": "download",
+            "stat": null
+          },
+          {
+            "pattern": "soundcloud",
+            "desc": "SoundCloud \u00fczerindeki \u015fark\u0131lar\u0131 y\u00fcksek kalitede MP3 olarak indirir.",
+            "use": "download",
+            "stat": null
+          },
+          {
+            "pattern": "\u00e7evir",
+            "desc": "Metni belirledi\u011finiz diller aras\u0131nda anl\u0131k olarak \u00e7evirir.",
+            "use": "search",
+            "stat": null
+          },
+          {
+            "pattern": "pdf",
+            "desc": "Se\u00e7ti\u011finiz veya yan\u0131tlad\u0131\u011f\u0131n\u0131z g\u00f6rselleri tek bir PDF belgesi haline getirir.",
+            "use": "genel",
+            "stat": null
+          },
+          {
+            "pattern": "apsil",
+            "desc": "Foto\u011fraf\u0131n arka plan\u0131n\u0131 yapay zeka ile siler veya farkl\u0131 bir renkle/resimle de\u011fi\u015ftirir.",
+            "use": "ai",
+            "stat": null
+          },
+          {
+            "pattern": "yba\u015flat",
+            "desc": "Botu yeniden ba\u015flat\u0131r",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "ykssaya\u00e7",
+            "desc": "YKS (TYT/AYT/YDT) s\u0131navlar\u0131na kalan s\u00fcreyi veya tercih tarihlerini g\u00f6sterir.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "kpsssaya\u00e7",
+            "desc": "KPSS (Lisans/\u00d6nlisans/Orta\u00f6\u011fretim/E-KPSS) s\u0131navlar\u0131na kalan s\u00fcreyi g\u00f6sterir.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "ms\u00fcsaya\u00e7",
+            "desc": "MS\u00dc s\u0131nav\u0131na kalan s\u00fcreyi g\u00f6sterir.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "okulsaya\u00e7",
+            "desc": "Okullar\u0131n kapanmas\u0131na, ara tatillere veya yeni d\u00f6neme kalan s\u00fcreyi g\u00f6sterir.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "ramazansaya\u00e7",
+            "desc": "Ramazan ay\u0131n\u0131n ba\u015flang\u0131c\u0131na veya biti\u015fine kalan s\u00fcreyi g\u00f6sterir.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "planla",
+            "desc": "\u23f0 Mesaj planla - Gruba veya \u00f6zele zamanlanm\u0131\u015f mesaj g\u00f6nder",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "plandurum",
+            "desc": "\ud83d\udccb Planlanan t\u00fcm mesajlar\u0131 listeler",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "plansil",
+            "desc": "\ud83d\uddd1\ufe0f Planlanan mesaj\u0131 ID ile iptal eder",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "insta",
+            "desc": "Instagram \u00fczerinden Reels, Video veya Foto\u011fraf alb\u00fcmlerini indirir.",
+            "use": "download",
+            "stat": null
+          },
+          {
+            "pattern": "fb",
+            "desc": "Facebook videolar\u0131n\u0131 y\u00fcksek kalitede indirir.",
+            "use": "download",
+            "stat": null
+          },
+          {
+            "pattern": "igara",
+            "desc": "Bir Instagram kullan\u0131c\u0131s\u0131n\u0131n profil detaylar\u0131n\u0131 ve istatistiklerini g\u00f6sterir.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "twara",
+            "desc": "Bir Twitter/X kullan\u0131c\u0131s\u0131n\u0131n profil detaylar\u0131n\u0131 ve istatistiklerini g\u00f6sterir.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "hikaye",
+            "desc": "Belirtilen Instagram kullan\u0131c\u0131s\u0131n\u0131n hikayelerini (story) toplu olarak indirir.",
+            "use": "download",
+            "stat": null
+          },
+          {
+            "pattern": "pinterest",
+            "desc": "Pinterest \u00fczerindeki resim veya videolar\u0131 arar ve indirir.",
+            "use": "download",
+            "stat": null
+          },
+          {
+            "pattern": "twitter",
+            "desc": "Twitter (X) videolar\u0131n\u0131 do\u011frudan ba\u011flant\u0131 \u00fczerinden indirir.",
+            "use": "download",
+            "stat": null
+          },
+          {
+            "pattern": "tiktok",
+            "desc": "TikTok videolar\u0131n\u0131 filigrans\u0131z (yaz\u0131s\u0131z) bir \u015fekilde indirir.",
+            "use": "download",
+            "stat": null
+          },
+          {
+            "pattern": "capcut",
+            "desc": "CapCut \u015fablonlar\u0131ndaki videolar\u0131 do\u011frudan indirmenizi sa\u011flar.",
+            "use": "download",
+            "stat": null
+          },
+          {
+            "pattern": "ttara",
+            "desc": "Gizli hesap olmayan bir TikTok kullan\u0131c\u0131s\u0131n\u0131n profil detaylar\u0131n\u0131 ve istatistiklerini g\u00f6sterir.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "take",
+            "desc": "Yan\u0131tlad\u0131\u011f\u0131n\u0131z \u00e7\u0131kartma veya ses dosyas\u0131n\u0131n paket ad\u0131n\u0131 ve yazar bilgilerini g\u00fcnceller.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "mp4",
+            "desc": "Hareketli \u00e7\u0131kartmalar\u0131 MP4 video format\u0131na d\u00f6n\u00fc\u015ft\u00fcr\u00fcr.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "url",
+            "desc": "Medya dosyalar\u0131n\u0131 bulut sunuculara y\u00fckleyerek payla\u015f\u0131labilir bir ba\u011flant\u0131 olu\u015fturur.",
+            "use": "media",
+            "stat": null
+          },
+          {
+            "pattern": "g\u00fcncelle",
+            "desc": "Bot g\u00fcncellemelerini kontrol eder ve uygular.",
+            "use": "system",
+            "stat": null
+          },
+          {
+            "pattern": "ya\u015fhesap",
+            "desc": "Do\u011fum tarihinizi girerek detayl\u0131 ya\u015f ve zaman hesab\u0131 yapman\u0131za yarar.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "gerisay\u0131m",
+            "desc": "Gelecekteki bir tarihe ne kadar s\u00fcre kald\u0131\u011f\u0131n\u0131 detayl\u0131ca hesaplar.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "ping",
+            "desc": "Botun sunucuya olan tepki h\u0131z\u0131n\u0131 ve a\u011f gecikmesini \u00f6l\u00e7er.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "h\u0131ztesti",
+            "desc": "Botun bulundu\u011fu sunucunun internet indirme ve y\u00fckleme h\u0131zlar\u0131n\u0131 Ookla Speedtest ile \u00f6l\u00e7er.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "ifade",
+            "desc": "Yan\u0131tlanan mesaja belirtilen emoji ile ifade b\u0131rak\u0131r.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "d\u00fczenle",
+            "desc": "Botun g\u00f6nderdi\u011fi mesaj\u0131 d\u00fczenler.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "msjat",
+            "desc": "Sohbeti veya mesaj\u0131, belirtilen JID adresine (numaraya) do\u011frudan iletir.",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "msjy\u00f6nlendir",
+            "desc": "Sohbeti veya mesaj\u0131, belirtilen JID adresine ",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "tekrar",
+            "desc": "Yan\u0131tlanan komutu tekrar \u00e7al\u0131\u015ft\u0131rmay\u0131 dener",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "vv",
+            "desc": "Tek g\u00f6r\u00fcn\u00fcrl\u00fc (view once) mesajlar\u0131 yakalar",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "msjsil",
+            "desc": "Mesaj\u0131 herkesten siler. Y\u00f6netici silmesini destekler",
+            "use": "tools",
+            "stat": null
+          },
+          {
+            "pattern": "uyar(.*)",
+            "desc": "Grup \u00fcyelerini uyarmaya yarar. Belirlenen uyar\u0131 limitine ula\u015f\u0131ld\u0131\u011f\u0131nda \u00fcye otomatik olarak gruptan uzakla\u015ft\u0131r\u0131l\u0131r.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "ka\u00e7uyar\u0131",
+            "desc": "Bir \u00fcyenin toplamda ka\u00e7 uyar\u0131 ald\u0131\u011f\u0131n\u0131 ve uyar\u0131 ge\u00e7mi\u015fini detayl\u0131ca listeler.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "welcome",
+            "desc": "Yeni \u00fcye kat\u0131ld\u0131\u011f\u0131nda g\u00f6nderilecek olan grup kar\u015f\u0131lama mesaj\u0131n\u0131 \u00f6zelle\u015ftirmenizi ve y\u00f6netmenizi sa\u011flar.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "goodbye",
+            "desc": "\u00dcye ayr\u0131ld\u0131\u011f\u0131nda g\u00f6nderilecek olan grup veda mesaj\u0131n\u0131 \u00f6zelle\u015ftirmenizi ve y\u00f6netmenizi sa\u011flar.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "testwelcome",
+            "desc": "Mevcut gruptaki kar\u015f\u0131lama mesaj\u0131n\u0131n nas\u0131l g\u00f6r\u00fcnd\u00fc\u011f\u00fcn\u00fc denemeniz i\u00e7in bir test mesaj\u0131 g\u00f6nderir.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "testgoodbye",
+            "desc": "Mevcut gruptaki veda mesaj\u0131n\u0131n nas\u0131l g\u00f6r\u00fcnd\u00fc\u011f\u00fcn\u00fc denemeniz i\u00e7in bir test mesaj\u0131 g\u00f6nderir.",
+            "use": "group",
+            "stat": null
+          },
+          {
+            "pattern": "spotify",
+            "desc": "Spotify \u00fczerinden \u015fark\u0131 aramas\u0131 yapar ve y\u00fcksek kalitede indirir.",
+            "use": "download",
+            "stat": null
+          },
+          {
+            "pattern": "ytara",
+            "desc": "YouTube \u00fczerinde detayl\u0131 arama yaparak video ve kanal bilgilerini listeler.",
+            "use": "download",
+            "stat": null
+          },
+          {
+            "pattern": "ytvideo",
+            "desc": "YouTube videolar\u0131n\u0131 kalite se\u00e7ene\u011fi sunarak (360p, 1080p vb.) indirmenizi sa\u011flar.",
+            "use": "download",
+            "stat": null
+          },
+          {
+            "pattern": "video",
+            "desc": "YouTube videolar\u0131n\u0131 en h\u0131zl\u0131 ve en y\u00fcksek kalitede do\u011frudan indirir.",
+            "use": "download",
+            "stat": null
+          },
+          {
+            "pattern": "ytsesb",
+            "desc": "YouTube videolar\u0131n\u0131 belge (.mp3/.m4a) format\u0131nda ses olarak indirir.",
+            "use": "download",
+            "stat": null
+          },
+          {
+            "pattern": "\u015fark\u0131",
+            "desc": "YouTube \u00fczerinden ses/\u015fark\u0131 indirir. (anahtar kelime veya ba\u011flant\u0131 ile)",
+            "use": "download",
+            "stat": null
+          }
+        ],
+        "total": 227
+      }
+    }
+  ]
+}
