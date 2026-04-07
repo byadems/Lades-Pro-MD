@@ -169,36 +169,18 @@ async function createBot(sessionId = "lades-session", options = {}) {
       logger.info(`✅ Bot bağlandı! JID: ${sock.user?.id}`);
       if (process.send) process.send({ type: 'bot_status', data: { connected: true, phone: sock.user.id } });
       
+      // MIGRATION: Convert SUDO numbers to LIDs (Raganork-MD style)
+      try {
+        const { migrateSudoToLID } = require("./lid-helper");
+        await migrateSudoToLID(sock);
+      } catch (e) {
+        logger.warn({ err: e.message }, "SUDO to LID migration failed");
+      }
+      
       // Force "Online" state on connect to update Last Seen
       await sock.sendPresenceUpdate('available').catch(() => {});
       
       startTempCleanup();
-
-      // Auto-sync OWNER_NUMBER if not set or placeholder
-      const currentOwner = (process.env.OWNER_NUMBER || "").replace(/[^0-9]/g, "");
-      if (!currentOwner || currentOwner === "905XXXXXXXXX") {
-        const myNum = sock.user.id.split('@')[0].split(':')[0].replace(/[^0-9]/g, "");
-        if (myNum) {
-          logger.info(`[Owner Sync] Sahip numarası güncelleniyor: ${myNum}`);
-          process.env.OWNER_NUMBER = myNum;
-          // Update config.env file
-          try {
-            const envPath = path.join(__dirname, "../config.env");
-            if (fs.existsSync(envPath)) {
-              let content = fs.readFileSync(envPath, 'utf8');
-              const regex = new RegExp(`^OWNER_NUMBER=.*$`, 'm');
-              if (regex.test(content)) {
-                content = content.replace(regex, `OWNER_NUMBER=${myNum}`);
-              } else {
-                content += `\nOWNER_NUMBER=${myNum}`;
-              }
-              fs.writeFileSync(envPath, content);
-            }
-          } catch (e) {
-            logger.warn({ err: e.message }, "config.env güncellenemedi");
-          }
-        }
-      }
 
       // Load plugins on first connect
       const pluginsDir = path.join(__dirname, "..", "plugins");

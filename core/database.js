@@ -136,7 +136,7 @@ async function initializeDatabase() {
     logger.info("Oturum dizini (sessions/) oluşturuldu.");
   }
 
-  let retries = 5;
+  let retries = 10;
   while (retries > 0) {
     try {
       await sequelize.authenticate();
@@ -145,8 +145,8 @@ async function initializeDatabase() {
     } catch (err) {
       retries--;
       if (retries === 0) throw err;
-      logger.warn({ err }, `DB connect failed, retrying... (${retries} left)`);
-      await new Promise(r => setTimeout(r, 3000));
+      logger.warn({ err: err.message }, `DB connect failed, retrying... (${retries} left)`);
+      await new Promise(r => setTimeout(r, 5000));
     }
   }
 

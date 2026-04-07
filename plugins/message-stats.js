@@ -249,7 +249,7 @@ Module({
           message.client.user.id.split(":")[0] + "@s.whatsapp.net";
         inactiveMembers = inactiveMembers.filter((member) => {
           const participant = groupMetadata.participants.find(
-            (p) => p.id === member.jid
+            (p) => (p.id.split(":")[0] + "@s.whatsapp.net") === member.jid
           );
           return !participant?.admin && member.jid !== botId;
         });

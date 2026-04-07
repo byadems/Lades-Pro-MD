@@ -36,14 +36,13 @@ if (DATABASE_URL) {
     dialect: "postgres",
     logging: false,
     pool: {
-      max: parseInt(process.env.DB_POOL_MAX || "10", 10),
+      max: parseInt(process.env.DB_POOL_MAX || "20", 10),
       min: parseInt(process.env.DB_POOL_MIN || "2", 10),
-      acquire: 30000,
-      idle: 10000,
+      acquire: 60000,
+      idle: 30000,
     },
     dialectOptions: {
       ssl: process.env.DB_SSL === "false" ? false : { require: true, rejectUnauthorized: false },
-      statement_timeout: 30000,
     },
     retry: {
       max: 5,
@@ -80,6 +79,7 @@ const config = {
   AUTO_RECORDING: process.env.AUTO_RECORDING === "true",
   ANTI_LINK: process.env.ANTI_LINK === "true",
   ANTI_SPAM: process.env.ANTI_SPAM === "true",
+  ALLOWED: process.env.ALLOWED || "90", // İzin verilen numaralar (antinumara için)
 
   // Permissions
   SUDO: process.env.SUDO || "905396978235",

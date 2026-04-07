@@ -251,7 +251,7 @@ Module({
       }
       if (match[1] === "izinli") {
         return await message.sendReply(
-          `_İzin verilen alan kodları: ${ALLOWED} (tüm gruplar için geçerlidir)_`
+          `_İzin verilen alan kodları: ${ALLOWED || "90"} (tüm gruplar için geçerlidir)_`
         );
       }
       if (match[1] === "kapat") {
@@ -307,7 +307,7 @@ Module({
     fromMe: false,
   },
   async (message, match) => {
-    message.myjid = message.client.user.lid.split(":")[0];
+    message.myjid = message.client.user.lid ? message.client.user.lid.split(":")[0] : message.client.user.id.split(":")[0];
     const db = await antifake.get();
     let sudos = SUDO.split(",");
     const jids = [];
@@ -332,32 +332,35 @@ Module({
     const admin_jids = [];
     const admins = (await message.client.groupMetadata(message.jid)).participants
       .filter((v) => v.admin !== null)
-      .map((x) => x.id);
+      .map((x) => x.id.split(":")[0] + "@s.whatsapp.net");
     admins.map(async (user) => {
-      admin_jids.push(user.replace("c.us", "s.whatsapp.net"));
+      admin_jids.push(user);
     });
     if (
       (message.action == "promote" || message.action == "demote") &&
       pdmjids.includes(message.jid)
     ) {
       if (message.from.split("@")[0] == message.myjid) return;
-      if (message.action == "demote") admin_jids.push(message.participant[0].id);
+      const targetUser = typeof message.participant[0] === "string" ? message.participant[0] : message.participant[0].id;
+      if (message.action == "demote") admin_jids.push(targetUser);
       await message.client.sendMessage(message.jid, {
         text: `_*[${message.action == "promote" ? "🔔 Yükseltme algılandı" : "🔔 Düşürme algılandı"
-          }]*_\n\n@${message.from.split("@")[0]} @${message.participant[0].id.split("@")[0]
+          }]*_\n\n@${message.from.split("@")[0]} @${targetUser.split("@")[0]
           } kişisini ${message.action == "promote" ? "yükseltti" : "düşürdü"}`,
         mentions: admin_jids,
       });
     }
     if (message.action == "promote" && apjids.includes(message.jid)) {
+      const targetUser = typeof message.participant[0] === "string" ? message.participant[0] : message.participant[0].id;
       if (
         message.from.split("@")[0] == message.myjid ||
         sudos.includes(message.from.split("@")[0]) ||
-        message.participant[0].id.split("@")[0] == message.myjid ||
+        targetUser.split("@")[0] == message.myjid ||
         (await isSuperAdmin(message, message.from))
       )
         return;
-      const isAdminPromote = await isAdmin(message);
+      const botId = message.client.user.id.split(":")[0] + "@s.whatsapp.net";
+      const isAdminPromote = await isAdmin(message, botId);
       if (!isAdminPromote) return;
       await message.client.groupParticipantsUpdate(
         message.jid,
@@ -366,25 +369,27 @@ Module({
       );
       return await message.client.groupParticipantsUpdate(
         message.jid,
-        [message.participant[0].id],
+        [targetUser],
         "demote"
       );
     }
     if (message.action == "demote" && adjids.includes(message.jid)) {
+      const targetUser = typeof message.participant[0] === "string" ? message.participant[0] : message.participant[0].id;
       if (
         message.from.split("@")[0] == message.myjid ||
         sudos.includes(message.from.split("@")[0]) ||
         (await isSuperAdmin(message, message.from))
       )
         return;
-      if (message.participant[0].id.split("@")[0] == message.myjid) {
+      if (targetUser.split("@")[0] == message.myjid) {
         return await message.client.sendMessage(message.jid, {
           text: `_*❌ Bot yetkisi düşürüldü, geri yükleme yapılamıyor* [Yetki düşüren: @${message.from.split("@")[0]
             }]_`,
           mentions: admin_jids,
         });
       }
-      const isAdminDemote = await isAdmin(message);
+      const botId = message.client.user.id.split(":")[0] + "@s.whatsapp.net";
+      const isAdminDemote = await isAdmin(message, botId);
       if (!isAdminDemote) return;
       await message.client.groupParticipantsUpdate(
         message.jid,
@@ -393,24 +398,46 @@ Module({
       );
       return await message.client.groupParticipantsUpdate(
         message.jid,
-        [message.participant[0].id],
+        [targetUser],
         "promote"
       );
     }
     if (message.action === "add" && jids.includes(message.jid)) {
-      const allowed = ALLOWED.split(",").map((p) => p.trim()).filter(Boolean);
-      const participantNumber = message.participant[0].id.split("@")[0];
+      const allowed = (ALLOWED || "90").split(",").map((p) => p.trim()).filter(Boolean);
+      let participantId = typeof message.participant[0] === "string" ? message.participant[0] : message.participant[0].id;
+      
+      // MIGRATION: Antinumara için LID'yi Telefon Numarasına Çevir
+      let isLid = participantId.includes("@lid");
+      if (isLid) {
+        try {
+          const { resolveLidToPn } = require("../core/lid-helper");
+          const resolvedPn = await resolveLidToPn(message.client, participantId);
+          if (resolvedPn && resolvedPn !== participantId) {
+            participantId = resolvedPn;
+            isLid = false; // Başarıyla PN'ye çevrildi
+          }
+        } catch (e) {}
+      }
+
+      // ÖNEMLİ: Eğer hala bir LID ise ve PN'ye çevrilemediyse, 
+      // bu kişinin +90 olup olmadığını kesin olarak bilemiyoruz.
+      // Hatalı atma yapmamak (false positive) için bu kontrolü atlıyoruz.
+      if (isLid) return;
+
+      const participantNumber = participantId.split("@")[0];
       const isAllowedNumber = allowed.some((prefix) =>
         participantNumber.startsWith(prefix)
       );
+      
       if (!isAllowedNumber) {
-        const isAdminAdd = await isAdmin(message);
-        if (!isAdminAdd) return;
-        const botId = message.client.user.id.split(":")[0] + "@s.whatsapp.net";
-        if (message.participant[0].id !== botId) {
+        const { isBotIdentifier } = require("./utils/lid-helper");
+        const isBotAdmin = await isAdmin(message, message.client.user.id);
+        if (!isBotAdmin) return;
+        
+        if (!isBotIdentifier(participantId, message.client)) {
           return await message.client.groupParticipantsUpdate(
             message.jid,
-            [message.participant[0].id],
+            [participantId],
             "remove"
           );
         }

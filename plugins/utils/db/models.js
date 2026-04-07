@@ -42,9 +42,10 @@ const AntilinkConfigDB = config.sequelize.define("antilink_config", {
     primaryKey: true,
   },
   mode: {
-    type: DataTypes.ENUM("warn", "kick", "delete"),
+    type: DataTypes.STRING,
     defaultValue: "delete",
     allowNull: false,
+    comment: "Can be warn, kick, or delete",
   },
   allowedLinks: {
     type: DataTypes.TEXT,
@@ -166,8 +167,9 @@ const FilterDB = config.sequelize.define("filter", {
     allowNull: true,
   },
   scope: {
-    type: DataTypes.ENUM("chat", "global", "dm", "group"),
+    type: DataTypes.STRING,
     defaultValue: "chat",
+    comment: "Can be chat, global, dm, or group",
   },
   enabled: {
     type: DataTypes.BOOLEAN,
@@ -198,26 +200,8 @@ const PluginDB = config.sequelize.define("Plugin", {
   },
 }, { indexes: [{ fields: ['url'] }] });
 
-// handler.js (obfuscated) doğrudan .sync() çağırıyor ve
-// PostgreSQL index metadata sorgusu timeout'a neden oluyor.
-// Tablolar zaten mevcut — sync'i hafif CREATE IF NOT EXISTS ile değiştir.
-function overrideSyncForModel(Model) {
-  let _done = false;
-  Model.sync = async function () {
-    if (_done) return Model;
-    _done = true;
-    try {
-      const qi = config.sequelize.getQueryInterface();
-      await qi.createTable(Model.getTableName(), Model.rawAttributes, {}).catch(() => {});
-    } catch (_) {}
-    return Model;
-  };
-}
-
-[warnDB, FakeDB, AntilinkConfigDB, antiSpamDB, PDMDB,
- antiDemote, antiPromote, antiBotDB, antiWordDB,
- WelcomeDB, GoodbyeDB, FilterDB, PluginDB].forEach(overrideSyncForModel);
-
+// We no longer override sync since we removed statement_timeout from config.js
+// so PostgreSQL index metadata query will not timeout.
 module.exports = {
   warnDB,
   FakeDB,

@@ -61,10 +61,23 @@ Module({
     //  ALT KOMUTLAR (Sub-commands)
     // ─────────────────────────────────────────────────────────
 
+    // MIGRATION: LID Çevirisi (Ortak yardımcı fonksiyon)
+    async function resolveTargetUser(user) {
+      if (user && user.includes("@lid")) {
+        try {
+          const { resolveLidToPn } = require("../core/lid-helper");
+          const pn = await resolveLidToPn(message.client, user);
+          if (pn && pn !== user) return pn;
+        } catch (e) {}
+      }
+      return user;
+    }
+
     // 1. UYARISİL (.uyarısil)
     if (cmd === "ısil") {
-      const targetUser = message.mention?.[0] || message.reply_message?.jid;
+      let targetUser = message.mention?.[0] || message.reply_message?.jid;
       if (!targetUser) return await message.sendReply("❗ _Lütfen bir üye etiketleyin veya mesajına yanıtlayın!_");
+      targetUser = await resolveTargetUser(targetUser);
 
       const targetNumericId = getNumericId(targetUser);
       try {
@@ -91,8 +104,9 @@ Module({
 
     // 2. UYARISIFIRLA (.uyarısıfırla)
     if (cmd === "ısıfırla") {
-      const targetUser = message.mention?.[0] || message.reply_message?.jid;
+      let targetUser = message.mention?.[0] || message.reply_message?.jid;
       if (!targetUser) return await message.sendReply("❗ _Lütfen bir üyeyi etiketleyin veya mesajına yanıt verin!_");
+      targetUser = await resolveTargetUser(targetUser);
 
       const targetNumericId = getNumericId(targetUser);
       try {
@@ -161,7 +175,7 @@ Module({
     // ─────────────────────────────────────────────────────────
     //  5. VARSAYILAN: UYAR (.uyar)
     // ─────────────────────────────────────────────────────────
-    const targetUser = message.mention?.[0] || message.reply_message?.jid;
+    let targetUser = message.mention?.[0] || message.reply_message?.jid;
     if (!targetUser) {
       return await message.sendReply(
         `❗ _Lütfen bir üyeyi etiketleyin veya mesajına yanıt verin!_\n\n` +
@@ -173,6 +187,8 @@ Module({
         `• \`${handler}uyarılimit\` - Maksimum uyarı limitini belirler`
       );
     }
+    targetUser = await resolveTargetUser(targetUser);
+
     const isTargetAdmin = message.groupAdmins.includes(targetUser);
     if (isTargetAdmin) return await message.sendReply("❗ _OPS! Yöneticiler uyarılamaz._");
 
@@ -236,7 +252,17 @@ Module({
     if (!userIsAdmin)
       return await message.sendReply(Lang.NEED_ADMIN);
 
-    const targetUser = message.mention?.[0] || message.reply_message?.jid || message.sender;
+    let targetUser = message.mention?.[0] || message.reply_message?.jid || message.sender;
+
+    // MIGRATION: LID Çevirisi
+    if (targetUser && targetUser.includes("@lid")) {
+      try {
+        const { resolveLidToPn } = require("../core/lid-helper");
+        const pn = await resolveLidToPn(message.client, targetUser);
+        if (pn && pn !== targetUser) targetUser = pn;
+      } catch (e) {}
+    }
+
     const targetNumericId = getNumericId(targetUser);
 
     try {
