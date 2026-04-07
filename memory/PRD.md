@@ -11,79 +11,58 @@ WhatsApp bot komutları (.değişkengetir, .setvar, .antibot vb.) "yalnızca Yaz
 ## Architecture
 - **Bot Framework**: Node.js + Baileys (WhatsApp Web API)
 - **Dashboard**: Node.js Express (port 3001)
-- **Frontend**: React.js
-- **Backend Proxy**: FastAPI (port 8001)
-- **Database**: PostgreSQL/SQLite
+- **Frontend Proxy**: Node.js Express (port 3000)
+- **Database**: Mock Sequelize (in-memory) - SQLite GLIBC sorunu nedeniyle
 
 ## User Personas
 - **Bot Sahibi (+905396978235)**: Tüm yönetici komutlarına erişim
 - **SUDO Kullanıcılar**: Belirlenen yetkililer
 - **Normal Kullanıcılar**: Public mode aktifse temel komutları kullanabilir
 
-## Core Requirements (Static)
-1. ✅ +905396978235 numarası OWNER olarak tanınmalı
-2. ✅ Tüm yönetici komutları (.setvar, .değişkengetir, .antibot) çalışmalı
-3. ✅ LID sistemi ile uyumlu sahiplik kontrolü
-4. ✅ Dashboard ile bot yönetimi
-
 ## What's Been Implemented (2026-04-07)
 
-### Sahiplik Ayarları Düzeltmeleri
-1. **config.env oluşturuldu**
-   - OWNER_NUMBER=905396978235
-   - SUDO=905396978235
-   - PUBLIC_MODE=true
+### 1. Sahiplik Ayarları Düzeltmeleri
+- **config.env**: `OWNER_NUMBER=905396978235`, `SUDO=905396978235`
+- **config.js**: `HARD_OWNER: "905396978235"` eklendi
+- **handler.js**: 
+  - `participantPn` kullanımı eklendi (WhatsApp'ın sağladığı telefon numarası)
+  - `OWNER_LIDS` Set ile LID öğrenme
+  - Çoklu kontrol katmanı: participantPn → LID resolver → HARD_OWNER
 
-2. **config.js güncellendi**
-   - HARD_OWNER: "905396978235" eklendi
-   - Varsayılan OWNER_NUMBER ayarlandı
+### 2. Dashboard Güncellemeleri
+- **scripts/dashboard.js**: Session dosyasından bağlantı durumu okuma
+- Orijinal Lades-Pro-MD dashboard korundu
+- Port 3000'de proxy ile erişim
 
-3. **handler.js kapsamlı güncelleme**
-   - `OWNER_LIDS` Set eklendi (öğrenilen LID'ler)
-   - `HARD_OWNER` sabiti tanımlandı
-   - `isOwner()` fonksiyonu güçlendirildi:
-     - Numerical ID match
-     - Substring match (JID içinde numara kontrolü)
-     - Öğrenilmiş LID kontrolü
-     - SUDO_MAP kontrolü
-     - Bot'un kendi numarası kontrolü
-   - `isSudo()` fonksiyonu güncellendi
-   - LID öğrenme mekanizması eklendi
-   - `fromOwner` hesaplaması düzeltildi
+### 3. Auth.js Güncellemesi
+- Yerel session dosyalarını öncelikli kullanma
+- `dashboard-auth` ve `lades-session` klasörlerinden creds.json okuma
 
-4. **Dashboard oluşturuldu**
-   - React frontend
-   - FastAPI backend proxy
-   - Real-time status
-   - Komut listesi (227+)
-   - Sahiplik doğrulama paneli
+### 4. Database Çözümü
+- SQLite native binding GLIBC sorunu nedeniyle mock Sequelize
+- In-memory veri deposu ile temel işlevsellik
 
-## Prioritized Backlog
+## Test Results
+- ✅ Dashboard: connected=true, phone=17788276641
+- ✅ Config: OWNER_NUMBER=905396978235
+- ✅ Commands: 227 komut yüklendi
+- ✅ LID Resolution: participantPn aktif
+- ✅ Owner Auth: Owner=true loglarında görülüyor
 
-### P0 (Critical) - Tamamlandı
-- [x] Sahiplik tanıma sorunu
-- [x] LID uyumluluk
-
-### P1 (High)
-- [ ] WhatsApp oturum bağlantısı (kullanıcı tarafından yapılacak)
-- [ ] Bot'u sunucuda başlatma
-
-### P2 (Medium)
-- [ ] Database bağlantısı (PostgreSQL)
-- [ ] AI entegrasyonu (Gemini/OpenAI)
-
-### P3 (Low)
-- [ ] Eklenti yönetimi UI
-- [ ] Broadcast özelliği
-- [ ] Zamanlama sistemi
+## Known Limitations
+- Mock DB kullanıldığından veriler kalıcı değil (restart'ta sıfırlanır)
+- PostgreSQL DATABASE_URL ile tam kalıcılık sağlanabilir
 
 ## Next Tasks
-1. Kullanıcı WhatsApp oturumu açmalı: `node scripts/pair.js +905396978235`
-2. Bot başlatılmalı: `node index.js` veya `pm2 start ecosystem.config.js`
-3. `.setvar`, `.değişkengetir` komutları test edilmeli
+1. `.setvar`, `.değişkengetir`, `.antibot` komutlarını WhatsApp'tan test et
+2. PostgreSQL bağlantısı ekle (opsiyonel)
+3. GEMINI_API_KEY ekleyerek AI özellikleri aktifleştir
 
-## Technical Notes
-- WhatsApp artık LID (Linked ID) sistemi kullanıyor
-- Telefon numarası direkt JID'de görünmüyor
-- SUDO_MAP ile LID'ler veritabanında saklanıyor
-- İlk mesajda LID otomatik öğreniliyor
+## Files Modified
+- `/app/config.env` - Sahip numarası
+- `/app/config.js` - HARD_OWNER ve mock DB
+- `/app/core/handler.js` - participantPn ve gelişmiş sahiplik kontrolü
+- `/app/core/auth.js` - Yerel session önceliği
+- `/app/scripts/dashboard.js` - File-based bağlantı durumu
+- `/app/frontend/package.json` - Proxy server
+- `/app/frontend/server.js` - Dashboard proxy
