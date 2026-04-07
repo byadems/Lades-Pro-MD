@@ -183,6 +183,9 @@ app.get('/api/status', (req, res) => {
   // Use file-based detection when IPC is not available
   const connected = liveBotConnected || isRegistered;
   const phone = liveBotPhone || sessionPhone;
+  
+  // Load runtime stats
+  const runtimeStats = loadRuntimeStats();
 
   res.json({
     bot: conf.BOT_NAME || "Lades-Pro-MD",
@@ -194,7 +197,12 @@ app.get('/api/status', (req, res) => {
     phone: phone,
     uptime: (Date.now() - dashboardStartTime) / 1000,
     memory: Math.round(mem.heapUsed / 1024 / 1024) + " MB",
-    nodeVersion: process.version
+    nodeVersion: process.version,
+    // Runtime stats
+    totalMessages: runtimeStats.totalMessages,
+    totalCommands: runtimeStats.totalCommands,
+    activeUsers: runtimeStats.activeUsers,
+    managedGroups: runtimeStats.managedGroups
   });
 });
 
@@ -325,6 +333,7 @@ app.post('/api/system/broadcast', (req, res) => {
 
 // ─── Commands list ───────────────────────────────────────
 const STATS_FILE = path.join(__dirname, '../sessions/cmd-stats.json');
+const RUNTIME_STATS_FILE = path.join(__dirname, '../sessions/runtime-stats.json');
 
 function loadStats() {
   try {
@@ -332,6 +341,25 @@ function loadStats() {
   } catch { }
   return {};
 }
+
+function loadRuntimeStats() {
+  try {
+    if (fs.existsSync(RUNTIME_STATS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(RUNTIME_STATS_FILE, 'utf8'));
+      return {
+        totalMessages: data.totalMessages || 0,
+        totalCommands: data.totalCommands || 0,
+        activeUsers: Array.isArray(data.activeUsers) ? data.activeUsers.length : 0,
+        managedGroups: Array.isArray(data.managedGroups) ? data.managedGroups.length : 0
+      };
+    }
+  } catch { }
+  return { totalMessages: 0, totalCommands: 0, activeUsers: 0, managedGroups: 0 };
+}
+
+app.get('/api/runtime-stats', (req, res) => {
+  res.json(loadRuntimeStats());
+});
 
 app.get('/api/cmd-stats', (req, res) => {
   res.json(loadStats());

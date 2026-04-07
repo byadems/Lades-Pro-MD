@@ -114,6 +114,12 @@ async function fetchStatus() {
     setText('heroRam', d.memory || '--');
     setText('heroNode', d.nodeVersion || '--');
 
+    // Stats kartları güncelle
+    setText('statMessages', d.totalMessages || 0);
+    setText('statCommands', d.totalCommands || 0);
+    setText('statUsers', d.activeUsers || 0);
+    setText('statGroups', d.managedGroups || 0);
+
     // Sidebar
     const dot = document.getElementById('sidebarDot');
     if (dot) dot.className = `bsc-indicator${online ? ' online' : ''}`;

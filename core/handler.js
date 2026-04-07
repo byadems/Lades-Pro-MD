@@ -19,11 +19,63 @@ const { LRUCache } = require("lru-cache");
 //  Command Stats Tracker
 // ─────────────────────────────────────────────────────────
 const STATS_FILE = path.join(__dirname, '../sessions/cmd-stats.json');
+const RUNTIME_STATS_FILE = path.join(__dirname, '../sessions/runtime-stats.json');
+
 let cmdStats = {};
+let runtimeStats = {
+  totalMessages: 0,
+  totalCommands: 0,
+  activeUsers: new Set(),
+  managedGroups: new Set(),
+  startTime: Date.now()
+};
 
 try {
   if (fs.existsSync(STATS_FILE)) cmdStats = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
 } catch { cmdStats = {}; }
+
+try {
+  if (fs.existsSync(RUNTIME_STATS_FILE)) {
+    const saved = JSON.parse(fs.readFileSync(RUNTIME_STATS_FILE, 'utf8'));
+    runtimeStats.totalMessages = saved.totalMessages || 0;
+    runtimeStats.totalCommands = saved.totalCommands || 0;
+    runtimeStats.activeUsers = new Set(saved.activeUsers || []);
+    runtimeStats.managedGroups = new Set(saved.managedGroups || []);
+  }
+} catch {}
+
+function saveRuntimeStats() {
+  try {
+    const toSave = {
+      totalMessages: runtimeStats.totalMessages,
+      totalCommands: runtimeStats.totalCommands,
+      activeUsers: Array.from(runtimeStats.activeUsers).slice(-100), // Son 100 kullanıcı
+      managedGroups: Array.from(runtimeStats.managedGroups),
+      startTime: runtimeStats.startTime
+    };
+    fs.writeFileSync(RUNTIME_STATS_FILE, JSON.stringify(toSave));
+  } catch {}
+}
+
+function recordMessage(senderJid, isGroup, groupJid) {
+  runtimeStats.totalMessages++;
+  if (senderJid) runtimeStats.activeUsers.add(senderJid.split('@')[0]);
+  if (isGroup && groupJid) runtimeStats.managedGroups.add(groupJid);
+}
+
+function recordCommand() {
+  runtimeStats.totalCommands++;
+}
+
+function getRuntimeStats() {
+  return {
+    totalMessages: runtimeStats.totalMessages,
+    totalCommands: runtimeStats.totalCommands,
+    activeUsers: runtimeStats.activeUsers.size,
+    managedGroups: runtimeStats.managedGroups.size,
+    uptime: Math.floor((Date.now() - runtimeStats.startTime) / 1000)
+  };
+}
 
 let _statsSaveTimer = null;
 function recordStat(pattern, status, durationMs, error = null) {
@@ -37,11 +89,14 @@ function recordStat(pattern, status, durationMs, error = null) {
     error: error ? String(error).slice(0, 120) : null,
     runs: (cmdStats[key]?.runs || 0) + 1
   };
+  
+  recordCommand(); // Runtime stats'ı güncelle
 
   if (!_statsSaveTimer) {
     _statsSaveTimer = setTimeout(async () => {
        try {
          await fs.promises.writeFile(STATS_FILE, JSON.stringify(cmdStats));
+         saveRuntimeStats(); // Runtime stats'ı da kaydet
        } catch (e) { }
        _statsSaveTimer = null;
     }, 2 * 60 * 1000);
@@ -51,6 +106,7 @@ function recordStat(pattern, status, durationMs, error = null) {
 // Process çıkarken son halini kaydet
 process.on('exit', () => {
   try { fs.writeFileSync(STATS_FILE, JSON.stringify(cmdStats)); } catch {}
+  saveRuntimeStats();
 });
 
 function getStats() { return cmdStats; }
@@ -698,6 +754,9 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
       return; // Limite takıldı, sessizce dur
     }
 
+    // Runtime stats için mesajı kaydet
+    recordMessage(resolvedSenderJid, isGroup, jid);
+
     if (!text) return;
 
     // ─────────────────────────────────────────────────────────
@@ -968,7 +1027,7 @@ module.exports = {
   loadPlugins, handleMessage,
   handleGroupUpdate, handleGroupParticipantsUpdate,
   isOwner, isSudo, isOwnerOrSudo,
-  getStats, recordStat,
+  getStats, recordStat, getRuntimeStats,
   onHandlers,
   commands: (() => commands),
 };
