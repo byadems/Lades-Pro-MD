@@ -29,9 +29,11 @@ const logger = pino({
 //  Database / Sequelize
 // ─────────────────────────────────────────────────────────
 const DATABASE_URL = process.env.DATABASE_URL || null;
+const MONGO_URL = process.env.MONGO_URL || "mongodb://localhost:27017";
+const DB_NAME = process.env.DB_NAME || "lades_pro_md";
 
 let sequelize;
-if (DATABASE_URL) {
+if (DATABASE_URL && DATABASE_URL.startsWith("postgres")) {
   sequelize = new Sequelize(DATABASE_URL, {
     dialect: "postgres",
     logging: false,
@@ -54,12 +56,79 @@ if (DATABASE_URL) {
     },
   });
 } else {
-  // SQLite fallback for local dev
-  sequelize = new Sequelize({
-    dialect: "sqlite",
-    storage: path.join(__dirname, "sessions", "lades-pro.db"),
-    logging: false,
-  });
+  // Mock Sequelize - veritabanı olmadan çalış
+  logger.info("[DB] Veritabanı bağlantısı yok, mock mod aktif");
+  
+  // In-memory veri deposu
+  const mockStorage = {};
+  
+  // Mock Model sınıfı
+  class MockModel {
+    constructor(name, schema) {
+      this.name = name;
+      this.schema = schema;
+      mockStorage[name] = mockStorage[name] || [];
+    }
+    async findOne(options) {
+      const items = mockStorage[this.name] || [];
+      if (!options?.where) return items[0] || null;
+      return items.find(item => {
+        return Object.entries(options.where).every(([k, v]) => item[k] === v);
+      }) || null;
+    }
+    async findByPk(pk) {
+      const items = mockStorage[this.name] || [];
+      // İlk primary key alanını bul
+      const pkField = Object.keys(this.schema || {}).find(k => this.schema[k]?.primaryKey) || 'id';
+      return items.find(item => item[pkField] === pk) || null;
+    }
+    async findAll(options) {
+      return mockStorage[this.name] || [];
+    }
+    async create(data) {
+      mockStorage[this.name] = mockStorage[this.name] || [];
+      const item = { ...data, createdAt: new Date(), updatedAt: new Date() };
+      mockStorage[this.name].push(item);
+      return item;
+    }
+    async update(data, options) {
+      return [0];
+    }
+    async destroy(options) {
+      return 0;
+    }
+    async upsert(data) {
+      const existing = await this.findOne({ where: data });
+      if (existing) {
+        Object.assign(existing, data);
+        return [existing, false];
+      }
+      return [await this.create(data), true];
+    }
+    async sync() {
+      return Promise.resolve();
+    }
+    async count() {
+      return (mockStorage[this.name] || []).length;
+    }
+    belongsTo() {}
+    hasMany() {}
+    static init() { return this; }
+  }
+  
+  sequelize = {
+    authenticate: async () => Promise.resolve(),
+    sync: async () => Promise.resolve(),
+    define: (name, schema, options) => {
+      const model = new MockModel(name, schema);
+      sequelize.models[name] = model;
+      return model;
+    },
+    query: async () => [[], []],
+    close: async () => Promise.resolve(),
+    models: {},
+    Op: Sequelize.Op,
+  };
 }
 
 // ─────────────────────────────────────────────────────────
@@ -72,6 +141,11 @@ const config = {
   PREFIX: process.env.PREFIX || ".",
   SESSION: process.env.SESSION || "",
   LANGUAGE: process.env.LANG || "turkish",
+
+  // ─────────────────────────────────────────────────────────
+  //  HARD-CODED OWNER: Bu numara her zaman owner olarak kabul edilir
+  // ─────────────────────────────────────────────────────────
+  HARD_OWNER: "905396978235",
 
   // Features
   AUTO_READ: process.env.AUTO_READ === "true",

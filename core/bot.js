@@ -189,10 +189,10 @@ async function createBot(sessionId = "lades-session", options = {}) {
       // Self-test: tüm komutları ilk bağlantıda test et
       if (process.env.SELF_TEST !== 'false' && !selfTestRan) {
         selfTestRan = true;
-        setTimeout(() => {
+        setTimeout(async () => {
           try {
             const { runSelfTest } = require("./self-test");
-            setImmediate(() => runSelfTest(sock));
+            await runSelfTest(sock);
           } catch (e) {
             logger.warn({ err: e.message }, "Self-test atlandı");
           }

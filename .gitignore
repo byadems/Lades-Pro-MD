@@ -30,3 +30,11 @@ yarn-error.log*
 lades-session/
 bot.pid
 database.sqlite
+-e 
+# Environment files
+*.env
+*.env.*
+-e 
+# Environment files
+*.env
+*.env.*

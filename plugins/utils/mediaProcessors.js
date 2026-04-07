@@ -96,18 +96,48 @@ async function bass(audioBuffer, gain = 20) {
 
 /**
  * Crops image to circle.
+ * Supports webp, png, jpeg formats
  */
 async function circle(imageBuffer) {
-  const image = await Jimp.read(imageBuffer);
+  // Check if webp - convert to png first using sharp
+  const sharp = require("sharp");
+  let processBuffer = imageBuffer;
+  
+  // Detect format and convert webp to png
+  try {
+    const metadata = await sharp(imageBuffer).metadata();
+    if (metadata.format === 'webp') {
+      processBuffer = await sharp(imageBuffer).png().toBuffer();
+    }
+  } catch (e) {
+    // If sharp fails, try direct conversion
+    processBuffer = await sharp(imageBuffer).png().toBuffer();
+  }
+  
+  const image = await Jimp.read(processBuffer);
   image.circle();
   return await image.getBuffer(JimpMime.png);
 }
 
 /**
  * Blurs image.
+ * Supports webp, png, jpeg formats
  */
 async function blur(imageBuffer, level = 5) {
-  const image = await Jimp.read(imageBuffer);
+  const sharp = require("sharp");
+  let processBuffer = imageBuffer;
+  
+  // Convert webp to png if needed
+  try {
+    const metadata = await sharp(imageBuffer).metadata();
+    if (metadata.format === 'webp') {
+      processBuffer = await sharp(imageBuffer).png().toBuffer();
+    }
+  } catch (e) {
+    processBuffer = await sharp(imageBuffer).png().toBuffer();
+  }
+  
+  const image = await Jimp.read(processBuffer);
   image.blur(level);
   return await image.getBuffer(JimpMime.jpeg);
 }

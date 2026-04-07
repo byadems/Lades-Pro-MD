@@ -153,20 +153,56 @@ app.get('/api/status', (req, res) => {
   const conf = getEnvConfig();
   const mem = process.memoryUsage();
   const hasLocalSession = fs.existsSync(path.join(__dirname, "../sessions/lades-session/creds.json"));
+  const hasDashboardSession = fs.existsSync(path.join(__dirname, "../sessions/dashboard-auth/creds.json"));
   const hasDb = !!(conf.DATABASE_URL && conf.DATABASE_URL.trim());
-  const hasStoredSession = hasLocalSession || hasDb;
+  const hasStoredSession = hasLocalSession || hasDashboardSession || hasDb;
+
+  // Check if creds.json has valid credentials (registered = true)
+  let sessionPhone = null;
+  let isRegistered = false;
+  const sessionPaths = [
+    path.join(__dirname, "../sessions/dashboard-auth/creds.json"),
+    path.join(__dirname, "../sessions/lades-session/creds.json")
+  ];
+  
+  for (const credPath of sessionPaths) {
+    if (fs.existsSync(credPath)) {
+      try {
+        const creds = JSON.parse(fs.readFileSync(credPath, 'utf8'));
+        if (creds.me && creds.me.id) {
+          // Extract phone from me.id (format: 1234567890:123@s.whatsapp.net)
+          const match = creds.me.id.match(/^(\d+)/);
+          if (match) sessionPhone = match[1];
+          isRegistered = creds.registered === true || !!creds.me;
+          break;
+        }
+      } catch (e) { /* ignore */ }
+    }
+  }
+
+  // Use file-based detection when IPC is not available
+  const connected = liveBotConnected || isRegistered;
+  const phone = liveBotPhone || sessionPhone;
+  
+  // Load runtime stats
+  const runtimeStats = loadRuntimeStats();
 
   res.json({
     bot: conf.BOT_NAME || "Lades-Pro-MD",
     botName: conf.BOT_NAME || "Lades-Pro-MD",
-    hasSession: liveBotConnected,
-    connected: liveBotConnected,
+    hasSession: connected,
+    connected: connected,
     hasStoredSession,
     hasDb,
-    phone: liveBotPhone,
+    phone: phone,
     uptime: (Date.now() - dashboardStartTime) / 1000,
     memory: Math.round(mem.heapUsed / 1024 / 1024) + " MB",
-    nodeVersion: process.version
+    nodeVersion: process.version,
+    // Runtime stats
+    totalMessages: runtimeStats.totalMessages,
+    totalCommands: runtimeStats.totalCommands,
+    activeUsers: runtimeStats.activeUsers,
+    managedGroups: runtimeStats.managedGroups
   });
 });
 
@@ -297,6 +333,7 @@ app.post('/api/system/broadcast', (req, res) => {
 
 // ─── Commands list ───────────────────────────────────────
 const STATS_FILE = path.join(__dirname, '../sessions/cmd-stats.json');
+const RUNTIME_STATS_FILE = path.join(__dirname, '../sessions/runtime-stats.json');
 
 function loadStats() {
   try {
@@ -304,6 +341,25 @@ function loadStats() {
   } catch { }
   return {};
 }
+
+function loadRuntimeStats() {
+  try {
+    if (fs.existsSync(RUNTIME_STATS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(RUNTIME_STATS_FILE, 'utf8'));
+      return {
+        totalMessages: data.totalMessages || 0,
+        totalCommands: data.totalCommands || 0,
+        activeUsers: Array.isArray(data.activeUsers) ? data.activeUsers.length : 0,
+        managedGroups: Array.isArray(data.managedGroups) ? data.managedGroups.length : 0
+      };
+    }
+  } catch { }
+  return { totalMessages: 0, totalCommands: 0, activeUsers: 0, managedGroups: 0 };
+}
+
+app.get('/api/runtime-stats', (req, res) => {
+  res.json(loadRuntimeStats());
+});
 
 app.get('/api/cmd-stats', (req, res) => {
   res.json(loadStats());

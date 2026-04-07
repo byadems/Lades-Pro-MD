@@ -661,7 +661,7 @@ Module({
     ) {
       return;
     }
-    const repliedText = message.reply_message.message;
+    const repliedText = message.reply_message.text || "";
     if (
       repliedText.toLowerCase().includes("youtube arama sonuçları") &&
       repliedText.toLowerCase().includes("ses indirmek için")
