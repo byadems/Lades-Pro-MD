@@ -13,6 +13,8 @@ const config = require("../config");
 const { logger } = require("../config");
 const { getGroupSettings } = require("./db-cache");
 const { isGroup, getGroupAdmins, getMessageText, getMentioned, getQuotedMsg, loadBaileys } = require("./helpers");
+const { getMessageByKey } = require("./store");
+const { antidelete } = require("../plugins/utils");
 const { LRUCache } = require("lru-cache");
 
 // ─────────────────────────────────────────────────────────
@@ -687,6 +689,26 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
   try {
     const message = new BaseMessage(client, rawMsg, groupMetadata);
     const { jid, text, isGroup, fromMe } = message;
+
+    // ── ANTISILME (ANTI-DELETE) LOGIC ──
+    if (isGroup && rawMsg.message?.protocolMessage?.type === 0) {
+      const deletedKey = rawMsg.message.protocolMessage.key;
+      const db = await antidelete.get();
+      if (db.some(d => d.jid === jid)) {
+        const originalMsg = getMessageByKey(deletedKey);
+        if (originalMsg) {
+          const participant = deletedKey.participant || deletedKey.remoteJid;
+          const senderName = participant.split("@")[0];
+          await client.sendMessage(jid, {
+            text: `🚨 *Mesaj Silme Engellendi!* 🚨\n\n👤 *Gönderen:* @${senderName}\n\n👇 *Silinen Mesaj:*`,
+            mentions: [participant]
+          });
+          await client.sendMessage(jid, { forward: originalMsg }, { quoted: originalMsg });
+          return; // Silme işlemi işlendi, devam etmeye gerek yok
+        }
+      }
+    }
+
     let senderJid = message.sender; // Alias for legacy checks
     let resolvedSenderJid = senderJid;
 
@@ -881,8 +903,10 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
  
         // Core Logic Filters - fromMe: true komutlar için hata mesajı
         if (cmd.fromMe && !fromMe && !ownerOrSudo) {
-          await message.reply("_🔒 OPS! Komut *yalnızca Yazılım Geliştiricim* tarafından kullanılabilir._");
-          return;
+          if (!(cmd.onlyAdmin && isAdmin)) {
+            await message.reply("_🔒 OPS! Komut *yalnızca Yazılım Geliştiricim* tarafından kullanılabilir._");
+            return;
+          }
         }
 
         if (cmd.onlyOwner && !ownerCheck) {

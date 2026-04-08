@@ -132,6 +132,7 @@ Module({
 Module({
     pattern: "otosohbetkapat ?(.*)",
     fromMe: true,
+    onlyAdmin: true,
     desc: "Grup sohbetinin otomatik kapanma özelliğini aktif eder.",
     warn: "Sunucu saatine göre çalışır",
     use: "group",
@@ -171,6 +172,7 @@ Module({
 Module({
     pattern: "otosohbetaç ?(.*)",
     fromMe: true,
+    onlyAdmin: true,
     desc: "Grup sohbetinin otomatik açılma özelliğini aktif eder.",
     warn: "Sunucu saatine göre çalışır",
     use: "group",
@@ -208,6 +210,7 @@ Module({
 Module({
     pattern: "otosohbet ?(.*)",
     fromMe: true,
+    onlyAdmin: true,
     desc: "Grup sohbetinin otomatik açılış ve kapanış saatlerini ayarlar. (Örn: .otosohbet 09:00|23:00)",
     use: "group",
   },

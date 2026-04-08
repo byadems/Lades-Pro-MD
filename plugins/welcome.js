@@ -11,6 +11,7 @@ const {
 Module({
   pattern: "welcome ?(.*)",
   fromMe: true,
+  onlyAdmin: true,
   desc: "Yeni üye katıldığında gönderilecek olan grup karşılama mesajını özelleştirmenizi ve yönetmenizi sağlar.",
   usage: ".welcome Merhaba $mention, $group grubuna hoş geldin! $pp\n.welcome aç/kapat\n.welcome getir\n.welcome sil", use: "group",
 },
@@ -100,6 +101,7 @@ Module({
 Module({
   pattern: "goodbye ?(.*)",
   fromMe: true,
+  onlyAdmin: true,
   desc: "Üye ayrıldığında gönderilecek olan grup veda mesajını özelleştirmenizi ve yönetmenizi sağlar.",
   usage: ".goodbye [mesaj] | .goodbye aç/kapat",
   use: "group",
@@ -148,6 +150,7 @@ Module({
 Module({
   pattern: "testwelcome ?(.*)",
   fromMe: true,
+  onlyAdmin: true,
   desc: "Mevcut gruptaki karşılama mesajının nasıl göründüğünü denemeniz için bir test mesajı gönderir.",
   usage: ".testwelcome",
   use: "group",
@@ -170,6 +173,7 @@ Module({
 Module({
   pattern: "testgoodbye ?(.*)",
   fromMe: true,
+  onlyAdmin: true,
   desc: "Mevcut gruptaki veda mesajının nasıl göründüğünü denemeniz için bir test mesajı gönderir.",
   usage: ".testgoodbye",
   use: "group",

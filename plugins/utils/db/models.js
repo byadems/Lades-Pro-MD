@@ -123,6 +123,13 @@ const antiWordDB = config.sequelize.define("antiword", {
   },
 }, { indexes: [{ fields: ['jid'] }] });
 
+const antiDeleteDB = config.sequelize.define("antidelete", {
+  jid: {
+    type: DataTypes.TEXT,
+    allowNull: false,
+  },
+}, { indexes: [{ fields: ['jid'] }] });
+
 const WelcomeDB = config.sequelize.define("welcome", {
   jid: {
     type: DataTypes.STRING,
@@ -212,6 +219,7 @@ module.exports = {
   antiPromote,
   antiBotDB,
   antiWordDB,
+  antiDeleteDB,
   WelcomeDB,
   GoodbyeDB,
   FilterDB,

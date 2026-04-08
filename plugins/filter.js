@@ -6,7 +6,8 @@ const handler = HANDLER_PREFIX;
 
 Module({
   pattern: "filtre ?(.*)",
-  fromMe: false,
+  fromMe: true,
+  onlyAdmin: true,
   desc: "Belirli kelimelere botun otomatik olarak vermesini istediğiniz yanıtları (filtreleri) oluşturur.",
   usage: ".filtre merhaba | Merhaba! | sohbet\n.filtre yardım | Size yardım edebilirim | herkes\n.filtre güle | Güle güle! | grup | tam-eşleşme",
   use: "group",
@@ -59,6 +60,10 @@ Module({
       );
     }
 
+    if (scope !== "sohbet" && !message.fromOwner) {
+      return await message.sendReply("_❌ Sadece bot sahibi genel kapsamlı (herkes/grup/dm) filtreler oluşturabilir!_");
+    }
+
     const filterOptions = {
       caseSensitive: options.includes("büyük-küçük") || options.includes("case"),
       exactMatch: options.includes("tam-eşleşme") || options.includes("exact"),
@@ -103,7 +108,8 @@ Module({
 
 Module({
   pattern: "filtreler ?(.*)",
-  fromMe: false,
+  fromMe: true,
+  onlyAdmin: true,
   desc: "Sohbet veya genel kapsamda oluşturulmuş olan tüm aktif filtreleri listeler.",
   usage: ".filtreler\n.filtreler herkes\n.filtreler grup",
   use: "group",
@@ -158,7 +164,8 @@ Module({
 
 Module({
   pattern: "filtresil ?(.*)",
-  fromMe: false,
+  fromMe: true,
+  onlyAdmin: true,
   desc: "Daha önce oluşturulmuş olan bir filtre tetikleyicisini sistemden kalıcı olarak siler.",
   usage: ".filtresil tetikleyici\n.filtresil tetikleyici herkes",
   use: "group",
@@ -201,7 +208,8 @@ Module({
 
 Module({
   pattern: "filtredurum ?(.*)",
-  fromMe: false,
+  fromMe: true,
+  onlyAdmin: true,
   desc: "Belirlediğiniz bir filtreyi geçici olarak devre dışı bırakır veya tekrar aktif eder.",
   usage: ".filtredurum tetikleyici\n.filtredurum tetikleyici herkes",
   use: "group",
@@ -256,7 +264,8 @@ Module({
 
 Module({
   pattern: "testfiltre ?(.*)",
-  fromMe: false,
+  fromMe: true,
+  onlyAdmin: true,
   desc: "Yazdığınız bir kelimenin herhangi bir filtreyle eşleşip eşleşmediğini test eder.",
   usage: ".testfiltre [metin]",
   use: "group",
@@ -298,7 +307,8 @@ Module({
 
 Module({
   pattern: "filtreyardım",
-  fromMe: false,
+  fromMe: true,
+  onlyAdmin: true,
   desc: "Filtreleme sistemi ve gelişmiş seçenekleri hakkında detaylı yardım sunar.",
   usage: ".filtreyardım",
   use: "group",

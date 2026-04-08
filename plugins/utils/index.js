@@ -24,6 +24,7 @@ const {
   welcome,
   goodbye,
   filter,
+  antidelete,
 } = dbOperations;
 
 // Media processing functions
@@ -104,6 +105,7 @@ module.exports = {
   welcome,
   goodbye,
   filter,
+  antidelete,
 
   // Media Processing
   addExif,

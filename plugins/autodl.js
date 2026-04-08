@@ -505,6 +505,7 @@ Module({
 Module({
     pattern: "otodl ?(.*)",
     fromMe: true,
+    onlyAdmin: true,
     desc: "Belirlediğiniz sohbetlerde veya tüm gruplarda sosyal medya bağlantılarını otomatik olarak algılar ve medyayı indirir.",
     usage: ".otodl | .otodl aç/kapat | .otodl durum",
   },
@@ -552,10 +553,12 @@ Module({
 
     if (cmd === "aç") {
       if (target === "gruplar") {
+        if (!message.fromOwner) return await message.sendReply("_❌ Bu genel ayarı sadece bot sahibi değiştirebilir!_");
         await setVar("AUTODL_ALL_GROUPS", "true");
         return await message.sendReply("_✅ Tüm gruplarda AutoDL aktif_\n_Kapatmak için .otodl kapat gruplar kullanın_"
         );
       } else if (target === "dm") {
+        if (!message.fromOwner) return await message.sendReply("_❌ Bu genel ayarı sadece bot sahibi değiştirebilir!_");
         await setVar("AUTODL_ALL_DMS", "true");
         return await message.sendReply("_✅ Tüm DM'lerde AutoDL aktif_\n_Kapatmak için .otodl kapat dms kullanın_"
         );
@@ -570,10 +573,12 @@ Module({
 
     if (cmd === "kapat") {
       if (target === "gruplar") {
+        if (!message.fromOwner) return await message.sendReply("_❌ Bu genel ayarı sadece bot sahibi değiştirebilir!_");
         await setVar("AUTODL_ALL_GROUPS", "false");
         return await message.sendReply("_✨ Tüm gruplarda AutoDL devre dışı ❌_\n_Açmak için .otodl aç gruplar kullanın_"
         );
       } else if (target === "dm") {
+        if (!message.fromOwner) return await message.sendReply("_❌ Bu genel ayarı sadece bot sahibi değiştirebilir!_");
         await setVar("AUTODL_ALL_DMS", "false");
         return await message.sendReply("_✨ Tüm DM'lerde AutoDL devre dışı ❌_\n_Açmak için .otodl aç dms kullanın_"
         );

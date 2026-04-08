@@ -11,6 +11,7 @@ const {
   WelcomeDB,
   GoodbyeDB,
   FilterDB,
+  antiDeleteDB,
 } = require("./models");
 const config = require("../../../config");
 
@@ -368,6 +369,22 @@ async function resetAntiBot() {
   return await antiBotDB.destroy({ where: {}, truncate: true });
 }
 
+async function getAntiDelete() {
+  return await antiDeleteDB.findAll();
+}
+
+async function setAntiDelete(jid) {
+  return await antiDeleteDB.create({ jid });
+}
+
+async function delAntiDelete(jid = null) {
+  return await antiDeleteDB.destroy({ where: { jid } });
+}
+
+async function resetAntiDelete() {
+  return await antiDeleteDB.destroy({ where: {}, truncate: true });
+}
+
 async function getAntiWord() {
   return await antiWordDB.findAll();
 }
@@ -618,6 +635,12 @@ const antibot = {
   delete: delAntiBot,
   reset: resetAntiBot,
 };
+const antidelete = {
+  set: setAntiDelete,
+  get: getAntiDelete,
+  delete: delAntiDelete,
+  reset: resetAntiDelete,
+};
 const pdm = { set: setPdm, get: getPdm, delete: delPdm, reset: resetPdm };
 const welcome = {
   set: setWelcome,
@@ -655,6 +678,7 @@ module.exports = {
   antidemote,
   antispam,
   antibot,
+  antidelete,
   pdm,
   welcome,
   goodbye,
