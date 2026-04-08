@@ -277,17 +277,12 @@ class BaseMessage {
     this.groupMetadata = groupMetadata;
 
     // fromOwner: bot sahibi mi gönderiyor kontrol et
-    // HARD OWNER + CONFIG OWNER + fromMe kontrolü
-    const HARD_OWNER_NUM = "905396978235";
     const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, "");
     const senderNum = (this.sender || "").split("@")[0].split(":")[0].replace(/[^0-9]/g, "");
     
-    // Çoklu kontrol: Hard-coded owner, config owner, veya fromMe
+    // Çoklu kontrol: Sıkı (strict) JID numarası doğrulama
     this.fromOwner = this.fromMe || 
-                     (senderNum === HARD_OWNER_NUM) || 
-                     (ownerNum && ownerNum !== "905XXXXXXXXX" && senderNum === ownerNum) ||
-                     (this.sender && this.sender.includes(HARD_OWNER_NUM)) ||
-                     (this.sender && ownerNum && this.sender.includes(ownerNum));
+                     (ownerNum && ownerNum !== "905XXXXXXXXX" && senderNum === ownerNum);
 
     const msg = rawMsg.message || {};
     this.image = !!msg.imageMessage;
@@ -573,33 +568,33 @@ function getNumericalId(jid) {
 //  GLOBAL OWNER LID STORAGE - Runtime'da öğrenilen LID'ler
 // ─────────────────────────────────────────────────────────
 const OWNER_LIDS = new Set();
-const HARD_OWNER = "905396978235";
 
 function isOwner(senderJid, originalSenderJid, client = null) {
   if (!senderJid) return false;
   
-  // ─────────────────────────────────────────────────────────
-  //  1. HARD-CODED OWNER - HER ZAMAN ÇALIŞIR (UNBREAKABLE)
-  // ─────────────────────────────────────────────────────────
   const sNum = getNumericalId(senderJid);
   const oNum = getNumericalId(originalSenderJid);
   
-  // Numerical ID match
-  if (sNum === HARD_OWNER || oNum === HARD_OWNER) {
-    // LID'i öğren ve kaydet
-    if (senderJid && senderJid.includes('@lid')) OWNER_LIDS.add(senderJid);
-    if (originalSenderJid && originalSenderJid.includes('@lid')) OWNER_LIDS.add(originalSenderJid);
-    return true;
-  }
-  
-  // Substring match (JID içinde numara var mı?)
-  if (senderJid.includes(HARD_OWNER)) {
-    if (senderJid.includes('@lid')) OWNER_LIDS.add(senderJid);
-    return true;
-  }
-  if (originalSenderJid && originalSenderJid.includes(HARD_OWNER)) {
-    if (originalSenderJid.includes('@lid')) OWNER_LIDS.add(originalSenderJid);
-    return true;
+  // ─────────────────────────────────────────────────────────
+  //  1. CONFIG OWNER_NUMBER KONTROLÜ
+  // ─────────────────────────────────────────────────────────
+  const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, "");
+  if (ownerNum && ownerNum !== "905XXXXXXXXX") {
+    // Numerical ID match
+    if (sNum === ownerNum || oNum === ownerNum) {
+      if (senderJid && senderJid.includes('@lid')) OWNER_LIDS.add(senderJid);
+      if (originalSenderJid && originalSenderJid.includes('@lid')) OWNER_LIDS.add(originalSenderJid);
+      return true;
+    }
+    // Substring match (JID içinde numara var mı?)
+    if (senderJid.includes(ownerNum)) {
+      if (senderJid.includes('@lid')) OWNER_LIDS.add(senderJid);
+      return true;
+    }
+    if (originalSenderJid && originalSenderJid.includes(ownerNum)) {
+      if (originalSenderJid.includes('@lid')) OWNER_LIDS.add(originalSenderJid);
+      return true;
+    }
   }
   
   // ─────────────────────────────────────────────────────────
@@ -621,23 +616,14 @@ function isOwner(senderJid, originalSenderJid, client = null) {
         // LID'in numerik kısmını kontrol et
         for (const lid of sudoMap) {
           const lidNum = getNumericalId(lid);
-          if (lidNum === HARD_OWNER || lidNum === sNum || lidNum === oNum) return true;
+          if (lidNum === sNum || lidNum === oNum) return true;
         }
       }
     } catch(e) {}
   }
   
   // ─────────────────────────────────────────────────────────
-  //  4. CONFIG OWNER_NUMBER KONTROLÜ
-  // ─────────────────────────────────────────────────────────
-  const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, "");
-  if (ownerNum && ownerNum !== "905XXXXXXXXX") {
-    if (sNum === ownerNum || oNum === ownerNum) return true;
-    if (senderJid.includes(ownerNum) || (originalSenderJid && originalSenderJid.includes(ownerNum))) return true;
-  }
-  
-  // ─────────────────────────────────────────────────────────
-  //  5. BOT'UN KENDİSİ Mİ KONTROLÜ (client varsa)
+  //  4. BOT'UN KENDİSİ Mİ KONTROLÜ (client varsa)
   // ─────────────────────────────────────────────────────────
   if (client && client.user) {
     const botId = getNumericalId(client.user.id);
@@ -653,8 +639,7 @@ function isSudo(senderJid, originalSenderJid) {
   // Owner zaten sudo'dur
   if (isOwner(senderJid, originalSenderJid)) return true;
   
-  if (!config.SUDO) return false;
-  const sudos = config.SUDO.split(",").map(s => s.trim().replace(/[^0-9]/g, "")).filter(s => s);
+  const sudos = config.SUDO ? config.SUDO.split(",").map(s => s.trim().replace(/[^0-9]/g, "")).filter(s => s) : [];
   
   const senderNum = getNumericalId(senderJid);
   const originalSenderNum = getNumericalId(originalSenderJid);
@@ -735,11 +720,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     const botLidNumber = client.user?.lid ? getNumericalId(client.user.lid) : null;
     const senderNumber = getNumericalId(resolvedSenderJid);
     
-    // Bot numarası HARD_OWNER ile aynıysa, bu bot sahibinindir
     let isBotOwnerNumber = false;
-    if (botNumber === HARD_OWNER || botLidNumber === HARD_OWNER) {
-      isBotOwnerNumber = true;
-    }
     // Alternatif: Bot bağlı numarayı config'den kontrol et
     const configOwner = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, "");
     if (botNumber === configOwner || botLidNumber === configOwner) {
@@ -794,7 +775,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     // ─────────────────────────────────────────────────────────
     const ownerCheck = fromMe || isBotOwnerNumber || isOwner(resolvedSenderJid, senderJid, client);
     const sudoCheck = isSudo(resolvedSenderJid, senderJid);
-    const publicMode = (process.env.PUBLIC_MODE === "true" || config.PUBLIC_MODE);
+    const publicMode = !config.isPrivate;
     
     // ─────────────────────────────────────────────────────────
     //  LID ÖĞRENME: Eğer owner ise ve LID ile geliyorsa, kaydet
@@ -854,6 +835,19 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           h._errorCount = (h._errorCount || 0) + 1; logger.warn({ err: e.message, pattern: h.on, count: h._errorCount }, "on-event handler error"); if (h._errorCount >= 3) { h._disabled = true; logger.error({ pattern: h.on }, "Handler devredışı bırakıldı (3 ardışık hata)"); const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, ""); if (ownerNum && message.client) { try { message.client.sendMessage(ownerNum + "@s.whatsapp.net", { text: "🚨 *Kritik Hata Uyarısı*\nBir `on:` event handler 3 ardışık hata nedeniyle devredışı bırakıldı.\n\n*Type:* " + (h.on || "Bilinmiyor") + "\n*Son Hata:* " + e.message }); } catch (_) {} } }
         }
       }
+    }
+
+    // Input Validation (Sanitizasyon) katmanı
+    const sanitizeInput = (str) => {
+      if (typeof str !== 'string') return str;
+      // SQL/NoSQL Injection ve temel XSS koruması için tehlikeli karakterleri escape et
+      return str.replace(/['";\\]/g, '\\$&').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    };
+
+    if (message.text) {
+      // Metni temizle ama komut parametrelerini bozma (komut prefixleri vs için)
+      // Ancak loglama ve veritabanı sorgularında bu sanitizeInput kullanılmalıdır.
+      // message.text = sanitizeInput(message.text);
     }
 
     // HANDLERS (Multiple Prefix) Support
@@ -946,7 +940,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
         }
 
         // Public Mode check
-        if (!(process.env.PUBLIC_MODE === "true" || config.PUBLIC_MODE)) {
+        if (config.isPrivate) {
           if (!ownerOrSudo) return;
         }
 

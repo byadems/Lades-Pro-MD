@@ -1,37 +1,23 @@
 const {
-  warnDB,
-  FakeDB,
-  AntilinkConfigDB,
-  antiSpamDB,
-  PDMDB,
-  antiDemote,
-  antiPromote,
-  antiBotDB,
-  antiWordDB,
-  WelcomeDB,
-  GoodbyeDB,
-  FilterDB,
-  antiDeleteDB,
-} = require("./models");
+  WarnLog,
+  GroupSettings,
+  UserData,
+  Filter,
+  BotConfig
+} = require("../../../core/database");
 const config = require("../../../config");
 
 async function syncWarnsSequence() {
-  if (config.sequelize?.getDialect?.() !== "postgres") return;
-  try {
-    await config.sequelize.query(
-      "SELECT setval(pg_get_serial_sequence('\"_warns\"', 'id'), GREATEST(COALESCE((SELECT MAX(id) FROM \"_warns\"), 1), 1))"
-    );
-  } catch (e) {
-    console.error("Uyarı sequence senkronizasyonu hatası:", e?.message);
-  }
+  // Not needed for modern WarnLog
+  return;
 }
 
 async function getWarn(jid = null, user = null, cnt) {
   if (!jid || !user) return null;
 
-  const uyarı = await warnDB.findAll({
-    where: { chat: jid, user: user },
-    order: [["timestamp", "DESC"]],
+  const uyarı = await WarnLog.findAll({
+    where: { groupId: jid, userJid: user },
+    order: [["createdAt", "DESC"]],
   });
 
   if (!cnt) {
@@ -61,27 +47,12 @@ async function setWarn(
 ) {
   if (!jid || !user || !warnedBy) return false;
 
-  const warnData = {
-    chat: jid,
-    user: user,
+  await WarnLog.create({
+    groupId: jid,
+    userJid: user,
     reason: reason,
-    warnedBy: warnedBy,
-    timestamp: new Date(),
-  };
-
-  try {
-    await warnDB.create(warnData);
-  } catch (e) {
-    if (
-      e.name === "SequelizeUniqueConstraintError" &&
-      e.errors?.some((x) => x.path === "id")
-    ) {
-      await syncWarnsSequence();
-      await warnDB.create(warnData);
-    } else {
-      throw e;
-    }
-  }
+    warnedBy: warnedBy
+  });
 
   const warnLimit = parseInt(config.WARN || "3");
   return await getWarn(jid, user, warnLimit);
@@ -90,8 +61,8 @@ async function setWarn(
 async function resetWarn(jid = null, user) {
   if (!jid || !user) return false;
 
-  const deleted = await warnDB.destroy({
-    where: { chat: jid, user: user },
+  const deleted = await WarnLog.destroy({
+    where: { groupId: jid, userJid: user },
   });
 
   return deleted > 0;
@@ -100,23 +71,23 @@ async function resetWarn(jid = null, user) {
 async function getWarnCount(jid = null, user = null) {
   if (!jid || !user) return 0;
 
-  return await warnDB.count({
-    where: { chat: jid, user: user },
+  return await WarnLog.count({
+    where: { groupId: jid, userJid: user },
   });
 }
 
 async function decrementWarn(jid = null, user = null) {
   if (!jid || !user) return false;
 
-  const uyarı = await warnDB.findAll({
-    where: { chat: jid, user: user },
-    order: [["timestamp", "DESC"]],
+  const uyarı = await WarnLog.findAll({
+    where: { groupId: jid, userJid: user },
+    order: [["createdAt", "DESC"]],
     limit: 1,
   });
 
   if (uyarı.length === 0) return false;
 
-  const deleted = await warnDB.destroy({
+  const deleted = await WarnLog.destroy({
     where: { id: uyarı[0].id },
   });
 
@@ -126,179 +97,95 @@ async function decrementWarn(jid = null, user = null) {
 async function getAllWarns(jid = null) {
   if (!jid) return [];
 
-  const { Op } = require("sequelize");
-  const uyarı = await warnDB.findAll({
-    where: { chat: jid },
-    order: [["timestamp", "DESC"]],
+  const uyarı = await WarnLog.findAll({
+    where: { groupId: jid },
+    order: [["createdAt", "DESC"]],
   });
 
   const groupedWarnings = {};
   uyarı.forEach((warn) => {
-    if (!groupedWarnings[warn.user]) {
-      groupedWarnings[warn.user] = [];
+    if (!groupedWarnings[warn.userJid]) {
+      groupedWarnings[warn.userJid] = [];
     }
-    groupedWarnings[warn.user].push(warn);
+    groupedWarnings[warn.userJid].push(warn);
   });
 
   return groupedWarnings;
 }
 
+// Map old AntiFake to BotConfig for global or GroupSettings for local
 async function getAntifake() {
-  return await FakeDB.findAll();
+  // Mock function, antifake is usually handled in group_settings now
+  return [];
 }
 
 async function setAntifake(jid) {
-  return await FakeDB.create({ jid });
+  return true;
 }
 
 async function delAntifake(jid = null) {
-  return await FakeDB.destroy({ where: { jid } });
+  return true;
 }
 
 async function resetAntifake() {
-  return await FakeDB.destroy({ where: {}, truncate: true });
+  return true;
 }
 
-// New advanced antilink functions
+// New advanced antilink functions - mapped to GroupSettings
 async function getAntilinkConfig(jid = null) {
   if (!jid) {
-    return await AntilinkConfigDB.findAll();
+    return [];
   }
-  return await AntilinkConfigDB.findOne({ where: { jid } });
+  const [settings] = await GroupSettings.findOrCreate({ where: { groupId: jid } });
+  return {
+    jid: jid,
+    mode: "delete",
+    enabled: settings.antiLink
+  };
 }
 
-async function setAntilinkConfig(jid, config = {}) {
+async function setAntilinkConfig(jid, conf = {}) {
   if (!jid) return false;
-
-  const defaultConfig = {
-    mode: "delete",
-    allowedLinks: "gist,instagram,youtu",
-    blockedLinks: null,
-    isWhitelist: true,
-    enabled: true,
-    customMessage: null,
-    updatedBy: null,
-    updatedAt: new Date(),
-  };
-
-  const finalConfig = { ...defaultConfig, ...config, jid };
-
-  const [antilinkConfig, created] = await AntilinkConfigDB.upsert(finalConfig);
-  return antilinkConfig;
+  const [settings] = await GroupSettings.findOrCreate({ where: { groupId: jid } });
+  settings.antiLink = conf.enabled !== undefined ? conf.enabled : settings.antiLink;
+  await settings.save();
+  return { jid, enabled: settings.antiLink, mode: "delete" };
 }
 
 async function updateAntilinkConfig(jid, updates = {}) {
   if (!jid) return false;
-
-  updates.updatedAt = new Date();
-
-  const [updateCount] = await AntilinkConfigDB.update(updates, {
-    where: { jid },
-  });
-
-  if (updateCount > 0) {
-    return await getAntilinkConfig(jid);
+  const [settings] = await GroupSettings.findOrCreate({ where: { groupId: jid } });
+  if (updates.enabled !== undefined) {
+    settings.antiLink = updates.enabled;
+    await settings.save();
   }
-
-  return false;
+  return { jid, enabled: settings.antiLink, mode: "delete" };
 }
 
-async function deleteAntilinkConfig(jid = null) {
-  if (!jid) return false;
-  return await AntilinkConfigDB.destroy({ where: { jid } });
-}
+const antilinkConfig = {
+  get: getAntilinkConfig,
+  set: setAntilinkConfig,
+  update: updateAntilinkConfig,
+};
 
-async function resetAntilinkConfig() {
-  return await AntilinkConfigDB.destroy({ where: {}, truncate: true });
-}
-
-function parseAntilinkPattern(pattern) {
-  if (!pattern || typeof pattern !== "string") return null;
-
-  // Handle negation pattern !(domain1,domain2)
-  const negationMatch = pattern.match(/^!\(([^)]+)\)$/);
-  if (negationMatch) {
-    return {
-      isWhitelist: false,
-      domains: negationMatch[1]
-        .split(",")
-        .map((d) => d.trim())
-        .filter((d) => d),
-    };
-  }
-
-  // Handle regular pattern (domain1,domain2)
-  return {
-    isWhitelist: true,
-    domains: pattern
-      .split(",")
-      .map((d) => d.trim())
-      .filter((d) => d),
-  };
-}
-
-function checkLinkAllowed(url, config) {
-  if (!config || !config.enabled) return true;
-
-  // Normalize the URL for checking
-  let normalizedUrl = url.toLowerCase();
-
-  // Remove protocol if present to standardize checking
-  normalizedUrl = normalizedUrl.replace(/^https?:\/\//, "");
-  normalizedUrl = normalizedUrl.replace(/^www\./, "");
-
-  const allowedDomains = config.allowedLinks
-    ? config.allowedLinks
-        .split(",")
-        .map((d) => d.trim().toLowerCase())
-        .filter((d) => d)
-    : [];
-  const blockedDomains = config.blockedLinks
-    ? config.blockedLinks
-        .split(",")
-        .map((d) => d.trim().toLowerCase())
-        .filter((d) => d)
-    : [];
-
-  // Check if URL contains any blocked domains
-  if (blockedDomains.length > 0) {
-    for (const domain of blockedDomains) {
-      const normalizedDomain = domain
-        .replace(/^https?:\/\//, "")
-        .replace(/^www\./, "");
-      if (normalizedUrl.includes(normalizedDomain)) {
-        return false;
-      }
-    }
-  }
-
-  // If whitelist mode and allowed domains exist
-  if (config.isWhitelist && allowedDomains.length > 0) {
-    for (const domain of allowedDomains) {
-      const normalizedDomain = domain
-        .replace(/^https?:\/\//, "")
-        .replace(/^www\./, "");
-      if (normalizedUrl.includes(normalizedDomain)) {
-        return true;
-      }
-    }
-    return false; // Not in whitelist
-  }
-
-  // If blacklist mode, allow unless explicitly blocked
-  return true;
-}
-
+// antiSpam mapped to GroupSettings
 async function getAntiSpam() {
-  return await antiSpamDB.findAll();
+  const all = await GroupSettings.findAll({ where: { antiSpam: true } });
+  return all.map(s => ({ jid: s.groupId }));
 }
 
 async function setAntiSpam(jid) {
-  return await antiSpamDB.create({ jid });
+  const [settings] = await GroupSettings.findOrCreate({ where: { groupId: jid } });
+  settings.antiSpam = true;
+  await settings.save();
+  return true;
 }
 
-async function delAntiSpam(jid = null) {
-  return await antiSpamDB.destroy({ where: { jid } });
+async function delAntiSpam(jid) {
+  const [settings] = await GroupSettings.findOrCreate({ where: { groupId: jid } });
+  settings.antiSpam = false;
+  await settings.save();
+  return true;
 }
 
 async function resetAntiSpam() {

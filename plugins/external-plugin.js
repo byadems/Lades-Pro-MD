@@ -6,21 +6,7 @@ const { PluginDB, installPlugin } = require("./sql/plugin");
 let { getString } = require("./utils/lang");
 let Lang = getString("external_plugin");
 const handler = config.HANDLER_PREFIX;
-
-const TRUSTED_HOSTS = [
-  "gist.github.com",
-  "gist.githubusercontent.com",
-  "raw.githubusercontent.com",
-];
-
-function isTrustedHost(urlStr) {
-  try {
-    const parsed = new URL(urlStr);
-    return TRUSTED_HOSTS.some((h) => parsed.host === h || parsed.host.endsWith("." + h));
-  } catch {
-    return false;
-  }
-}
+const { extractUrls, validateUrl } = require("../core/helpers");
 
 Module({
     pattern: "modülyükle ?(.*)",
@@ -30,9 +16,11 @@ Module({
   },
   async (message, match) => {
     match = match[1] !== "" ? match[1] : message.reply_message.text;
-    if (!match || !/\bhttps?:\/\/\S+/gi.test(match))
-      return await message.send(Lang.NEED_URL);
-    const links = match.match(/\bhttps?:\/\/\S+/gi);
+    if (!match) return await message.send(Lang.NEED_URL);
+    
+    const links = extractUrls(match);
+    if (!links.length) return await message.send(Lang.NEED_URL);
+    
     for (const link of links) {
       let url;
       try {
@@ -40,11 +28,13 @@ Module({
       } catch {
         return await message.send(Lang.INVALID_URL);
       }
-      if (!isTrustedHost(url.toString())) {
+      
+      if (!validateUrl(link, "github_gist")) {
         return await message.sendReply(
-          `_⚠️ Güvenlik: Yalnızca GitHub Gist bağlantıları desteklenir._\n_İzin verilen hostlar: ${TRUSTED_HOSTS.join(", ")}_`
+          `_⚠️ Güvenlik: Yalnızca GitHub Gist bağlantıları desteklenir._`
         );
       }
+      
       if (
         url.host === "gist.github.com" ||
         url.host === "gist.githubusercontent.com"
@@ -137,19 +127,20 @@ Module({
   },
   async (message, match) => {
     if (match[1] === "") return await message.send(Lang.NEED_PLUGIN);
+    const safePluginName = match[1].replace(/[^a-zA-Z0-9_]/g, "");
     const plugin = await PluginDB.findAll({
       where: {
-        name: match[1],
+        name: safePluginName,
       },
     });
     if (plugin.length < 1) {
       return await message.send(Lang.NO_PLUGIN);
     } else {
       await plugin[0].destroy();
-      const Message = Lang.DELETED.format(match[1]);
+      const Message = Lang.DELETED.format(safePluginName);
       await message.sendReply(Message);
-      delete require.cache[require.resolve("./" + match[1] + ".js")];
-      fs.unlinkSync("./plugins/" + match[1] + ".js");
+      delete require.cache[require.resolve("./" + safePluginName + ".js")];
+      fs.unlinkSync("./plugins/" + safePluginName + ".js");
     }
   }
 );
@@ -162,8 +153,9 @@ Module({
     usage: ".mgüncelle eklenti_adı",
   },
   async (m, match) => {
-    const plugin = match[1];
+    let plugin = match[1];
     if (!plugin) return await m.send(Lang.NEED_PLUGIN);
+    plugin = plugin.replace(/[^a-zA-Z0-9_]/g, "");
     await PluginDB.sync();
     const plugins = await PluginDB.findAll({
       where: {

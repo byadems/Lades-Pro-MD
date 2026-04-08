@@ -12,7 +12,7 @@ const {
 const nexray = require("./utils/nexray");
 const botConfig = require("../config");
 const axios = require("axios");
-const { saveToDisk, getTempPath, cleanTempFile } = require("../core/helpers");
+const { saveToDisk, getTempPath, cleanTempFile, extractUrls, validateUrl } = require("../core/helpers");
 
 async function checkRedirect(url) {
   try {
@@ -38,14 +38,12 @@ Module({
     if (mediaLinks.startsWith("ll")) return;
 
     // extract all urls from the text
-    const allUrls = mediaLinks.match(/\bhttps?:\/\/\S+/gi) || [];
+    const allUrls = extractUrls(mediaLinks);
     if (!allUrls.length)
       return await message.sendReply("_*⚠️ Instagram bağlantı(lar)ı gerekli*_");
 
     // filter and validate instagram urls
     const instagramUrls = [];
-    const instagramRegex =
-      /(?:https?:\/\/)?(?:www\.)?instagram\.com\/(?:p|s|reel|tv)\/[\w-]+/i;
 
     for (let url of allUrls) {
       if (url.includes("gist") || url.includes("youtu") || url.startsWith("ll"))
@@ -57,7 +55,7 @@ Module({
 
       if (!url.includes("instagram.com")) continue;
 
-      if (instagramRegex.test(url)) {
+      if (validateUrl(url, "instagram")) {
         const mediaId = url.match(/\/([\w-]+)\/?$/)?.[1];
         if (mediaId && mediaId.length > 20) continue; // skip private accounts
 
@@ -158,9 +156,13 @@ Module({
       ? match[1]
       : message.reply_message.message;
 
-    if (/\bhttps?:\/\/\S+/gi.test(videoLink)) {
-      videoLink = videoLink.match(/\bhttps?:\/\/\S+/gi)[0];
+    const urls = extractUrls(videoLink);
+    if (urls.length > 0 && validateUrl(urls[0], "facebook")) {
+      videoLink = urls[0];
+    } else {
+      return await message.sendReply("_❌ Lütfen geçerli bir Facebook bağlantısı girin._");
     }
+    
     if (!videoLink) return await message.sendReply("_⚠️ Facebook bağlantısı gerekli_");
     try {
       let result = await fb(videoLink);
@@ -309,9 +311,10 @@ Module({
     if (!userIdentifier)
       return await message.sendReply("_⚠️ Bir Instagram kullanıcı adı veya bağlantısı gerekli!_");
 
-    userIdentifier = !/\bhttps?:\/\/\S+/gi.test(userIdentifier)
+    const urls = extractUrls(userIdentifier);
+    userIdentifier = urls.length === 0
       ? `https://instagram.com/stories/${userIdentifier}/`
-      : userIdentifier.match(/\bhttps?:\/\/\S+/gi)[0];
+      : urls[0];
 
     try {
       var storyData = await downloadGram(userIdentifier);
@@ -362,8 +365,9 @@ Module({
     if (!userQuery)
       return await message.sendReply("_⚠️ Arama terimi veya video bağlantısı gerekli_");
 
-    if (/\bhttps?:\/\/\S+/gi.test(userQuery)) {
-      userQuery = userQuery.match(/\bhttps?:\/\/\S+/gi)[0];
+    const urls = extractUrls(userQuery);
+    if (urls.length > 0) {
+      userQuery = urls[0];
       let pinterestResult;
       let url;
       try {
@@ -491,7 +495,12 @@ Module({
   async (message, match) => {
     let videoLink = match[1] !== "" ? match[1] : message.reply_message?.text;
     if (!videoLink) return await message.sendReply("_⚠️ Bir TikTok URL'si gerekli_");
-    videoLink = videoLink.match(/\bhttps?:\/\/\S+/gi)[0];
+    const urls = extractUrls(videoLink);
+    if (urls.length > 0 && validateUrl(urls[0], "tiktok")) {
+      videoLink = urls[0];
+    } else {
+      return await message.sendReply("_❌ Lütfen geçerli bir TikTok bağlantısı girin._");
+    }
     let downloadResult;
     try {
       downloadResult = await tiktok(videoLink);

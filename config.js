@@ -75,11 +75,6 @@ const config = {
   SESSION: process.env.SESSION || "",
   LANGUAGE: process.env.LANG || "turkish",
 
-  // ─────────────────────────────────────────────────────────
-  //  HARD-CODED OWNER: Bu numara her zaman owner olarak kabul edilir
-  // ─────────────────────────────────────────────────────────
-  HARD_OWNER: "905396978235",
-
   // Features
   AUTO_READ: process.env.AUTO_READ === "true",
   AUTO_TYPING: process.env.AUTO_TYPING === "true",

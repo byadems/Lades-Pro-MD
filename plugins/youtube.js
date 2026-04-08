@@ -13,6 +13,7 @@ const nexray = require("./utils/nexray");
 
 const config = require("../config");
 const { bytesToSize: formatBytes } = require("./utils");
+const { extractUrls, validateUrl } = require("../core/helpers");
 
 const VIDEO_SIZE_LIMIT = 150 * 1024 * 1024;
 
@@ -42,10 +43,17 @@ Module({
 
     let downloadMsg;
     try {
-      const isUrl = /\bhttps?:\/\/\S+/gi.test(input) && input.includes("spotify.com");
+      const extractedUrls = extractUrls(input);
+      const isUrl = extractedUrls.length > 0 && extractedUrls[0].includes("spotify.com");
 
       if (isUrl) {
-        let url = input.match(/\bhttps?:\/\/\S+/gi)[0];
+        let url = extractedUrls[0];
+        
+        // Validate specifically for spotify track, album, playlist format
+        if (!validateUrl(url, "spotify")) {
+           return await message.sendReply("_❌ Lütfen geçerli bir Spotify bağlantısı girin._");
+        }
+        
         downloadMsg = await message.sendReply("_⏳ Spotify'dan indiriliyor..._");
         const result = await nexray.downloadSpotify(url);
 
@@ -169,14 +177,16 @@ Module({
       return await message.sendReply("_⚠️ Lütfen video adını veya bağlantısını yazın!_\n_Örnek: .ytvideo kedi videoları_");
     }
 
-    const extractedUrl = /\bhttps?:\/\/\S+/gi.test(input)
-      ? input.match(/\bhttps?:\/\/\S+/gi)?.[0]
-      : null;
+    const extractedUrls = extractUrls(input);
+    const extractedUrl = extractedUrls.length > 0 ? extractedUrls[0] : null;
 
-    const url = extractedUrl && (extractedUrl.includes("youtube.com") || extractedUrl.includes("youtu.be"))
-      ? (extractedUrl.includes("youtube.com/shorts/")
+    // Strict URL validation to prevent SSRF/injection
+    const isValidYtUrl = validateUrl(extractedUrl, "youtube");
+
+    const url = isValidYtUrl
+      ? (extractedUrl.includes("/shorts/")
         ? (() => {
-          const shortId = extractedUrl.match(/youtube\.com\/shorts\/([A-Za-z0-9_-]+)/)?.[1];
+          const shortId = extractedUrl.match(/\/shorts\/([A-Za-z0-9_-]{11})/)?.[1];
           return shortId ? `https://www.youtube.com/watch?v=${shortId}` : extractedUrl;
         })()
         : extractedUrl)
@@ -487,8 +497,8 @@ Module({
       const safeTitle = censorBadWords(result.title);
       const stream = fs.createReadStream(audioPath);
       await message.sendMessage({ stream }, "document", {
-        fileName: `${safeTitle}.m4a`,
-        mimetype: "audio/mp4",
+        fileName: `${safeTitle}.mp3`,
+        mimetype: "audio/mpeg",
         caption: `_*${safeTitle}*_`,
       });
       stream.destroy();

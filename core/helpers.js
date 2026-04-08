@@ -151,6 +151,31 @@ function chunk(arr, size) {
 }
 
 // ─────────────────────────────────────────────────────────
+//  URL & Security Utilities
+// ─────────────────────────────────────────────────────────
+const URL_PATTERNS = {
+  instagram: /^https?:\/\/(?:www\.)?instagram\.com\/(?:p|s|reel|tv)\/[\w-]+/i,
+  youtube: /^https?:\/\/(?:www\.youtube\.com|youtube\.com|youtu\.be|m\.youtube\.com|music\.youtube\.com)\/(?:watch\?v=|shorts\/|v\/|embed\/)?[A-Za-z0-9_-]{11}(?:[\&\?].*)?$/,
+  spotify: /^https?:\/\/(?:open\.)?spotify\.com\/(track|album|playlist|episode)\/[a-zA-Z0-9]+(?:\?.*)?$/,
+  facebook: /^https?:\/\/(?:www\.|m\.|web\.)?facebook\.com\/\S+|^https?:\/\/fb\.watch\/\S+/i,
+  tiktok: /^https?:\/\/(?:www\.)?(?:tiktok\.com\/@?[A-Za-z0-9_.-]+\/video\/\d+|vm\.tiktok\.com\/[A-Za-z0-9_-]+\/?|vt\.tiktok\.com\/[A-Za-z0-9_-]+\/?|v\.tiktok\.com\/[A-Za-z0-9_-]+\/?)(?:\?.*)?$/i,
+  pinterest: /^https?:\/\/(?:www\.)?(?:pinterest\.com\/(?:pin\/\d+\/?[A-Za-z0-9_-]*)\/?|pin\.it\/[A-Za-z0-9_-]+\/?)(?:\?.*)?$/i,
+  twitter: /^https?:\/\/(?:www\.)?(?:twitter\.com|x\.com|mobile\.twitter\.com)\/[A-Za-z0-9_]{1,15}\/status\/\d+(?:\?.*)?$/i,
+  github_gist: /^https?:\/\/(?:gist\.github\.com|gist\.githubusercontent\.com|raw\.githubusercontent\.com)\/\S+/i
+};
+
+function extractUrls(text) {
+  if (!text) return [];
+  const urls = text.match(/\bhttps?:\/\/\S+/gi);
+  return urls ? urls.map(url => url.replace(/[)\]\.,!?>]*$/, "")) : [];
+}
+
+function validateUrl(url, platform) {
+  if (!url || !platform || !URL_PATTERNS[platform]) return false;
+  return URL_PATTERNS[platform].test(url);
+}
+
+// ─────────────────────────────────────────────────────────
 //  Suppress noisy logs
 // ─────────────────────────────────────────────────────────
 function suppressLibsignalLogs() {
@@ -249,6 +274,7 @@ module.exports = {
   toUserJid, toGroupJid, parseJid, isGroup, isBroadcast,
   getGroupAdmins, isSuperAdmin,
   formatBytes, formatDuration, runtime, sleep, chunk,
+  extractUrls, validateUrl,
   suppressLibsignalLogs,
   getMessageText, getQuotedMsg, getMentioned,
   loadBaileys, getTempSubdir, saveToDisk
