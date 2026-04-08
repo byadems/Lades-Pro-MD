@@ -12,7 +12,7 @@ const {
 const nexray = require("./utils/nexray");
 const botConfig = require("../config");
 const axios = require("axios");
-const { saveToDisk, getTempPath, cleanTempFile, extractUrls, validateUrl, isMediaImage } = require("../core/helpers");
+const { saveToDisk, getTempPath, cleanTempFile, extractUrls, validateUrl, isMediaImage, readMp4Dimensions } = require("../core/helpers");
 
 async function checkRedirect(url) {
   try {
@@ -387,44 +387,39 @@ Module({
     const urls = extractUrls(userQuery);
     if (urls.length > 0) {
       userQuery = urls[0];
-      let pinterestResult;
-      let url;
       try {
-        pinterestResult = await pinterestDl(userQuery);
-        url = pinterestResult?.status && pinterestResult?.result ? pinterestResult.result : null;
+        const url = await nexray.downloadPinterest(userQuery);
         if (!url) {
-          const nexrayResult = await nexray.downloadPinterest(userQuery);
-          url = typeof nexrayResult === "object" ? (nexrayResult.image || nexrayResult.video || nexrayResult.url) : nexrayResult;
+          return await message.sendReply("_❌ Bu bağlantı için indirilebilir medya bulunamadı veya sunucu cevap vermiyor_");
         }
-      } catch (err) {
+
+        const isImage = isMediaImage(url);
+
+        const quotedMessage = message.reply_message ? message.quoted : message.data;
+        const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
+
         try {
-          const nexrayResult = await nexray.downloadPinterest(userQuery);
-          url = typeof nexrayResult === "object" ? (nexrayResult.image || nexrayResult.video || nexrayResult.url) : nexrayResult;
-        } catch (_) {
-          console.error("Pinterest indirme hatası:", err?.message || err);
-          return await message.sendReply("_❌ Sunucu hatası_");
+          await saveToDisk(url, tempPath);
+          const sendContent = { [isImage ? "image" : "video"]: { url: tempPath } };
+          if (!isImage) {
+            const dims = readMp4Dimensions(tempPath);
+            if (dims) Object.assign(sendContent, dims);
+          }
+          await message.sendReply(
+            sendContent,
+            { quoted: quotedMessage }
+          );
+        } finally {
+          cleanTempFile(tempPath);
         }
+      } catch (e) {
+        console.error("Pinterest İşlem Hatası:", e.message);
+        await message.sendReply(`_❌ Pinterest medyası işlenirken bir hata oluştu._\n_Hata: ${e.message}_`);
       }
 
-      if (!url)
-        return await message.sendReply("_❌ Bu bağlantı için indirilebilir medya bulunamadı_");
 
-      const quotedMessage = message.reply_message
-        ? message.quoted
-        : message.data;
-
-      const isImage = isMediaImage(url);
-      const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
-      try {
-        await saveToDisk(url, tempPath);
-        await message.sendMessage(
-          { [isImage ? "image" : "video"]: { url: tempPath } },
-          { quoted: quotedMessage }
-        );
-      } finally {
-        cleanTempFile(tempPath);
-      }
     } else {
+
       let desiredCount = parseInt(userQuery.split(",")[1]) || 5;
       let searchQuery = userQuery.split(",")[0] || userQuery;
       let searchResults;

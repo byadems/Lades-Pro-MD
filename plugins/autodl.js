@@ -3,6 +3,7 @@ const config = require("../config");
 const { setVar } = require("./manage");
 const { downloadGram, pinterestDl, tiktok, fb } = require("./utils");
 const { getVideoInfo, downloadAudio, convertM4aToMp3, searchYoutube } = require("./utils/yt");
+const { saveToDisk, getTempPath, cleanTempFile, isMediaImage, readMp4Dimensions } = require("../core/helpers");
 const nexray = require("./utils/nexray");
 const fs = require("fs");
 const fromMe = config.isPrivate;
@@ -58,464 +59,489 @@ function isAlreadyCommand(text) {
 const { bytesToSize: formatBytes } = require("./utils");
 
 Module({
-    on: "text",
-    fromMe,
-  },
+  on: "text",
+  fromMe,
+},
   async (message) => {
-  try {
-    if (message.fromBot) return;
-    const chatJid = message.jid;
-    const isGroup = chatJid.includes("@g.us");
-    const autodlEnabledForChat = (() => {
-      try {
-        const enabledList = config.AUTODL || "";
-        const enabled = enabledList
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean);
-        if (enabled.includes(chatJid)) return true;
-        if (isGroup && config.AUTODL_ALL_GROUPS === "true") return true;
-        if (!isGroup && config.AUTODL_ALL_DMS === "true") return true;
-        return false;
-      } catch (e) {
-        return false;
-      }
-    })();
-    if (!autodlEnabledForChat) return;
-    let text = message.text || "";
-    if (isAlreadyCommand(text)) return;
-
-    const urls = getAllUrls(text);
-    if (!urls.length) return;
-
-    // group urls by platform
-    const platformGroups = {};
-    const unsupportedUrls = [];
-
-    for (const url of urls) {
-      const platform = detectPlatform(url);
-      if (!platform) {
-        unsupportedUrls.push(url);
-      } else {
-        if (!platformGroups[platform]) platformGroups[platform] = [];
-        platformGroups[platform].push(url);
-      }
-    }
-
-    if (!Object.keys(platformGroups).length) return;
-
-    await message.react("⬇️");
-
     try {
-      // handle youtube separately (only process first url for yt)
-      if (platformGroups["youtube"]) {
-        let url = platformGroups["youtube"][0];
-
-        // Convert YouTube Shorts URL to regular watch URL if needed
-        if (url.includes("youtube.com/shorts/")) {
-          const shortId = url.match(
-            /youtube\.com\/shorts\/([A-Za-z0-9_-]+)/
-          )?.[1];
-          if (shortId) {
-            url = `https://www.youtube.com/watch?v=${shortId}`;
-          }
-        }
-
-        const lowerText = text.toLowerCase();
-        const isAudioMode =
-          /\baudio\b|\bmp3\b/.test(lowerText) && !isAlreadyCommand(text);
-
+      if (message.fromBot) return;
+      const chatJid = message.jid;
+      const isGroup = chatJid.includes("@g.us");
+      const autodlEnabledForChat = (() => {
         try {
-          // if message contains "audio" or "mp3", download as audio
-          if (isAudioMode) {
-            let downloadMsg;
-            let audioPath;
+          const enabledList = config.AUTODL || "";
+          const enabled = enabledList
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+          if (enabled.includes(chatJid)) return true;
+          if (isGroup && config.AUTODL_ALL_GROUPS === "true") return true;
+          if (!isGroup && config.AUTODL_ALL_DMS === "true") return true;
+          return false;
+        } catch (e) {
+          return false;
+        }
+      })();
+      if (!autodlEnabledForChat) return;
+      let text = message.text || "";
+      if (isAlreadyCommand(text)) return;
 
-            try {
-              downloadMsg = await message.sendReply("_⬇️ Ses indiriliyor..._");
-              const result = await downloadAudio(url);
-              audioPath = result.path;
+      const urls = getAllUrls(text);
+      if (!urls.length) return;
 
-              const mp3Path = await convertM4aToMp3(audioPath);
-              audioPath = mp3Path;
+      // group urls by platform
+      const platformGroups = {};
+      const unsupportedUrls = [];
 
-              await message.edit(
-                "_Ses gönderiliyor..._",
-                message.jid,
-                downloadMsg.key
-              );
+      for (const url of urls) {
+        const platform = detectPlatform(url);
+        if (!platform) {
+          unsupportedUrls.push(url);
+        } else {
+          if (!platformGroups[platform]) platformGroups[platform] = [];
+          platformGroups[platform].push(url);
+        }
+      }
 
-              const stream = fs.createReadStream(audioPath);
-              await message.sendMessage({ stream }, "document", {
-                fileName: `${result.title}.m4a`,
-                mimetype: "audio/mp4",
-                caption: `_*${result.title}*_`,
-              });
-              stream.destroy();
+      if (!Object.keys(platformGroups).length) return;
 
-              await message.edit(
-                "_İndirme tamamlandı!_",
-                message.jid,
-                downloadMsg.key
-              );
+      await message.react("⬇️");
 
-              await new Promise((resolve) => setTimeout(resolve, 100));
-              if (fs.existsSync(audioPath)) {
-                fs.unlinkSync(audioPath);
-              }
-            } catch (error) {
-              if (config.DEBUG)
-                console.error("[Otomatik İndirme YT Ses]", error?.message || error);
-              if (downloadMsg) {
+      try {
+        // handle youtube separately (only process first url for yt)
+        if (platformGroups["youtube"]) {
+          let url = platformGroups["youtube"][0];
+
+          // Convert YouTube Shorts URL to regular watch URL if needed
+          if (url.includes("youtube.com/shorts/")) {
+            const shortId = url.match(
+              /youtube\.com\/shorts\/([A-Za-z0-9_-]+)/
+            )?.[1];
+            if (shortId) {
+              url = `https://www.youtube.com/watch?v=${shortId}`;
+            }
+          }
+
+          const lowerText = text.toLowerCase();
+          const isAudioMode =
+            /\baudio\b|\bmp3\b/.test(lowerText) && !isAlreadyCommand(text);
+
+          try {
+            // if message contains "audio" or "mp3", download as audio
+            if (isAudioMode) {
+              let downloadMsg;
+              let audioPath;
+
+              try {
+                downloadMsg = await message.sendReply("_⬇️ Ses indiriliyor..._");
+                const result = await downloadAudio(url);
+                audioPath = result.path;
+
+                const mp3Path = await convertM4aToMp3(audioPath);
+                audioPath = mp3Path;
+
                 await message.edit(
-                  "_❌ İndirme başarısız!_",
+                  "_Ses gönderiliyor..._",
                   message.jid,
                   downloadMsg.key
                 );
-              } else {
-                await message.sendReply("_❌ İndirme başarısız oldu. Lütfen tekrar deneyin._");
+
+                const stream = fs.createReadStream(audioPath);
+                await message.sendMessage({ stream }, "document", {
+                  fileName: `${result.title}.m4a`,
+                  mimetype: "audio/mp4",
+                  caption: `_*${result.title}*_`,
+                });
+                stream.destroy();
+
+                await message.edit(
+                  "_İndirme tamamlandı!_",
+                  message.jid,
+                  downloadMsg.key
+                );
+
+                await new Promise((resolve) => setTimeout(resolve, 100));
+                if (fs.existsSync(audioPath)) {
+                  fs.unlinkSync(audioPath);
+                }
+              } catch (error) {
+                if (config.DEBUG)
+                  console.error("[Otomatik İndirme YT Ses]", error?.message || error);
+                if (downloadMsg) {
+                  await message.edit(
+                    "_❌ İndirme başarısız!_",
+                    message.jid,
+                    downloadMsg.key
+                  );
+                } else {
+                  await message.sendReply("_❌ İndirme başarısız oldu. Lütfen tekrar deneyin._");
+                }
+
+                if (audioPath && fs.existsSync(audioPath)) {
+                  fs.unlinkSync(audioPath);
+                }
               }
-
-              if (audioPath && fs.existsSync(audioPath)) {
-                fs.unlinkSync(audioPath);
-              }
-            }
-            return;
-          }
-
-          // else download video with quality selection
-          const info = await getVideoInfo(url);
-          const videoFormats = info.formats
-            .filter((f) => f.type === "video" && f.quality)
-            .sort((a, b) => {
-              const getRes = (q) => {
-                const match = q.match(/(\d+)/);
-                return match ? parseInt(match[1]) : 0;
-              };
-              return getRes(b.quality) - getRes(a.quality);
-            });
-
-          const uniqueQualities = [
-            ...new Set(videoFormats.map((f) => f.quality)),
-          ];
-
-          const videoIdMatch = url.match(
-            /(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\s/?]+)/
-          );
-          const videoId = videoIdMatch ? videoIdMatch[1] : info.videoId || "";
-
-          let qualityText = "_*Video Kalitesini Seçin*_\n\n";
-          qualityText += `_*${info.title}*_\n\n(${videoId})\n\n`;
-
-          if (uniqueQualities.length === 0) {
-            await message.react("❌");
-            return;
-          }
-
-          uniqueQualities.forEach((quality, index) => {
-            const format = videoFormats.find((f) => f.quality === quality);
-            const audioFormat = info.formats.find((f) => f.type === "audio");
-
-            let sizeInfo = "";
-            if (format.size && audioFormat?.size) {
-              const parseSize = (sizeStr) => {
-                const match = sizeStr.match(/([\d.]+)\s*(KB|MB|GB)/i);
-                if (!match) return 0;
-                const value = parseFloat(match[1]);
-                const unit = match[2].toUpperCase();
-                if (unit === "KB") return value * 1024;
-                if (unit === "MB") return value * 1024 * 1024;
-                if (unit === "GB") return value * 1024 * 1024 * 1024;
-                return value;
-              };
-
-              const videoSize = parseSize(format.size);
-              const audioSize = parseSize(audioFormat.size);
-              const totalSize = videoSize + audioSize;
-
-              if (totalSize > 0) {
-                sizeInfo = ` ~ _${formatBytes(totalSize)}_`;
-              }
-            }
-
-            qualityText += `*${index + 1}.* _*${quality}*_${sizeInfo}\n`;
-          });
-
-          const audioFormat = info.formats.find((f) => f.type === "audio");
-          if (audioFormat) {
-            let audioSizeInfo = "";
-            if (audioFormat.size) {
-              const parseSize = (sizeStr) => {
-                const match = sizeStr.match(/([\d.]+)\s*(KB|MB|GB)/i);
-                if (!match) return 0;
-                const value = parseFloat(match[1]);
-                const unit = match[2].toUpperCase();
-                if (unit === "KB") return value * 1024;
-                if (unit === "MB") return value * 1024 * 1024;
-                if (unit === "GB") return value * 1024 * 1024 * 1024;
-                return value;
-              };
-              const audioSize = parseSize(audioFormat.size);
-              if (audioSize > 0) {
-                audioSizeInfo = ` ~ _${formatBytes(audioSize)}_`;
-              }
-            }
-            qualityText += `*${uniqueQualities.length + 1}.* 🎵 _*Sadece Ses*_${audioSizeInfo}\n`;
-          }
-
-          qualityText += "\n_İndirmek için bir numara ile yanıtlayın_";
-          await message.sendReply(qualityText);
-        } catch (err) {
-          if (config.DEBUG) console.error("[Otomatik İndirme YT]", err?.message || err);
-          await message.react("❌");
-        }
-        return;
-      }
-
-      // handle instagram (multiple urls support)
-      if (platformGroups["instagram"]) {
-        const allMediaUrls = [];
-        const quotedMessage = message.reply_message
-          ? message.quoted
-          : message.data;
-
-        for (const url of platformGroups["instagram"]) {
-          try {
-            let downloadResult = await downloadGram(url);
-            if (!downloadResult || !downloadResult.length) {
-              downloadResult = await nexray.downloadInstagram(url);
-            }
-            if (downloadResult && downloadResult.length) {
-              allMediaUrls.push(...downloadResult);
-            }
-          } catch (err) {
-            if (config.DEBUG) console.error("[Otomatik İndirme IG]", err?.message || err);
-            try {
-              const fallback = await nexray.downloadInstagram(url);
-              if (fallback?.length) allMediaUrls.push(...fallback);
-            } catch (_) {}
-          }
-        }
-
-        if (!allMediaUrls.length) {
-          await message.react("❌");
-          return;
-        }
-
-        if (allMediaUrls.length === 1) {
-          await message.sendMessage(
-            { url: allMediaUrls[0] },
-            /\.(jpg|jpeg|png|webp|heic)(\?|$)/i.test(allMediaUrls[0])
-              ? "image"
-              : "video",
-            { quoted: quotedMessage }
-          );
-        } else {
-          const albumObject = allMediaUrls.map((mediaUrl, index) => {
-            const isImg = /\.(jpg|jpeg|png|webp|heic)(\?|$)/i.test(mediaUrl);
-            const item = { [isImg ? "image" : "video"]: { url: mediaUrl } };
-            if (index === 0) {
-              item.caption = `✅ İndirme tamamlandı! (${allMediaUrls.length} medya)`;
-            }
-            return item;
-          });
-          await message.client.albumMessage(
-            message.jid,
-            albumObject,
-            message.data
-          );
-        }
-        return;
-      }
-
-      // handle tiktok (only process first url for now - api limitation)
-      if (platformGroups["tiktok"]) {
-        try {
-          let downloadResult = await tiktok(platformGroups["tiktok"][0]);
-          if (!downloadResult) {
-            const fallback = await nexray.downloadTiktok(platformGroups["tiktok"][0]);
-            downloadResult = fallback?.url ? { url: fallback.url } : null;
-          }
-          if (downloadResult) {
-            await message.sendReply(downloadResult, "video");
-          } else {
-            await message.react("❌");
-          }
-        } catch (err) {
-          if (config.DEBUG)
-            console.error("[Otomatik İndirme TikTok]", err?.message || err);
-          try {
-            const fallback = await nexray.downloadTiktok(platformGroups["tiktok"][0]);
-            if (fallback?.url) {
-              await message.sendReply({ url: fallback.url }, "video");
-            } else {
-              await message.react("❌");
-            }
-          } catch (_) {
-            await message.react("❌");
-          }
-        }
-        return;
-      }
-
-      // handle pinterest (multiple urls support)
-      if (platformGroups["pinterest"]) {
-        const allMediaUrls = [];
-        const quotedMessage = message.reply_message
-          ? message.quoted
-          : message.data;
-
-        for (const url of platformGroups["pinterest"]) {
-          try {
-            let pinterestResult = await pinterestDl(url);
-            let mediaUrl = pinterestResult?.status && pinterestResult?.result ? pinterestResult.result : null;
-            if (!mediaUrl) {
-              mediaUrl = await nexray.downloadPinterest(url);
-            }
-            if (mediaUrl) allMediaUrls.push(mediaUrl);
-          } catch (err) {
-            if (config.DEBUG)
-              console.error("[Otomatik İndirme Pinterest]", err?.message || err);
-            try {
-              const fallback = await nexray.downloadPinterest(url);
-              if (fallback) allMediaUrls.push(fallback);
-            } catch (_) {}
-          }
-        }
-
-        if (!allMediaUrls.length) {
-          await message.react("❌");
-          return;
-        }
-
-        if (allMediaUrls.length === 1) {
-          await message.sendMessage({ url: allMediaUrls[0] }, "video", {
-            quoted: quotedMessage,
-          });
-        } else {
-          const albumObject = allMediaUrls.map((mediaUrl, index) => {
-            const item = { video: { url: mediaUrl } };
-            if (index === 0) {
-              item.caption = `✅ İndirme tamamlandı! (${allMediaUrls.length} medya)`;
-            }
-            return item;
-          });
-          await message.client.albumMessage(
-            message.jid,
-            albumObject,
-            message.data
-          );
-        }
-        return;
-      }
-
-      // handle facebook (only process first url for now)
-      if (platformGroups["facebook"]) {
-        try {
-          let result = await fb(platformGroups["facebook"][0]);
-          if (!result?.url) {
-            result = await nexray.downloadFacebook(platformGroups["facebook"][0]);
-          }
-          if (result?.url) {
-            await message.sendReply({ url: result.url }, "video");
-          } else {
-            await message.react("❌");
-          }
-        } catch (err) {
-          if (config.DEBUG) console.error("[Otomatik İndirme FB]", err?.message || err);
-          try {
-            const fallback = await nexray.downloadFacebook(platformGroups["facebook"][0]);
-            if (fallback?.url) {
-              await message.sendReply({ url: fallback.url }, "video");
-            } else {
-              await message.react("❌");
-            }
-          } catch (_) {
-            await message.react("❌");
-          }
-        }
-        return;
-      }
-
-      // handle spotify (only process first url for now)
-      if (platformGroups["spotify"]) {
-        let downloadMsg;
-        let audioPath;
-
-        try {
-          downloadMsg = await message.sendReply("_⏳ Spotify bilgileri alınıyor..._");
-          // nexray.downloadSpotify ile doğrudan ses URL'si al
-          const spotifyInfo = await nexray.downloadSpotify(platformGroups["spotify"][0]);
-          if (!spotifyInfo?.url) throw new Error("Spotify indirme başarısız");
-
-          const { title = "Spotify", artist = "", url: audioUrl } = spotifyInfo;
-          await message.edit(
-            `_*${title}* - *${artist}* indiriliyor..._`,
-            message.jid,
-            downloadMsg.key
-          );
-
-          await message.edit("_📤 Ses gönderiliyor..._", message.jid, downloadMsg.key);
-          await message.sendReply({ url: audioUrl }, "audio", { mimetype: "audio/mpeg" });
-          await message.edit("_✅ İndirme tamamlandı!_", message.jid, downloadMsg.key);
-          return;
-        } catch (err) {
-          if (config.DEBUG)
-            console.error("[Otomatik İndirme Spotify]", err?.message || err);
-          try {
-            const fallback = await nexray.downloadSpotify(platformGroups["spotify"][0]);
-            if (fallback?.url) {
-              if (!downloadMsg) downloadMsg = await message.sendReply("_⬇️ Yedek yöntemle indiriliyor..._");
-              await message.edit("_📤 Ses gönderiliyor..._", message.jid, downloadMsg.key);
-              await message.sendReply({ url: fallback.url }, "audio");
-              await message.edit("_✅ İndirme tamamlandı!_", message.jid, downloadMsg.key);
               return;
             }
-          } catch (_) {}
-          if (downloadMsg) {
-            await message.edit("_❌ İndirme başarısız!_", message.jid, downloadMsg.key);
-          } else {
-            await message.sendReply("_❌ İndirme başarısız oldu. Lütfen tekrar deneyin._");
-          }
 
-          if (audioPath && fs.existsSync(audioPath)) {
-            fs.unlinkSync(audioPath);
-          }
-        }
-        return;
-      }
+            // else download video with quality selection
+            const info = await getVideoInfo(url);
+            const videoFormats = info.formats
+              .filter((f) => f.type === "video" && f.quality)
+              .sort((a, b) => {
+                const getRes = (q) => {
+                  const match = q.match(/(\d+)/);
+                  return match ? parseInt(match[1]) : 0;
+                };
+                return getRes(b.quality) - getRes(a.quality);
+              });
 
-      // handle twitter
-      if (platformGroups["twitter"]) {
-        try {
-          const result = await nexray.downloadTwitter(platformGroups["twitter"][0]);
-          if (result?.url) {
-            await message.sendReply({ url: result.url }, "video");
-          } else {
+            const uniqueQualities = [
+              ...new Set(videoFormats.map((f) => f.quality)),
+            ];
+
+            const videoIdMatch = url.match(
+              /(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\s/?]+)/
+            );
+            const videoId = videoIdMatch ? videoIdMatch[1] : info.videoId || "";
+
+            let qualityText = "_*Video Kalitesini Seçin*_\n\n";
+            qualityText += `_*${info.title}*_\n\n(${videoId})\n\n`;
+
+            if (uniqueQualities.length === 0) {
+              await message.react("❌");
+              return;
+            }
+
+            uniqueQualities.forEach((quality, index) => {
+              const format = videoFormats.find((f) => f.quality === quality);
+              const audioFormat = info.formats.find((f) => f.type === "audio");
+
+              let sizeInfo = "";
+              if (format.size && audioFormat?.size) {
+                const parseSize = (sizeStr) => {
+                  const match = sizeStr.match(/([\d.]+)\s*(KB|MB|GB)/i);
+                  if (!match) return 0;
+                  const value = parseFloat(match[1]);
+                  const unit = match[2].toUpperCase();
+                  if (unit === "KB") return value * 1024;
+                  if (unit === "MB") return value * 1024 * 1024;
+                  if (unit === "GB") return value * 1024 * 1024 * 1024;
+                  return value;
+                };
+
+                const videoSize = parseSize(format.size);
+                const audioSize = parseSize(audioFormat.size);
+                const totalSize = videoSize + audioSize;
+
+                if (totalSize > 0) {
+                  sizeInfo = ` ~ _${formatBytes(totalSize)}_`;
+                }
+              }
+
+              qualityText += `*${index + 1}.* _*${quality}*_${sizeInfo}\n`;
+            });
+
+            const audioFormat = info.formats.find((f) => f.type === "audio");
+            if (audioFormat) {
+              let audioSizeInfo = "";
+              if (audioFormat.size) {
+                const parseSize = (sizeStr) => {
+                  const match = sizeStr.match(/([\d.]+)\s*(KB|MB|GB)/i);
+                  if (!match) return 0;
+                  const value = parseFloat(match[1]);
+                  const unit = match[2].toUpperCase();
+                  if (unit === "KB") return value * 1024;
+                  if (unit === "MB") return value * 1024 * 1024;
+                  if (unit === "GB") return value * 1024 * 1024 * 1024;
+                  return value;
+                };
+                const audioSize = parseSize(audioFormat.size);
+                if (audioSize > 0) {
+                  audioSizeInfo = ` ~ _${formatBytes(audioSize)}_`;
+                }
+              }
+              qualityText += `*${uniqueQualities.length + 1}.* 🎵 _*Sadece Ses*_${audioSizeInfo}\n`;
+            }
+
+            qualityText += "\n_İndirmek için bir numara ile yanıtlayın_";
+            await message.sendReply(qualityText);
+          } catch (err) {
+            if (config.DEBUG) console.error("[Otomatik İndirme YT]", err?.message || err);
             await message.react("❌");
           }
-        } catch (err) {
-          if (config.DEBUG) console.error("[Otomatik İndirme Twitter]", err?.message || err);
-          await message.react("❌");
+          return;
         }
-        return;
+
+        // handle instagram (multiple urls support)
+        if (platformGroups["instagram"]) {
+          const allMediaUrls = [];
+          const quotedMessage = message.reply_message
+            ? message.quoted
+            : message.data;
+
+          for (const url of platformGroups["instagram"]) {
+            try {
+              let downloadResult = await downloadGram(url);
+              if (!downloadResult || !downloadResult.length) {
+                downloadResult = await nexray.downloadInstagram(url);
+              }
+              if (downloadResult && downloadResult.length) {
+                allMediaUrls.push(...downloadResult);
+              }
+            } catch (err) {
+              if (config.DEBUG) console.error("[Otomatik İndirme IG]", err?.message || err);
+              try {
+                const fallback = await nexray.downloadInstagram(url);
+                if (fallback?.length) allMediaUrls.push(...fallback);
+              } catch (_) { }
+            }
+          }
+
+          if (!allMediaUrls.length) {
+            await message.react("❌");
+            return;
+          }
+
+          if (allMediaUrls.length === 1) {
+            await message.sendMessage(
+              { url: allMediaUrls[0] },
+              /\.(jpg|jpeg|png|webp|heic)(\?|$)/i.test(allMediaUrls[0])
+                ? "image"
+                : "video",
+              { quoted: quotedMessage }
+            );
+          } else {
+            const albumObject = allMediaUrls.map((mediaUrl, index) => {
+              const isImg = /\.(jpg|jpeg|png|webp|heic)(\?|$)/i.test(mediaUrl);
+              const item = { [isImg ? "image" : "video"]: { url: mediaUrl } };
+              if (index === 0) {
+                item.caption = `✅ İndirme tamamlandı! (${allMediaUrls.length} medya)`;
+              }
+              return item;
+            });
+            await message.client.albumMessage(
+              message.jid,
+              albumObject,
+              message.data
+            );
+          }
+          return;
+        }
+
+        // handle tiktok (en yeni V2 API entegre edildi)
+        if (platformGroups["tiktok"]) {
+          try {
+            const downloadResult = await tiktok(platformGroups["tiktok"][0]);
+            if (downloadResult?.url) {
+              await message.sendReply(downloadResult, "video");
+            } else {
+              await message.react("❌");
+            }
+          } catch (err) {
+            if (config.DEBUG) console.error("[Otomatik İndirme TikTok]", err?.message || err);
+            await message.react("❌");
+          }
+          return;
+        }
+
+        // handle pinterest (multiple urls support)
+        if (platformGroups["pinterest"]) {
+          const allMediaUrls = [];
+          const quotedMessage = message.reply_message ? message.quoted : message.data;
+
+          for (const url of platformGroups["pinterest"]) {
+            try {
+              const mediaUrl = await nexray.downloadPinterest(url);
+              if (mediaUrl) allMediaUrls.push(mediaUrl);
+            } catch (err) {
+              if (config.DEBUG) console.error("[Otomatik İndirme Pinterest]", err?.message);
+            }
+          }
+
+          if (!allMediaUrls.length) {
+            await message.react("❌");
+            return;
+          }
+
+          if (allMediaUrls.length === 1) {
+            const mediaUrl = allMediaUrls[0];
+            const isImage = isMediaImage(mediaUrl);
+            const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
+            try {
+              await saveToDisk(mediaUrl, tempPath);
+              const sendContent = { [isImage ? "image" : "video"]: { url: tempPath } };
+              if (!isImage) {
+                const dims = readMp4Dimensions(tempPath);
+                if (dims) Object.assign(sendContent, dims);
+              }
+              await message.sendReply(
+                sendContent,
+                { quoted: quotedMessage }
+              );
+            } finally {
+              cleanTempFile(tempPath);
+            }
+
+          } else {
+            const tempFiles = [];
+            try {
+              for (const mediaUrl of allMediaUrls) {
+                const isImage = isMediaImage(mediaUrl);
+                const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
+                await saveToDisk(mediaUrl, tempPath);
+                tempFiles.push({ path: tempPath, isImage });
+              }
+
+              const albumObject = tempFiles.map((file, index) => {
+                const item = { [file.isImage ? "image" : "video"]: { url: file.path } };
+                if (index === 0) {
+                  item.caption = `✅ İndirme tamamlandı! (${tempFiles.length} medya)`;
+                }
+                return item;
+              });
+
+              await message.client.albumMessage(
+                message.jid,
+                albumObject,
+                message.data
+              );
+            } finally {
+              for (const file of tempFiles) {
+                cleanTempFile(file.path);
+              }
+            }
+          }
+          return;
+        }
+
+
+
+        // handle facebook (only process first url for now)
+        if (platformGroups["facebook"]) {
+          try {
+            let result = await fb(platformGroups["facebook"][0]);
+            if (!result?.url) {
+              result = await nexray.downloadFacebook(platformGroups["facebook"][0]);
+            }
+            if (result?.url) {
+              const tempPath = getTempPath(".mp4");
+              try {
+                await saveToDisk(result.url, tempPath);
+                await message.sendReply({ video: { url: tempPath } });
+              } finally {
+                cleanTempFile(tempPath);
+              }
+
+            } else {
+              await message.react("❌");
+            }
+          } catch (err) {
+            if (config.DEBUG) console.error("[Otomatik İndirme FB]", err?.message || err);
+            try {
+              const fallback = await nexray.downloadFacebook(platformGroups["facebook"][0]);
+              if (fallback?.url) {
+                const tempPath = getTempPath(".mp4");
+                try {
+                  await saveToDisk(fallback.url, tempPath);
+                  await message.sendReply({ video: { url: tempPath } });
+                } finally {
+                  cleanTempFile(tempPath);
+                }
+              } else {
+                await message.react("❌");
+              }
+            } catch (_) {
+              await message.react("❌");
+            }
+          }
+          return;
+        }
+
+        // handle spotify (only process first url for now)
+        if (platformGroups["spotify"]) {
+          let downloadMsg;
+          let tempPath = getTempPath(".mp3");
+
+          try {
+            downloadMsg = await message.sendReply("_⏳ Spotify bilgileri alınıyor..._");
+            // nexray.downloadSpotify ile doğrudan ses URL'si al
+            const spotifyInfo = await nexray.downloadSpotify(platformGroups["spotify"][0]);
+            if (!spotifyInfo?.url) throw new Error("Spotify indirme başarısız");
+
+            const { title = "Spotify", artist = "", url: audioUrl } = spotifyInfo;
+            await message.edit(
+              `_*${title}* - *${artist}* indiriliyor..._`,
+              message.jid,
+              downloadMsg.key
+            );
+
+            await saveToDisk(audioUrl, tempPath);
+            await message.edit("_📤 Ses gönderiliyor..._", message.jid, downloadMsg.key);
+            await message.sendReply({ audio: { url: tempPath }, mimetype: "audio/mpeg" });
+            await message.edit("_✅ İndirme tamamlandı!_", message.jid, downloadMsg.key);
+          } catch (err) {
+            if (config.DEBUG)
+              console.error("[Otomatik İndirme Spotify]", err?.message || err);
+            try {
+              const fallback = await nexray.downloadSpotify(platformGroups["spotify"][0]);
+              if (fallback?.url) {
+                if (!downloadMsg) downloadMsg = await message.sendReply("_⬇️ Yedek yöntemle indiriliyor..._");
+                await saveToDisk(fallback.url, tempPath);
+                await message.edit("_📤 Ses gönderiliyor..._", message.jid, downloadMsg.key);
+                await message.sendReply({ audio: { url: tempPath }, mimetype: "audio/mpeg" });
+                await message.edit("_✅ İndirme tamamlandı!_", message.jid, downloadMsg.key);
+                return;
+              }
+            } catch (_) { }
+            if (downloadMsg) {
+              await message.edit("_❌ İndirme başarısız!_", message.jid, downloadMsg.key);
+            } else {
+              await message.sendReply("_❌ İndirme başarısız oldu. Lütfen tekrar deneyin._");
+            }
+          } finally {
+            cleanTempFile(tempPath);
+          }
+          return;
+        }
+
+        // handle twitter
+        if (platformGroups["twitter"]) {
+          try {
+            const result = await nexray.downloadTwitter(platformGroups["twitter"][0]);
+            if (result?.url) {
+              const tempPath = getTempPath(".mp4");
+              try {
+                await saveToDisk(result.url, tempPath);
+                await message.sendReply({ video: { url: tempPath } });
+              } finally {
+                cleanTempFile(tempPath);
+              }
+            } else {
+              await message.react("❌");
+            }
+          } catch (err) {
+            if (config.DEBUG) console.error("[Otomatik İndirme Twitter]", err?.message || err);
+            await message.react("❌");
+          }
+          return;
+        }
+      } catch (err) {
+        if (config.DEBUG) console.error("[Otomatik İndirme]", err?.message || err);
+        await message.react("❌");
       }
     } catch (err) {
       if (config.DEBUG) console.error("[Otomatik İndirme]", err?.message || err);
-      await message.react("❌");
     }
-  } catch (err) {
-    if (config.DEBUG) console.error("[Otomatik İndirme]", err?.message || err);
-  }
-});
+  });
 
 Module({
-    pattern: "otodl ?(.*)",
-    fromMe: true,
-    onlyAdmin: true,
-    desc: "Belirlediğiniz sohbetlerde veya tüm gruplarda sosyal medya bağlantılarını otomatik olarak algılar ve medyayı indirir.",
-    usage: ".otodl | .otodl aç/kapat | .otodl durum",
-  },
+  pattern: "otodl ?(.*)",
+  fromMe: true,
+  onlyAdmin: true,
+  desc: "Belirlediğiniz sohbetlerde veya tüm gruplarda sosyal medya bağlantılarını otomatik olarak algılar ve medyayı indirir.",
+  usage: ".otodl | .otodl aç/kapat | .otodl durum",
+},
   async (message, match) => {
     const input = match[1]?.trim();
     const chatJid = message.jid;
@@ -539,18 +565,17 @@ Module({
       const globalDMs = config.AUTODL_ALL_DMS === "true";
 
       return await message.sendReply(`*_✨ ⬇️ Otomatik İndirme Yöneticisi_*\n\n` +
-          `- _Mevcut sohbet:_ ${chatJid.includes("@g.us") ? "Grup" : "DM"}\n` +
-          `- _Durum:_ ${enabled ? "Açık ✅" : "Kapalı ❌"}\n` +
-          `- _Genel Gruplar:_ ${
-            globalGroups ? "Açık ✅" : "Kapalı ❌"
-          }\n` +
-          `- _Genel DM'ler:_ ${globalDMs ? "Açık ✅" : "Kapalı ❌"}\n\n` +
-          `_Komutlar:_\n` +
-          `- \`${HANDLER_PREFIX}otodl aç/kapat\` - Mevcut sohbette ayarla\n` +
-          `- \`${HANDLER_PREFIX}otodl aç/kapat gruplar\` - Tüm gruplarda ayarla\n` +
-          `- \`${HANDLER_PREFIX}otodl aç dm\` - Tüm DM'lerde ayarla\n` +
-          `- \`${HANDLER_PREFIX}otodl kapat dm\` - Tüm DM'lerde kapat\n` +
-          `- \`${HANDLER_PREFIX}otodl durum\` - Detaylı durumu göster`
+        `- _Mevcut sohbet:_ ${chatJid.includes("@g.us") ? "Grup" : "DM"}\n` +
+        `- _Durum:_ ${enabled ? "Açık ✅" : "Kapalı ❌"}\n` +
+        `- _Genel Gruplar:_ ${globalGroups ? "Açık ✅" : "Kapalı ❌"
+        }\n` +
+        `- _Genel DM'ler:_ ${globalDMs ? "Açık ✅" : "Kapalı ❌"}\n\n` +
+        `_Komutlar:_\n` +
+        `- \`${HANDLER_PREFIX}otodl aç/kapat\` - Mevcut sohbette ayarla\n` +
+        `- \`${HANDLER_PREFIX}otodl aç/kapat gruplar\` - Tüm gruplarda ayarla\n` +
+        `- \`${HANDLER_PREFIX}otodl aç dm\` - Tüm DM'lerde ayarla\n` +
+        `- \`${HANDLER_PREFIX}otodl kapat dm\` - Tüm DM'lerde kapat\n` +
+        `- \`${HANDLER_PREFIX}otodl durum\` - Detaylı durumu göster`
       );
     }
 
@@ -602,13 +627,11 @@ Module({
       const globalGroups = config.AUTODL_ALL_GROUPS === "true";
       const globalDMs = config.AUTODL_ALL_DMS === "true";
       return await message.sendReply(`*_✨ Otomatik İndirme Durumu_*\n\n` +
-          `• _Aktif sohbetler:_ ${
-            enabledList.length > 0 ? enabledList.join(", ") : "Yok"
-          }\n` +
-          `• _Genel Gruplar:_ ${
-            globalGroups ? "Açık ✅" : "Kapalı ❌"
-          }\n` +
-          `• _Genel DM'ler:_ ${globalDMs ? "Açık ✅" : "Kapalı ❌"}`
+        `• _Aktif sohbetler:_ ${enabledList.length > 0 ? enabledList.join(", ") : "Yok"
+        }\n` +
+        `• _Genel Gruplar:_ ${globalGroups ? "Açık ✅" : "Kapalı ❌"
+        }\n` +
+        `• _Genel DM'ler:_ ${globalDMs ? "Açık ✅" : "Kapalı ❌"}`
       );
     }
 

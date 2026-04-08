@@ -259,7 +259,32 @@ async function downloadInstagram(url, options = {}) {
  */
 async function downloadTiktok(url, options = {}) {
   if (process.env.IS_SELF_TEST === 'true') return { url: "https://example.com/dummy.mp4", title: "Test TikTok" };
-  // 1. TikWM API (daha güvenilir)
+
+  // 1. Siputzx TikTok V2 API (POST) - En yeni ve HD destekli
+  try {
+    const res = await axios.post("https://api.siputzx.my.id/api/d/tiktok/v2", { url }, withSignal({
+      timeout: TIMEOUT,
+    }, options.signal));
+
+    if (res.data?.status && res.data?.data) {
+      const d = res.data.data;
+      // HD linki varsa onu kullan, yoksa normal no watermark linki
+      const videoUrl = d.no_watermark_link_hd || d.no_watermark_link;
+      if (videoUrl) {
+        return {
+          url: videoUrl,
+          title: d.text || d.itemID || "TikTok Video",
+          thumbnail: d.cover_link,
+          author: d.author_nickname || d.author_unique_id,
+          music: d.music_link
+        };
+      }
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Siputzx V2 Error]", e?.message);
+  }
+
+  // 2. TikWM API (ikincil güvenilir kaynak)
   try {
     const res = await axios.post("https://www.tikwm.com/api/",
       `url=${encodeURIComponent(url)}&count=12&cursor=0&web=1&hd=1`,
@@ -279,7 +304,7 @@ async function downloadTiktok(url, options = {}) {
     if (process.env.DEBUG) console.error("[TikWM]", e?.message);
   }
 
-  // 2. Nexray API (yedek)
+  // 3. Nexray API (yedek)
   try {
     const res = await axios.get(`${BASE}/downloader/tiktok`, withSignal({
       params: { url },
@@ -297,14 +322,14 @@ async function downloadTiktok(url, options = {}) {
     if (process.env.DEBUG) console.error("[Nexray tiktok]", e?.message);
   }
 
-  // 3. Siputzx API (Tiktok)
+  // 4. Siputzx API (Tiktok v1 - Yedek)
   try {
     const res = await axios.get(`https://api.siputzx.my.id/api/d/tiktok`, { params: { url } });
     if (res.data?.status && res.data?.data) {
       const d = res.data.data;
       if (d.play) return { url: d.play, title: d.title };
     }
-  } catch (e) {}
+  } catch (e) { }
 
   return null;
 }
@@ -342,7 +367,7 @@ async function downloadFacebook(url, options = {}) {
         if (d[0]?.url) return { url: d[0].url };
       }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   return null;
 }
@@ -353,22 +378,34 @@ async function downloadFacebook(url, options = {}) {
  * @returns {Promise<string|null>} Medya URL veya null
  */
 async function downloadPinterest(url, options = {}) {
-  if (process.env.IS_SELF_TEST === 'true') return "https://example.com/dummy.jpg";
   try {
     const res = await axios.get(`${BASE}/downloader/pinterest`, withSignal({
-      params: { url },
+      params: { url: url.trim() },
       timeout: TIMEOUT,
+      validateStatus: () => true
     }, options.signal));
+
     const data = res.data;
     if (data?.status && data?.result) {
       const r = data.result;
-      return r.image || r.url || r.video || r.thumbnail || null;
+      // Akıllı Kaynak Seçimi (HD Öncelikli):
+      // 1. Video (Genelde 720p HD)
+      // 2. Orijinal Çözünürlükteki Resim (/originals/ dizini Full HD+)
+      // 3. Standart Resim veya Thumbnail
+      if (r.video) return r.video;
+      if (r.thumbnail && r.thumbnail.includes('/originals/')) return r.thumbnail;
+      if (r.image && r.image.includes('/originals/')) return r.image;
+
+      return r.image || r.url || r.thumbnail || null;
     }
+
   } catch (e) {
     if (process.env.DEBUG) console.error("[Nexray pinterest]", e?.message);
   }
   return null;
 }
+
+
 
 /**
  * Twitter/X video indirme - TwDown scraping + Nexray yedek
@@ -382,7 +419,7 @@ async function downloadTwitter(url, options = {}) {
     const res = await axios.post("https://twdown.net/download.php",
       `URL=${encodeURIComponent(url)}`,
       withSignal({
-        headers: { 
+        headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         },

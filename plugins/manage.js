@@ -356,9 +356,8 @@ Module({
 Module({
   pattern: "antisilme ?(.*)",
   fromMe: true,
-  onlyAdmin: true,
-  desc: "Sohbetlerde silinen mesajları otomatik olarak yakalar ve belirtilen grupta etkinleştirir.",
-  usage: ".antisilme [aç/kapat]",
+  desc: "Sohbetlerde silinen mesajları otomatik olarak yakalar ve belirlediğiniz hedefe iletir.",
+  usage: ".antisilme [aç/kapat/sudo/jid]",
   use: "group",
 },
   async (message, match) => {
@@ -368,16 +367,39 @@ Module({
       const db = await antidelete.get();
       const status = db.some(d => d.jid === message.jid) ? "Açık ✅" : "Kapalı ❌";
       return await message.sendReply(
-        `🚨 *Mesaj Silme Engeli (Anti-Delete)*\n\nℹ️ *Mevcut Durum:* ${status}\n\n💬 *Kullanım:* \`.antisilme aç/kapat\``
+        `🚨 *Anti-Mesaj Silme Engellemesi*\n\nℹ️ *Mevcut Durum:* ${status}\n\n💬 *Kullanım:* \`.antisilme aç/kapat\``
       );
     }
 
-    if (target === "aç") {
-      await antidelete.set(message.jid);
-      return await message.sendReply(`_✅ Bu grupta mesaj silme engeli açıldı! ✅_`);
-    } else if (target === "kapat") {
-      await antidelete.delete(message.jid);
-      return await message.sendReply(`_❌ Mesaj silme engeli kapatıldı! ❌_`);
+    target = target.toLowerCase();
+
+    if (target === "kapat") {
+      await setVar("ANTI_DELETE", "off");
+      await setVar("ANTI_DELETE_JID", "");
+      return await message.sendReply(`_❌ Mesaj silme engeli kapatıldı ❌_`);
+    } else if (target === "sohbet" || target === "aç") {
+      await setVar("ANTI_DELETE", "chat");
+      await setVar("ANTI_DELETE_JID", "");
+      return await message.sendReply(`_✅ Mesaj silme engellendi açıldı! ✅_\n\n_Kurtarılan mesajlar orijinal sohbete gönderilecek_`
+      );
+    } else if (target === "sudo") {
+      await setVar("ANTI_DELETE", "sudo");
+      await setVar("ANTI_DELETE_JID", "");
+      return await message.sendReply(`_✅ Mesaj silme engellendi açıldı! ✅_\n\n_Kurtarılan mesajlar ilk yöneticiye gönderilecek_`
+      );
+    } else if (target.includes("@")) {
+      if (!target.match(/^\d+@(s\.whatsapp\.net|g\.us)$/)) {
+        return await message.sendReply(`_❌ Geçersiz JID formatı!_\n\n_Kabul edilen formatlar:_\n- \`123020340234@s.whatsapp.net\` (kişisel)\n- \`123020340234@g.us\` (grup)_`
+        );
+      }
+      await setVar("ANTI_DELETE", "custom");
+      await setVar("ANTI_DELETE_JID", target);
+      return await message.sendReply(
+        `_✅ Mesaj silme engeli etkinleştirildi ✅_\n\n_Kurtarılan mesajlar ${target} adresine gönderilecek_`
+      );
+    } else {
+      return await message.sendReply(`_❌ Geçersiz seçenek!_\n\n_Kullanım:_\n\`.antisilme aç\` - _orijinal sohbete gönderir_\n\`.antisilme sudo\` - _ilk yöneticiye gönderir_\n\`.antisilme <jid>\` - _belirtilen JID'e gönderir_\n\`.antisilme kapat\` - _mesaj silme engelini kapatır_`
+      );
     }
   }
 );
@@ -601,7 +623,6 @@ Module({
 Module({
   pattern: "antibot ?(.*)",
   fromMe: true,
-  onlyAdmin: true,
   desc: "Sohbete katılan diğer botları otomatik olarak tespit eder ve gruptan uzaklaştırır.",
   usage: ".antibot [aç/kapat]",
   use: "group",
@@ -642,8 +663,7 @@ Module({
 Module({
   pattern: "antispam ?(.*)",
   fromMe: true,
-  onlyAdmin: true,
-  desc: "Sohbetlerde spam yapılmasını engeller ve spam yapanları otomatik olarak gruptan uzaklaştırır.",
+  desc: "Grupta hızlı ve tekrarlayan (spam) mesaj atan kullanıcıları otomatik olarak tespit eder ve atar.",
   usage: ".antispam [aç/kapat]",
   use: "group",
 },
@@ -683,8 +703,7 @@ Module({
 Module({
   pattern: "pdm ?(.*)",
   fromMe: true,
-  onlyAdmin: true,
-  desc: "Grup katılımcı işlemlerini (yükseltme/düşürme) takip eder ve sohbete bilgi mesajı gönderir.",
+  desc: "Gruptaki yetki verme veya yetki alma durumlarını takip eder ve anlık bilgilendirme yapar.",
   usage: ".pdm [aç/kapat]",
   use: "group",
 },
@@ -722,8 +741,7 @@ Module({
 Module({
   pattern: "antiyetkidüşürme ?(.*)",
   fromMe: true,
-  onlyAdmin: true,
-  desc: "Yöneticilerin yetkisinin düşürülmesini engeller ve düşüreni otomatik olarak cezalandırır.",
+  desc: "Yöneticilerin yetkisinin alınmasını engeller; yapanın yetkisini alır ve mağdura iade eder.",
   usage: ".antiyetkidüşürme [aç/kapat]",
   use: "group",
 },
@@ -758,8 +776,7 @@ Module({
 Module({
   pattern: "antiyetkiverme ?(.*)",
   fromMe: true,
-  onlyAdmin: true,
-  desc: "Normal üyelerin yönetici yapılmasını engeller ve yetki vereni otomatik olarak cezalandırır.",
+  desc: "Onaysız yetki verilmesini engeller; hem yetki verenin hem de yeni yetkilinin yetkilerini alır.",
   usage: ".antiyetkiverme [aç/kapat]",
   use: "group",
 },
@@ -796,7 +813,6 @@ Module({
 Module({
   pattern: "antibağlantı ?(.*)",
   fromMe: true,
-  onlyAdmin: true,
   desc: "Grupta link paylaşımını engeller. Uyarı, silme veya atma gibi farklı modlarda çalışır.",
   usage: ".antibağlantı [yardım/aç/kapat]",
   use: "group",
@@ -1046,7 +1062,6 @@ Module({
 Module({
   pattern: "antikelime ?(.*)",
   fromMe: true,
-  onlyAdmin: true,
   desc: "Yasaklı kelime kullanımını engeller ve bu kelimeleri kullananları gruptan uzaklaştırır.",
   usage: ".antikelime [aç/kapat]",
   use: "group",
@@ -1763,6 +1778,10 @@ Module({
       if (!global.antibot_handled_ids) global.antibot_handled_ids = new Set();
       if (global.antibot_handled_ids.has(id)) return; // Daha önce işlenmişse atla
 
+      // Aynı botun peş peşe attığı spam mesajlara tekrar tekrar uyarı mesajı gitmemesi için cache mekanizması:
+      if (!global.antibot_warned_senders) global.antibot_warned_senders = new Set();
+      const senderKey = message.jid + "_" + message.sender;
+
       // Yetkili kişileri veya yetkimizin olmadığı grubu atla
       if (message.fromOwner || message.fromSudo || senderIsAdmin) return;
 
@@ -1774,17 +1793,28 @@ Module({
           global.antibot_handled_ids.delete(id);
         }, 60000);
 
+        // Uyarı mesajının gönderilip gönderilmeyeceğini belirle
+        const shouldWarn = !global.antibot_warned_senders.has(senderKey);
+        if (shouldWarn) {
+           global.antibot_warned_senders.add(senderKey);
+           setTimeout(() => global.antibot_warned_senders.delete(senderKey), 60000);
+        }
+
         if (!botIsAdmin) {
-          await message.client.sendMessage(message.jid, {
-            text: `🚨 *Antibot Tespit Edildi* 🚨\n\n🤖 _Sohbete sızan bir bot tespit edildi ancak yönetici (Admin) olmadığım için uzaklaştıramıyorum! Lütfen bana yetki verin._`
-          });
+          if (shouldWarn) {
+            await message.client.sendMessage(message.jid, {
+              text: `🚨 *Antibot Tespit Edildi* 🚨\n\n🤖 _Sohbete sızan bir bot tespit edildi ancak yönetici (Admin) olmadığım için uzaklaştıramıyorum! Lütfen bana yetki verin._`
+            });
+          }
           return;
         }
 
-        // 1. ÖNCE bilgilendirme mesajı gönder
-        await message.client.sendMessage(message.jid, {
-          text: `🚨 *Anti-Bot Sistemi Devrede!* 😈\n\n🤖 _Sohbete sızan bir bot tespit ettim ve anında uzaklaştırdım._ 🧹`,
-        });
+        // 1. ÖNCE bilgilendirme mesajı gönder (SADECE bu bot için ilk defaysa)
+        if (shouldWarn) {
+          await message.client.sendMessage(message.jid, {
+            text: `🚨 *Anti-Bot Sistemi Devrede!* 😈\n\n🤖 _Sohbete sızan bir bot tespit ettim ve anında uzaklaştırdım._ 🧹`,
+          });
+        }
 
         // 2. Attığı sinsi mesajı herkesten sil
         await message.client.sendMessage(message.jid, {
@@ -1796,12 +1826,14 @@ Module({
           }
         });
 
-        // 3. EN SON İlgili botu gruptan uzaklaştır
-        await message.client.groupParticipantsUpdate(
-          message.jid,
-          [message.sender],
-          "remove"
-        );
+        // 3. EN SON İlgili botu gruptan uzaklaştır (SADECE ilk defaysa)
+        if (shouldWarn) {
+          await message.client.groupParticipantsUpdate(
+            message.jid,
+            [message.sender],
+            "remove"
+          );
+        }
       }
     } catch (e) {
       console.error("Antibot tespit hatası:", e);

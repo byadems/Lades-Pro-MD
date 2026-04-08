@@ -268,6 +268,42 @@ async function saveToDisk(url, destPath) {
   });
 }
 
+/**
+ * MP4 dosyasından video boyutlarını okur (saf Node.js - ffprobe gerektirmez).
+ * moov > trak > tkhd kutusundaki width/height alanlarını parse eder.
+ * @param {string} filePath - MP4 dosyasının yolu
+ * @returns {{ width: number, height: number } | null}
+ */
+function readMp4Dimensions(filePath) {
+  try {
+    const fd = fs.openSync(filePath, "r");
+    const fileSize = fs.fstatSync(fd).size;
+    const buf = Buffer.alloc(Math.min(fileSize, 2 * 1024 * 1024)); // İlk 2MB
+    fs.readSync(fd, buf, 0, buf.length, 0);
+    fs.closeSync(fd);
+
+    for (let i = 0; i < buf.length - 92; i++) {
+      // "tkhd" ASCII = 0x74 0x6B 0x68 0x64
+      if (buf[i] === 0x74 && buf[i + 1] === 0x6B && buf[i + 2] === 0x68 && buf[i + 3] === 0x64) {
+        const version = buf[i + 4];
+        const widthOffset  = i + 4 + (version === 1 ? 84 : 76);
+        const heightOffset = i + 4 + (version === 1 ? 88 : 80);
+        if (heightOffset + 4 <= buf.length) {
+          // Fixed-point 16.16 — ilk 2 byte integer kısım
+          const width  = buf.readUInt16BE(widthOffset);
+          const height = buf.readUInt16BE(heightOffset);
+          if (width > 0 && height > 0) return { width, height };
+        }
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+
+
 function isMediaImage(url) {
   if (!url) return false;
   if (/\.(jpg|jpeg|png|webp|heic)(\?|&|$)/i.test(url)) return true;
@@ -283,6 +319,7 @@ function isMediaImage(url) {
   return false;
 }
 
+
 module.exports = {
   TEMP_DIR, ensureTempDir, getTempPath, cleanTempFile,
   startTempCleanup, stopTempCleanup,
@@ -292,5 +329,5 @@ module.exports = {
   extractUrls, validateUrl,
   suppressLibsignalLogs,
   getMessageText, getQuotedMsg, getMentioned,
-  loadBaileys, getTempSubdir, saveToDisk, isMediaImage
+  loadBaileys, getTempSubdir, saveToDisk, isMediaImage, readMp4Dimensions
 };

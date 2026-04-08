@@ -136,6 +136,9 @@ const config = {
   // Groq API anahtarı (.dinle komutu için)
   GROQ_API_KEY: process.env.GROQ_API_KEY || "",
 
+  // TikWM API Anahtarı
+  TIKWM_API_KEY: process.env.TIKWM_API_KEY || "bee06ff010bb0987fc949c0e676450b7",
+
   // Platform
   PLATFORM: process.env.PLATFORM || process.env.NODE_ENV || "local",
 

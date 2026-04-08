@@ -30,6 +30,8 @@ yarn-error.log*
 lades-session/
 bot.pid
 database.sqlite
+*-player-script.js
+
 -e 
 # Environment files
 *.env
