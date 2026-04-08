@@ -87,7 +87,7 @@ function getRuntimeStats() {
 }
 
 let _statsSaveTimer = null;
-function recordStat(pattern, status, durationMs, error = null) {
+function recordStat(pattern, status, durationMs, error = null, isTest = false) {
   const key = String(pattern).split('?')[0].split(' ')[0].replace(/[^\wçğıöşüÇĞİÖŞÜ]/gi, '');
   if (!key) return;
   
@@ -99,7 +99,7 @@ function recordStat(pattern, status, durationMs, error = null) {
     runs: (cmdStats[key]?.runs || 0) + 1
   };
   
-  recordCommand(); // Runtime stats'ı güncelle
+  if (!isTest) recordCommand(); // Sadece gerçek komutlarda Runtime stats'ı güncelle
 
   if (!_statsSaveTimer) {
     _statsSaveTimer = setTimeout(async () => {

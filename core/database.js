@@ -193,7 +193,10 @@ async function initializeDatabase() {
 
   for (const model of models) {
     try {
-      if (model.sync) await model.sync({ alter: true });
+      if (model.sync) {
+        const isSqlite = sequelize.getDialect() === 'sqlite';
+        await model.sync(isSqlite ? {} : { alter: true });
+      }
       logger.info(`Table synced: ${model.getTableName ? model.getTableName() : 'unknown'}`);
     } catch (e) {
       logger.warn(`Tablo senkronizasyonunda hata oluştu: ${e.message}`);

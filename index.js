@@ -36,6 +36,10 @@ try {
   const ffmpeg = require("fluent-ffmpeg");
   const ffmpegPath = require("ffmpeg-static");
   ffmpeg.setFfmpegPath(ffmpegPath);
+  
+  // Baileys requires ffmpeg in the system PATH to generate video thumbnails.
+  const ffmpegDir = path.dirname(ffmpegPath);
+  process.env.PATH = ffmpegDir + path.delimiter + process.env.PATH;
 } catch (e) {
   console.log("ffmpeg config skipped");
 }

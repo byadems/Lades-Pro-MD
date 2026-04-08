@@ -154,9 +154,9 @@ function chunk(arr, size) {
 //  URL & Security Utilities
 // ─────────────────────────────────────────────────────────
 const URL_PATTERNS = {
-  instagram: /^https?:\/\/(?:www\.)?instagram\.com\/(?:p|s|reel|tv)\/[\w-]+/i,
+  instagram: /^https?:\/\/(?:www\.|m\.)?(?:instagram\.com|instagr\.am)\/(?:p\/([A-Za-z0-9_-]+)|reel\/([A-Za-z0-9_-]+)|reels\/([A-Za-z0-9_-]+)|tv\/([A-Za-z0-9_-]+)|stories\/([A-Za-z0-9._]+)\/([0-9]+)|stories\/highlights\/([0-9]+)|([A-Za-z0-9._]+)\/(?:p|reels?|tv)\/([A-Za-z0-9_-]+)|([A-Za-z0-9._]+)\/?)\/?(?:\?.*)?$/i,
   youtube: /^https?:\/\/(?:www\.youtube\.com|youtube\.com|youtu\.be|m\.youtube\.com|music\.youtube\.com)\/(?:watch\?v=|shorts\/|v\/|embed\/)?[A-Za-z0-9_-]{11}(?:[\&\?].*)?$/,
-  spotify: /^https?:\/\/(?:open\.)?spotify\.com\/(track|album|playlist|episode)\/[a-zA-Z0-9]+(?:\?.*)?$/,
+  spotify: /^https?:\/\/(?:open\.)?spotify\.com\/(intl-[a-z]{2}\/)?(track|album|playlist|episode)\/[a-zA-Z0-9]+(?:\?.*)?$/,
   facebook: /^https?:\/\/(?:www\.|m\.|web\.)?facebook\.com\/\S+|^https?:\/\/fb\.watch\/\S+/i,
   tiktok: /^https?:\/\/(?:www\.)?(?:tiktok\.com\/@?[A-Za-z0-9_.-]+\/video\/\d+|vm\.tiktok\.com\/[A-Za-z0-9_-]+\/?|vt\.tiktok\.com\/[A-Za-z0-9_-]+\/?|v\.tiktok\.com\/[A-Za-z0-9_-]+\/?)(?:\?.*)?$/i,
   pinterest: /^https?:\/\/(?:www\.)?(?:pinterest\.com\/(?:pin\/\d+\/?[A-Za-z0-9_-]*)\/?|pin\.it\/[A-Za-z0-9_-]+\/?)(?:\?.*)?$/i,
@@ -165,9 +165,9 @@ const URL_PATTERNS = {
 };
 
 function extractUrls(text) {
-  if (!text) return [];
+  if (!text || typeof text !== 'string') return [];
   const urls = text.match(/\bhttps?:\/\/\S+/gi);
-  return urls ? urls.map(url => url.replace(/[)\]\.,!?>]*$/, "")) : [];
+  return urls ? urls.map(url => url.replace(/[)\].,!?>]*$/, "")) : [];
 }
 
 function validateUrl(url, platform) {
@@ -268,6 +268,21 @@ async function saveToDisk(url, destPath) {
   });
 }
 
+function isMediaImage(url) {
+  if (!url) return false;
+  if (/\.(jpg|jpeg|png|webp|heic)(\?|&|$)/i.test(url)) return true;
+  if (url.includes('token=')) {
+    try {
+      const parts = url.split('token=')[1].split('.');
+      if (parts.length > 1) {
+        const payload = Buffer.from(parts[1], 'base64').toString('utf8');
+        return /\.(jpg|jpeg|png|webp|heic)/i.test(payload);
+      }
+    } catch(e) {}
+  }
+  return false;
+}
+
 module.exports = {
   TEMP_DIR, ensureTempDir, getTempPath, cleanTempFile,
   startTempCleanup, stopTempCleanup,
@@ -277,5 +292,5 @@ module.exports = {
   extractUrls, validateUrl,
   suppressLibsignalLogs,
   getMessageText, getQuotedMsg, getMentioned,
-  loadBaileys, getTempSubdir, saveToDisk
+  loadBaileys, getTempSubdir, saveToDisk, isMediaImage
 };

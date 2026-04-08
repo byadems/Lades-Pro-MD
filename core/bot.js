@@ -127,6 +127,92 @@ async function createBot(sessionId = "lades-session", options = {}) {
   // Store events
   bindToSocket(sock);
 
+  // --- ALBUM MESSAGE IMPLEMENTATION ---
+  sock.albumMessage = async (jid, medias, options = {}) => {
+    const { generateWAMessageFromContent, prepareWAMessageMedia, proto } = await loadBaileys();
+    const albumMedias = [];
+    
+    for (const media of medias) {
+      try {
+        const type = media.image ? "imageMessage" : "videoMessage";
+        const content = media.image || media.video;
+        
+        let mediaPayload;
+        
+        if (content.url) {
+          // If it's a URL (local path or http), pass it directly so Baileys can use it for ffmpeg
+          mediaPayload = { url: content.url };
+        } else if (Buffer.isBuffer(content)) {
+          mediaPayload = content;
+        } else if (typeof content === 'string') {
+          // Assume local path
+          mediaPayload = { url: content };
+        } else {
+          continue;
+        }
+
+        const prepared = await prepareWAMessageMedia({
+          [media.image ? "image" : "video"]: mediaPayload
+        }, { upload: sock.waUploadToServer });
+        
+        const msg = prepared[type];
+        if (media.caption) msg.caption = media.caption;
+        
+        // Add mimetype if missing (required for correct rendering in album)
+        if (!msg.mimetype) {
+          msg.mimetype = media.image ? "image/jpeg" : "video/mp4";
+        }
+        
+        albumMedias.push({ type, msg });
+      } catch (err) {
+        logger.error({ err: err.message }, "Error preparing album media");
+      }
+    }
+
+    if (albumMedias.length === 0) return null;
+
+    // Generate the parent AlbumMessage
+    const albumMsg = await generateWAMessageFromContent(jid, {
+      messageContextInfo: {
+        deviceListMetadata: {},
+        deviceListMetadataVersion: 2
+      },
+      albumMessage: {
+        expectedImageCount: albumMedias.filter(m => m.type === "imageMessage").length,
+        expectedVideoCount: albumMedias.filter(m => m.type === "videoMessage").length,
+      }
+    }, { quoted: options.quoted || options });
+
+    // Send the parent AlbumMessage first
+    await sock.relayMessage(jid, albumMsg.message, { messageId: albumMsg.key.id });
+
+    // Send each media as a child of the AlbumMessage
+    for (let i = 0; i < albumMedias.length; i++) {
+      const { type, msg } = albumMedias[i];
+      
+      const childContent = {
+        [type]: msg,
+        messageContextInfo: {
+          deviceListMetadata: {},
+          deviceListMetadataVersion: 2,
+          messageAssociation: {
+            associationType: 1, // proto.MessageAssociation.AssociationType.MEDIA_ALBUM
+            parentMessageKey: albumMsg.key,
+            messageIndex: i
+          }
+        }
+      };
+
+      const individualMsg = await generateWAMessageFromContent(jid, childContent, { quoted: options.quoted || options });
+      
+      await sock.relayMessage(jid, individualMsg.message, { messageId: individualMsg.key.id });
+      await new Promise(r => setTimeout(r, 200)); // Small delay to maintain order
+    }
+
+    return albumMsg;
+  };
+
+
   // Credential updates → save to DB/file
   sock.ev.on("creds.update", saveCreds);
 

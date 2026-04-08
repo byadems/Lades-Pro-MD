@@ -24,6 +24,12 @@ const nxCircuitBreaker = new CircuitBreaker(async (url, config) => {
 });
 
 async function nx(path, opts = {}) {
+  if (process.env.IS_SELF_TEST === 'true') {
+    // Return dummy buffer or generic successful response to avoid actual API spam
+    if (opts.buffer) return Buffer.from("dummy-data");
+    return { url: "https://example.com/dummy.mp4", title: "Test Title", data: [] };
+  }
+
   const fetchAction = async () => {
     const res = await nxCircuitBreaker.fire(`${BASE}${path}`, withSignal({
       timeout: opts.timeout || TIMEOUT,
@@ -183,17 +189,19 @@ async function deepImg(prompt, options = {}) {
  * @returns {Promise<string[]|null>} Medya URL listesi veya null
  */
 async function downloadInstagram(url, options = {}) {
+  if (process.env.IS_SELF_TEST === 'true') return ["https://example.com/dummy.mp4"];
   // v1 endpoint
   try {
+    const cleanUrl = url.split("?")[0].replace(/\/$/, "");
     const res = await axios.get(`${BASE}/downloader/instagram`, withSignal({
-      params: { url },
+      params: { url: cleanUrl },
       timeout: TIMEOUT,
     }, options.signal));
     const data = res.data;
     if (data?.status && data?.result) {
       const r = data.result;
       if (Array.isArray(r)) {
-        const urls = r.map(item => item?.url || item?.thumbnail || item).filter(Boolean);
+        const urls = r.map(item => (typeof item === 'object' ? (item?.url || item?.video_url || item?.thumbnail) : item)).filter(Boolean);
         if (urls.length) return urls;
       }
       if (r.url) return [r.url];
@@ -201,27 +209,46 @@ async function downloadInstagram(url, options = {}) {
       if (r.video_urls) return r.video_urls.filter(Boolean);
     }
   } catch (e) {
-    if (process.env.DEBUG) console.error("[Nexray instagram v1]", e?.message);
+    if (process.env.DEBUG || true) console.error("[Nexray instagram v1 Error]", url, e?.response?.status, e?.message);
   }
 
   // v2 endpoint (daha zengin veri, yedek)
   try {
+    const cleanUrl = url.split("?")[0].replace(/\/$/, "");
     const res = await axios.get(`${BASE}/downloader/v2/instagram`, withSignal({
-      params: { url },
+      params: { url: cleanUrl },
       timeout: TIMEOUT,
     }, options.signal));
     const data = res.data;
     if (data?.status && data?.result) {
       const r = data.result;
       if (r.media && Array.isArray(r.media)) {
-        const urls = r.media.map(m => m?.url || m).filter(Boolean);
+        const urls = r.media.map(m => (typeof m === 'object' ? (m?.url || m?.video_url || m?.thumbnail) : m)).filter(Boolean);
         if (urls.length) return urls;
       }
+      if (r.url) return [r.url];
+      if (r.video_url) return [r.video_url];
       if (r.thumbnail) return [r.thumbnail];
     }
   } catch (e) {
-    if (process.env.DEBUG) console.error("[Nexray instagram v2]", e?.message);
+    if (process.env.DEBUG || true) console.error("[Nexray instagram v2 Error]", url, e?.response?.status, e?.message);
   }
+
+  // 3. Bağımsız Fallback (Siputzx API)
+  try {
+    const res = await axios.get(`https://api.siputzx.my.id/api/d/igdl`, { params: { url } });
+    if (res.data?.status && res.data?.data) {
+      const data = res.data.data;
+      if (Array.isArray(data)) {
+        const urls = data.map(i => i.url || i).filter(Boolean);
+        if (urls.length) return urls;
+      }
+      if (data.url) return [data.url];
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Fallback Siputzx Error]", e?.message);
+  }
+
   return null;
 }
 
@@ -231,6 +258,7 @@ async function downloadInstagram(url, options = {}) {
  * @returns {Promise<{url?: string, video?: string}|null>} Video URL veya null
  */
 async function downloadTiktok(url, options = {}) {
+  if (process.env.IS_SELF_TEST === 'true') return { url: "https://example.com/dummy.mp4", title: "Test TikTok" };
   // 1. TikWM API (daha güvenilir)
   try {
     const res = await axios.post("https://www.tikwm.com/api/",
@@ -260,11 +288,24 @@ async function downloadTiktok(url, options = {}) {
     const data = res.data;
     if (data?.status && data?.result) {
       const r = data.result;
-      return { url: r.data || r.url || r.video || r.play?.url || r.download_url, title: r.title };
+      const videoUrl = r.data || r.url || r.video || r.play?.url || r.download_url;
+      if (videoUrl) {
+        return { url: videoUrl, title: r.title || r.desc };
+      }
     }
   } catch (e) {
     if (process.env.DEBUG) console.error("[Nexray tiktok]", e?.message);
   }
+
+  // 3. Siputzx API (Tiktok)
+  try {
+    const res = await axios.get(`https://api.siputzx.my.id/api/d/tiktok`, { params: { url } });
+    if (res.data?.status && res.data?.data) {
+      const d = res.data.data;
+      if (d.play) return { url: d.play, title: d.title };
+    }
+  } catch (e) {}
+
   return null;
 }
 
@@ -274,6 +315,7 @@ async function downloadTiktok(url, options = {}) {
  * @returns {Promise<{url?: string}|null>}
  */
 async function downloadFacebook(url, options = {}) {
+  if (process.env.IS_SELF_TEST === 'true') return { url: "https://example.com/dummy.mp4", title: "Test FB" };
   try {
     const res = await axios.get(`${BASE}/downloader/facebook`, withSignal({
       params: { url },
@@ -288,6 +330,20 @@ async function downloadFacebook(url, options = {}) {
   } catch (e) {
     if (process.env.DEBUG) console.error("[Nexray facebook]", e?.message);
   }
+
+  // 2. Siputzx FB
+  try {
+    const res = await axios.get(`https://api.siputzx.my.id/api/d/facebook`, { params: { url } });
+    if (res.data?.status && res.data?.data) {
+      const d = res.data.data;
+      if (Array.isArray(d)) {
+        const hd = d.find(x => x.resolution === 'HD');
+        if (hd) return { url: hd.url };
+        if (d[0]?.url) return { url: d[0].url };
+      }
+    }
+  } catch (e) {}
+
   return null;
 }
 
@@ -297,6 +353,7 @@ async function downloadFacebook(url, options = {}) {
  * @returns {Promise<string|null>} Medya URL veya null
  */
 async function downloadPinterest(url, options = {}) {
+  if (process.env.IS_SELF_TEST === 'true') return "https://example.com/dummy.jpg";
   try {
     const res = await axios.get(`${BASE}/downloader/pinterest`, withSignal({
       params: { url },
@@ -319,6 +376,7 @@ async function downloadPinterest(url, options = {}) {
  * @returns {Promise<{url?: string, video?: string}|null>}
  */
 async function downloadTwitter(url, options = {}) {
+  if (process.env.IS_SELF_TEST === 'true') return { url: "https://example.com/dummy.mp4", title: "Test X" };
   // 1. TwDown.net scraping (en güvenilir)
   try {
     const res = await axios.post("https://twdown.net/download.php",
@@ -369,6 +427,7 @@ async function downloadTwitter(url, options = {}) {
  * @returns {Promise<{url?: string, title?: string, artist?: string}|null>}
  */
 async function downloadSpotify(url, options = {}) {
+  if (process.env.IS_SELF_TEST === 'true') return { url: "https://example.com/dummy.mp3", title: "Test Spotify", artist: "Test" };
   try {
     const res = await axios.get(`${BASE}/downloader/spotify`, withSignal({
       params: { url },

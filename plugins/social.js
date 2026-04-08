@@ -12,7 +12,7 @@ const {
 const nexray = require("./utils/nexray");
 const botConfig = require("../config");
 const axios = require("axios");
-const { saveToDisk, getTempPath, cleanTempFile, extractUrls, validateUrl } = require("../core/helpers");
+const { saveToDisk, getTempPath, cleanTempFile, extractUrls, validateUrl, isMediaImage } = require("../core/helpers");
 
 async function checkRedirect(url) {
   try {
@@ -56,7 +56,8 @@ Module({
       if (!url.includes("instagram.com")) continue;
 
       if (validateUrl(url, "instagram")) {
-        const mediaId = url.match(/\/([\w-]+)\/?$/)?.[1];
+        const cleanUrl = url.split("?")[0].replace(/\/$/, "");
+        const mediaId = cleanUrl.match(/\/([\w-]+)\/?$/)?.[1];
         if (mediaId && mediaId.length > 20) continue; // skip private accounts
 
         instagramUrls.push(url);
@@ -97,14 +98,14 @@ Module({
 
       // Check if total album size or count is too large to prevent crashes
       if (allMediaUrls.length > 10) {
-        return await message.sendReply("_⚠️ Albüm çok fazla öğe içeriyor (Maksimum 10)._");
+        return await message.sendReply("_⚠️ Albüm çok fazla medya içeriyor (Maksimum 10)._");
       }
 
       const tempFiles = [];
       try {
         // Download all media to temp files
         for (const mediaUrl of allMediaUrls) {
-          const isImage = /\.(jpg|jpeg|png|webp|heic)(\?|$)/i.test(mediaUrl);
+          const isImage = isMediaImage(mediaUrl);
           const ext = isImage ? ".jpg" : ".mp4";
           const tempPath = getTempPath(ext);
           await saveToDisk(mediaUrl, tempPath);
@@ -113,24 +114,38 @@ Module({
 
         if (tempFiles.length === 1) {
           const file = tempFiles[0];
-          return await message.sendMessage(
+          return await message.sendReply(
             { [file.isImage ? "image" : "video"]: { url: file.path } },
             { quoted: quotedMessage }
           );
         }
 
-        // Send as album (passing local paths)
-        const albumObject = tempFiles.map((file, i) => {
-          const obj = file.isImage ? { image: { url: file.path } } : { video: { url: file.path } };
-          if (i === 0) obj.caption = `_İndirme tamamlandı! (${tempFiles.length} öğe)_`;
-          return obj;
+        // Send as album
+        const albumObject = tempFiles.map((file, index) => {
+          const item = { [file.isImage ? "image" : "video"]: { url: file.path } };
+          // Albüm başlığı (Caption) genellikle ilk veya son öğeye eklenir
+          if (index === 0) {
+            item.caption = `✅ İndirme tamamlandı! (${tempFiles.length} medya)`;
+          }
+          return item;
         });
 
-        return await message.client.albumMessage(
-          message.jid,
-          albumObject,
-          message.data
-        );
+        try {
+          await message.client.albumMessage(
+            message.jid,
+            albumObject,
+            quotedMessage
+          );
+        } catch (e) {
+          console.error("Albüm gönderilemedi, tek tek gönderiliyor:", e.message);
+          for (const file of tempFiles) {
+            await message.sendReply(
+              { [file.isImage ? "image" : "video"]: { url: file.path } }
+            );
+            await new Promise(r => setTimeout(r, 500));
+          }
+        }
+        return;
       } finally {
         // CLEANUP
         for (const file of tempFiles) {
@@ -324,7 +339,7 @@ Module({
     if (!storyData || !storyData.length)
       return await message.sendReply("*_❌ Bulunamadı!_*");
     if (storyData.length === 1) {
-      const isImage = /\.(jpg|jpeg|png|webp)(\?|$)/i.test(storyData[0]);
+      const isImage = isMediaImage(storyData[0]);
       const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
       try {
         await saveToDisk(storyData[0], tempPath);
@@ -338,17 +353,21 @@ Module({
     userIdentifier = userIdentifier
       .replace("https://instagram.com/stories/", "")
       .split("/")[0];
-    let albumObject = storyData.map((storyMediaUrl) => {
-      return /\.(jpg|jpeg|png|webp)(\?|$)/i.test(storyMediaUrl)
-        ? { image: storyMediaUrl }
-        : { video: storyMediaUrl };
-    });
-    albumObject[0].caption = `_${userIdentifier} hikayeleri_`;
-    return await message.client.albumMessage(
-      message.jid,
-      albumObject,
-      message.data
-    );
+    await message.sendReply(`_${userIdentifier} kullanıcısının (${storyData.length} hikayesi iletiliyor...)_`, { quoted: message.data });
+    for (const storyMediaUrl of storyData) {
+      const isImage = isMediaImage(storyMediaUrl);
+      const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
+      try {
+        await saveToDisk(storyMediaUrl, tempPath);
+        await message.sendReply({ [isImage ? "image" : "video"]: { url: tempPath } });
+        await new Promise(r => setTimeout(r, 1000));
+      } catch (err) {
+        console.error("Hikaye medyaları indirilemedi:", err);
+      } finally {
+        cleanTempFile(tempPath);
+      }
+    }
+    return;
   }
 );
 
@@ -360,7 +379,7 @@ Module({
   use: "download",
 },
   async (message, match) => {
-    let userQuery = match[1] !== "" ? match[1] : message.reply_message?.text;
+    let userQuery = (match[1] || message.reply_message?.text || "").trim();
     if (userQuery === "g") return;
     if (!userQuery)
       return await message.sendReply("_⚠️ Arama terimi veya video bağlantısı gerekli_");
@@ -373,10 +392,14 @@ Module({
       try {
         pinterestResult = await pinterestDl(userQuery);
         url = pinterestResult?.status && pinterestResult?.result ? pinterestResult.result : null;
-        if (!url) url = await nexray.downloadPinterest(userQuery);
+        if (!url) {
+          const nexrayResult = await nexray.downloadPinterest(userQuery);
+          url = typeof nexrayResult === "object" ? (nexrayResult.image || nexrayResult.video || nexrayResult.url) : nexrayResult;
+        }
       } catch (err) {
         try {
-          url = await nexray.downloadPinterest(userQuery);
+          const nexrayResult = await nexray.downloadPinterest(userQuery);
+          url = typeof nexrayResult === "object" ? (nexrayResult.image || nexrayResult.video || nexrayResult.url) : nexrayResult;
         } catch (_) {
           console.error("Pinterest indirme hatası:", err?.message || err);
           return await message.sendReply("_❌ Sunucu hatası_");
@@ -390,7 +413,7 @@ Module({
         ? message.quoted
         : message.data;
 
-      const isImage = /\.(jpg|jpeg|png|webp|heic)(\?|$)/i.test(url);
+      const isImage = isMediaImage(url);
       const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
       try {
         await saveToDisk(url, tempPath);
@@ -422,30 +445,17 @@ Module({
         `_Pinterest'ten ${searchQuery} için ${toDownload} sonuç indiriliyor_`
       );
 
-      const imagesToSend = searchResults
-        .slice(0, toDownload)
-        .map((url) => ({ image: url }));
-      imagesToSend[0].caption = `_Pinterest: ${searchQuery} sonuçları_`;
-      try {
-        await message.client.albumMessage(
-          message.jid,
-          imagesToSend,
-          message.data
-        );
-      } catch (error) {
-        console.log(
-          "Albüm gönderilemedi, tekil gönderim deneniyor:",
-          error
-        );
-        for (const url of searchResults) {
-          try {
-            await message.sendMessage({ url }, "image");
-          } catch (error) {
-            console.error(
-              "Pinterest öğesi indirilemedi:",
-              error?.message || error
-            );
-          }
+      const toDownloadUrls = searchResults.slice(0, toDownload);
+      for (const url of toDownloadUrls) {
+        const tempPath = getTempPath(".jpg");
+        try {
+          await saveToDisk(url, tempPath);
+          await message.sendReply({ image: { url: tempPath } });
+          await new Promise(r => setTimeout(r, 1000));
+        } catch (error) {
+          console.error("Pinterest öğesi indirilemedi:", error?.message || error);
+        } finally {
+          cleanTempFile(tempPath);
         }
       }
     }

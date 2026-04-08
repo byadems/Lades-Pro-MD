@@ -1,9 +1,10 @@
-const ytdl = require('ytdl-core');
+const ytdl = require('@distube/ytdl-core');
 const yts = require('yt-search');
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const path = require('path');
-const { getTempPath } = require('../../core/helpers');
+const { getTempPath, saveToDisk } = require('../../core/helpers');
+const nexray = require('./nexray');
 
 /**
  * YouTube downloader utility replacing the obfuscated bytecode.
@@ -64,14 +65,26 @@ async function downloadVideo(url, quality) {
     // Choose the best format with both video and audio
     const format = ytdl.chooseFormat(info.formats, { quality: 'highest', filter: 'videoandaudio' });
 
-    return new Promise((resolve, reject) => {
+    return await new Promise((resolve, reject) => {
       ytdl(url, { format })
         .pipe(fs.createWriteStream(outputPath))
         .on('finish', () => resolve({ path: outputPath, title: info.videoDetails.title }))
         .on('error', reject);
     });
   } catch (error) {
-    console.error('ytdl downloadVideo error:', error);
+    console.error('ytdl downloadVideo error:', error.message);
+    // Fallback
+    try {
+      const fallback = await nexray.downloadYtMp4(url);
+      if (fallback && fallback.url) {
+        const safeTitle = (fallback.title || 'video').replace(/[^\w\s]/gi, '').trim();
+        const outputPath = getTempPath(`${safeTitle}_${Date.now()}.mp4`);
+        await saveToDisk(fallback.url, outputPath);
+        return { path: outputPath, title: fallback.title || 'YouTube Video' };
+      }
+    } catch (fbError) {
+      console.error('ytdl downloadVideo fallback error:', fbError.message);
+    }
     throw error;
   }
 }
@@ -82,14 +95,26 @@ async function downloadAudio(url) {
     const safeTitle = info.videoDetails.title.replace(/[^\w\s]/gi, '').trim() || 'audio';
     const outputPath = getTempPath(`${safeTitle}_${Date.now()}.m4a`);
 
-    return new Promise((resolve, reject) => {
+    return await new Promise((resolve, reject) => {
       ytdl(url, { filter: 'audioonly' })
         .pipe(fs.createWriteStream(outputPath))
         .on('finish', () => resolve({ path: outputPath, title: info.videoDetails.title }))
         .on('error', reject);
     });
   } catch (error) {
-    console.error('ytdl downloadAudio error:', error);
+    console.error('ytdl downloadAudio error:', error.message);
+    // Fallback
+    try {
+      const fallback = await nexray.downloadYtMp3(url);
+      if (fallback && fallback.url) {
+        const safeTitle = (fallback.title || 'audio').replace(/[^\w\s]/gi, '').trim();
+        const outputPath = getTempPath(`${safeTitle}_${Date.now()}.m4a`); // saveToDisk saves whatever it gets, we will treat it as m4a/mp3 based on ffmpeg conversion
+        await saveToDisk(fallback.url, outputPath);
+        return { path: outputPath, title: fallback.title || 'YouTube Audio' };
+      }
+    } catch (fbError) {
+      console.error('ytdl downloadAudio fallback error:', fbError.message);
+    }
     throw error;
   }
 }

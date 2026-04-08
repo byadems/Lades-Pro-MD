@@ -220,8 +220,6 @@ module.exports = {
   antiBotDB,
   antiWordDB,
   antiDeleteDB,
-  WelcomeDB,
-  GoodbyeDB,
   FilterDB,
   PluginDB,
 };

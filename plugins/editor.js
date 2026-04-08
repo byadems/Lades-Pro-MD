@@ -1,5 +1,5 @@
 const { Module } = require("../main");
-const { getBuffer, nx, uploadToCatbox } = require("./utils");
+const { getBuffer, nx, uploadToCatbox, uploadToImgbb } = require("./utils");
 
 const EFFECTS = [
   { command: "blur", desc: "Fotoğrafı profesyonelce bulanıklaştırır.", route: "filter/blur" },

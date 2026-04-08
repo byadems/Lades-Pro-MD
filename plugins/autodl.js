@@ -11,7 +11,7 @@ const HANDLER_PREFIX = config.HANDLER_PREFIX;
 
 const URL_PATTERNS = {
   instagram:
-    /^https?:\/\/(?:www\.)?instagram\.com\/(?:p\/[A-Za-z0-9_-]+\/?|reel\/[A-Za-z0-9_-]+\/?|tv\/[A-Za-z0-9_-]+\/?|stories\/[A-Za-z0-9_.-]+\/\d+\/?)(?:\?.*)?$/i,
+    /^https?:\/\/(?:www\.|m\.)?(?:instagram\.com|instagr\.am)\/(?:p\/([A-Za-z0-9_-]+)|reel\/([A-Za-z0-9_-]+)|reels\/([A-Za-z0-9_-]+)|tv\/([A-Za-z0-9_-]+)|stories\/([A-Za-z0-9._]+)\/([0-9]+)|stories\/highlights\/([0-9]+)|([A-Za-z0-9._]+)\/(?:p|reels?|tv)\/([A-Za-z0-9_-]+)|([A-Za-z0-9._]+)\/?)\/?(?:\?.*)?$/i,
   youtube:
     /^https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/[A-Za-z0-9_-]+\/?)|youtu\.be\/)([A-Za-z0-9_-]{11})?(?:[\?&].*)?$/i,
   spotify:
@@ -27,14 +27,14 @@ const URL_PATTERNS = {
 };
 
 function getFirstUrl(text) {
-  if (!text) return null;
+  if (!text || typeof text !== 'string') return null;
   const urlMatch = text.match(/https?:\/\/\S+/i);
   if (!urlMatch) return null;
   return urlMatch[0].replace(/[)\]\.,!?>]*$/, "");
 }
 
 function getAllUrls(text) {
-  if (!text) return [];
+  if (!text || typeof text !== 'string') return [];
   const urlMatches = text.match(/https?:\/\/\S+/gi);
   if (!urlMatches) return [];
   return urlMatches.map((url) => url.replace(/[)\]\.,!?>]*$/, ""));
@@ -311,10 +311,13 @@ Module({
             { quoted: quotedMessage }
           );
         } else {
-          const albumObject = allMediaUrls.map((mediaUrl) => {
-            return /\.(jpg|jpeg|png|webp|heic)(\?|$)/i.test(mediaUrl)
-              ? { image: mediaUrl }
-              : { video: mediaUrl };
+          const albumObject = allMediaUrls.map((mediaUrl, index) => {
+            const isImg = /\.(jpg|jpeg|png|webp|heic)(\?|$)/i.test(mediaUrl);
+            const item = { [isImg ? "image" : "video"]: { url: mediaUrl } };
+            if (index === 0) {
+              item.caption = `✅ İndirme tamamlandı! (${allMediaUrls.length} medya)`;
+            }
+            return item;
           });
           await message.client.albumMessage(
             message.jid,
@@ -390,8 +393,12 @@ Module({
             quoted: quotedMessage,
           });
         } else {
-          const albumObject = allMediaUrls.map((mediaUrl) => {
-            return { video: mediaUrl };
+          const albumObject = allMediaUrls.map((mediaUrl, index) => {
+            const item = { video: { url: mediaUrl } };
+            if (index === 0) {
+              item.caption = `✅ İndirme tamamlandı! (${allMediaUrls.length} medya)`;
+            }
+            return item;
           });
           await message.client.albumMessage(
             message.jid,

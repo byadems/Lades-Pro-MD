@@ -5,6 +5,16 @@ const {
   Filter,
   BotConfig
 } = require("../../../core/database");
+const {
+  antiBotDB,
+  antiSpamDB,
+  PDMDB,
+  antiDemote,
+  antiPromote,
+  antiWordDB,
+  antiDeleteDB,
+  FilterDB
+} = require("./models");
 const config = require("../../../config");
 
 async function syncWarnsSequence() {
@@ -476,16 +486,7 @@ async function checkFilterMatch(text, jid) {
   return null;
 }
 
-// New antilink system
-const antilinkConfig = {
-  get: getAntilinkConfig,
-  set: setAntilinkConfig,
-  update: updateAntilinkConfig,
-  delete: deleteAntilinkConfig,
-  reset: resetAntilinkConfig,
-  parsePattern: parseAntilinkPattern,
-  checkAllowed: checkLinkAllowed,
-};
+// antilinkConfig is already defined above, so we don't redefine it here
 const antiword = {
   set: setAntiWord,
   get: getAntiWord,

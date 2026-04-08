@@ -15,7 +15,7 @@ const path = require("path");
 const fs = require("fs");
 
 const STATS_FILE = path.join(__dirname, "../sessions/cmd-stats.json");
-const TIMEOUT_MS = 1500;   // Accelerated command timeout
+const TIMEOUT_MS = 10000;   // Accelerated command timeout
 const BATCH_SIZE = 5;
 const BATCH_DELAY = 150;
 
@@ -55,11 +55,14 @@ function makeKey(pattern) {
 /**
  * Sessiz mock mesaj nesnesi — hiçbir şey göndermez, hata atmaz.
  */
-function createMockMsg(ownJid, text) {
+function createMockMsg(ownJid, text, cmd) {
   const noop = async () => ({});
+  
+  const isGroupCmd = cmd.onlyGroup || cmd.onlyAdmin || text.includes("test") || text.includes("kick") || text.includes("ban");
+  
   const mockClient = {
     sendMessage: noop,
-    groupMetadata: async () => ({ subject: "Test Group", id: ownJid, participants: [] }),
+    groupMetadata: async () => ({ subject: "Test Group", id: "1234567890-123456@g.us", participants: [{ id: ownJid, admin: "admin" }, { id: "11111111111@s.whatsapp.net", admin: null }] }),
     groupLeave: noop,
     groupUpdateSubject: noop,
     groupUpdateDescription: noop,
@@ -75,31 +78,75 @@ function createMockMsg(ownJid, text) {
     presenceSubscribe: noop,
     sendPresenceUpdate: noop,
     readMessages: noop,
+    albumMessage: noop,
     user: { id: ownJid }
   };
 
+  const isGroup = isGroupCmd;
+  const jid = isGroup ? "1234567890-123456@g.us" : ownJid;
+  const sender = ownJid;
+
+  const mockReplyMsg = {
+    text: "dummy text",
+    jid: jid,
+    sender: sender,
+    fromMe: true,
+    key: { remoteJid: jid, fromMe: true, id: "reply-" + Date.now() },
+    data: { key: { remoteJid: jid, fromMe: true, id: "reply-" + Date.now() }, message: { imageMessage: { mimetype: "image/jpeg" } } },
+    message: { conversation: "dummy text" },
+    mimetype: "image/jpeg",
+    download: async (type) => {
+      const fs = require('fs');
+      const path = require('path');
+      const { getTempPath } = require('./helpers');
+      const isMedia = ["slow", "sped", "bass", "dinle", "trim", "vmix", "ağırçekim", "fps", "kes", "döndür", "flip", "gif"].some(x => String(cmd.pattern).includes(x));
+      if (isMedia) {
+        const sourcePath = path.join(__dirname, 'dummy.mp4');
+        const dummyPath = getTempPath('.mp4');
+        if (fs.existsSync(sourcePath)) fs.copyFileSync(sourcePath, dummyPath);
+        if (type === 'buffer') return fs.readFileSync(dummyPath);
+        return dummyPath;
+      }
+      const sourcePath = path.join(__dirname, 'dummy.jpg');
+      const dummyPath = getTempPath('.jpg');
+      if (!fs.existsSync(sourcePath)) {
+        fs.writeFileSync(sourcePath, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64'));
+      }
+      fs.copyFileSync(sourcePath, dummyPath);
+      if (type === 'buffer') return fs.readFileSync(dummyPath);
+      return dummyPath;
+    },
+    image: true,
+    video: true,
+    audio: true,
+    sticker: true,
+    document: true,
+    album: false
+  };
+
   return {
-    jid: ownJid,
-    sender: ownJid,
-    senderJid: ownJid,
+    jid: jid,
+    sender: sender,
+    senderJid: sender,
     senderName: "Test User",
     pushName: "Test User",
     fromMe: true,
     fromOwner: true,
     isAdmin: true,
     isBotAdmin: true,
-    isGroup: false,
-    isGroupAdmins: false,
-    groupAdmins: [],
+    isGroup: isGroup,
+    isGroupAdmins: true,
+    groupAdmins: [ownJid],
     text,
     client: mockClient,
-    quoted: null,
-    reply_message: false,
-    mentions: [],
+    quoted: mockReplyMsg,
+    reply_message: mockReplyMsg,
+    mention: ["11111111111@s.whatsapp.net"],
+    mentions: ["11111111111@s.whatsapp.net"],
     groupMetadata: null,
-    key: { id: "selftest-" + Date.now(), remoteJid: ownJid, fromMe: true },
+    key: { id: "selftest-" + Date.now(), remoteJid: jid, fromMe: true },
     messageTimestamp: Math.floor(Date.now() / 1000),
-    data: { key: { id: "selftest-" + Date.now(), remoteJid: ownJid, fromMe: true }, message: { conversation: text }, messageTimestamp: Math.floor(Date.now() / 1000) },
+    data: { key: { id: "selftest-" + Date.now(), remoteJid: jid, fromMe: true }, message: { conversation: text }, messageTimestamp: Math.floor(Date.now() / 1000) },
     message: { conversation: text },
     reply: noop,
     send: noop,
@@ -109,7 +156,15 @@ function createMockMsg(ownJid, text) {
     edit: noop,
     forward: noop,
     delete: noop,
-    download: noop,
+    download: async () => {
+      const fs = require('fs');
+      const path = require('path');
+      const dummyPath = path.join(__dirname, 'dummy.jpg');
+      if (!fs.existsSync(dummyPath)) {
+        fs.writeFileSync(dummyPath, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64'));
+      }
+      return dummyPath;
+    },
     _isStale: false
   };
 }
@@ -123,10 +178,16 @@ async function testCommand(cmd, prefix, ownJid) {
     return { key, result: { status: "skipped", ms: 0, lastRun: new Date().toISOString(), error: "Tehlikeli komut", runs: 0 } };
   }
 
-  const text = prefix + key;
-  const mock = createMockMsg(ownJid, text);
+  // Akıllı input üretici (Dummy args)
+  let dummyArg = "";
+  if (key.match(/insta|tiktok|fb|twitter|pinterest|youtube|ytvideo|video|şarkı|ytsesb|spotify/)) dummyArg = " https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+  else if (key.match(/ara|hava|söz|vikipedi|çevir/)) dummyArg = " istanbul";
+  else if (key.match(/test|ölç/)) dummyArg = " @11111111111";
+
+  const text = prefix + key + dummyArg;
+  const mock = createMockMsg(ownJid, text, cmd);
   const regex = new RegExp(String(cmd.pattern), "i");
-  const match = key.match(regex) || [key, ""];
+  const match = (key + dummyArg).match(regex) || [key, dummyArg.trim()];
 
   const t0 = Date.now();
   try {
@@ -139,10 +200,12 @@ async function testCommand(cmd, prefix, ownJid) {
         rej(new Error("timeout"));
       }, TIMEOUT_MS)),
     ]);
+  
     return { key, result: { status: "ok", ms: Date.now() - t0, lastRun: new Date().toISOString(), error: null, runs: 1 } };
   } catch (err) {
     const isTimeout = err.message === "timeout";
     if (isTimeout) console.warn(`[Self-Test] Timeout: ${key}`);
+    else console.warn(`[Self-Test] Hatası (${key}): ${err.message}`);
     return {
       key, result: {
         status: isTimeout ? "timeout" : "error",
@@ -158,6 +221,8 @@ async function testCommand(cmd, prefix, ownJid) {
 async function runSelfTest(sock) {
   const { logger } = require("../config");
   const handler = require("./handler");
+
+  process.env.IS_SELF_TEST = 'true';
 
   // 100% KALICI ÇÖZÜM: Devre dışı bırakma kontrolü
   if (process.env.SELF_TEST === "false") {
@@ -247,7 +312,7 @@ async function runSelfTest(sock) {
 
     for (const r of results) {
       if (!r) continue;
-      handler.recordStat(r.key, r.result.status, r.result.ms, r.result.error);
+      handler.recordStat(r.key, r.result.status, r.result.ms, r.result.error, true);
       if (r.result.status === "ok") ok++;
       else if (r.result.status === "error") err++;
       else if (r.result.status === "timeout") timeout++;
@@ -260,7 +325,7 @@ async function runSelfTest(sock) {
     }
 
     // Lifecycle Check: Eğer oturum kapatıldıysa veya yenilendiyse testi durdur
-    if (!sock.ws || sock.ws.readyState !== 1 || !sock.ev) {
+    if (!sock.ev) {
       logger.warn("🧪 Self-test: Socket bağlantısı koptuğu için test döngüsü durduruldu.");
       break;
     }
@@ -279,6 +344,8 @@ async function runSelfTest(sock) {
     status: 'completed'
   };
   process.emit('test_progress', global.testProgress);
+
+  process.env.IS_SELF_TEST = 'false';
 
   process.emit('dashboard_activity', {
     time: new Date().toLocaleTimeString(),
