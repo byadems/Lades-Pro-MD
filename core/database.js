@@ -169,9 +169,31 @@ async function initializeDatabase() {
     logger.warn("Legacy modeller (plugins/utils/db/models.js) yüklenirken atlandı.");
   }
 
+  const { Umzug, SequelizeStorage } = require('umzug');
+
+  const umzug = new Umzug({
+    migrations: { glob: path.join(__dirname, '../migrations/*.js') },
+    context: sequelize.getQueryInterface(),
+    storage: new SequelizeStorage({ sequelize }),
+    logger: console,
+    create: {
+      folder: path.join(__dirname, '../migrations')
+    }
+  });
+
+  try {
+    if (!fs.existsSync(path.join(__dirname, '../migrations'))) {
+      fs.mkdirSync(path.join(__dirname, '../migrations'), { recursive: true });
+    }
+    await umzug.up();
+    logger.info("Migrations executed successfully.");
+  } catch (e) {
+    logger.warn(`Migration error: ${e.message}`);
+  }
+
   for (const model of models) {
     try {
-      if (model.sync) await model.sync({ alter: false });
+      if (model.sync) await model.sync({ alter: true });
       logger.info(`Table synced: ${model.getTableName ? model.getTableName() : 'unknown'}`);
     } catch (e) {
       logger.warn(`Tablo senkronizasyonunda hata oluştu: ${e.message}`);

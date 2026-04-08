@@ -149,12 +149,25 @@ process.on("uncaughtException", (err) => {
             if (jid === 'all') {
               const chats = await sock.groupFetchAllParticipating();
               const groupJids = Object.keys(chats).slice(0, 300); // Limit to max 300 groups
+              
+              const { default: PQueue } = await import('p-queue');
+              const queue = new PQueue({ concurrency: 1, interval: 3000, intervalCap: 1 });
+              
               for (const j of groupJids) {
-                await sock.sendMessage(j, { text: message });
-                await new Promise(r => setTimeout(r, 3000)); // Wait 3s between messages to avoid ban
+                queue.add(async () => {
+                  try {
+                    await sock.sendMessage(j, { text: message });
+                  } catch (err) {
+                    logger.error({ jid: j, err: err.message }, "Broadcast failed for group");
+                  }
+                });
               }
             } else {
-              await sock.sendMessage(jid.includes('@') ? jid : jid + '@s.whatsapp.net', { text: message });
+              try {
+                await sock.sendMessage(jid.includes('@') ? jid : jid + '@s.whatsapp.net', { text: message });
+              } catch (err) {
+                logger.error({ jid, err: err.message }, "Broadcast failed");
+              }
             }
           }
         } else if (msg.type === 'restart') {
@@ -223,10 +236,12 @@ process.on("uncaughtException", (err) => {
         }
       });
 
+      process.removeAllListeners('dashboard_activity');
       process.on('dashboard_activity', (act) => {
         if (dashboard.connected) dashboard.send({ type: 'activity', data: act });
       });
 
+      process.removeAllListeners('test_progress');
       process.on('test_progress', (prog) => {
         if (dashboard.connected) dashboard.send({ type: 'test_progress', data: prog });
       });

@@ -17,6 +17,13 @@ const { getMessageByKey } = require("./store");
 const { antidelete } = require("../plugins/utils");
 const { LRUCache } = require("lru-cache");
 
+let commandQueue = null;
+import('p-queue').then(({ default: PQueue }) => {
+  commandQueue = new PQueue({ concurrency: 5 });
+}).catch(err => {
+  logger.error(err, "PQueue yüklenemedi");
+});
+
 // ─────────────────────────────────────────────────────────
 //  Command Stats Tracker
 // ─────────────────────────────────────────────────────────
@@ -101,7 +108,7 @@ function recordStat(pattern, status, durationMs, error = null) {
          saveRuntimeStats(); // Runtime stats'ı da kaydet
        } catch (e) { }
        _statsSaveTimer = null;
-    }, 2 * 60 * 1000);
+    }, 30 * 1000); // 30 seconds debounce
   }
 }
 
@@ -961,7 +968,13 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           const _t0 = Date.now();
 
           // Komut çalıştırılırken (hata yakalama bloğu içindeyiz)
-          await cmd.run(message, match);
+          if (commandQueue) {
+            await commandQueue.add(async () => {
+              await cmd.run(message, match);
+            });
+          } else {
+            await cmd.run(message, match);
+          }
 
           const _dur = Date.now() - _t0;
           logger.debug({ cmd: cmd.pattern, jid, senderJid, ms: _dur }, "Command executed");

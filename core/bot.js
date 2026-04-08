@@ -220,8 +220,13 @@ async function createBot(sessionId = "lades-session", options = {}) {
         logger.info(`${delay}ms içinde yeniden bağlanılıyor (Deneme ${reconnectCount})...`);
 
         if (reconnectCount > 15) {
-            logger.error("Maksimum yeniden bağlanma denemesine ulaşıldı. Bot kapatılıyor.");
-            process.exit(1);
+            logger.error("Maksimum yeniden bağlanma denemesine ulaşıldı. Oturum duraklatılıyor.");
+            if (process.send) process.send({ type: 'bot_status', data: { connected: false, error: 'Maksimum yeniden bağlanma denemesi aşıldı.' } });
+            if (options.manager) {
+              options.manager.suspend(sessionId);
+              options.manager.removeSession(sessionId, false);
+            }
+            return;
         }
 
         setTimeout(async () => {

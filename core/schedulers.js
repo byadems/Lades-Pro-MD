@@ -35,7 +35,7 @@ function registerSchedule(client, schedule) {
     } catch (err) {
       logger.error({ err, scheduleId: schedule.id }, "Failed to send scheduled message");
     }
-  }, { timezone: "Europe/Istanbul" });
+  }, { timezone: process.env.TIMEZONE || "Europe/Istanbul" });
 
   activeTasks.set(schedule.id, task);
   return task;
