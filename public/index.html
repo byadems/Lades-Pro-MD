@@ -399,8 +399,16 @@
     <div class="page" id="page-komutlar">
       <div class="panel-card">
         <div class="pc-header">
-          <span class="pc-title">Komut Listesi</span>
-          <span class="pc-badge" id="cmdTotal">-- komut</span>
+          <div class="pc-title-wrap">
+            <span class="pc-title">Komut Listesi</span>
+            <span class="pc-sub" id="cmdTotal">-- komut</span>
+          </div>
+          <div class="filter-row">
+            <button class="f-btn active" data-cmd-f="all">Hepsi</button>
+            <button class="f-btn" data-cmd-f="ok">✅ Başarılı</button>
+            <button class="f-btn error" data-cmd-f="error">❌ Hatalı</button>
+            <button class="f-btn" data-cmd-f="skipped">⏭ Atlanan</button>
+          </div>
         </div>
         <div id="cmdTestBanner" class="cmd-banner pending" style="display:none">⏳ Test bekleniyor...</div>
         <div class="cmd-search-bar">

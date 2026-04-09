@@ -54,10 +54,10 @@ async function addExif(webpInput, packname = "Lades-Pro", author = "Lades-Pro") 
   const exifAttr = Buffer.from([0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x41, 0x57, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00]);
   const jsonBuffer = Buffer.from(json, "utf-8");
   const exifBuffer = Buffer.concat([exifAttr, jsonBuffer]);
-  
+
   // Set json length in header
   exifBuffer.writeUIntLE(jsonBuffer.length, 14, 4);
-  
+
   img.exif = exifBuffer;
   return await img.save(null);
 }
@@ -102,7 +102,7 @@ async function circle(imageBuffer) {
   // Check if webp - convert to png first using sharp
   const sharp = require("sharp");
   let processBuffer = imageBuffer;
-  
+
   // Detect format and convert webp to png
   try {
     const metadata = await sharp(imageBuffer).metadata();
@@ -113,7 +113,7 @@ async function circle(imageBuffer) {
     // If sharp fails, try direct conversion
     processBuffer = await sharp(imageBuffer).png().toBuffer();
   }
-  
+
   const image = await Jimp.read(processBuffer);
   image.circle();
   return await image.getBuffer(JimpMime.png);
@@ -126,7 +126,7 @@ async function circle(imageBuffer) {
 async function blur(imageBuffer, level = 5) {
   const sharp = require("sharp");
   let processBuffer = imageBuffer;
-  
+
   // Convert webp to png if needed
   try {
     const metadata = await sharp(imageBuffer).metadata();
@@ -136,7 +136,7 @@ async function blur(imageBuffer, level = 5) {
   } catch (e) {
     processBuffer = await sharp(imageBuffer).png().toBuffer();
   }
-  
+
   const image = await Jimp.read(processBuffer);
   image.blur(level);
   return await image.getBuffer(JimpMime.jpeg);
@@ -182,12 +182,12 @@ async function sticker(buffer, isVideo = false) {
         reject(err);
       }
     })
-    .on("error", (e) => {
-      cleanTempFile(input);
-      cleanTempFile(output);
-      reject(e);
-    })
-    .save(output);
+      .on("error", (e) => {
+        cleanTempFile(input);
+        cleanTempFile(output);
+        reject(e);
+      })
+      .save(output);
   });
 }
 
@@ -195,120 +195,124 @@ async function sticker(buffer, isVideo = false) {
  * Rotates media.
  */
 async function rotate(buffer, deg = 90) {
-    const input = getTempPath();
-    const output = getTempPath();
-    const fsPromises = require("fs").promises;
-    await fsPromises.writeFile(input, buffer);
-    return new Promise((resolve, reject) => {
-        ffmpeg(input)
-            .addOptions([`-vf`, `rotate=${deg}*(PI/180)`])
-            .on('end', async () => {
-                try {
-                  const result = await fsPromises.readFile(output);
-                  cleanTempFile(input);
-                  cleanTempFile(output);
-                  resolve(result);
-                } catch (err) {
-                  reject(err);
-                }
-            })
-            .on('error', (e) => {
-                cleanTempFile(input);
-                cleanTempFile(output);
-                reject(e);
-            })
-            .save(output);
-    });
+  const input = getTempPath();
+  const output = getTempPath();
+  const fsPromises = require("fs").promises;
+  await fsPromises.writeFile(input, buffer);
+  return new Promise((resolve, reject) => {
+    ffmpeg(input)
+      .addOptions([`-vf`, `rotate=${deg}*(PI/180)`])
+      .on('end', async () => {
+        try {
+          const result = await fsPromises.readFile(output);
+          cleanTempFile(input);
+          cleanTempFile(output);
+          resolve(result);
+        } catch (err) {
+          reject(err);
+        }
+      })
+      .on('error', (e) => {
+        cleanTempFile(input);
+        cleanTempFile(output);
+        reject(e);
+      })
+      .save(output);
+  });
 }
 
 /**
  * Mix audio and video.
  */
 async function avMix(videoBuffer, audioBuffer) {
-    const video = getTempPath(".mp4");
-    const audio = getTempPath(".mp3");
-    const output = getTempPath(".mp4");
-    const fsPromises = require("fs").promises;
-    await fsPromises.writeFile(video, videoBuffer);
-    await fsPromises.writeFile(audio, audioBuffer);
+  const video = getTempPath(".mp4");
+  const audio = getTempPath(".mp3");
+  const output = getTempPath(".mp4");
+  const fsPromises = require("fs").promises;
+  await fsPromises.writeFile(video, videoBuffer);
+  await fsPromises.writeFile(audio, audioBuffer);
 
-    return new Promise((resolve, reject) => {
-        ffmpeg(video)
-            .input(audio)
-            .addOptions(['-c:v copy', '-c:a aac', '-map 0:v:0', '-map 1:a:0', '-shortest'])
-            .on('end', async () => {
-                try {
-                  const result = await fsPromises.readFile(output);
-                  cleanTempFile(video);
-                  cleanTempFile(audio);
-                  cleanTempFile(output);
-                  resolve(result);
-                } catch (err) {
-                  reject(err);
-                }
-            })
-            .on('error', (e) => {
-                cleanTempFile(video);
-                cleanTempFile(audio);
-                cleanTempFile(output);
-                reject(e);
-            })
-            .save(output);
-    });
+  return new Promise((resolve, reject) => {
+    ffmpeg(video)
+      .input(audio)
+      .addOptions(['-c:v copy', '-c:a aac', '-map 0:v:0', '-map 1:a:0', '-shortest'])
+      .on('end', async () => {
+        try {
+          const result = await fsPromises.readFile(output);
+          cleanTempFile(video);
+          cleanTempFile(audio);
+          cleanTempFile(output);
+          resolve(result);
+        } catch (err) {
+          reject(err);
+        }
+      })
+      .on('error', (e) => {
+        cleanTempFile(video);
+        cleanTempFile(audio);
+        cleanTempFile(output);
+        reject(e);
+      })
+      .save(output);
+  });
 }
 
 /**
  * Converts WebP to MP4.
  */
-async function webp2mp4(buffer) {
-    return await nx.nxTry([`/tools/webp2mp4?url=`, `/tools/ezgif-webp2mp4`], { buffer: true });
+async function webp2mp4(buffer, outputPath) {
+  const res = await nx.nxTry([`/tools/webp2mp4?url=`, `/tools/ezgif-webp2mp4`], { buffer: true });
+  if (outputPath && res) {
+    await fs.promises.writeFile(outputPath, res);
+  }
+  return res;
 }
 
 /**
  * Trims video/audio.
  */
 async function trim(buffer, start, end) {
-    const input = getTempPath();
-    const output = getTempPath();
-    const fsPromises = require("fs").promises;
-    await fsPromises.writeFile(input, buffer);
-    return new Promise((resolve, reject) => {
-        ffmpeg(input)
-            .setStartTime(start)
-            .setDuration(end - start)
-            .on('end', async () => {
-                try {
-                  const result = await fsPromises.readFile(output);
-                  cleanTempFile(input);
-                  cleanTempFile(output);
-                  resolve(result);
-                } catch (err) {
-                  reject(err);
-                }
-            })
-            .on('error', (e) => {
-                cleanTempFile(input);
-                cleanTempFile(output);
-                reject(e);
-            })
-            .save(output);
-    });
+  const input = getTempPath();
+  const output = getTempPath();
+  const fsPromises = require("fs").promises;
+  await fsPromises.writeFile(input, buffer);
+  return new Promise((resolve, reject) => {
+    ffmpeg(input)
+      .setStartTime(start)
+      .setDuration(end - start)
+      .on('end', async () => {
+        try {
+          const result = await fsPromises.readFile(output);
+          cleanTempFile(input);
+          cleanTempFile(output);
+          resolve(result);
+        } catch (err) {
+          reject(err);
+        }
+      })
+      .on('error', (e) => {
+        cleanTempFile(input);
+        cleanTempFile(output);
+        reject(e);
+      })
+      .save(output);
+  });
 }
 
 async function addID3(audioBuffer, title, artist, imageBuffer) {
-    const ID3WriterModule = await import("browser-id3-writer");
-    const ID3Writer = ID3WriterModule.default;
-    const writer = new ID3Writer(audioBuffer);
+  const ID3WriterModule = await import("browser-id3-writer");
+  const ID3Writer = ID3WriterModule.default;
+  const writer = new ID3Writer(audioBuffer);
 
-    writer.setFrame('TIT2', title)
-          .setFrame('TPE1', [artist])
-          .setFrame('APIC', {
-              type: 3,
-              data: imageBuffer,
-              description: 'Cover'
-          });
-    writer.addTag();
-    return Buffer.from(writer.arrayBuffer);
+  writer.setFrame('TIT2', title)
+    .setFrame('TPE1', [artist])
+    .setFrame('APIC', {
+      type: 3,
+      data: imageBuffer,
+      description: 'Cover'
+    });
+  writer.addTag();
+  return Buffer.from(writer.arrayBuffer);
 }
 
 module.exports = {

@@ -368,83 +368,33 @@ app.get('/api/cmd-stats', (req, res) => {
 app.get('/api/commands', (req, res) => {
   try {
     const stats = loadStats();
-    const allModules = [];
-    const pluginsDir = path.join(__dirname, '../plugins');
-    const langPath = path.join(pluginsDir, 'utils/lang/turkish.json');
-    let langData = {};
-    try {
-      if (fs.existsSync(langPath)) {
-        langData = JSON.parse(fs.readFileSync(langPath, 'utf8')).STRINGS || {};
-      }
-    } catch (e) {
-      console.error('Lang data error:', e.message);
-    }
-
-    const files = fs.readdirSync(pluginsDir).filter(f => f.endsWith('.js') && f !== 'utils');
-    files.forEach(file => {
+    let allModules = [];
+    let total = 0;
+    
+    // Read directly from the bot's exported commands!
+    const activeCommandsPath = path.join(__dirname, '../sessions', 'active-commands.json');
+    if (fs.existsSync(activeCommandsPath)) {
       try {
-        const src = fs.readFileSync(path.join(pluginsDir, file), 'utf8');
-
-        // Try to find namespace: getString("namespace")
-        const nsMatch = src.match(/getString\s*\(\s*["']([^"']+)["']\s*\)/);
-        const namespace = nsMatch ? nsMatch[1] : null;
-
-        const matches = src.matchAll(/(?:Module|bot|System)\s*\(\s*\{([\s\S]*?)\}\s*,/g);
-        for (const m of matches) {
-          const block = m[1];
-          const pattern = (block.match(/pattern\s*:\s*["'`]([^"'`]+)["'`]/) || [])[1];
-
-          // Extract the RAW description value (literal or variable)
-          let descResult = (block.match(/desc\s*:\s*(?:["'`]([^"'`]+)["'`]|([a-zA-Z0-9_\.]+))/));
-          let resolvedDesc = '';
-
-          if (descResult) {
-            if (descResult[1]) {
-              // Literal string
-              resolvedDesc = descResult[1];
-            } else if (descResult[2]) {
-              // Variable (e.g. Lang.XXX or yks)
-              const varName = descResult[2];
-              if (varName.startsWith('Lang.') && namespace && langData[namespace]) {
-                const key = varName.replace('Lang.', '');
-                resolvedDesc = langData[namespace][key] || varName;
-              } else {
-                // Try to find local constant: const VAR = "..."
-                const varRegex = new RegExp('(?:const|let|var)\\s+' + varName + '\\s*=\\s*["\'`]([^"\'`]+)["\'\\s]', 'i');
-                const varMatch = src.match(varRegex);
-                resolvedDesc = varMatch ? varMatch[1] : varName;
-              }
-            }
-          }
-
-          const use = (block.match(/use\s*:\s*["'`]([^"'`]+)["'`]/) || [])[1];
-          const type = (block.match(/type\s*:\s*["'`]([^"'`]+)["'`]/) || [])[1];
-          if (!pattern) continue;
-          let cleanPattern = (pattern || "").trim()
-            .replace(/^\(\?:\s*([^)]*)\)/, '$1') // Extract (?:a|b) -> a|b
-            .replace(/\|/g, " / ")               // Replace | with /
-            .split(" ?")[0]                      // Remove optional space + args
-            .trim();
-
-          // Remove trailing question mark part ONLY if it's not part of a regex group
-          if (!cleanPattern.startsWith("(?:")) {
-            cleanPattern = cleanPattern.split('?')[0].trim();
-          }
-          if (!cleanPattern) continue;
-
-          // Match stats key
-          const statKey = cleanPattern.split(' ')[0].replace(/[^\wçğıöşüÇĞİÖŞÜ]/gi, '');
-          const stat = stats[statKey] || null;
-          allModules.push({
-            pattern: cleanPattern,
-            desc: resolvedDesc || '',
-            use: use || type || 'genel',
-            stat  // { status, ms, lastRun, error, runs } or null
-          });
-        }
-      } catch { }
-    });
-    res.json({ commands: allModules, total: allModules.length });
+        const data = JSON.parse(fs.readFileSync(activeCommandsPath, 'utf8'));
+        const commands = data.commands || [];
+        
+        // Merge stats with the accurate command list
+        allModules = commands.map(cmd => {
+          const stat = stats[cmd.statKey] || null;
+          return {
+            pattern: cmd.pattern,
+            desc: cmd.desc,
+            use: cmd.use,
+            stat: stat
+          };
+        });
+        total = data.total || allModules.length;
+      } catch (err) {
+        console.error("Error reading active-commands.json:", err.message);
+      }
+    }
+    
+    res.json({ commands: allModules, total: total });
   } catch (err) {
     res.json({ commands: [], total: 0 });
   }

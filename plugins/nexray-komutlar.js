@@ -2,6 +2,8 @@ const { Module } = require("../main");
 const axios = require("axios");
 const config = require("../config");
 const { CircuitBreaker } = require("./utils/resilience");
+const nexray = require("./utils/nexray");
+const { saveToDisk, getTempPath, cleanTempFile, isMediaImage } = require("../core/helpers");
 
 const BASE = "https://api.nexray.web.id";
 const TIMEOUT = 30000;
@@ -467,20 +469,48 @@ Module({
       const m = message.reply_message.text.match(/https?:\/\/\S+/);
       if (m) url = m[0];
     }
-    if (!url || !url.includes("threads")) {
+    if (!url || !/threads\.net/i.test(url)) {
       return await message.sendReply("🧵 _Threads bağlantısı girin:_ `.threads <url>`");
     }
+    const quotedMessage = message.reply_message ? message.quoted : message.data;
     try {
-      const result = await nexGet(`/downloader/threads?url=${encodeURIComponent(url)}`);
-      if (!result) throw new Error("İndirme başarısız");
-      const mediaUrl = Array.isArray(result) ? result[0]?.url || result[0] : result.url || result.video || result;
-      if (!mediaUrl) throw new Error("Medya URL bulunamadı");
-      if (typeof mediaUrl === "string" && (mediaUrl.includes(".mp4") || mediaUrl.includes("video"))) {
-        await message.sendReply({ url: mediaUrl }, "video");
-      } else {
-        await message.client.sendMessage(message.jid, { image: { url: mediaUrl } }, { quoted: message.data });
+      // Yeni nexray modülü ile (Nexray + Siputzx fallback)
+      const mediaUrls = await nexray.downloadThreads(url);
+
+      if (!mediaUrls || !mediaUrls.length) {
+        return await message.sendReply("_⚠️ Medya bulunamadı veya bağlantı geçersiz_");
+      }
+
+      if (mediaUrls.length === 1) {
+        const isImage = isMediaImage(mediaUrls[0]);
+        const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
+        try {
+          await saveToDisk(mediaUrls[0], tempPath);
+          return await message.sendReply(
+            { [isImage ? "image" : "video"]: { url: tempPath } },
+            { quoted: quotedMessage }
+          );
+        } finally {
+          cleanTempFile(tempPath);
+        }
+      }
+
+      await message.sendReply(`_${mediaUrls.length} medya iletiliyor..._`, { quoted: quotedMessage });
+      for (const mediaUrl of mediaUrls) {
+        const isImage = isMediaImage(mediaUrl);
+        const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
+        try {
+          await saveToDisk(mediaUrl, tempPath);
+          await message.sendReply({ [isImage ? "image" : "video"]: { url: tempPath } });
+          await new Promise(r => setTimeout(r, 600));
+        } catch (err) {
+          console.error("Threads medya indirilemedi:", err?.message);
+        } finally {
+          cleanTempFile(tempPath);
+        }
       }
     } catch (e) {
+      console.error("Threads indirme hatası:", e?.message);
       await message.sendReply(`❌ _Threads indirme başarısız:_ ${e.message}`);
     }
   }
@@ -505,19 +535,37 @@ Module({
     if (!url || !url.includes("soundcloud")) {
       return await message.sendReply("🎧 _SoundCloud bağlantısı girin:_ `.soundcloud <url>`");
     }
+    let statusMsg;
     try {
-      const result = await nexGet(`/downloader/soundcloud?url=${encodeURIComponent(url)}`);
-      if (!result) throw new Error("İndirme başarısız");
-      const audioUrl = result.url || result.download_url || result.audio;
+      statusMsg = await message.sendReply("_⬇️ SoundCloud'dan indiriliyor..._");
+      // Yeni nexray modülü ile (Nexray + Siputzx + nxTry fallback zinciri)
+      const result = await nexray.downloadSoundCloud(url);
+      if (!result?.url) throw new Error("Ses URL bulunamadı");
+
       const title = result.title || "SoundCloud";
-      if (!audioUrl) throw new Error("Ses URL bulunamadı");
+      const author = result.author || "";
+
+      await message.edit(`_📤 *${title}* yükleniyor..._`, message.jid, statusMsg.key);
+
       await message.client.sendMessage(message.jid, {
-        audio: { url: audioUrl },
+        audio: { url: result.url },
         mimetype: "audio/mpeg",
         fileName: `${title}.mp3`,
+        externalAdReply: {
+          title,
+          body: author || "SoundCloud",
+          mediaType: 2,
+        },
       }, { quoted: message.data });
+
+      await message.edit("_✅ İndirme tamamlandı!_", message.jid, statusMsg.key);
     } catch (e) {
-      await message.sendReply(`❌ _SoundCloud indirme başarısız:_ ${e.message}`);
+      console.error("SoundCloud indirme hatası:", e?.message);
+      if (statusMsg) {
+        await message.edit(`_❌ SoundCloud indirme başarısız:_ ${e.message}`, message.jid, statusMsg.key);
+      } else {
+        await message.sendReply(`❌ _SoundCloud indirme başarısız:_ ${e.message}`);
+      }
     }
   }
 );

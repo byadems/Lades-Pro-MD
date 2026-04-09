@@ -1,5 +1,6 @@
 const {
   antifake,
+  antibot,
   pdm,
   antipromote,
   antidemote,
@@ -42,13 +43,13 @@ async function extractData(message) {
   return message.quoted.message.stickerMessage.fileSha256.toString();
 }
 Module({
-    pattern: "otoçıkartma ?(.*)",
-    fromMe: false,
-    desc: "Komutları çıkartmalara yapıştırır. Çıkartma gönderilirse komut gibi çalışır!",
-    use: "tools",
-    usage: ".otoçıkartma .ban",
-    warn: "Sadece çıkartmalarda çalışır",
-  },
+  pattern: "otoçıkartma ?(.*)",
+  fromMe: false,
+  desc: "Komutları çıkartmalara yapıştırır. Çıkartma gönderilirse komut gibi çalışır!",
+  use: "tools",
+  usage: ".otoçıkartma .ban",
+  warn: "Sadece çıkartmalarda çalışır",
+},
   async (message, match) => {
     if (!match[1] || !message.reply_message || !message.reply_message.sticker)
       return await message.sendReply("_💬 Bir çıkartmayı yanıtlayın_\n_Ör: *.otoçıkartma .ban*_"
@@ -71,12 +72,12 @@ Module({
 );
 
 Module({
-    pattern: "otoçıkartmasil ?(.*)",
-    fromMe: false,
-    desc: "Çıkartmalardaki komutları siler",
-    usage: ".otoçıkartmasil .ban",
-    use: "tools",
-  },
+  pattern: "otoçıkartmasil ?(.*)",
+  fromMe: false,
+  desc: "Çıkartmalardaki komutları siler",
+  usage: ".otoçıkartmasil .ban",
+  use: "tools",
+},
   async (message, match) => {
     if (message.reply_message && message.reply_message.sticker) {
       let deleted = await stickcmd.delete(await extractData(message), "file");
@@ -116,11 +117,11 @@ Module({
 );
 
 Module({
-    pattern: "otoçıkartmalar ?(.*)",
-    fromMe: false,
-    desc: "Çıkartmalardaki komutları gösterir",
-    use: "tools",
-  },
+  pattern: "otoçıkartmalar ?(.*)",
+  fromMe: false,
+  desc: "Çıkartmalardaki komutları gösterir",
+  use: "tools",
+},
   async (message, match) => {
     const all = await stickcmd.get();
     const commands = all.map((element) => element.dataValues.command);
@@ -130,13 +131,13 @@ Module({
 );
 
 Module({
-    pattern: "otosohbetkapat ?(.*)",
-    fromMe: true,
-    onlyAdmin: true,
-    desc: "Grup sohbetinin otomatik kapanma özelliğini aktif eder.",
-    warn: "Sunucu saatine göre çalışır",
-    use: "group",
-  },
+  pattern: "otosohbetkapat ?(.*)",
+  fromMe: true,
+  onlyAdmin: true,
+  desc: "Grup sohbetinin otomatik kapanma özelliğini aktif eder.",
+  warn: "Sunucu saatine göre çalışır",
+  use: "group",
+},
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
@@ -170,13 +171,13 @@ Module({
 );
 
 Module({
-    pattern: "otosohbetaç ?(.*)",
-    fromMe: true,
-    onlyAdmin: true,
-    desc: "Grup sohbetinin otomatik açılma özelliğini aktif eder.",
-    warn: "Sunucu saatine göre çalışır",
-    use: "group",
-  },
+  pattern: "otosohbetaç ?(.*)",
+  fromMe: true,
+  onlyAdmin: true,
+  desc: "Grup sohbetinin otomatik açılma özelliğini aktif eder.",
+  warn: "Sunucu saatine göre çalışır",
+  use: "group",
+},
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
@@ -208,12 +209,12 @@ Module({
 );
 
 Module({
-    pattern: "otosohbet ?(.*)",
-    fromMe: true,
-    onlyAdmin: true,
-    desc: "Grup sohbetinin otomatik açılış ve kapanış saatlerini ayarlar. (Örn: .otosohbet 09:00|23:00)",
-    use: "group",
-  },
+  pattern: "otosohbet ?(.*)",
+  fromMe: true,
+  onlyAdmin: true,
+  desc: "Grup sohbetinin otomatik açılış ve kapanış saatlerini ayarlar. (Örn: .otosohbet 09:00|23:00)",
+  use: "group",
+},
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
@@ -238,11 +239,11 @@ Module({
 );
 
 Module({
-    pattern: "antinumara ?(.*)",
-    fromMe: false,
-    desc: "Belirli ülke koduna sahip numaraların gruba girişini engeller/yönetir.",
-    use: "group",
-  },
+  pattern: "antinumara ?(.*)",
+  fromMe: false,
+  desc: "Belirli ülke koduna sahip numaraların gruba girişini engeller/yönetir.",
+  use: "group",
+},
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
@@ -306,9 +307,9 @@ Module({
 );
 
 Module({
-    on: "groupParticipants",
-    fromMe: false,
-  },
+  on: "groupParticipants",
+  fromMe: false,
+},
   async (message, match) => {
     message.myjid = message.client.user.lid ? message.client.user.lid.split(":")[0] : message.client.user.id.split(":")[0];
     const db = await antifake.get();
@@ -408,7 +409,7 @@ Module({
     if (message.action === "add" && jids.includes(message.jid)) {
       const allowed = (ALLOWED || "90").split(",").map((p) => p.trim()).filter(Boolean);
       let participantId = typeof message.participant[0] === "string" ? message.participant[0] : message.participant[0].id;
-      
+
       // MIGRATION: Antinumara için LID'yi Telefon Numarasına Çevir
       let isLid = participantId.includes("@lid");
       if (isLid) {
@@ -419,7 +420,7 @@ Module({
             participantId = resolvedPn;
             isLid = false; // Başarıyla PN'ye çevrildi
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // ÖNEMLİ: Eğer hala bir LID ise ve PN'ye çevrilemediyse, 
@@ -431,12 +432,12 @@ Module({
       const isAllowedNumber = allowed.some((prefix) =>
         participantNumber.startsWith(prefix)
       );
-      
+
       if (!isAllowedNumber) {
         const { isBotIdentifier } = require("./utils/lid-helper");
         const isBotAdmin = await isAdmin(message, message.client.user.id);
         if (!isBotAdmin) return;
-        
+
         if (!isBotIdentifier(participantId, message.client)) {
           return await message.client.groupParticipantsUpdate(
             message.jid,

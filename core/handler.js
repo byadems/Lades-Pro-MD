@@ -34,7 +34,7 @@ let cmdStats = {};
 let runtimeStats = {
   totalMessages: 0,
   totalCommands: 0,
-  activeUsers: new Set(),
+  activeUsers: new LRUCache({ max: 2000, ttl: 1000 * 60 * 60 * 24 }),
   managedGroups: new Set(),
   startTime: Date.now()
 };
@@ -48,7 +48,10 @@ try {
     const saved = JSON.parse(fs.readFileSync(RUNTIME_STATS_FILE, 'utf8'));
     runtimeStats.totalMessages = saved.totalMessages || 0;
     runtimeStats.totalCommands = saved.totalCommands || 0;
-    runtimeStats.activeUsers = new Set(saved.activeUsers || []);
+    runtimeStats.activeUsers = new LRUCache({ max: 2000, ttl: 1000 * 60 * 60 * 24 });
+    if (saved.activeUsers && Array.isArray(saved.activeUsers)) {
+      saved.activeUsers.forEach(u => runtimeStats.activeUsers.set(u, true));
+    }
     runtimeStats.managedGroups = new Set(saved.managedGroups || []);
   }
 } catch {}
@@ -58,7 +61,7 @@ function saveRuntimeStats() {
     const toSave = {
       totalMessages: runtimeStats.totalMessages,
       totalCommands: runtimeStats.totalCommands,
-      activeUsers: Array.from(runtimeStats.activeUsers).slice(-100), // Son 100 kullanıcı
+      activeUsers: Array.from(runtimeStats.activeUsers.keys()).slice(0, 100), // Son 100 kullanıcı
       managedGroups: Array.from(runtimeStats.managedGroups),
       startTime: runtimeStats.startTime
     };
@@ -68,7 +71,7 @@ function saveRuntimeStats() {
 
 function recordMessage(senderJid, isGroup, groupJid) {
   runtimeStats.totalMessages++;
-  if (senderJid) runtimeStats.activeUsers.add(senderJid.split('@')[0]);
+  if (senderJid) runtimeStats.activeUsers.set(senderJid.split('@')[0], true);
   if (isGroup && groupJid) runtimeStats.managedGroups.add(groupJid);
 }
 
@@ -88,7 +91,7 @@ function getRuntimeStats() {
 
 let _statsSaveTimer = null;
 function recordStat(pattern, status, durationMs, error = null, isTest = false) {
-  const key = String(pattern).split('?')[0].split(' ')[0].replace(/[^\wçğıöşüÇĞİÖŞÜ]/gi, '');
+  const key = String(pattern).replace(/^\(\?:\s*|\)$/g, '').split('|')[0].split('?')[0].split(' ')[0].replace(/[^\wçğıöşüÇĞİÖŞÜ]/gi, '');
   if (!key) return;
   
   cmdStats[key] = {
@@ -160,7 +163,18 @@ class ReplyMessage {
     this.jid = contextInfo.participant || contextInfo.remoteJid || parentMsg.jid;
     this.remoteJid = contextInfo.remoteJid || parentMsg.jid;
     this.message = contextInfo.quotedMessage;
-    this.fromMe = this.jid?.split("@")[0] === client.user?.id?.split(":")[0];
+    
+    // Robust fromMe detection for replies
+    const myId = client.user?.id ? getNumericalId(client.user.id) : null;
+    const myLid = (client.user && client.user.lid) ? getNumericalId(client.user.lid) : null;
+    const senderId = getNumericalId(this.jid);
+    
+    this.fromMe = (
+      (this.jid?.split("@")[0] === client.user?.id?.split(":")[0]) ||
+      (myId && senderId === myId) ||
+      (myLid && senderId === myLid)
+    );
+
     // sender alias (group.js, manage.js kullanır)
     this.sender = this.jid;
     // participant alias  
@@ -341,9 +355,14 @@ class BaseMessage {
   }
 
   /**
-   * Send a text message with reply alias — always quotes the triggering message
+   * Send a text or media reply with automatic quoting
    */
-  async sendReply(text, options = {}) {
+  async sendReply(text, options = {}, arg3 = {}) {
+    // If used as sendReply(content, type, options)
+    if (typeof options === "string") {
+      return this.sendMessage(text, options, arg3);
+    }
+
     const content = typeof text === "string" ? { text } : text;
     // mentions passthrough
     const mentionsArr = options.mentions || content.mentions || [];
@@ -533,6 +552,35 @@ function loadPlugins(pluginsDir) {
   }
 
   const onCount = Object.values(onHandlers).reduce((a, b) => a + b.length, 0);
+
+  try {
+    const activeCmds = commands.filter(c => c.pattern).map(cmd => {
+      let cleanPattern = String(cmd.pattern).trim()
+        .replace(/^\/([^\/]+)\/[gimuy]*$/, '$1') // remove regex slashes if any
+        .replace(/^\^?(\(\?:\s*)?/, '')
+        .replace(/\)?\s*\$?$/, '')
+        .replace(/\|/g, " / ")
+        .split(" ?")[0]
+        .split("?")[0]
+        .replace(/^\(\?:\s*|\)$/g, '')
+        .trim();
+
+      const statKey = String(cmd.pattern).replace(/^\(\?:\s*|\)$/g, '').split('|')[0].split('?')[0].split(' ')[0].replace(/[^\wçğıöşüÇĞİÖŞÜ]/gi, '');
+      return {
+        pattern: cleanPattern,
+        statKey: statKey,
+        desc: cmd.desc || '',
+        use: cmd.use || cmd.type || 'genel'
+      };
+    });
+    fs.writeFileSync(path.join(__dirname, "../sessions", "active-commands.json"), JSON.stringify({
+      commands: activeCmds,
+      total: activeCmds.length
+    }, null, 2), "utf8");
+  } catch (err) {
+    logger.error("Failed to write active-commands.json", err.message);
+  }
+
   logger.info(`Plugins loaded: ${loaded} files, ${commands.length} commands, ${onCount} event handlers`);
   return { loaded, failed };
 }

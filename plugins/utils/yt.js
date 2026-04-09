@@ -6,6 +6,15 @@ const path = require('path');
 const { getTempPath, saveToDisk } = require('../../core/helpers');
 const nexray = require('./nexray');
 
+// FFmpeg binary'yi otomatik bul ve kaydet (@ffmpeg-installer/ffmpeg ile)
+try {
+  const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+  ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+} catch (_) {
+  // Sistem FFmpeg'i yoksa sessizce devam et - çevre değişkeni veya PATH'ten alınır
+}
+
+
 /**
  * YouTube downloader utility replacing the obfuscated bytecode.
  * Clean, readable, and open-source.
@@ -42,23 +51,57 @@ async function searchYoutube(query) {
 
 async function getVideoInfo(url) {
   try {
-    const info = await ytdl.getInfo(url);
+    const requestOptions = {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      }
+    };
+    const info = await ytdl.getInfo(url, { requestOptions });
     const formats = info.formats.map(f => ({
       type: f.hasVideo ? 'video' : 'audio',
       quality: f.qualityLabel || f.audioQuality || 'unknown',
       size: f.contentLength ? `${(f.contentLength / 1024 / 1024).toFixed(2)}MB` : '',
       url: f.url
     }));
-    return { formats, title: info.videoDetails.title };
+    return { formats, title: info.videoDetails.title, videoId: info.videoDetails.videoId };
   } catch (error) {
-    console.error('ytdl getInfo error:', error);
+    console.error('ytdl getInfo error:', error.message);
+
+    // Metadata Fallback using yt-search
+    try {
+      const search = await yts(url);
+      if (search) {
+        return {
+          title: search.title || 'YouTube Video',
+          videoId: search.videoId,
+          isFallback: true,
+          formats: [
+            { type: 'video', quality: '360p', size: 'Standart' },
+            { type: 'video', quality: '720p', size: 'HD' },
+            { type: 'video', quality: '1080p', size: 'Full HD' },
+            { type: 'video', quality: '1440p', size: '2K' },
+            { type: 'video', quality: '2160p', size: '4K' },
+            { type: 'audio', quality: '128kbps', size: '-' }
+          ]
+        };
+      }
+    } catch (e) {
+      console.error('Metadata fallback error:', e.message);
+    }
     throw error;
   }
 }
 
 async function downloadVideo(url, quality) {
   try {
-    const info = await ytdl.getInfo(url);
+    const requestOptions = {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      }
+    };
+    const info = await ytdl.getInfo(url, { requestOptions });
     const safeTitle = info.videoDetails.title.replace(/[^\w\s]/gi, '').trim() || 'video';
     const outputPath = getTempPath(`${safeTitle}_${Date.now()}.mp4`);
 
@@ -66,7 +109,7 @@ async function downloadVideo(url, quality) {
     const format = ytdl.chooseFormat(info.formats, { quality: 'highest', filter: 'videoandaudio' });
 
     return await new Promise((resolve, reject) => {
-      ytdl(url, { format })
+      ytdl(url, { format, requestOptions })
         .pipe(fs.createWriteStream(outputPath))
         .on('finish', () => resolve({ path: outputPath, title: info.videoDetails.title }))
         .on('error', reject);
@@ -91,12 +134,18 @@ async function downloadVideo(url, quality) {
 
 async function downloadAudio(url) {
   try {
-    const info = await ytdl.getInfo(url);
+    const requestOptions = {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      }
+    };
+    const info = await ytdl.getInfo(url, { requestOptions });
     const safeTitle = info.videoDetails.title.replace(/[^\w\s]/gi, '').trim() || 'audio';
     const outputPath = getTempPath(`${safeTitle}_${Date.now()}.m4a`);
 
     return await new Promise((resolve, reject) => {
-      ytdl(url, { filter: 'audioonly' })
+      ytdl(url, { filter: 'audioonly', requestOptions })
         .pipe(fs.createWriteStream(outputPath))
         .on('finish', () => resolve({ path: outputPath, title: info.videoDetails.title }))
         .on('error', reject);

@@ -77,7 +77,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
       user: null,
       ws: { close: () => {}, readyState: 3 },
       ev: new EventEmitter(),
-      sendMessage: async () => {},
+      sendMessage: async () => { throw new Error("Oturum henüz başlatılmadı. Lütfen cihaz bağlayın."); },
       groupMetadata: async () => ({}),
       __isWaitingForLogin: true,
     });
@@ -250,6 +250,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
 
     if (connection === "open") {
       // Reconnect sayacını sıfırla (manager üzerinden de sıfırlanmalı)
+      reconnectCount = 0;
       if (options.manager) options.manager.reconnectCount = 0;
       pairCodeRequested = false;
       logger.info(`✅ Bot bağlandı! JID: ${sock.user?.id}`);

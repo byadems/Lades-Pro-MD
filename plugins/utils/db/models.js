@@ -222,4 +222,6 @@ module.exports = {
   antiDeleteDB,
   FilterDB,
   PluginDB,
+  WelcomeDB,
+  GoodbyeDB,
 };
