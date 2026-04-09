@@ -684,7 +684,7 @@
         <h3 class="panel-title">Komut Oluştur</h3>
         <div class="form-group">
           <label>Komut Açıklaması</label>
-          <textarea id="aiCmdDesc" class="form-input" rows="4" placeholder="Ne yapmasını istediğinizi Türkçe olarak açıklayın. Örn: 'Kullanıcının gönderdiği fotoğrafı siyah-beyaz filtre uygulayarak geri gönder' veya 'Grup üyelerinin doğum günlerini kaydeden ve hatırlatan bir komut'"></textarea>
+          <textarea id="aiCmdDesc" class="glass-input" rows="4" placeholder="Ne yapmasını istediğinizi Türkçe olarak açıklayın. Örn: 'Kullanıcının gönderdiği fotoğrafı siyah-beyaz filtre uygulayarak geri gönder' veya 'Grup üyelerinin doğum günlerini kaydeden ve hatırlatan bir komut'"></textarea>
         </div>
         <div style="display:flex; gap:10px; margin-top:12px;">
           <button id="btnAiGenerate" class="btn-primary" onclick="generateAiCommand()">Komut Üret</button>
@@ -696,7 +696,7 @@
         <pre id="aiResultCode" class="env-view" style="max-height:400px; overflow:auto; font-size:13px;"></pre>
         <div class="form-group" style="margin-top:12px;">
           <label>Komut Dosya Adı</label>
-          <input type="text" id="aiCmdName" class="form-input" placeholder="ornek-komut" />
+          <input type="text" id="aiCmdName" class="glass-input" placeholder="ornek-komut" />
         </div>
       </div>
     </div>
@@ -720,11 +720,11 @@
         <h3 class="panel-title">Komut Gönder</h3>
         <div class="form-group">
           <label>Hedef JID (Grup veya Kişi)</label>
-          <input type="text" id="remoteJid" class="form-input" placeholder="120363xxx@g.us veya 905xxx@s.whatsapp.net" />
+          <input type="text" id="remoteJid" class="glass-input" placeholder="120363xxx@g.us veya 905xxx@s.whatsapp.net" />
         </div>
         <div class="form-group">
           <label>Komut</label>
-          <input type="text" id="remoteCmd" class="form-input" placeholder=".menu veya herhangi bir komut" />
+          <input type="text" id="remoteCmd" class="glass-input" placeholder=".menu veya herhangi bir komut" />
         </div>
         <div style="display:flex; gap:10px; margin-top:12px;">
           <button class="btn-primary" onclick="sendRemoteCommand()">Komutu Gönder</button>

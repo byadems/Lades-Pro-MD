@@ -170,6 +170,22 @@ async def proxy_api(path: str, request: Request) -> Response:
     if path.startswith("ai/"):
         return Response(content='{"error":"Not found"}', status_code=404, media_type="application/json")
 
+    # SSE stream endpoints - use streaming response
+    if "stream" in path or "log" in path:
+        async def stream_response():
+            async with httpx.AsyncClient(timeout=None) as stream_client:
+                async with stream_client.stream(
+                    request.method, url, headers=headers, content=body if body else None
+                ) as resp:
+                    async for chunk in resp.aiter_bytes():
+                        yield chunk
+        from fastapi.responses import StreamingResponse
+        return StreamingResponse(
+            stream_response(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+        )
+
     client = get_client()
     url = f"{DASHBOARD_URL}/api/{path}"
     if request.query_params:
