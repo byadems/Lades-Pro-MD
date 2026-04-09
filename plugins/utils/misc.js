@@ -125,5 +125,74 @@ module.exports = {
   gtts,
   getBuffer,
   lyrics,
-  pinterestSearch
+  pinterestSearch,
+  callGenerativeAI,
 };
+
+/**
+ * callGenerativeAI - AI metin üretimi (Siputzx fallback + Google API)
+ * @param {string} prompt - Sistem + kullanıcı prompt
+ * @param {Array} imageParts - Görsel parçaları (base64)
+ * @param {object} message - Bot mesaj nesnesi
+ * @param {object} sentMsg - Gönderilmiş mesaj referansı
+ * @returns {string|null} - AI yanıtı
+ */
+async function callGenerativeAI(prompt, imageParts, message, sentMsg) {
+  const config = require("../../config");
+  const axios = require("axios");
+  const apiKey = config.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+
+  // Try Google Generative AI with API key first
+  if (apiKey) {
+    const models = [
+      "gemini-2.5-flash-lite",
+      "gemini-2.5-flash",
+    ];
+    for (const model of models) {
+      try {
+        const contents = [{ role: "user", parts: [] }];
+        contents[0].parts.push({ text: prompt });
+        if (imageParts && imageParts.length > 0) {
+          for (const img of imageParts) {
+            contents[0].parts.push(img);
+          }
+        }
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const response = await axios.post(apiUrl, {
+          contents,
+          generationConfig: { maxOutputTokens: 4096, temperature: 0.7 },
+        }, { timeout: 20000 });
+
+        if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+          return response.data.candidates[0].content.parts[0].text;
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+  }
+
+  // Fallback to Siputzx DuckAI (free, no key)
+  try {
+    const res = await axios.get("https://api.siputzx.my.id/api/ai/duckai", {
+      params: { message: prompt },
+      timeout: 25000,
+    });
+    if (res.data?.status && res.data?.data?.message) {
+      return res.data.data.message;
+    }
+  } catch (e) { }
+
+  // Fallback to DeepSeek
+  try {
+    const res = await axios.get("https://api.siputzx.my.id/api/ai/deepseekr1", {
+      params: { prompt },
+      timeout: 25000,
+    });
+    if (res.data?.status && res.data?.data?.response) {
+      return res.data.data.response;
+    }
+  } catch (e) { }
+
+  return null;
+}

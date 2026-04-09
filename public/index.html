@@ -81,6 +81,14 @@
         <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" stroke-width="1.5"/></svg>
         Ayarlar
       </button>
+      <button class="nav-btn" data-page="aikomut">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 2a4 4 0 014 4v1h2a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h2V6a4 4 0 014-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="14" r="1" fill="currentColor"/><circle cx="15" cy="14" r="1" fill="currentColor"/><path d="M9 17.5c.83.5 1.67.75 3 .75s2.17-.25 3-.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        AI Komut Fabrikası
+      </button>
+      <button class="nav-btn" data-page="uzakkomut">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Uzak Komut
+      </button>
     </nav>
 
     <div class="sidebar-footer">
@@ -663,6 +671,74 @@
           </div>
         </div>
 
+      </div>
+    </div>
+
+    <!-- PAGE: AI KOMUT FABRİKASI -->
+    <div class="page" id="page-aikomut">
+      <div class="page-header">
+        <h2>AI Komut Fabrikası</h2>
+        <p class="page-desc">Yapay zeka ile otomatik bot komutu oluşturun</p>
+      </div>
+      <div class="glass-panel" style="margin-bottom: 20px;">
+        <h3 class="panel-title">Komut Oluştur</h3>
+        <div class="form-group">
+          <label>Komut Açıklaması</label>
+          <textarea id="aiCmdDesc" class="form-input" rows="4" placeholder="Ne yapmasını istediğinizi Türkçe olarak açıklayın. Örn: 'Kullanıcının gönderdiği fotoğrafı siyah-beyaz filtre uygulayarak geri gönder' veya 'Grup üyelerinin doğum günlerini kaydeden ve hatırlatan bir komut'"></textarea>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:12px;">
+          <button id="btnAiGenerate" class="btn-primary" onclick="generateAiCommand()">Komut Üret</button>
+          <button id="btnAiSave" class="btn-outline" onclick="saveAiCommand()" style="display:none">Kaydet & Aktifleştir</button>
+        </div>
+      </div>
+      <div class="glass-panel" id="aiResultPanel" style="display:none;">
+        <h3 class="panel-title">Üretilen Kod</h3>
+        <pre id="aiResultCode" class="env-view" style="max-height:400px; overflow:auto; font-size:13px;"></pre>
+        <div class="form-group" style="margin-top:12px;">
+          <label>Komut Dosya Adı</label>
+          <input type="text" id="aiCmdName" class="form-input" placeholder="ornek-komut" />
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: UZAK KOMUT ÇALIŞTIRMA -->
+    <div class="page" id="page-uzakkomut">
+      <div class="page-header">
+        <h2>Uzak Komut Çalıştırma</h2>
+        <p class="page-desc">Herhangi bir gruba veya sohbete uzaktan komut gönderin</p>
+      </div>
+      <div class="glass-panel" style="margin-bottom: 20px;">
+        <h3 class="panel-title">Grup Listesi</h3>
+        <div style="display:flex; gap:10px; margin-bottom:12px;">
+          <button class="btn-outline" onclick="loadGroups()">Grupları Yenile</button>
+        </div>
+        <div id="groupList" class="cmd-grid" style="max-height:300px; overflow:auto;">
+          <p style="color:var(--text-muted)">Grupları yüklemek için "Grupları Yenile" butonuna tıklayın.</p>
+        </div>
+      </div>
+      <div class="glass-panel">
+        <h3 class="panel-title">Komut Gönder</h3>
+        <div class="form-group">
+          <label>Hedef JID (Grup veya Kişi)</label>
+          <input type="text" id="remoteJid" class="form-input" placeholder="120363xxx@g.us veya 905xxx@s.whatsapp.net" />
+        </div>
+        <div class="form-group">
+          <label>Komut</label>
+          <input type="text" id="remoteCmd" class="form-input" placeholder=".menu veya herhangi bir komut" />
+        </div>
+        <div style="display:flex; gap:10px; margin-top:12px;">
+          <button class="btn-primary" onclick="sendRemoteCommand()">Komutu Gönder</button>
+          <button class="btn-outline" onclick="sendRemoteMessage()">Mesaj Gönder</button>
+        </div>
+        <div id="remoteResult" style="margin-top:12px; display:none;" class="toast-msg"></div>
+      </div>
+
+      <div class="glass-panel" style="margin-top: 20px;">
+        <h3 class="panel-title">Hızlı Komutlar</h3>
+        <p class="page-desc" style="margin-bottom:12px;">Kategoriye göre mevcut komutları göster</p>
+        <div id="categorizedCommands" class="cmd-grid">
+          <button class="btn-outline" onclick="loadCategorizedCommands()">Komutları Yükle</button>
+        </div>
       </div>
     </div>
 

@@ -870,3 +870,174 @@ function updateHealth() {
   scoreEl.textContent = Math.min(100, Math.floor(health)) + '%';
 }
 setInterval(updateHealth, 10000);
+
+// ══════════════════════════════
+//  AI KOMUT FABRİKASI
+// ══════════════════════════════
+let _lastAiCode = '';
+
+async function generateAiCommand() {
+  const desc = document.getElementById('aiCmdDesc')?.value?.trim();
+  if (!desc) { showToast('Komut açıklaması girin.', 'warning'); return; }
+
+  const btn = document.getElementById('btnAiGenerate');
+  const resultPanel = document.getElementById('aiResultPanel');
+  const resultCode = document.getElementById('aiResultCode');
+  const saveBtn = document.getElementById('btnAiSave');
+
+  btn.disabled = true;
+  btn.textContent = 'Üretiliyor...';
+
+  try {
+    const res = await fetch('/api/ai/generate-command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: desc })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Hata');
+
+    _lastAiCode = data.code;
+    resultCode.textContent = data.code;
+    resultPanel.style.display = 'block';
+    saveBtn.style.display = 'inline-flex';
+
+    // Auto-generate name from desc
+    const nameInput = document.getElementById('aiCmdName');
+    const autoName = desc.split(' ').slice(0, 3).join('-').toLowerCase()
+      .replace(/[^a-z0-9-]/g, '').substring(0, 30);
+    nameInput.value = autoName || 'yeni-komut';
+
+    showToast('Komut başarıyla üretildi!', 'success');
+  } catch (e) {
+    showToast('AI hatası: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Komut Üret';
+  }
+}
+
+async function saveAiCommand() {
+  const name = document.getElementById('aiCmdName')?.value?.trim();
+  if (!name || !_lastAiCode) { showToast('İsim ve kod gerekli.', 'warning'); return; }
+
+  try {
+    const res = await fetch('/api/ai/save-command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: _lastAiCode, name })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Hata');
+    showToast(data.message, 'success');
+  } catch (e) {
+    showToast('Kayıt hatası: ' + e.message, 'error');
+  }
+}
+
+// ══════════════════════════════
+//  UZAK KOMUT ÇALIŞTIRMA
+// ══════════════════════════════
+async function loadGroups() {
+  const container = document.getElementById('groupList');
+  container.innerHTML = '<p style="color:var(--text-muted)">Yükleniyor...</p>';
+
+  try {
+    const res = await fetch('/api/groups');
+    const data = await res.json();
+    const groups = data.groups || [];
+
+    if (groups.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-muted)">Henüz grup verisi yok. Bot bağlantısı kurulduktan sonra gruplar görünecektir.</p>';
+      return;
+    }
+
+    container.innerHTML = groups.map(g => {
+      const name = g.subject || g.name || g.jid;
+      const jid = g.jid || g.id;
+      return `<div class="cmd-row" style="cursor:pointer" onclick="document.getElementById('remoteJid').value='${esc(jid)}'">
+        <span class="cmd-name" style="color:var(--accent)">${esc(name)}</span>
+        <span class="cmd-desc" style="font-size:11px;color:var(--text-muted)">${esc(jid)}</span>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    container.innerHTML = `<p style="color:var(--red)">Hata: ${esc(e.message)}</p>`;
+  }
+}
+
+async function sendRemoteCommand() {
+  const jid = document.getElementById('remoteJid')?.value?.trim();
+  const cmd = document.getElementById('remoteCmd')?.value?.trim();
+  if (!jid || !cmd) { showToast('JID ve komut girin.', 'warning'); return; }
+
+  const resultDiv = document.getElementById('remoteResult');
+  try {
+    const res = await fetch('/api/remote-command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupJid: jid, command: cmd })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Hata');
+    resultDiv.style.display = 'block';
+    resultDiv.style.color = 'var(--green)';
+    resultDiv.textContent = data.message;
+    showToast('Komut gönderildi!', 'success');
+  } catch (e) {
+    resultDiv.style.display = 'block';
+    resultDiv.style.color = 'var(--red)';
+    resultDiv.textContent = 'Hata: ' + e.message;
+    showToast('Gönderim hatası: ' + e.message, 'error');
+  }
+}
+
+async function sendRemoteMessage() {
+  const jid = document.getElementById('remoteJid')?.value?.trim();
+  const text = document.getElementById('remoteCmd')?.value?.trim();
+  if (!jid || !text) { showToast('JID ve mesaj girin.', 'warning'); return; }
+
+  try {
+    const res = await fetch('/api/send-message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jid, text })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Hata');
+    showToast('Mesaj gönderildi!', 'success');
+  } catch (e) {
+    showToast('Gönderim hatası: ' + e.message, 'error');
+  }
+}
+
+async function loadCategorizedCommands() {
+  const container = document.getElementById('categorizedCommands');
+  container.innerHTML = '<p style="color:var(--text-muted)">Yükleniyor...</p>';
+
+  try {
+    const res = await fetch('/api/commands/categorized');
+    const data = await res.json();
+    const cats = data.categories || {};
+
+    if (Object.keys(cats).length === 0) {
+      container.innerHTML = '<p style="color:var(--text-muted)">Komut bulunamadı.</p>';
+      return;
+    }
+
+    let html = '';
+    for (const [cat, cmds] of Object.entries(cats)) {
+      html += `<div style="margin-bottom:16px;">
+        <h4 style="color:var(--accent); margin-bottom:8px; text-transform:uppercase;">${esc(cat)} (${cmds.length})</h4>`;
+      cmds.forEach(c => {
+        html += `<div class="cmd-row" style="cursor:pointer" onclick="document.getElementById('remoteCmd').value='.${esc(c.command)}'">
+          <span class="cmd-name">.${esc(c.command)}</span>
+          <span class="cmd-desc">${esc(c.desc || '')}</span>
+        </div>`;
+      });
+      html += '</div>';
+    }
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = `<p style="color:var(--red)">Hata: ${esc(e.message)}</p>`;
+  }
+}

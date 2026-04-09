@@ -67,14 +67,51 @@ let _memTimer = setInterval(() => {
 }, 120000);
 
 function startKeepAlive() {
+  const MIME_TYPES = {
+    '.html': 'text/html',
+    '.css': 'text/css',
+    '.js': 'application/javascript',
+    '.json': 'application/json',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon',
+  };
+  const publicDir = path.join(__dirname, 'public');
+
   const server = http.createServer((req, res) => {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    const mem = process.memoryUsage();
-    res.end(JSON.stringify({
-      status: "ok", bot: "Lades-Pro-MD",
-      uptime: Math.floor((Date.now() - global.botStartTime) / 1000),
-      memory: Math.round(mem.heapUsed / 1024 / 1024) + "MB"
-    }));
+    // Health check endpoint
+    if (req.url === '/health') {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      const mem = process.memoryUsage();
+      return res.end(JSON.stringify({
+        status: "ok", bot: "Lades-Pro-MD",
+        uptime: Math.floor((Date.now() - global.botStartTime) / 1000),
+        memory: Math.round(mem.heapUsed / 1024 / 1024) + "MB"
+      }));
+    }
+
+    // Serve static files from /public
+    let filePath = path.join(publicDir, req.url === '/' ? 'index.html' : req.url.split('?')[0]);
+    const ext = path.extname(filePath);
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        // Fallback to index.html for SPA routing
+        fs.readFile(path.join(publicDir, 'index.html'), (err2, data2) => {
+          if (err2) {
+            res.writeHead(404);
+            return res.end('Not Found');
+          }
+          res.writeHead(200, { "Content-Type": "text/html" });
+          res.end(data2);
+        });
+        return;
+      }
+      res.writeHead(200, { "Content-Type": contentType });
+      res.end(data);
+    });
   });
   server.on('error', () => { });
   server.listen(process.env.PORT || 3000);
