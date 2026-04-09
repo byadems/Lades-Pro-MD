@@ -194,8 +194,9 @@ async function initializeDatabase() {
   for (const model of models) {
     try {
       if (model.sync) {
-        // SQLITE or Postgres, disable alter: true to prevent column deletion issues with Umzug.
-        await model.sync();
+        const isSqlite = sequelize.getDialect() === 'sqlite';
+        // SQLite'ta alter bazen sorun çıkarır ama eksik kolon eklemek gerekli
+        await model.sync({ alter: true });
       }
       logger.info(`Table synced: ${model.getTableName ? model.getTableName() : 'unknown'}`);
     } catch (e) {

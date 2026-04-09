@@ -31,32 +31,7 @@ async function siputGetBuffer(path, params = {}) {
 // ══════════════════════════════════════════════════════
 // Pinterest Arama
 // ══════════════════════════════════════════════════════
-Module({
-  pattern: "pinterest ?(.*)",
-  fromMe: false,
-  desc: "Pinterest'te görsel arar ve rastgele bir sonuç gönderir.",
-  usage: ".pinterest kedi",
-  use: "arama",
-}, async (message, match) => {
-  const query = (match[1] || "").trim();
-  if (!query) return await message.sendReply("_Arama terimi girin:_ `.pinterest kedi`");
-
-  try {
-    const data = await siputGet("/api/s/pinterest", { query });
-    if (!data.data || data.data.length === 0) return await message.sendReply("_Sonuç bulunamadı._");
-
-    const results = data.data.filter(p => p.image_url);
-    if (results.length === 0) return await message.sendReply("_Görsel bulunamadı._");
-
-    const pick = results[Math.floor(Math.random() * Math.min(results.length, 10))];
-    await message.client.sendMessage(message.jid, {
-      image: { url: pick.image_url },
-      caption: `*Pinterest* | ${query}\n${pick.grid_title || pick.description || ""}`.trim()
-    }, { quoted: message.data });
-  } catch (e) {
-    await message.sendReply(`_Pinterest araması başarısız:_ ${e.message}`);
-  }
-});
+// Pinterest komutu social.js'de mevcut, burada tekrar yok
 
 // ══════════════════════════════════════════════════════
 // Ekran Görüntüsü (Website Screenshot)
