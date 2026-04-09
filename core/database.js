@@ -195,8 +195,15 @@ async function initializeDatabase() {
     try {
       if (model.sync) {
         const isSqlite = sequelize.getDialect() === 'sqlite';
-        // SQLite'ta alter bazen sorun çıkarır ama eksik kolon eklemek gerekli
-        await model.sync({ alter: true });
+        try {
+          await model.sync({ alter: true });
+        } catch (alterErr) {
+          if (alterErr.name === 'SequelizeValidationError' || alterErr.name === 'SequelizeUniqueConstraintError' || (alterErr.message && alterErr.message.includes('Validation error'))) {
+            await model.sync(); // Fallback to safe sync without altering if validation fails
+          } else {
+            throw alterErr;
+          }
+        }
       }
       logger.info(`Table synced: ${model.getTableName ? model.getTableName() : 'unknown'}`);
     } catch (e) {

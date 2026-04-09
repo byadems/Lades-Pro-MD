@@ -174,7 +174,11 @@ async function getAuthState(config, sessionId = "lades-session") {
     if (fs.existsSync(credsFile)) {
       logger.info(`Yerel oturum dosyası bulundu: ${sessionPath}`);
       const { useMultiFileAuthState } = await loadBaileys();
-      return await useMultiFileAuthState(sessionPath);
+      const auth = await useMultiFileAuthState(sessionPath);
+      if (!auth.clearState) {
+        auth.clearState = async () => {};
+      }
+      return auth;
     }
   }
 
