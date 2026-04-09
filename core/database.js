@@ -195,7 +195,8 @@ async function initializeDatabase() {
     try {
       if (model.sync) {
         const isSqlite = sequelize.getDialect() === 'sqlite';
-        await model.sync(isSqlite ? {} : { alter: true });
+        // SQLite'ta alter bazen sorun çıkarır ama eksik kolon eklemek gerekli
+        await model.sync({ alter: true });
       }
       logger.info(`Table synced: ${model.getTableName ? model.getTableName() : 'unknown'}`);
     } catch (e) {

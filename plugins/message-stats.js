@@ -542,7 +542,7 @@ Module({
           const name = user.name?.replace(/[\r\n]+/gm, "") || "Bilinmiyor";
           const lastMessage = timeSince(user.lastMessageAt);
 
-          responseMsg += `*${rank}.* @${user.jid.split("@")[0]}\n`;
+          responseMsg += `*${rank}.* @${(user.userJid || user.jid || "").split("@")[0]}\n`;
           responseMsg += `   _İsim:_ ${name}\n`;
           responseMsg += `   _Mesajlar:_ ${user.totalMessages}${isGlobal ? " (tüm sohbetlerde)" : ""
             }\n`;
@@ -555,7 +555,7 @@ Module({
           responseMsg += `\n_💡 İpucu: Tüm sohbetlerdeki genel istatistikler için \`.users global\` kullanın._`;
         }
 
-        const mentions = topUsers.map((user) => user.jid);
+        const mentions = topUsers.map((user) => user.userJid || user.jid).filter(Boolean);
 
         return await message.client.sendMessage(message.jid, {
           text: responseMsg,

@@ -211,8 +211,38 @@ process.on("uncaughtException", (err) => {
               }
             }
           }
+        } else if (msg.type === 'fetch_groups') {
+          const sock = manager.getSession('lades-session');
+          if (sock) {
+            try {
+              const groups = await sock.groupFetchAllParticipating();
+              const groupList = Object.values(groups).map(g => ({
+                jid: g.id,
+                subject: g.subject,
+                participants: g.participants?.length || 0,
+                owner: g.owner || null,
+              }));
+              if (dashboard.connected) dashboard.send({ type: 'groups_result', data: groupList, requestId: msg.requestId });
+            } catch (e) {
+              if (dashboard.connected) dashboard.send({ type: 'groups_result', data: [], requestId: msg.requestId, error: e.message });
+            }
+          } else {
+            if (dashboard.connected) dashboard.send({ type: 'groups_result', data: [], requestId: msg.requestId, error: 'Bot bağlı değil' });
+          }
+        } else if (msg.type === 'send_to_chat') {
+          const sock = manager.getSession('lades-session');
+          if (sock) {
+            try {
+              const jid = msg.data.jid.includes('@') ? msg.data.jid : msg.data.jid + '@s.whatsapp.net';
+              await sock.sendMessage(jid, { text: msg.data.text });
+              if (dashboard.connected) dashboard.send({ type: 'send_result', success: true, requestId: msg.requestId });
+            } catch (e) {
+              if (dashboard.connected) dashboard.send({ type: 'send_result', success: false, error: e.message, requestId: msg.requestId });
+            }
+          } else {
+            if (dashboard.connected) dashboard.send({ type: 'send_result', success: false, error: 'Bot bağlı değil', requestId: msg.requestId });
+          }
         } else if (msg.type === 'restart') {
-          const restartType = msg.restartType || 'session';
           if (restartType === 'system') {
             const child = fork(__filename, process.argv.slice(2), { detached: true, stdio: 'inherit' });
             child.unref();
