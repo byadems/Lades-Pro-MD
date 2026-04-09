@@ -201,8 +201,8 @@ async function downloadInstagram(url, options = {}) {
     if (data?.status && data?.result) {
       const r = data.result;
       if (Array.isArray(r)) {
-        const urls = r.map(item => (typeof item === 'object' ? (item?.url || item?.video_url || item?.thumbnail) : item)).filter(Boolean);
-        if (urls.length) return urls;
+        const urls = r.map(item => (typeof item === 'object' ? (item?.video_url || item?.url || item?.thumbnail) : item)).filter(Boolean);
+        if (urls.length) return [...new Set(urls)];
       }
       if (r.url) return [r.url];
       if (r.video_url) return [r.video_url];
@@ -223,8 +223,8 @@ async function downloadInstagram(url, options = {}) {
     if (data?.status && data?.result) {
       const r = data.result;
       if (r.media && Array.isArray(r.media)) {
-        const urls = r.media.map(m => (typeof m === 'object' ? (m?.url || m?.video_url || m?.thumbnail) : m)).filter(Boolean);
-        if (urls.length) return urls;
+        const urls = r.media.map(m => (typeof m === 'object' ? (m?.video_url || m?.url || m?.thumbnail) : m)).filter(Boolean);
+        if (urls.length) return [...new Set(urls)];
       }
       if (r.url) return [r.url];
       if (r.video_url) return [r.video_url];
@@ -240,8 +240,8 @@ async function downloadInstagram(url, options = {}) {
     if (res.data?.status && res.data?.data) {
       const data = res.data.data;
       if (Array.isArray(data)) {
-        const urls = data.map(i => i.url || i).filter(Boolean);
-        if (urls.length) return urls;
+        const urls = data.map(i => i.url || i.video_url || i).filter(Boolean);
+        if (urls.length) return [...new Set(urls)];
       }
       if (data.url) return [data.url];
     }
@@ -518,19 +518,77 @@ async function spotifyPlay(query, options = {}) {
  * @returns {Promise<{url?: string, title?: string}|null>}
  */
 async function downloadYtMp4(url, options = {}) {
+  // 1. Nexray ytmp4
   try {
     const res = await axios.get(`${BASE}/downloader/ytmp4`, withSignal({
+      params: { url },
+      timeout: 60000,
+    }, options.signal));
+    const data = res.data;
+    if (data?.status && data?.result) {
+      const r = data.result;
+      const dl = r.url || r.download_url;
+      if (dl) return { url: dl, title: r.title };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Nexray ytmp4]", e?.message);
+  }
+
+  // 2. Nexray v1/ytmp4
+  try {
+    const res = await axios.get(`${BASE}/downloader/v1/ytmp4`, withSignal({
       params: { url },
       timeout: 90000,
     }, options.signal));
     const data = res.data;
     if (data?.status && data?.result) {
       const r = data.result;
-      return { url: r.url || r.download_url, title: r.title };
+      const dl = r.url || r.download_url;
+      if (dl) return { url: dl, title: r.title };
     }
   } catch (e) {
-    if (process.env.DEBUG) console.error("[Nexray ytmp4]", e?.message);
+    if (process.env.DEBUG) console.error("[Nexray v1/ytmp4]", e?.message);
   }
+
+  // 3. EliteProTech API
+  try {
+    const res = await axios.get("https://eliteprotech-apis.zone.id/ytdown", {
+      params: { url, format: "mp4" },
+      timeout: 60000,
+    });
+    if (res?.data?.success && res?.data?.downloadURL) {
+      return { url: res.data.downloadURL, title: res.data.title };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[EliteProTech ytmp4]", e?.message);
+  }
+
+  // 4. Yupra API
+  try {
+    const res = await axios.get("https://api.yupra.my.id/api/downloader/ytmp4", {
+      params: { url },
+      timeout: 60000,
+    });
+    if (res?.data?.success && res?.data?.data?.download_url) {
+      return { url: res.data.data.download_url, title: res.data.data.title };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Yupra ytmp4]", e?.message);
+  }
+
+  // 5. Okatsu API
+  try {
+    const res = await axios.get("https://okatsu-rolezapiiz.vercel.app/downloader/ytmp4", {
+      params: { url },
+      timeout: 60000,
+    });
+    if (res?.data?.result?.mp4) {
+      return { url: res.data.result.mp4, title: res.data.result.title };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Okatsu ytmp4]", e?.message);
+  }
+
   return null;
 }
 
@@ -540,6 +598,7 @@ async function downloadYtMp4(url, options = {}) {
  * @returns {Promise<{url?: string, title?: string}|null>}
  */
 async function downloadYtMp3(url, options = {}) {
+  // 1. Nexray API
   try {
     const res = await axios.get(`${BASE}/downloader/ytmp3`, withSignal({
       params: { url },
@@ -548,11 +607,65 @@ async function downloadYtMp3(url, options = {}) {
     const data = res.data;
     if (data?.status && data?.result) {
       const r = data.result;
-      return { url: r.url || r.download_url, title: r.title };
+      const dl = r.url || r.download_url;
+      if (dl) return { url: dl, title: r.title };
     }
   } catch (e) {
     if (process.env.DEBUG) console.error("[Nexray ytmp3]", e?.message);
   }
+
+  // 2. EliteProTech API
+  try {
+    const res = await axios.get("https://eliteprotech-apis.zone.id/ytdown", {
+      params: { url, format: "mp3" },
+      timeout: 60000,
+    });
+    if (res?.data?.success && res?.data?.downloadURL) {
+      return { url: res.data.downloadURL, title: res.data.title };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[EliteProTech ytmp3]", e?.message);
+  }
+
+  // 3. Yupra API
+  try {
+    const res = await axios.get("https://api.yupra.my.id/api/downloader/ytmp3", {
+      params: { url },
+      timeout: 60000,
+    });
+    if (res?.data?.success && res?.data?.data?.download_url) {
+      return { url: res.data.data.download_url, title: res.data.data.title };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Yupra ytmp3]", e?.message);
+  }
+
+  // 4. Okatsu API
+  try {
+    const res = await axios.get("https://okatsu-rolezapiiz.vercel.app/downloader/ytmp3", {
+      params: { url },
+      timeout: 60000,
+    });
+    if (res?.data?.dl) {
+      return { url: res.data.dl, title: res.data.title };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Okatsu ytmp3]", e?.message);
+  }
+
+  // 5. Izumi API
+  try {
+    const res = await axios.get("https://izumiiiiiiii.dpdns.org/downloader/youtube", {
+      params: { url, format: "mp3" },
+      timeout: 60000,
+    });
+    if (res?.data?.result?.download) {
+      return { url: res.data.result.download, title: res.data.result.title };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Izumi ytmp3]", e?.message);
+  }
+
   return null;
 }
 
@@ -562,6 +675,7 @@ async function downloadYtMp3(url, options = {}) {
  * @returns {Promise<{url?: string, title?: string}|null>}
  */
 async function ytPlayAud(query, options = {}) {
+  // 1. Nexray ytplay
   try {
     const res = await axios.get(`${BASE}/downloader/ytplay`, withSignal({
       params: { q: String(query).trim() },
@@ -570,11 +684,26 @@ async function ytPlayAud(query, options = {}) {
     const data = res.data;
     if (data?.status && data?.result) {
       const r = data.result;
-      return { url: r.download_url || r.url, title: r.title };
+      const dl = r.download_url || r.url;
+      if (dl) return { url: dl, title: r.title };
     }
   } catch (e) {
     if (process.env.DEBUG) console.error("[Nexray ytPlayAud]", e?.message);
   }
+
+  // 2. Izumi arama API
+  try {
+    const res = await axios.get("https://izumiiiiiiii.dpdns.org/downloader/youtube-play", {
+      params: { query: String(query).trim() },
+      timeout: 60000,
+    });
+    if (res?.data?.result?.download) {
+      return { url: res.data.result.download, title: res.data.result.title };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Izumi ytPlayAud]", e?.message);
+  }
+
   return null;
 }
 
@@ -639,6 +768,102 @@ async function searchYoutube(query, options = {}) {
   return null;
 }
 
+/**
+ * SoundCloud şarkı/ses indirme
+ * @param {string} url - SoundCloud URL
+ * @returns {Promise<{url?: string, title?: string, author?: string}|null>}
+ */
+async function downloadSoundCloud(url, options = {}) {
+  // 1. Nexray API
+  try {
+    const res = await axios.get(`${BASE}/downloader/soundcloud`, withSignal({
+      params: { url },
+      timeout: TIMEOUT,
+    }, options.signal));
+    const data = res.data;
+    if (data?.status && data?.result) {
+      const r = data.result;
+      const dl = r.audio || r.url || r.download_url || r.mp3;
+      if (dl) return { url: dl, title: r.title, author: r.author || r.user };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Nexray soundcloud]", e?.message);
+  }
+
+  // 2. Siputzx API
+  try {
+    const res = await axios.get("https://api.siputzx.my.id/api/d/soundcloud", {
+      params: { url },
+      timeout: TIMEOUT,
+    });
+    if (res.data?.status && res.data?.data) {
+      const d = res.data.data;
+      const dl = d.audio || d.url || d.download;
+      if (dl) return { url: dl, title: d.title, author: d.author };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Siputzx soundcloud]", e?.message);
+  }
+
+  // 3. nxTry fallback
+  try {
+    const r = await nxTry([`/downloader/soundcloud?url=${encodeURIComponent(url)}`]);
+    const dl = r.audio || r.url || r.download_url;
+    if (dl) return { url: dl, title: r.title, author: r.author };
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[nxTry soundcloud]", e?.message);
+  }
+
+  return null;
+}
+
+/**
+ * Threads gönderi medyası indirme
+ * @param {string} url - Threads URL
+ * @returns {Promise<string[]|null>} Medya URL listesi veya null
+ */
+async function downloadThreads(url, options = {}) {
+  // 1. Nexray API
+  try {
+    const res = await axios.get(`${BASE}/downloader/threads`, withSignal({
+      params: { url },
+      timeout: TIMEOUT,
+    }, options.signal));
+    const data = res.data;
+    if (data?.status && data?.result) {
+      const r = data.result;
+      if (Array.isArray(r)) {
+        const urls = r.map(item => (typeof item === 'object' ? (item?.video_url || item?.url || item?.thumbnail) : item)).filter(Boolean);
+        if (urls.length) return [...new Set(urls)];
+      }
+      if (r.url) return [r.url];
+      if (r.video_url) return [r.video_url];
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Nexray threads]", e?.message);
+  }
+
+  // 2. Siputzx API
+  try {
+    const res = await axios.get("https://api.siputzx.my.id/api/d/threads", {
+      params: { url },
+      timeout: TIMEOUT,
+    });
+    if (res.data?.status && res.data?.data) {
+      const d = res.data.data;
+      if (Array.isArray(d)) {
+        const urls = d.map(i => i.url || i.video_url || i).filter(v => typeof v === 'string');
+        if (urls.length) return urls;
+      }
+      if (d.url) return [d.url];
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Siputzx threads]", e?.message);
+  }
+
+  return null;
+}
+
 module.exports = {
   colorize,
   gptImage,
@@ -655,6 +880,8 @@ module.exports = {
   ytPlayAud,
   ytPlayVid,
   searchYoutube,
+  downloadSoundCloud,
+  downloadThreads,
   getBuffer,
   nx,
   nxTry,

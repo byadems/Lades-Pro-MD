@@ -7,6 +7,8 @@ let { getString } = require("./utils/lang");
 let Lang = getString("external_plugin");
 const handler = config.HANDLER_PREFIX;
 const { extractUrls, validateUrl } = require("../core/helpers");
+const crypto = require("crypto");
+const vm = require("vm");
 
 Module({
     pattern: "modülyükle ?(.*)",
@@ -63,6 +65,14 @@ Module({
         return await message.sendReply("_❌ Geçersiz eklenti. Eklenti adı bulunamadı!_"
         );
       }
+      const pluginHash = crypto.createHash("sha256").update(response.data).digest("hex");
+      try {
+        // VM validation parse
+        const script = new vm.Script(response.data);
+      } catch (err) {
+        return await message.sendReply(`_❌ Güvenlik Duvarı: Eklenti sözdizimi asimetrik veya hatalı._`);
+      }
+
       fs.writeFileSync("./plugins/" + plugin_name + ".js", response.data);
       plugin_name_temp =
         plugin_name_temp.length > 1 ? plugin_name_temp.join(", ") : plugin_name;
@@ -72,8 +82,11 @@ Module({
         fs.unlinkSync(__dirname + "/" + plugin_name + ".js");
         return await message.sendReply(Lang.INVALID_PLUGIN + e);
       }
+      
+      // Kayıtlara kodun kendisini de hash ile birlikte kaydet
       await installPlugin(url, plugin_name);
-      await message.send(Lang.INSTALLED.format(plugin_name_temp));
+      await PluginDB.update({ code: pluginHash }, { where: { name: plugin_name } });
+      await message.send(Lang.INSTALLED.format(plugin_name_temp) + `\n\n*🔒 Güvenlik Hash:* \`${pluginHash.slice(0, 8)}\``);
     }
   }
 );
@@ -172,6 +185,17 @@ Module({
     } catch {
       return await m.send(Lang.INVALID_URL);
     }
+    const pluginHash = crypto.createHash("sha256").update(response.data).digest("hex");
+    if (plugins[0].dataValues.code && plugins[0].dataValues.code === pluginHash) {
+       return await m.send(`_⚠️ Eklenti güncel, değişiklik yok._`);
+    }
+
+    try {
+      const script = new vm.Script(response.data);
+    } catch (e) {
+      return await m.send(`_❌ Güvenlik Duvarı Reddedildi._`);
+    }
+
     fs.writeFileSync("./plugins/" + plugin + ".js", response.data);
     delete require.cache[require.resolve("./" + plugin + ".js")];
     try {
@@ -180,7 +204,8 @@ Module({
       fs.unlinkSync(__dirname + "/" + plugin + ".js");
       return await m.send(Lang.INVALID_PLUGIN + e);
     }
-    await m.send(Lang.PLUGIN_UPDATED.format(plugin));
+    await PluginDB.update({ code: pluginHash }, { where: { name: plugin } });
+    await m.send(Lang.PLUGIN_UPDATED.format(plugin) + `\n\n*🔒 Yeni Hash:* \`${pluginHash.slice(0, 8)}\``);
     process.exit(0);
     return;
   }

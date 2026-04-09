@@ -8,7 +8,7 @@ const S = {
   autoScroll: true, newLogs: 0,
   stats: { messages: 0, commands: 0, users: 0, groups: 0 },
   activity: [],
-  commands: [],
+  commands: [], cmdStatusFilter: 'all',
   plugins: [],
   ramHistory: [],
   chart: null,
@@ -278,23 +278,24 @@ async function loadCommands() {
     const timeout = S.commands.filter(c => c.stat?.status === 'timeout').length;
     const skipped = S.commands.filter(c => c.stat?.status === 'skipped').length;
     const banner = document.getElementById('cmdTestBanner');
-    if (banner) {
-      // If test is currently running, show current command
-      if (progressData.status === 'testing' && progressData.currentCommand) {
-        const current = progressData.currentIndex;
-        const total = progressData.totalCommands;
-        banner.innerHTML = `🧪 Test devam ediyor: <b>.${progressData.currentCommand}</b> (${current}/${total})`;
-        banner.className = 'cmd-banner pending';
-      } else if (tested === 0) {
-        banner.innerHTML = '⏳ Bot henüz test çalıştırmadı. Bot bağlanınca otomatik başlar.';
-        banner.className = 'cmd-banner pending';
-      } else {
-        banner.innerHTML = `🧪 Son test: <b>${ok}</b> ✅ başarılı · <b>${errored}</b> ❌ hata · <b>${timeout}</b> ⏱ zaman aşımı · <b>${skipped}</b> ⏭ atlandı`;
-        banner.className = `cmd-banner ${errored > 0 ? 'has-error' : 'all-ok'}`;
+      if (banner) {
+        // If test is currently running, show current command
+        if (progressData.status === 'testing' && progressData.currentCommand) {
+          const current = progressData.currentIndex;
+          const total = progressData.totalCommands;
+          banner.innerHTML = `🧪 Test devam ediyor: <b>.${progressData.currentCommand}</b> (${current}/${total})`;
+          banner.className = 'cmd-banner pending';
+        } else if (tested === 0) {
+          banner.innerHTML = '⏳ Bot henüz test çalıştırmadı. Bot bağlanınca otomatik başlar.';
+          banner.className = 'cmd-banner pending';
+        } else {
+          banner.innerHTML = `🧪 Son test sonuçları: <span style="margin-left:8px">✅ <b>${ok}</b> başarılı</span> <span style="margin-left:12px">❌ <b>${errored}</b> hatalı</span> <span style="margin-left:12px">⏱ <b>${timeout}</b> zaman aşımı</span> <span style="margin-left:12px">⏭ <b>${skipped}</b> atlandı</span>`;
+          banner.className = `cmd-banner ${errored > 0 ? 'has-error' : 'all-ok'}`;
+        }
+        banner.style.display = 'block';
       }
-      banner.style.display = 'block';
-    }
-    renderCommands();
+      renderCommands();
+      setupCommandFilters();
 
     // If test is active, set up polling to update banner in real-time
     if (progressData.status === 'testing') {
@@ -337,14 +338,35 @@ async function updateTestProgressBanner() {
   }
 }
 
+function setupCommandFilters() {
+  document.querySelectorAll('[data-cmd-f]').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('[data-cmd-f]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      S.cmdStatusFilter = btn.dataset.cmdF;
+      renderCommands(document.getElementById('cmdSearch')?.value.toLowerCase().trim() || '');
+    };
+  });
+}
+
 function renderCommands(filter = '') {
   const list = document.getElementById('cmdList');
   const total = document.getElementById('cmdTotal');
   if (!list) return;
 
-  const cmds = filter ? S.commands.filter(c =>
+  let cmds = filter ? S.commands.filter(c =>
     c.pattern?.toLowerCase().includes(filter) || c.desc?.toLowerCase().includes(filter)
   ) : S.commands;
+
+  // Apply Status Filter
+  if (S.cmdStatusFilter !== 'all') {
+    cmds = cmds.filter(c => {
+      if (S.cmdStatusFilter === 'ok') return c.stat?.status === 'ok';
+      if (S.cmdStatusFilter === 'error') return c.stat?.status === 'error';
+      if (S.cmdStatusFilter === 'skipped') return c.stat?.status === 'skipped';
+      return true;
+    });
+  }
 
   if (total) total.textContent = `${cmds.length} komut`;
 

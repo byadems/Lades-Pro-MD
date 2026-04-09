@@ -45,7 +45,10 @@ function isDangerous(key) {
 
 function makeKey(pattern) {
   return String(pattern)
-    .split("?")[0].split(" ")[0]
+    .replace(/^\(\?:\s*|\)$/g, '')
+    .split('|')[0]
+    .split("?")[0]
+    .split(" ")[0]
     .replace(/[^\wçğıöşüÇĞİÖŞÜ]/gi, "")
     .slice(0, 40);
 }
@@ -79,6 +82,12 @@ function createMockMsg(ownJid, text, cmd) {
     sendPresenceUpdate: noop,
     readMessages: noop,
     albumMessage: noop,
+    ev: {
+      on: noop,
+      off: noop,
+      emit: noop,
+      removeAllListeners: noop
+    },
     user: { id: ownJid }
   };
 
@@ -99,18 +108,41 @@ function createMockMsg(ownJid, text, cmd) {
       const fs = require('fs');
       const path = require('path');
       const { getTempPath } = require('./helpers');
-      const isMedia = ["slow", "sped", "bass", "dinle", "trim", "vmix", "ağırçekim", "fps", "kes", "döndür", "flip", "gif"].some(x => String(cmd.pattern).includes(x));
-      if (isMedia) {
+      const pat = String(cmd.pattern);
+      
+      // Determine expected file type
+      const isVideo = ["mp4", "video", "slow", "sped", "trim", "vmix", "ağırçekim", "fps", "kes", "flip", "gif"].some(x => pat.includes(x));
+      const isSticker = ["take", "sticker", "stickerara", "stara", "col", "url"].some(x => pat.includes(x)) && (mockReplyMsg.sticker || !pat.includes("bass"));
+      const isAudio = ["bass", "audio", "şarkı", "spotify", "take", "ytsesb"].some(x => pat.includes(x));
+
+      if (isVideo) {
         const sourcePath = path.join(__dirname, 'dummy.mp4');
         const dummyPath = getTempPath('.mp4');
-        if (fs.existsSync(sourcePath)) fs.copyFileSync(sourcePath, dummyPath);
+        if (!fs.existsSync(sourcePath)) {
+           // Create a tiny valid MP4 header or just a dummy file
+           fs.writeFileSync(sourcePath, Buffer.alloc(100)); 
+        }
+        fs.copyFileSync(sourcePath, dummyPath);
         if (type === 'buffer') return fs.readFileSync(dummyPath);
         return dummyPath;
       }
-      const sourcePath = path.join(__dirname, 'dummy.jpg');
-      const dummyPath = getTempPath('.jpg');
+      
+      if (isSticker) {
+        const dummyPath = getTempPath('.webp');
+        // Tiny valid 1x1 WebP
+        const webpBuffer = Buffer.from("UklGRkAAAABXRUJQVlA4WAoAAAAQAAAAAAAAAAAAQUxQSAIAAAAAAFZQWCEAAAAAALe7AQAAAAAAAFVQUEgGAAAALAAAAABWUDggGAAAADABAJ0BKgEAAQAAAhAnJaQAA/v8AAA==", "base64");
+        if (type === 'buffer') return webpBuffer;
+        fs.writeFileSync(dummyPath, webpBuffer);
+        return dummyPath;
+      }
+
+      const ext = isAudio ? '.mp3' : '.jpg';
+      const sourcePath = isAudio ? path.join(__dirname, 'dummy.mp3') : path.join(__dirname, 'dummy.jpg');
+      const dummyPath = getTempPath(ext);
+      
       if (!fs.existsSync(sourcePath)) {
-        fs.writeFileSync(sourcePath, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64'));
+        const dummyBuf = isAudio ? Buffer.alloc(100, 'ABC') : Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
+        fs.writeFileSync(sourcePath, dummyBuf);
       }
       fs.copyFileSync(sourcePath, dummyPath);
       if (type === 'buffer') return fs.readFileSync(dummyPath);
@@ -155,7 +187,13 @@ function createMockMsg(ownJid, text, cmd) {
     react: noop,
     edit: noop,
     forward: noop,
+    forwardMessage: noop,
     delete: noop,
+    replyImage: noop,
+    replyVideo: noop,
+    replyAudio: noop,
+    replySticker: noop,
+    replyDocument: noop,
     download: async () => {
       const fs = require('fs');
       const path = require('path');

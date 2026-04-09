@@ -35,6 +35,7 @@ const { Module } = require("../main");
 const {
   antilinkConfig,
   antiword,
+  antifake,
   antibot,
   antispam,
   antipromote,
@@ -1362,7 +1363,7 @@ Module({
 },
   async (message, match) => {
     const configs = settingsMenu;
-    const sMatch = message.text?.match(/^\d+$/);
+    const sMatch = message.text?.trim().match(/^\d+$/);
     const settingsMatch =
       sMatch &&
       message.reply_message?.text &&
@@ -1796,8 +1797,8 @@ Module({
         // Uyarı mesajının gönderilip gönderilmeyeceğini belirle
         const shouldWarn = !global.antibot_warned_senders.has(senderKey);
         if (shouldWarn) {
-           global.antibot_warned_senders.add(senderKey);
-           setTimeout(() => global.antibot_warned_senders.delete(senderKey), 60000);
+          global.antibot_warned_senders.add(senderKey);
+          setTimeout(() => global.antibot_warned_senders.delete(senderKey), 60000);
         }
 
         if (!botIsAdmin) {

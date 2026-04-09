@@ -22,6 +22,7 @@
   "license": "GPL-3.0",
   "dependencies": {
     "@distube/ytdl-core": "^4.16.12",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@google/generative-ai": "^0.21.0",
     "@vitalets/google-translate-api": "^9.2.1",
     "@whiskeysockets/baileys": "^6.7.18",

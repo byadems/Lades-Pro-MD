@@ -95,7 +95,7 @@ const AiCommand = sequelize.define("AiCommand", {
   commandName: { type: DataTypes.STRING(64), allowNull: false },
   description: { type: DataTypes.TEXT, allowNull: true },
   code: { type: DataTypes.TEXT("long"), allowNull: false },
-  active: true,
+  active: { type: DataTypes.BOOLEAN, defaultValue: true },
   createdBy: { type: DataTypes.STRING(64), allowNull: true },
 }, { tableName: "ai_commands", timestamps: true });
 

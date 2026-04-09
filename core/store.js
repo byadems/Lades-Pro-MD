@@ -195,39 +195,51 @@ async function getGlobalTopUsers(limit = 10) {
  * @param {string} userJid - The user JID
  * @param {string} type - Message type (text, image, video, audio, sticker, other)
  */
-async function incrementStats(jid, userJid, type = "text") {
+const statsBatch = new Map();
+
+setInterval(async () => {
+  if (statsBatch.size === 0) return;
+  const currentBatch = new Map(statsBatch);
+  statsBatch.clear();
+
   try {
     const { MessageStats, UserData } = require("./database");
-    
-    // Ensure UserData exists (can be expanded if needed)
-    await UserData.findOrCreate({ where: { jid: userJid } });
-
-    // Find or create stats entry for this chat + user
-    const [stats] = await MessageStats.findOrCreate({
-      where: { jid, userJid },
-      defaults: { 
-        totalMessages: 0, textMessages: 0, imageMessages: 0, 
-        videoMessages: 0, audioMessages: 0, stickerMessages: 0, 
-        otherMessages: 0 
-      }
-    });
-
-    const updateData = {
-      totalMessages: stats.totalMessages + 1,
-      lastMessageAt: new Date()
-    };
-
-    if (type === "text") updateData.textMessages = stats.textMessages + 1;
-    else if (type === "image") updateData.imageMessages = stats.imageMessages + 1;
-    else if (type === "video") updateData.videoMessages = stats.videoMessages + 1;
-    else if (type === "audio") updateData.audioMessages = stats.audioMessages + 1;
-    else if (type === "sticker") updateData.stickerMessages = stats.stickerMessages + 1;
-    else updateData.otherMessages = stats.otherMessages + 1;
-
-    await stats.update(updateData);
-  } catch (err) {
-    logger.debug({ err, jid, userJid }, "Failed to increment stats");
+    for (const [key, inc] of currentBatch.entries()) {
+      const { jid, userJid, data } = inc;
+      await UserData.findOrCreate({ where: { jid: userJid } });
+      const [stats] = await MessageStats.findOrCreate({
+        where: { jid, userJid },
+        defaults: { totalMessages: 0, textMessages: 0, imageMessages: 0, videoMessages: 0, audioMessages: 0, stickerMessages: 0, otherMessages: 0 }
+      });
+      await stats.increment({
+        totalMessages: data.totalMessages,
+        textMessages: data.textMessages,
+        imageMessages: data.imageMessages,
+        videoMessages: data.videoMessages,
+        audioMessages: data.audioMessages,
+        stickerMessages: data.stickerMessages,
+        otherMessages: data.otherMessages
+      });
+      await stats.update({ lastMessageAt: new Date() });
+    }
+  } catch (e) {
+    logger.debug({ err: e.message }, "Batch stats update failed");
   }
+}, 60000);
+
+async function incrementStats(jid, userJid, type = "text") {
+  const key = `${jid}:${userJid}`;
+  if (!statsBatch.has(key)) {
+    statsBatch.set(key, { jid, userJid, data: { totalMessages: 0, textMessages: 0, imageMessages: 0, videoMessages: 0, audioMessages: 0, stickerMessages: 0, otherMessages: 0 } });
+  }
+  const inc = statsBatch.get(key).data;
+  inc.totalMessages++;
+  if (type === "text") inc.textMessages++;
+  else if (type === "image") inc.imageMessages++;
+  else if (type === "video") inc.videoMessages++;
+  else if (type === "audio") inc.audioMessages++;
+  else if (type === "sticker") inc.stickerMessages++;
+  else inc.otherMessages++;
 }
 
 module.exports = {

@@ -8,6 +8,7 @@ const {
   nx,
   nxTry,
   fmtCount,
+  censorBadWords,
 } = require("./utils");
 const nexray = require("./utils/nexray");
 const botConfig = require("../config");
@@ -338,6 +339,9 @@ Module({
     }
     if (!storyData || !storyData.length)
       return await message.sendReply("*_❌ Bulunamadı!_*");
+
+    // Mükerrer URL'leri temizle
+    storyData = [...new Set(storyData)];
     if (storyData.length === 1) {
       const isImage = isMediaImage(storyData[0]);
       const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
@@ -661,3 +665,4 @@ Module({
     }
   }
 );
+

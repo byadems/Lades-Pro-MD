@@ -48,12 +48,12 @@ Module({
 
       if (isUrl) {
         let url = extractedUrls[0];
-        
+
         // Validate specifically for spotify track, album, playlist format
         if (!validateUrl(url, "spotify")) {
-           return await message.sendReply("_❌ Lütfen geçerli bir Spotify bağlantısı girin._");
+          return await message.sendReply("_❌ Lütfen geçerli bir Spotify bağlantısı girin._");
         }
-        
+
         downloadMsg = await message.sendReply("_⏳ Spotify'dan indiriliyor..._");
         const result = await nexray.downloadSpotify(url);
 
@@ -244,70 +244,34 @@ Module({
       }
 
       const uniqueQualities = [...new Set(videoFormats.map((f) => f.quality))];
+      const videoId = info.videoId || url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\s/?]+)/)?.[1] || "";
 
-      const videoIdMatch = url.match(
-        /(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\s/?]+)/
-      );
-      const videoId = videoIdMatch ? videoIdMatch[1] : info.videoId || "";
-
-      let qualityText = "✨ _Video Kalitesini Seçiniz_\n\n";
-      qualityText += `✍🏻 _*${censorBadWords(info.title)}*_\n\n(${videoId})\n\n`;
+      let qualityText = info.isFallback ? "⚠️ _Video bilgileri kısıtlı (Standart Mod)_\n\n" : "✨ _Video Kalitesini Seçiniz_\n\n";
+      qualityText += `✍🏻 _*${censorBadWords(info.title)}*_\n\nID: \`${videoId}\`\n\n`;
 
       uniqueQualities.forEach((quality, index) => {
         const format = videoFormats.find((f) => f.quality === quality);
-        const audioFormat = info.formats.find((f) => f.type === "audio");
-
-        let sizeInfo = "";
-        if (format.size && audioFormat?.size) {
-          const parseSize = (sizeStr) => {
-            if (!sizeStr) return 0;
-            const match = sizeStr.match(/([\d.]+)\s*(KB|MB|GB)/i);
-            if (!match) return 0;
-            const value = parseFloat(match[1]);
-            const unit = match[2].toUpperCase();
-            if (unit === "KB") return value * 1024;
-            if (unit === "MB") return value * 1024 * 1024;
-            if (unit === "GB") return value * 1024 * 1024 * 1024;
-            return value;
-          };
-          const totalSize = parseSize(format.size) + parseSize(audioFormat.size);
-          if (totalSize > 0) {
-            sizeInfo = ` ~ _${formatBytes(totalSize)}_`;
-          }
-        }
+        let sizeInfo = format.size && format.size !== 'Standart' ? ` ~ _${format.size}_` : (format.size === 'Standart' ? '' : '');
+        if (info.isFallback && format.size) sizeInfo = ` (${format.size})`;
+        
         qualityText += `*${index + 1}.* _*${quality}*_${sizeInfo}\n`;
       });
-
+      
       const audioFormat = info.formats.find((f) => f.type === "audio");
       if (audioFormat) {
-        let audioSizeInfo = "";
-        if (audioFormat.size) {
-          const match = audioFormat.size.match(/([\d.]+)\s*(KB|MB|GB)/i);
-          if (match) {
-            let value = parseFloat(match[1]);
-            let unit = match[2].toUpperCase();
-            if (unit === "KB") value *= 1024;
-            if (unit === "MB") value *= 1024 * 1024;
-            if (unit === "GB") value *= 1024 * 1024 * 1024;
-            if (value > 0) audioSizeInfo = ` ~ _${formatBytes(value)}_`;
-          }
-        }
-        qualityText += `*${uniqueQualities.length + 1}.* _*Sadece Ses*_${audioSizeInfo}\n`;
+          qualityText += `*${uniqueQualities.length + 1}.* _*Sadece Ses*_\n`;
       }
 
       qualityText += "\n▶️ _İndirmek için seçiminizi bir numara ile yanıtlayın._";
+      if (info.isFallback) qualityText += "\n\n_Not: Sunucu yoğunluğu nedeniyle sadece temel kaliteler listelendi._";
 
       await message.edit(qualityText, message.jid, downloadMsg.key);
     } catch (error) {
       console.error("YouTube ytvideo indirme hatası:", error);
       if (downloadMsg) {
-        await message.edit("_❌ İndirme başarısız! Lütfen tekrar deneyin._", message.jid, downloadMsg.key);
+        await message.edit("_❌ Video bilgileri alınamadı. Lütfen bağlantıyı kontrol edin veya daha sonra tekrar deneyin._", message.jid, downloadMsg.key);
       } else {
-        await message.sendReply("_❌ İndirme başarısız oldu. Lütfen tekrar deneyin._");
-      }
-
-      if (videoPath && fs.existsSync(videoPath)) {
-        try { fs.unlinkSync(videoPath); } catch (_) { }
+        await message.sendReply("_❌ İşlem başarısız oldu._");
       }
     }
   }
@@ -510,15 +474,39 @@ Module({
         fs.unlinkSync(audioPath);
       }
     } catch (error) {
-      console.error("YouTube ses indirme hatası:", error);
-      if (downloadMsg) {
-        await message.edit("_❌ İndirme başarısız!_", message.jid, downloadMsg.key);
-      } else {
-        await message.sendReply("_❌ İndirme başarısız oldu. Lütfen tekrar deneyin._");
+      console.error("YouTube ses indirme hatası (yt-dlp):", error?.message);
+      if (audioPath && fs.existsSync(audioPath)) {
+        try { fs.unlinkSync(audioPath); } catch (_) { }
       }
 
-      if (audioPath && fs.existsSync(audioPath)) {
-        fs.unlinkSync(audioPath);
+      // API Fallback: yt-dlp başarısız → nexray API zinciri (EliteProTech/Yupra/Okatsu/Izumi)
+      try {
+        if (!downloadMsg) {
+          downloadMsg = await message.sendReply("_🔎 Alternatif yöntemle indiriliyor..._");
+        } else {
+          await message.edit("_🔎 Alternatif yöntemle indiriliyor..._", message.jid, downloadMsg.key);
+        }
+
+        const fallback = await nexray.downloadYtMp3(url);
+        if (!fallback?.url) throw new Error("Tüm API'ler başarısız");
+
+        const safeTitle = censorBadWords(fallback.title || "Ses");
+        await message.edit(`_🔻 İndirilip yükleniyor..._ *${safeTitle}*`, message.jid, downloadMsg.key);
+
+        await message.client.sendMessage(message.jid, {
+          audio: { url: fallback.url },
+          mimetype: "audio/mpeg",
+          fileName: `${safeTitle}.mp3`,
+        }, { quoted: message.data });
+
+        await message.edit("_✅ İndirme tamamlandı!_", message.jid, downloadMsg.key);
+      } catch (fallbackErr) {
+        console.error("YouTube ses API fallback hatası:", fallbackErr?.message);
+        if (downloadMsg) {
+          await message.edit("_❌ İndirme başarısız oldu. Lütfen tekrar deneyin._", message.jid, downloadMsg.key);
+        } else {
+          await message.sendReply("_❌ İndirme başarısız oldu. Lütfen tekrar deneyin._");
+        }
       }
     }
   }
@@ -661,7 +649,7 @@ Module({
   fromMe: false,
 },
   async (message, match) => {
-    const numberMatch = message.text?.match(/^\d+$/);
+    const numberMatch = message.text?.trim().match(/^\d+$/);
     if (!numberMatch) return;
     const selectedNumber = parseInt(numberMatch[0]);
     if (
@@ -991,29 +979,31 @@ Module({
         await message.sendReply("_❌ Seçiminiz işlenemedi._");
       }
     } else if (
-      repliedText.includes("Video Kalitesini Seçin") &&
+      /(Video Kalitesini Seç|Standart Mod)/i.test(repliedText) &&
       repliedText.includes("İndirmek için seçiminizi bir numara ile yanıtlayın")
     ) {
       try {
         const lines = repliedText.split("\n");
         let videoId = "";
-
+ 
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i].trim();
-
-          if (
-            line.startsWith("(") &&
-            line.endsWith(")") &&
-            line.length >= 13 &&
-            !line.match(/^\*\d+\./)
-          ) {
+          
+          // Pattern 1: (videoId)
+          if (line.startsWith("(") && line.endsWith(")") && line.length >= 13 && !line.match(/^\*\d+\./)) {
             videoId = line.replace(/[()]/g, "").trim();
-            if (videoId.length >= 10) break;
           }
-        }
+          // Pattern 2: ID: videoId or ID: `videoId`
+          else if (line.startsWith("ID:") || line.includes("ID: `")) {
+             const match = line.match(/ID:\s*`?([A-Za-z0-9_-]{10,15})`?/);
+             if (match) videoId = match[1];
+          }
 
+          if (videoId.length >= 10) break;
+        }
+ 
         if (!videoId || videoId.length < 10) {
-          return await message.sendReply("_🎬 Video kimliği alınamadı._");
+          return await message.sendReply("_🎬 Video kimliği (ID) alınamadı. Lütfen tekrar deneyin._");
         }
 
         const url = `https://www.youtube.com/watch?v=${videoId}`;
@@ -1046,7 +1036,7 @@ Module({
 
             const safeTitle = censorBadWords(result.title);
             const stream = fs.createReadStream(audioPath);
-            await message.sendMessage({ stream }, "document", {
+            await message.sendMessage(stream, "document", {
               fileName: `${safeTitle}.mp3`,
               mimetype: "audio/mpeg",
               caption: `_*${safeTitle}*_`,
@@ -1062,20 +1052,21 @@ Module({
           } catch (error) {
             console.error("YouTube video ses indirme hatası:", error);
             try {
-              if (downloadMsg) await message.edit("_🔎 Alternatif yöntemle deneniyor..._", message.jid, downloadMsg.key);
-              else downloadMsg = await message.sendReply("_🔎 Alternatif yöntemle deneniyor..._");
-
+              if (downloadMsg) await message.edit("_⚠️ Beklenmedik bir sorun oluştu, 2. Yöntem deneniyor..._", message.jid, downloadMsg.key);
+              else downloadMsg = await message.sendReply("_⚠️ 2. Yöntem deneniyor..._");
+ 
               const fallback = await nexray.downloadYtMp3(url);
               if (fallback?.url) {
                 const safeTitle = censorBadWords(fallback.title || "Ses");
-                await message.edit(`_🔻 İndirilip yükleniyor..._ *${safeTitle}*`, message.jid, downloadMsg.key);
+                await message.edit(`_🔻 İndirilip yükleniyor (2. Yöntem)..._ *${safeTitle}*`, message.jid, downloadMsg.key);
                 await message.client.sendMessage(message.jid, {
                   audio: { url: fallback.url },
                   mimetype: "audio/mpeg",
                   fileName: `${safeTitle}.mp3`,
+                  caption: `_*${safeTitle}*_`
                 }, { quoted: message.data });
-
-                await message.edit("_✅ Hazır!_", message.jid, downloadMsg.key);
+ 
+                await message.edit("_✅ Ses başarıyla indirildi!_", message.jid, downloadMsg.key);
               } else {
                 throw new Error("Fallback failed");
               }
@@ -1108,7 +1099,7 @@ Module({
 
             if (stats.size > VIDEO_SIZE_LIMIT) {
               const stream = fs.createReadStream(videoPath);
-              await message.sendMessage({ stream }, "document", {
+              await message.sendMessage(stream, "document", {
                 fileName: `${safeTitle}.mp4`,
                 mimetype: "video/mp4",
                 caption: `_*${safeTitle}*_\n\n ✨_Kalite: ${selectedQuality}_`,
@@ -1116,7 +1107,7 @@ Module({
               stream.destroy();
             } else {
               const stream = fs.createReadStream(videoPath);
-              await message.sendReply({ stream }, "video", {
+              await message.sendReply(stream, "video", {
                 caption: `_*${safeTitle}*_\n\n✨ _Kalite: ${selectedQuality}_`,
               });
               stream.destroy();
@@ -1131,17 +1122,17 @@ Module({
           } catch (error) {
             console.error("YouTube video kalite indirme hatası:", error);
             try {
-              if (downloadMsg) await message.edit("_🔎 Alternatif yöntemle deneniyor..._", message.jid, downloadMsg.key);
-              else downloadMsg = await message.sendReply("_🔎 Alternatif yöntemle deneniyor..._");
-
+              if (downloadMsg) await message.edit("_⚠️ Belirtilen kalitede sorun oluştu, 2. Yöntem deneniyor..._", message.jid, downloadMsg.key);
+              else downloadMsg = await message.sendReply("_⚠️ 2. Yöntem deneniyor..._");
+ 
               const fallback = await nexray.downloadYtMp4(url);
               if (fallback?.url) {
                 const safeTitle = censorBadWords(fallback.title || "Video");
-                await message.edit(`_🔻 İndirilip yükleniyor..._ *${safeTitle}*`, message.jid, downloadMsg.key);
-                await message.sendReply({ url: fallback.url }, "video", {
-                  caption: `_*${safeTitle}*_\n\n✨ _Kalite: ${selectedQuality}_`,
+                await message.edit(`_⬇️ Video indiriliyor (2. Yöntem)..._ *${safeTitle}*`, message.jid, downloadMsg.key);
+                await message.sendReply(fallback.url, "video", {
+                  caption: `_*${safeTitle}*_\n\n_✨ Otomatik kalite seçildi._`,
                 });
-                await message.edit("_✅ Hazır!_", message.jid, downloadMsg.key);
+                await message.edit("_✅ Video başarıyla indirildi!_", message.jid, downloadMsg.key);
               } else {
                 throw new Error("Fallback failed");
               }

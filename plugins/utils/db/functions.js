@@ -13,7 +13,9 @@ const {
   antiPromote,
   antiWordDB,
   antiDeleteDB,
-  FilterDB
+  FilterDB,
+  WelcomeDB,
+  GoodbyeDB
 } = require("./models");
 const config = require("../../../config");
 

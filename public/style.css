@@ -613,6 +613,7 @@ input:checked + .slider:before { transform: translateX(20px); background-color: 
 .f-btn.warn.active { color: #fbbf24; }
 .f-btn.error.active { color: #f87171; }
 .f-btn.success.active { color: var(--green); }
+.cmd-banner b { color: var(--text); font-weight: 800; font-family: 'JetBrains Mono', monospace; margin: 0 2px; }
 
 .term-tools { display: flex; gap: 8px; }
 .t-icon-btn { 
