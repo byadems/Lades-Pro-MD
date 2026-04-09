@@ -706,6 +706,222 @@ async function spawnSession(usePairing, phoneNumber, forceNew) {
   }
 }
 
+// ─── AI Komut Üretici ─────────────────────────────────────
+app.post('/api/ai/generate-command', async (req, res) => {
+  const { description, model } = req.body;
+  if (!description) return res.status(400).json({ error: "Komut açıklaması gerekli" });
+
+  try {
+    const systemPrompt = `Sen bir WhatsApp bot komut geliştiricisisin. Lades-Pro-MD bot yapısında çalışan Node.js eklentileri yazıyorsun.
+
+Kural: Bot yapısında Module() fonksiyonu ile komutlar oluşturulur. Çıktı SADECE Türkçe olmalı.
+
+Örnek yapı:
+const { Module } = require("../main");
+Module({
+  pattern: "komutadi ?(.*)",
+  fromMe: false,
+  desc: "Komut açıklaması",
+  usage: ".komutadi [parametre]",
+  use: "kategori",
+}, async (message, match) => {
+  const input = (match[1] || "").trim();
+  // Komut mantığı
+  await message.sendReply("Yanıt");
+});
+
+message nesnesi şu metodlara sahip:
+- message.sendReply(text) - Metin yanıtı
+- message.client.sendMessage(jid, content, options) - Dosya/görsel/video gönderme
+- message.jid - Mevcut sohbet ID'si
+- message.sender - Gönderen kişi
+- message.pushName - Kullanıcı adı
+- message.reply_message - Yanıtlanan mesaj
+- message.data - Ham mesaj verisi
+
+Kullanabilirsin: axios, fs, path, os
+API: https://api.siputzx.my.id (ücretsiz, anahtar gerektirmez)
+
+SADECE çalışan, hatasız JavaScript kodu üret. Açıklama ekleme, sadece kodu ver.`;
+
+    const userPrompt = `Şu işlevi yapan bir bot komutu oluştur: ${description}`;
+
+    // Try Siputzx AI first (free, no key needed)
+    const axios = require('axios');
+    let result = null;
+
+    try {
+      const aiRes = await axios.get('https://api.siputzx.my.id/api/ai/duckai', {
+        params: { message: systemPrompt + "\n\n" + userPrompt },
+        timeout: 30000
+      });
+      if (aiRes.data?.status && aiRes.data?.data) {
+        result = typeof aiRes.data.data === 'string' ? aiRes.data.data : aiRes.data.data.message || aiRes.data.data.text || JSON.stringify(aiRes.data.data);
+      }
+    } catch (e) {
+      console.error('[AI Generate] DuckAI error:', e.message);
+    }
+
+    // Fallback to DeepSeek
+    if (!result) {
+      try {
+        const aiRes = await axios.get('https://api.siputzx.my.id/api/ai/deepseekr1', {
+          params: { prompt: systemPrompt + "\n\n" + userPrompt },
+          timeout: 30000
+        });
+        if (aiRes.data?.status && aiRes.data?.data) {
+          result = typeof aiRes.data.data === 'string' ? aiRes.data.data : aiRes.data.data.response || aiRes.data.data.text || JSON.stringify(aiRes.data.data);
+        }
+      } catch (e) {
+        console.error('[AI Generate] DeepSeek error:', e.message);
+      }
+    }
+
+    if (!result) {
+      return res.status(500).json({ error: "AI servisleri yanıt vermedi. Lütfen tekrar deneyin." });
+    }
+
+    // Extract code block if wrapped in markdown
+    const codeMatch = result.match(/```(?:javascript|js)?\n?([\s\S]*?)```/);
+    const code = codeMatch ? codeMatch[1].trim() : result.trim();
+
+    res.json({ success: true, code, model: model || 'duckai' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Save generated AI command to a plugin file
+app.post('/api/ai/save-command', (req, res) => {
+  const { code, name } = req.body;
+  if (!code || !name) return res.status(400).json({ error: "Kod ve isim gerekli" });
+
+  const safeName = name.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+  const fileName = `ai-${safeName}.js`;
+  const filePath = path.join(__dirname, '../plugins', fileName);
+
+  try {
+    fs.writeFileSync(filePath, code, 'utf8');
+    res.json({ success: true, fileName, message: `Komut ${fileName} olarak kaydedildi. Bot yeniden başlatıldığında aktif olacak.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Uzak Komut Çalıştırma (Remote Command Execution) ─────
+app.get('/api/groups', async (req, res) => {
+  try {
+    // Try fetching from live bot socket first
+    if (currentSock && liveBotConnected) {
+      try {
+        const groups = await currentSock.groupFetchAllParticipating();
+        const groupList = Object.values(groups).map(g => ({
+          jid: g.id,
+          subject: g.subject,
+          participants: g.participants?.length || 0,
+          owner: g.owner || null,
+        }));
+        // Cache for later use
+        const groupCachePath = path.join(__dirname, '../sessions/group-cache.json');
+        fs.writeFileSync(groupCachePath, JSON.stringify(groupList, null, 2));
+        return res.json({ success: true, groups: groupList });
+      } catch (e) {
+        console.error('[Groups] Live fetch error:', e.message);
+      }
+    }
+
+    // Fallback to cached data
+    const groupCachePath = path.join(__dirname, '../sessions/group-cache.json');
+    let cachedGroups = [];
+    if (fs.existsSync(groupCachePath)) {
+      try {
+        cachedGroups = JSON.parse(fs.readFileSync(groupCachePath, 'utf8'));
+      } catch (e) { }
+    }
+
+    res.json({ success: true, groups: cachedGroups });
+  } catch (err) {
+    res.json({ success: true, groups: [] });
+  }
+});
+
+app.post('/api/remote-command', async (req, res) => {
+  const { groupJid, command } = req.body;
+  if (!groupJid || !command) return res.status(400).json({ error: "Grup JID ve komut gerekli" });
+
+  try {
+    if (currentSock && liveBotConnected) {
+      await currentSock.sendMessage(groupJid, { text: command });
+      return res.json({ success: true, message: `"${command}" komutu ${groupJid} hedefine gönderildi.` });
+    }
+    res.status(503).json({ error: "Bot şu an bağlı değil. Lütfen bağlantıyı kontrol edin." });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Send a text message directly to a group/chat
+app.post('/api/send-message', async (req, res) => {
+  const { jid, text } = req.body;
+  if (!jid || !text) return res.status(400).json({ error: "JID ve mesaj gerekli" });
+
+  try {
+    if (currentSock && liveBotConnected) {
+      await currentSock.sendMessage(jid, { text });
+      return res.json({ success: true, message: `Mesaj gönderildi.` });
+    }
+    res.status(503).json({ error: "Bot şu an bağlı değil." });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Yeni Komut Listesi (Kategorize) ─────────────────────
+app.get('/api/commands/categorized', (req, res) => {
+  try {
+    const stats = loadStats();
+    const pluginsDir = path.join(__dirname, '../plugins');
+    const files = fs.readdirSync(pluginsDir).filter(f => f.endsWith('.js') && f !== 'utils');
+    const categories = {};
+
+    files.forEach(file => {
+      try {
+        const src = fs.readFileSync(path.join(pluginsDir, file), 'utf8');
+        const matches = src.matchAll(/(?:Module|bot|System)\s*\(\s*\{([\s\S]*?)\}\s*,/g);
+        for (const m of matches) {
+          const block = m[1];
+          const pattern = (block.match(/pattern\s*:\s*["'`]([^"'`]+)["'`]/) || [])[1];
+          const desc = (block.match(/desc\s*:\s*["'`]([^"'`]+)["'`]/) || [])[1] || '';
+          const usage = (block.match(/usage\s*:\s*["'`]([^"'`]+)["'`]/) || [])[1] || '';
+          const use = (block.match(/use\s*:\s*["'`]([^"'`]+)["'`]/) || [])[1];
+          const type = (block.match(/type\s*:\s*["'`]([^"'`]+)["'`]/) || [])[1];
+          if (!pattern) continue;
+
+          let cleanPattern = (pattern || "").trim()
+            .replace(/^\(\?:\s*([^)]*)\)/, '$1')
+            .replace(/\|/g, " / ")
+            .split(" ?")[0]
+            .trim();
+          if (!cleanPattern) continue;
+
+          const category = use || type || 'genel';
+          if (!categories[category]) categories[category] = [];
+          categories[category].push({
+            command: cleanPattern,
+            desc,
+            usage,
+            source: file
+          });
+        }
+      } catch { }
+    });
+
+    res.json({ success: true, categories, totalCategories: Object.keys(categories).length });
+  } catch (err) {
+    res.json({ success: true, categories: {}, totalCategories: 0 });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`\n==========================================`);
   console.log(`🚀 Lades-PRO Kontrol Paneli aktif!`);

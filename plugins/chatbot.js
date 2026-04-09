@@ -302,7 +302,7 @@ async function getAIResponse(message, chatJid, imageBuffer = null, retryCount = 
 
     if (status && [401, 403].includes(status)) {
       console.error("YZ yanıtı alınırken hata (auth):", status, error.response?.data || error.message);
-      return `_❌ API Authentication Error: ${error.response?.data?.error?.message || "Yetkilendirme hatası."}_`;
+      return `_❌ API Yetkilendirme Hatası: ${error.response?.data?.error?.message || "Yetkilendirme hatası."}_`;
     }
 
     console.warn("YZ isteği başarısız oldu:", status || error.message, error.isMaxAttempts ? "(isMaxAttempts)" : "");

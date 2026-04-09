@@ -1,9 +1,9 @@
 """
-Proxy server to forward requests from port 8001 to Node.js dashboard on port 3001
+Proxy server to forward API requests from port 8001 to Node.js dashboard on port 3001
 """
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import Response
 import httpx
 
 app = FastAPI()
@@ -17,45 +17,47 @@ app.add_middleware(
 )
 
 DASHBOARD_URL = "http://localhost:3001"
+_client = None
 
-@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
-async def proxy(path: str, request: Request):
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        url = f"{DASHBOARD_URL}/{path}"
-        if request.query_params:
-            url += f"?{request.query_params}"
-        
-        body = await request.body()
-        headers = {k: v for k, v in request.headers.items() if k.lower() not in ['host', 'content-length']}
-        
-        # Check for SSE
-        if 'stream' in path:
-            async def stream_response():
-                async with client.stream(request.method, url, headers=headers, content=body) as resp:
-                    async for chunk in resp.aiter_bytes():
-                        yield chunk
-            return StreamingResponse(stream_response(), media_type='text/event-stream')
-        
-        response = await client.request(
-            method=request.method,
-            url=url,
-            headers=headers,
-            content=body if body else None,
-        )
-        
-        return Response(
-            content=response.content,
-            status_code=response.status_code,
-            headers=dict(response.headers),
-            media_type=response.headers.get('content-type')
-        )
+def get_client():
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(timeout=60.0)
+    return _client
 
-@app.get("/")
-async def root():
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.get(f"{DASHBOARD_URL}/")
-        return Response(
-            content=response.content,
-            status_code=response.status_code,
-            media_type=response.headers.get('content-type', 'text/html')
-        )
+@app.on_event("shutdown")
+async def shutdown():
+    global _client
+    if _client:
+        await _client.aclose()
+
+@app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
+async def proxy_api(path: str, request: Request):
+    client = get_client()
+    url = f"{DASHBOARD_URL}/api/{path}"
+    if request.query_params:
+        url += f"?{request.query_params}"
+
+    body = await request.body()
+    headers = {k: v for k, v in request.headers.items() if k.lower() not in ['host', 'content-length']}
+
+    response = await client.request(
+        method=request.method,
+        url=url,
+        headers=headers,
+        content=body if body else None,
+    )
+
+    excluded_headers = {'content-encoding', 'content-length', 'transfer-encoding', 'connection'}
+    resp_headers = {k: v for k, v in response.headers.items() if k.lower() not in excluded_headers}
+
+    return Response(
+        content=response.content,
+        status_code=response.status_code,
+        headers=resp_headers,
+        media_type=response.headers.get('content-type')
+    )
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "proxy": True}
