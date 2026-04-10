@@ -257,7 +257,7 @@ process.on("uncaughtException", (err) => {
             if (dashboard.connected) dashboard.send({ type: 'send_result', success: false, error: 'Bot bağlı değil', requestId: msg.requestId });
           }
         } else if (msg.type === 'restart') {
-          if (msg.restartType === 'system') {
+          if (restartType === 'system') {
             const child = fork(__filename, process.argv.slice(2), { detached: true, stdio: 'inherit' });
             child.unref();
             process.exit(0);

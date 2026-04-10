@@ -165,6 +165,15 @@ async function initializeDatabase() {
     try {
       await sequelize.authenticate();
       logger.info("Database connection established.");
+
+      // SQLite pragmaları: WAL modu ve busy_timeout
+      if (sequelize.getDialect() === 'sqlite') {
+        await sequelize.query("PRAGMA journal_mode = WAL;");
+        await sequelize.query("PRAGMA busy_timeout = 5000;");
+        await sequelize.query("PRAGMA synchronous = NORMAL;");
+        logger.info("SQLite pragmaları ayarlandı (WAL, busy_timeout=5000ms).");
+      }
+
       break;
     } catch (err) {
       retries--;

@@ -301,6 +301,7 @@ async function runSelfTest(sock) {
   const startTime = Date.now();
   let ok = 0, err = 0, skipped = 0, timeout = 0;
   let isSuiteTimedOut = false;
+  const allResults = []; // Tüm sonuçları hafızada biriktir
 
   for (let i = 0; i < queue.length; i += BATCH_SIZE) {
     if (Date.now() - startTime > GLOBAL_SUITE_TIMEOUT) {
@@ -310,7 +311,6 @@ async function runSelfTest(sock) {
     }
 
     const batch = queue.slice(i, i + BATCH_SIZE);
-    const results = [];
 
     const batchResults = await Promise.allSettled(
       batch.map((cmd, j) => {
@@ -334,7 +334,12 @@ async function runSelfTest(sock) {
 
     for (const res of batchResults) {
       if (res.status === 'fulfilled' && res.value) {
-        results.push(res.value);
+        const r = res.value;
+        allResults.push(r);
+        if (r.result.status === "ok") ok++;
+        else if (r.result.status === "error") err++;
+        else if (r.result.status === "timeout") timeout++;
+        else if (r.result.status === "skipped") skipped++;
       }
     }
 
@@ -348,15 +353,6 @@ async function runSelfTest(sock) {
       });
     }
 
-    for (const r of results) {
-      if (!r) continue;
-      handler.recordStat(r.key, r.result.status, r.result.ms, r.result.error, true);
-      if (r.result.status === "ok") ok++;
-      else if (r.result.status === "error") err++;
-      else if (r.result.status === "timeout") timeout++;
-      else if (r.result.status === "skipped") skipped++;
-    }
-
     if (i + BATCH_SIZE < queue.length) {
       await new Promise(res => setImmediate(res));
       await new Promise(res => setTimeout(res, BATCH_DELAY));
@@ -366,6 +362,16 @@ async function runSelfTest(sock) {
     if (!sock.ev) {
       logger.warn("🧪 Self-test: Socket bağlantısı koptuğu için test döngüsü durduruldu.");
       break;
+    }
+  }
+
+  // Tüm sonuçları sıralı olarak DB'ye yaz (SQLITE_BUSY önleme)
+  for (const r of allResults) {
+    if (!r) continue;
+    try {
+      await handler.recordStat(r.key, r.result.status, r.result.ms, r.result.error, true);
+    } catch (e) {
+      // Sessizce atla, test sonuçları zaten raporlandı
     }
   }
 

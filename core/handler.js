@@ -16,6 +16,7 @@ const { isGroup, getGroupAdmins, getMessageText, getMentioned, getQuotedMsg, loa
 const { getMessageByKey } = require("./store");
 const { LRUCache } = require("lru-cache");
 const { BotMetric, CommandStat, CommandRegistry, UserData, GroupSettings, MessageStats: MsgStats, Op, sequelize } = require("./database");
+const { antidelete } = require("../plugins/utils/db/functions");
 
 let commandQueue = null;
 import('p-queue').then(({ default: PQueue }) => {
@@ -117,31 +118,42 @@ async function recordStat(pattern, status, durationMs, error = null, isTest = fa
   const key = String(pattern).replace(/^\(\?:\s*|\)$/g, '').split('|')[0].split('?')[0].split(' ')[0].replace(/[^\wçğıöşüÇĞİÖŞÜ]/gi, '');
   if (!key) return;
 
-  try {
-    const [stat, created] = await CommandStat.findOrCreate({
-      where: { pattern: key },
-      defaults: {
-        status: status,
-        runs: 1,
-        avgMs: durationMs,
-        lastRun: new Date(),
-        lastError: error ? String(error).slice(0, 120) : null
-      }
-    });
-
-    if (!created) {
-      await stat.update({
-        status: status,
-        avgMs: durationMs,
-        lastRun: new Date(),
-        lastError: error ? String(error).slice(0, 120) : null
+  // Retry logic for SQLITE_BUSY
+  const MAX_RETRIES = 3;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const [stat, created] = await CommandStat.findOrCreate({
+        where: { pattern: key },
+        defaults: {
+          status: status,
+          runs: 1,
+          avgMs: durationMs,
+          lastRun: new Date(),
+          lastError: error ? String(error).slice(0, 120) : null
+        }
       });
-      await stat.increment('runs');
-    }
 
-    if (!isTest) await recordCommand();
-  } catch (e) {
-    logger.error("Failed to record command stat: " + e.message);
+      if (!created) {
+        await stat.update({
+          status: status,
+          avgMs: durationMs,
+          lastRun: new Date(),
+          lastError: error ? String(error).slice(0, 120) : null
+        });
+        await stat.increment('runs');
+      }
+
+      if (!isTest) await recordCommand();
+      return; // Başarılı, çık
+    } catch (e) {
+      if (e.message.includes('SQLITE_BUSY') && attempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, 100 * attempt));
+        continue;
+      }
+      if (attempt === MAX_RETRIES) {
+        logger.error("Failed to record command stat: " + e.message);
+      }
+    }
   }
 }
 
@@ -611,9 +623,17 @@ async function loadPlugins(pluginsDir) {
       };
     });
 
-    // SQL tabanlı registry güncelleme
-    await CommandRegistry.destroy({ where: {}, truncate: true });
-    await CommandRegistry.bulkCreate(activeCmds);
+    // SQL tabanlı registry güncelleme - duplikatları temizle
+    const seen = new Set();
+    const uniqueCmds = activeCmds.filter(c => {
+      if (seen.has(c.pattern)) return false;
+      seen.add(c.pattern);
+      return true;
+    });
+    await CommandRegistry.destroy({ where: {} });
+    if (uniqueCmds.length > 0) {
+      await CommandRegistry.bulkCreate(uniqueCmds, { ignoreDuplicates: true });
+    }
     
     // Eski JSON dosyasını temizle (istenirse silinebilir)
     const activeCommandsPath = path.join(__dirname, "../sessions", "active-commands.json");
@@ -646,13 +666,8 @@ function checkRateLimit(jid) {
 }
 
 // ─────────────────────────────────────────────────────────
-//  Permission helpers
+//  Permission helpers (getNumericalId zaten yukarıda tanımlı)
 // ─────────────────────────────────────────────────────────
-function getNumericalId(jid) {
-  if (!jid) return "";
-  // JID ne olursa olsun (@lid, @s.whatsapp.net, :15 vb.) sadece rakamları al
-  return jid.split("@")[0].split(":")[0].replace(/[^0-9]/g, "");
-}
 
 // ─────────────────────────────────────────────────────────
 //  GLOBAL OWNER LID STORAGE - Runtime'da öğrenilen LID'ler

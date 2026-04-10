@@ -13,6 +13,7 @@ const {
   antiPromote,
   antiWordDB,
   antiDeleteDB,
+  FakeDB,
   FilterDB,
   WelcomeDB,
   GoodbyeDB
@@ -125,22 +126,24 @@ async function getAllWarns(jid = null) {
   return groupedWarnings;
 }
 
-// Map old AntiFake to BotConfig for global or GroupSettings for local
+// AntiFake (AntiNumara) - Gerçek veritabanı implementasyonu
 async function getAntifake() {
-  // Mock function, antifake is usually handled in group_settings now
-  return [];
+  return await FakeDB.findAll();
 }
 
 async function setAntifake(jid) {
-  return true;
+  // Duplikat önleme
+  const existing = await FakeDB.findOne({ where: { jid } });
+  if (existing) return existing;
+  return await FakeDB.create({ jid });
 }
 
 async function delAntifake(jid = null) {
-  return true;
+  return await FakeDB.destroy({ where: { jid } });
 }
 
 async function resetAntifake() {
-  return true;
+  return await FakeDB.destroy({ where: {}, truncate: true });
 }
 
 // New advanced antilink functions - mapped to GroupSettings
@@ -209,6 +212,8 @@ async function getPdm() {
 }
 
 async function setPdm(jid) {
+  const existing = await PDMDB.findOne({ where: { jid } });
+  if (existing) return existing;
   return await PDMDB.create({ jid });
 }
 
@@ -225,6 +230,8 @@ async function getAntiDemote() {
 }
 
 async function setAntiDemote(jid) {
+  const existing = await antiDemote.findOne({ where: { jid } });
+  if (existing) return existing;
   return await antiDemote.create({ jid });
 }
 
@@ -241,6 +248,8 @@ async function getAntiPromote() {
 }
 
 async function setAntiPromote(jid) {
+  const existing = await antiPromote.findOne({ where: { jid } });
+  if (existing) return existing;
   return await antiPromote.create({ jid });
 }
 
@@ -257,6 +266,8 @@ async function getAntiBot() {
 }
 
 async function setAntiBot(jid) {
+  const existing = await antiBotDB.findOne({ where: { jid } });
+  if (existing) return existing;
   return await antiBotDB.create({ jid });
 }
 
@@ -273,6 +284,8 @@ async function getAntiDelete() {
 }
 
 async function setAntiDelete(jid) {
+  const existing = await antiDeleteDB.findOne({ where: { jid } });
+  if (existing) return existing;
   return await antiDeleteDB.create({ jid });
 }
 
@@ -289,6 +302,8 @@ async function getAntiWord() {
 }
 
 async function setAntiWord(jid) {
+  const existing = await antiWordDB.findOne({ where: { jid } });
+  if (existing) return existing;
   return await antiWordDB.create({ jid });
 }
 

@@ -210,7 +210,7 @@ Module({
         const isCommand = prefixes.some(p => text.startsWith(p));
 
         const afkData = await removeAFK(senderJid);
-        if (afkData && !isCommand) {
+        if (false) {
           const timeAFK = formatDuration(
             Date.now() - new Date(afkData.setAt).getTime()
           );

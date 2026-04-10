@@ -61,11 +61,16 @@ if (DATABASE_URL && DATABASE_URL.startsWith("postgres")) {
     dialect: "sqlite",
     storage: path.join(__dirname, "database.sqlite"),
     logging: false,
-    dialectOptions: {
-      pragmas: {
-        journal_mode: "WAL"
-      }
-    }
+    pool: {
+      max: 1,       // SQLite tek yazıcı destekler, pool=1 kilitlemeyi önler
+      min: 0,
+      acquire: 30000,
+      idle: 10000,
+    },
+    retry: {
+      max: 10,
+      match: [/SQLITE_BUSY/],
+    },
   });
 }
 
