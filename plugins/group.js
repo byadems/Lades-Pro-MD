@@ -52,7 +52,7 @@ Module({
   pattern: "sohbetsil ?(.*)",
   fromMe: true,
   desc: "Mevcut grup sohbet geçmişini tamamen temizler ve konuşmayı siler.",
-  use: "system",
+  use: "sistem",
   usage: ".sohbetsil",
 },
   async (message, match) => {
@@ -76,7 +76,7 @@ Module({
   pattern: "ban ?(.*)",
   fromMe: false,
   desc: Lang.KICK_DESC,
-  use: "group",
+  use: "grup",
   usage:
     ".ban @etiket veya yanıtla\n.ban herkes (herkesi at)\n.ban 90 (90 ile başlayan numaraları atar)",
 },
@@ -158,7 +158,7 @@ Module({
   fromMe: false,
   desc: Lang.KICK_DESC,
   usage: ".at [@etiket/yanıtla]",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     if (!message.isGroup) {
@@ -276,7 +276,7 @@ Module({
     fromMe: true,
     desc: Lang.ADD_DESC,
     warn: "Numaranız banlanabilir, dikkatli kullanın",
-    use: "group",
+    use: "grup",
     usage: ".ekle 90532xxxxxxx",
   },
   async (message, match) => {
@@ -308,7 +308,7 @@ Module({
   pattern: "yetkiver ?(.*)",
   fromMe: false,
   desc: Lang.PROMOTE_DESC,
-  use: "group",
+  use: "grup",
   usage: ".yetkiver [@etiket/yanıtla]",
 },
   async (message, match) => {
@@ -345,7 +345,7 @@ Module({
   pattern: "istekler ?(.*)",
   fromMe: false,
   desc: "Gruptaki bekleyen katılım isteklerini listeler ve yönetmenizi sağlar.",
-  use: "group",
+  use: "grup",
   usage: ".istekler (bekleyenleri gör)\n.istekler onayla hepsi (tüm istekleri onayla)\n.istekler reddet hepsi (tüm istekleri reddet)\n.istekler onayla 905xxx (belirli bir numarayı onayla)",
 },
   async (message, match) => {
@@ -475,7 +475,7 @@ Module({
   fromMe: true,
   desc: Lang.LEAVE_DESC,
   usage: ".ayrıl (mevcut gruptan çıkar)",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     if (!message.isGroup)
@@ -490,7 +490,7 @@ Module({
   fromMe: true,
   desc: "Yanıtlanan mesajın asıl alıntıladığı mesajı bulur ve tekrar gönderir. Silinen mesajları görmek için idealdir.",
   usage: ".quoted [yanıtla]",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     try {
@@ -556,7 +556,7 @@ Module({
   pattern: "yetkial ?(.*)",
   fromMe: false,
   desc: Lang.DEMOTE_DESC,
-  use: "group",
+  use: "grup",
   usage: ".yetkial [@etiket/yanıtla]",
 },
   async (message, match) => {
@@ -593,7 +593,7 @@ Module({
   pattern: "sohbetkapat ?(.*)",
   fromMe: false,
   desc: Lang.MUTE_DESC,
-  use: "group",
+  use: "grup",
   usage:
     ".sohbetkapat (grubu süresiz olarak sessize alır)\n.sohbetkapat 1s (1 saat sessize alır)\n.sohbetkapat 5d (5 dakika sessize alır)",
 },
@@ -635,7 +635,7 @@ Module({
   pattern: "sohbetaç",
   fromMe: false,
   desc: Lang.UNMUTE_DESC,
-  use: "group",
+  use: "grup",
   usage: ".sohbetaç",
 },
   async (message, match) => {
@@ -654,7 +654,7 @@ Module({
   pattern: "jid",
   fromMe: false,
   desc: Lang.JID_DESC,
-  use: "group",
+  use: "grup",
   usage: ".jid (mevcut sohbet kimliğini alır)\n.jid (kullanıcı kimliğini almak için yanıtla)",
 },
   async (message) => {
@@ -675,7 +675,7 @@ Module({
 Module({
   pattern: 'davet',
   fromMe: true,
-  use: 'group',
+  use: 'grup',
   desc: Lang.INVITE_DESC,
   usage: ".davet"
 },
@@ -696,7 +696,7 @@ Module({
 Module({
   pattern: "davetyenile",
   fromMe: false,
-  use: "group",
+  use: "grup",
   desc: Lang.REVOKE_DESC,
   usage: ".davetyenile",
 },
@@ -715,7 +715,7 @@ Module({
 Module({
   pattern: "gayaryt ?(.*)",
   fromMe: false,
-  use: "group",
+  use: "grup",
   desc: "Grup ayarlarını sadece yöneticilerin düzenleyebileceği şekilde değiştirir!",
   usage: ".gayaryt (grup ayarlarını kilitler)",
 },
@@ -733,7 +733,7 @@ Module({
 Module({
   pattern: "gayarherkes ?(.*)",
   fromMe: false,
-  use: "group",
+  use: "grup",
   desc: "Grup ayarlarını herkesin düzenleyebileceği şekilde değiştirir!",
   usage: ".gayarherkes (grup ayarlarının kilidini açar)",
 },
@@ -751,7 +751,7 @@ Module({
 Module({
   pattern: "gadı ?(.*)",
   fromMe: false,
-  use: "group",
+  use: "grup",
   desc: "Grup ismini (başlığını) belirlediğiniz yeni isimle değiştirir.",
   usage: ".gadı [yeni_isim]",
 },
@@ -784,7 +784,7 @@ Module({
 Module({
   pattern: "gaçıklama ?(.*)",
   fromMe: false,
-  use: "group",
+  use: "grup",
   desc: "Grup açıklamasını belirlediğiniz yeni metinle günceller.",
   usage: ".gaçıklama [yeni_açıklama]",
 },
@@ -815,7 +815,7 @@ Module({
 Module({
   pattern: "common ?(.*)",
   fromMe: false,
-  use: "group",
+  use: "grup",
   desc: "Verdiğiniz iki farklı gruptaki ortak olan üyeleri listeler veya gruptan çıkarmanızı sağlar.",
   usage: ".common [jid1,jid2] | .common çıkar [jid]",
 },
@@ -885,7 +885,7 @@ Module({
 Module({
   pattern: "diff ?(.*)",
   fromMe: false,
-  use: "group",
+  use: "grup",
   desc: "Verdiğiniz iki gruptaki birbirinden farklı (benzersiz) üyeleri listeler.",
   usage: ".diff [jid1,jid2]",
 },
@@ -914,7 +914,7 @@ Module({
   pattern: "tag ?(.*)",
   fromMe: false,
   desc: Lang.TAGALL_DESC,
-  use: "group",
+  use: "grup",
   usage:
     ".tag metin\n.tag (mesaja yanıtla)\n.tagherkes (herkesi etiketle)\n.tagyt (sadece yöneticileri etiketle)\n.tag 120363355307899193@g.us (belirli grupta etiketle)",
 },
@@ -970,7 +970,7 @@ Module({
 Module({
   pattern: "engelle ?(.*)",
   fromMe: true,
-  use: "system",
+  use: "sistem",
   desc: "Belirtilen kullanıcıyı bot üzerinden engeller.",
   usage: ".engelle [@etiket/yanıtla]",
 },
@@ -985,7 +985,7 @@ Module({
 Module({
   pattern: "katıl ?(.*)",
   fromMe: false,
-  use: "system",
+  use: "sistem",
   desc: "Verdiğiniz grup davet bağlantısını kullanarak bir gruba katılmamı sağlar.",
   usage: ".katıl [link]",
 },
@@ -1001,7 +1001,7 @@ Module({
 Module({
   pattern: "engelkaldır ?(.*)",
   fromMe: true,
-  use: "system",
+  use: "sistem",
   desc: "Daha önce engellenmiş kullanıcının engelini kaldırır.",
   usage: ".engelkaldır [@etiket/yanıtla]",
 },
@@ -1042,7 +1042,7 @@ let visitedLinks = new Set();
 Module({
   pattern: "toplukatıl ?(.*)",
   fromMe: false,
-  use: "system",
+  use: "sistem",
   desc: "Birden fazla grup bağlantısını toplu olarak işleyerek gruplara sırayla katılmamı sağlar.",
   usage: ".toplukatıl [link1, link2...]",
 },
@@ -1180,7 +1180,7 @@ Module({
   pattern: "tümjid ?(.*)",
   fromMe: true,
   desc: "Dahil olduğum tüm grupların veya son sohbetlerin JID adreslerini listeler.",
-  use: "tools",
+  use: "araçlar",
   usage: ".tümjid hepsi | .tümjid son",
 },
   async (message, match) => {
@@ -1347,7 +1347,7 @@ Module({
   pattern: "duyuru ?(.*)",
   fromMe: true,
   desc: "Bulunduğum tüm gruplara duyuru iletir ve isteğe bağlı olarak sabitler.",
-  use: "system",
+  use: "sistem",
   usage:
     ".duyuru <mesaj>\n" +
     ".duyuru <mesaj> | sabitle:24s\n" +
@@ -1564,7 +1564,7 @@ Module({
   pattern: "sabitle ?(.*)",
   fromMe: false,
   desc: "Yanıtlanan mesajı grup sohbetinin üst kısmına belirlediğiniz süre boyunca sabitler.",
-  use: "group",
+  use: "grup",
   usage:
     ".sabitle 24s (24 saat)\n.sabitle 7g (7 gün)\n.sabitle 30g (30 gün)\n.sabitle (varsayılan: 7 gün)",
 },
@@ -1641,7 +1641,7 @@ Module({
 Module({
   pattern: "pp ?(.*)",
   fromMe: true,
-  use: "system",
+  use: "sistem",
   desc: "Profil resmimi değiştirir veya belirtilen kullanıcının profil resmini alır.",
   usage: ".pp [görsel/yanıtla]",
 },
@@ -1670,7 +1670,7 @@ Module({
 Module({
   pattern: "gfoto ?(.*)",
   fromMe: false,
-  use: "system",
+  use: "sistem",
   desc: "Grubun profil fotoğrafını değiştirir veya mevcut fotoğrafı tam boyut olarak gönderir.",
   usage: ".gfoto [görsel/yanıtla]",
 },
@@ -1725,7 +1725,7 @@ Module({
   fromMe: false,
   desc: "Anlık Altın fiyatlarını ve piyasa değişim verilerini listeler.",
   usage: ".altın",
-  use: "tools",
+  use: "araçlar",
 },
   async (message) => {
     const loading = await message.send("🔄 _Altın fiyatlarına bakıyorum..._");
@@ -1797,7 +1797,7 @@ Module({
   fromMe: false,
   desc: "Gruptaki tüm üyeleri etiketleyerek duyuru yapmanızı sağlar.",
   usage: ".etiket",
-  use: 'group',
+  use: 'grup',
 },
   async (message, match) => {
     const userIsAdmin = await isAdmin(message, message.sender);
@@ -1822,7 +1822,7 @@ Module({
   fromMe: false,
   desc: "Grup yöneticilerini etiketler.",
   usage: ".ytetiket",
-  use: 'group',
+  use: 'grup',
 },
   async (message, match) => {
     const target = message.jid;
@@ -1835,3 +1835,4 @@ Module({
     });
     await message.client.sendMessage(target, { text: text, contextInfo: { mentionedJid: admins } });
   });
+

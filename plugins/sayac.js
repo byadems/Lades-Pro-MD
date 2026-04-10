@@ -50,7 +50,7 @@ Module({
   fromMe: false,
   desc: yks,
   usage: '.ykssayaç',
-  use: 'tools',
+  use: 'araçlar',
 },
   async (m) => {
     const sinavsonuc = '2026-07-22 07:30:00';
@@ -97,7 +97,7 @@ Module({
   fromMe: false,
   desc: kpss,
   usage: '.kpsssayaç',
-  use: 'tools',
+  use: 'araçlar',
 },
   async (m) => {
     const lisans = calculateTime('2026-09-06 10:15:00');
@@ -115,7 +115,7 @@ Module({
   fromMe: false,
   desc: msu,
   usage: '.msüsayaç',
-  use: 'tools',
+  use: 'araçlar',
 },
   async (m) => {
     const targetDate = moment('2026-03-01 10:15:00');
@@ -139,7 +139,7 @@ Module({
   fromMe: false,
   desc: okul,
   usage: '.okulsayaç',
-  use: 'tools',
+  use: 'araçlar',
 },
   async (m) => {
     const schoolDates = [
@@ -173,7 +173,7 @@ Module({
   fromMe: false,
   desc: oruc,
   usage: '.ramazansayaç',
-  use: 'tools',
+  use: 'araçlar',
 },
   async (m) => {
     const ramazanStart = '2026-02-19 02:23:00';
@@ -193,3 +193,4 @@ Module({
     }
   }
 );
+

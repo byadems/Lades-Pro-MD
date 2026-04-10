@@ -68,7 +68,7 @@ Module({
   fromMe: false,
   desc: "Google Görseller üzerinden belirlediğiniz anahtar kelimeye uygun resimler bulur ve albüm olarak gönderir.",
   usage: ".görselara [sorgu]",
-  use: "search",
+  use: "arama",
 },
   async (message, match) => {
     if (!match[1]) return await message.send("*_💬 Arama terimi gerekli!_*");
@@ -138,7 +138,7 @@ Module({
   fromMe: false,
   desc: "Görsel, video veya GIF dosyalarını WhatsApp çıkartmasına (sticker) dönüştürür.",
   usage: ".çıkartma | .çıkartma [metin]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     if (match[1] && match[1].trim() !== "") {
@@ -243,7 +243,7 @@ Module({
   fromMe: false,
   desc: "Videoların sesini ayrıştırarak yüksek kaliteli bir MP3 (ses) dosyasına dönüştürür.",
   usage: ".mp3 [yanıtla]",
-  use: "media",
+  use: "medya",
 },
   async (message) => {
     if (
@@ -312,7 +312,7 @@ Module({
   fromMe: false,
   desc: "Ses tonunu düşürerek müziğe yavaşlatma efekti verir.",
   usage: ".slow [yanıtla]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     if (message.reply_message === false)
@@ -387,7 +387,7 @@ Module({
   fromMe: false,
   desc: "Müziği hızlandırırak ses tonunu yükseltir.",
   usage: ".hızlandır [yanıtla]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     if (message.reply_message === false)
@@ -462,7 +462,7 @@ Module({
   fromMe: false,
   desc: "Sesteki bass gücünü belirlediğiniz seviyeye göre artırır.",
   usage: ".bass [miktar]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     if (message.reply_message === false)
@@ -510,7 +510,7 @@ Module({
   fromMe: false,
   desc: "WhatsApp çıkartmalarını standart fotoğraf formatına dönüştürür.",
   usage: ".foto [yanıtla]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     if (message.reply_message === false)
@@ -544,7 +544,7 @@ Module({
   fromMe: false,
   desc: "Yazdığınız metni şık, renkli ve hareketli bir çıkartma haline getirir.",
   usage: ".yazı1 [metin]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     if (match[1] == "") return await message.send("*_💬 Metin gerekli!_*");
@@ -565,7 +565,7 @@ Module({
   fromMe: false,
   desc: "Yazdığınız metni farklı dil ve ses tonu seçenekleriyle sesli mesaja dönüştürür.",
   usage: ".ses [metin]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
@@ -687,7 +687,7 @@ Module({
   fromMe: false,
   desc: "Medya dosyalarını kalite kaybı yaşanmaması için belge (dosya) formatında gönderir.",
   usage: ".belge [mesaja yanıtla]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     if (message.reply_message === false)
@@ -812,7 +812,7 @@ Module({
   fromMe: false,
   desc: "Verilen bir dosya bağlantısındaki (URL) içeriği indirip sohbete belge olarak yükler.",
   usage: ".indir [url]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     console.log("[indir] match[1]:", match[1], "reply_message:", !!message.reply_message);
@@ -877,7 +877,7 @@ Module({
   fromMe: false,
   desc: "Videoları veya görselleri en-boy oranını koruyarak 1:1 kare formatında kırpar.",
   usage: ".square [yanıtla]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     if (
@@ -966,7 +966,7 @@ Module({
   fromMe: false,
   desc: "Medya dosyalarını istediğiniz en-boy oranına (16:9, 9:16 vb.) göre yeniden şekillendirir.",
   usage: ".boyut [oran]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     if (
@@ -1098,7 +1098,7 @@ Module({
   fromMe: false,
   desc: "Video veya görsellerin dosya boyutunu kaliteden ödün vererek belirlediğiniz oranda küçültür.",
   usage: ".sıkıştır [yüzde]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     if (
@@ -1232,3 +1232,4 @@ Module({
     }
   }
 );
+

@@ -358,7 +358,7 @@ Module({
         fs.existsSync(path.join(imagesDir, f))
       );
       imagePayload = localPath
-        ? await fs.promises.readFile(path.join(imagesDir, localPath))
+        ? { url: path.join(imagesDir, localPath) }
         : null;
     }
 
@@ -369,7 +369,7 @@ Module({
 ┃${star}│ _*\`Geliştiricim\`*_ : ${botOwner}
 ┃${star}│ _*\`Üye\`*_ : ${senderName}
 ┃${star}│ _*\`Mod\`*_ : ${MODE === "private" ? "Sadece Yönetici" : "Herkese Açık"}
-┃${star}│ _*\`Sunucu\`*_ : ${os.platform() === "linux" ? "Linux" : "Bilinmeyen İşletim Sistemi"}
+┃${star}│ _*\`Sunucu\`*_ : ${{"win32":"Windows","linux":"Linux","darwin":"MacOS","android":"Android"}[os.platform()] || os.platform()}
 ┃${star}│ _*\`Kullanılabilir RAM\`*_ : ${used} / ${total}
 ┃${star}│ _*\`Toplam Kullanıcı\`*_ : ${totalUsers}
 ┃${star}│ _*\`Versiyon\`*_ : ${botVersion}
@@ -410,7 +410,7 @@ Module({
       (cmd) => cmd.use === "game" && cmd.pattern
     );
     if (!gameCommands.length) {
-      return await message.sendReply("_🎮 Yüklü oyun yok._");
+      return await message.sendReply("_🎮 Yüklü oyun yok ki._");
     }
     const handlerPrefix = HANDLERS.match(/\[(\W*)\]/)?.[1]?.[0] || ".";
     let response = `*🎮 ───「 Mevcut Oyunlar 」───*\n\n`;
@@ -434,7 +434,7 @@ Module({
   fromMe: true,
   desc: "Grup üzerinde görünen üye etiketini belirlediğiniz yeni isimle günceller.",
   usage: ".setname [yeni_isim]",
-  use: "owner",
+  use: "sahip",
 },
   async (message, match) => {
     const name = match[1]?.trim();
@@ -454,7 +454,7 @@ Module({
   fromMe: true,
   desc: "Botun profil görselini yanıtladığınız görselle değiştirir.",
   usage: ".setimage [yanıtla]",
-  use: "owner",
+  use: "sahip",
 },
   async (message, match) => {
     if (!message.reply_message || !message.reply_message.image) {
@@ -496,7 +496,7 @@ Module({
   fromMe: true,
   desc: "Belirlediğiniz çevrimiçi mesajının bot üzerinde nasıl göründüğünü test etmenizi sağlar.",
   usage: ".testalive",
-  use: "owner",
+  use: "sahip",
 },
   async (message, match) => {
     const aliveMessage = ALIVE;
@@ -540,7 +540,7 @@ Module({
   pattern: "bildir ?(.*)",
   fromMe: false,
   desc: "Bot hakkında istek, şikayet, hata, öneri veya talebinizi iletir.",
-  use: "tools",
+  use: "araçlar",
   usage:
     ".bildir istek <mesaj>\n" +
     ".bildir şikayet <mesaj>\n" +
@@ -737,7 +737,7 @@ Module({
   fromMe: false,
   desc: "Belirlediğiniz konuma ait güncel hava durumu verilerini, sıcaklık ve nem bilgilerini getirir.",
   usage: ".hava [şehir/ilçe]",
-  use: "search",
+  use: "arama",
 },
   async (m, match) => {
     const restrictedGroupId = "905396978235-1601666238@g.us";
@@ -839,7 +839,7 @@ Module({
   fromMe: false,
   desc: 'Belirli bir miktarın iki para birimi arasındaki döviz kuru dönüşümünü hesaplar.',
   usage: '.kur 2,375.99 dolar tl',
-  use: 'tools',
+  use: 'araçlar',
 },
   async (message, match) => {
     if (message.jid === "905396978235-1601666238@g.us") {
@@ -891,7 +891,7 @@ Module({
   fromMe: false,
   desc: "İnternet üzerinden belirlediğiniz anahtar kelimeye uygun görseller bulur ve gönderir.",
   usage: ".resim [sorgu]",
-  use: "search",
+  use: "arama",
 },
   async (message, match) => {
     const query = (match[1] || "").trim();
@@ -920,7 +920,7 @@ Module({
   fromMe: false,
   desc: "Geniş bir yemek tarifi kütüphanesinden istediğiniz yemeğin hazırlanışını ve malzemelerini getirir.",
   usage: ".yemekt [yemek_adı]",
-  use: "search",
+  use: "arama",
 },
   async (message, match) => {
     const query = (match[1] || "").trim();
@@ -957,3 +957,4 @@ Module({
     }
   }
 );
+

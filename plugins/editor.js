@@ -108,7 +108,7 @@ Module({
   fromMe: false,
   desc: "Tüm görsel düzenleme ve efekt komutlarını içeren menüyü görüntüler.",
   usage: ".editör",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message) => {
     await message.sendReply(list);
@@ -121,7 +121,7 @@ function registerEffect(command, desc, route) {
     fromMe: false,
     desc,
     dontAddCommandList: true,
-    use: "edit",
+    use: "düzenleme",
   },
     async (message) => {
       await applyEffect(message, route);
@@ -138,7 +138,7 @@ Module({
   fromMe: false,
   desc: "Fotoğrafa GTA tarzı öldün (wasted) efekti uygular.",
   usage: ".wasted [yanıtla]",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message, match) => {
     const mime = message.reply_message?.mimetype || message.mimetype || "";
@@ -165,7 +165,7 @@ Module({
   fromMe: false,
   desc: "Fotoğrafı profesyonel bir aranıyor (wasted) posterine dönüştürür.",
   usage: ".wanted [yanıtla]",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message, match) => {
     const replyMime = message.reply_message?.mimetype || "";
@@ -223,7 +223,7 @@ Module({
   fromMe: false,
   desc: "Seçtiğiniz fotoğrafı profesyonel anime çizgifilm karakterine dönüştürür.",
   usage: ".anime [yanıtla]",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message) => applyEphoto(message, "/ephoto/anime", "🎌 *Anime dönüşümü tamamlandı!*")
 );
@@ -233,7 +233,7 @@ Module({
   fromMe: false,
   desc: "Fotoğrafı Studio Ghibli animasyonlarının büyüleyici sanat stiline uyarlar.",
   usage: ".ghiblistil [yanıtla]",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message) => applyEphoto(message, "/ephoto/ghibli", "🌿 *Studio Ghibli dönüşümü tamamlandı!*")
 );
@@ -243,7 +243,7 @@ Module({
   fromMe: false,
   desc: "Fotoğrafı sevimli ve küçük chibi karakter stiline dönüştürür.",
   usage: ".chibi [yanıtla]",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message) => applyEphoto(message, "/ephoto/chibi", "🧸 *Chibi dönüşümü tamamlandı!*")
 );
@@ -253,7 +253,7 @@ Module({
   fromMe: false,
   desc: "Fotoğrafa profesyonel bir film karesi havası katan sinematik efekt uygular.",
   usage: ".efektsinema [yanıtla]",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message) => applyEphoto(message, "/ephoto/cinematic", "🎬 *Sinematik efekt uygulandı!*")
 );
@@ -263,7 +263,7 @@ Module({
   fromMe: false,
   desc: "Fotoğrafı bir sokak duvarındaki etkileyici grafiti sanatına dönüştürür.",
   usage: ".grafitisokak [yanıtla]",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message) => applyEphoto(message, "/ephoto/street", "🎨 *Grafiti dönüşümü tamamlandı!*")
 );
@@ -273,7 +273,7 @@ Module({
   fromMe: false,
   desc: "Fotoğrafı nostaljik bir piksel sanat eseri NFT stiline dönüştürür.",
   usage: ".pikselart [yanıtla]",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message) => applyEphoto(message, "/ephoto/nft", "👾 *Piksel sanat dönüşümü tamamlandı!*")
 );
@@ -283,7 +283,7 @@ Module({
   fromMe: false,
   desc: "Fotoğrafı aksiyon dolu bir çizgi roman karesine dönüştürür.",
   usage: ".çizgiroman [yanıtla]",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message) => applyEphoto(message, "/ephoto/comic", "💥 *Çizgi roman dönüşümü tamamlandı!*")
 );
@@ -293,7 +293,8 @@ Module({
   fromMe: false,
   desc: "Fotoğrafa şık ve gizemli bir mafia atmosferi kazandırır.",
   usage: ".mafia [yanıtla]",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message) => applyEphoto(message, "/ephoto/mafia", "🕴️ *Mafia dönüşümü tamamlandı!*")
 );
+

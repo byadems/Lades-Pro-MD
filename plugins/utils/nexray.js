@@ -27,7 +27,7 @@ async function nx(path, opts = {}) {
   if (process.env.IS_SELF_TEST === 'true') {
     // Return dummy buffer or generic successful response to avoid actual API spam
     if (opts.buffer) return Buffer.from("dummy-data");
-    return { url: "https://example.com/dummy.mp4", title: "Test Title", data: [] };
+    return { url: "https://example.com/dummy.mp4", title: "Test Başlığı", data: [] };
   }
 
   const fetchAction = async () => {
@@ -273,7 +273,7 @@ async function downloadTiktok(url, options = {}) {
       if (videoUrl) {
         return {
           url: videoUrl,
-          title: d.text || d.itemID || "TikTok Video",
+          title: d.text || d.itemID || "TikTok Videosu",
           thumbnail: d.cover_link,
           author: d.author_nickname || d.author_unique_id,
           music: d.music_link

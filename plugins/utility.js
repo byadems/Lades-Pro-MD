@@ -38,7 +38,7 @@ Module({
   fromMe: false,
   desc: "Doğum tarihinizi girerek detaylı yaş ve zaman hesabı yapmanıza yarar.",
   usage: ".yaşhesap 10/01/2021",
-  use: "tools",
+  use: "araçlar",
 },
   async (m, match) => {
     const input = match[1] ? match[1].trim() : "";
@@ -72,7 +72,7 @@ Module({
   fromMe: false,
   desc: "Gelecekteki bir tarihe ne kadar süre kaldığını detaylıca hesaplar.",
   usage: ".gerisayım 10/01/2099",
-  use: "tools",
+  use: "araçlar",
 },
   async (m, match) => {
     const input = match[1] ? match[1].trim() : "";
@@ -106,7 +106,7 @@ Module({
   fromMe: false,
   desc: "Botun sunucuya olan tepki hızını ve ağ gecikmesini ölçer.",
   usage: ".ping",
-  use: "tools",
+  use: "araçlar",
 },
   async (message) => {
     const start = process.hrtime();
@@ -149,7 +149,7 @@ Module({
   fromMe: false,
   desc: "Botun bulunduğu sunucunun internet indirme ve yükleme hızlarını Ookla Speedtest ile ölçer.",
   usage: ".hıztesti",
-  use: "tools",
+  use: "araçlar",
 },
   async (message) => {
     const loading = await message.sendReply(
@@ -276,3 +276,4 @@ Module({
     }
   }
 );
+

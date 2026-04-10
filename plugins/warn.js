@@ -39,7 +39,7 @@ Module({
     fromMe: true,
     desc: "Grup üyelerini uyarmaya yarar. Belirlenen uyarı limitine ulaşıldığında üye otomatik olarak gruptan uzaklaştırılır.",
     usage: ".uyar [@üye] [sebep] | .uyarısil | .uyarısıfırla | .uyarıliste | .uyarılimit [sayı]",
-    use: "group",
+    use: "grup",
   },
   async (message, match) => {
     // match[1], "uyar" kelimesinden sonra gelen kısımdır. 
@@ -242,7 +242,7 @@ Module({
     fromMe: false,
     desc: "Bir üyenin toplamda kaç uyarı aldığını ve uyarı geçmişini detaylıca listeler.",
     usage: ".kaçuyarı [@üye]",
-    use: "group",
+    use: "grup",
   },
   async (message) => {
     if (!message.isGroup)
@@ -298,3 +298,4 @@ Module({
     }
   }
 );
+

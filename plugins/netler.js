@@ -25,7 +25,7 @@ for (const [key, data] of Object.entries(bolumler)) {
   Module({
       pattern: key + ' ?(.*)',
       fromMe,
-      use: "tools",
+      use: "araçlar",
       dontAddCommandList: true,
     },
     async (m) => {
@@ -52,9 +52,10 @@ for (const [key, data] of Object.entries(bolumler)) {
 Module({
     pattern: 'bilgikaçnet ?(.*)',
     fromMe,
-    use: "tools",
+    use: "araçlar",
     desc: "Üniversite bölümleri için kaç net yapmak gerektiğini, ilgili bölümün tam olarak ne olduğunu, ne iş yaptığını ve iş olanaklarına dair detaylı bilgiler paylaşmaya yarar."
   },
   async (m) => {
   await m.sendReply(helpText);
 });
+

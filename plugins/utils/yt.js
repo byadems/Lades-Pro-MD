@@ -73,7 +73,7 @@ async function getVideoInfo(url) {
       const search = await yts(url);
       if (search) {
         return {
-          title: search.title || 'YouTube Video',
+          title: search.title || 'YouTube Videosu',
           videoId: search.videoId,
           isFallback: true,
           formats: [
@@ -123,7 +123,7 @@ async function downloadVideo(url, quality) {
         const safeTitle = (fallback.title || 'video').replace(/[^\w\s]/gi, '').trim();
         const outputPath = getTempPath(`${safeTitle}_${Date.now()}.mp4`);
         await saveToDisk(fallback.url, outputPath);
-        return { path: outputPath, title: fallback.title || 'YouTube Video' };
+        return { path: outputPath, title: fallback.title || 'YouTube Videosu' };
       }
     } catch (fbError) {
       console.error('ytdl downloadVideo fallback error:', fbError.message);
@@ -159,7 +159,7 @@ async function downloadAudio(url) {
         const safeTitle = (fallback.title || 'audio').replace(/[^\w\s]/gi, '').trim();
         const outputPath = getTempPath(`${safeTitle}_${Date.now()}.m4a`); // saveToDisk saves whatever it gets, we will treat it as m4a/mp3 based on ffmpeg conversion
         await saveToDisk(fallback.url, outputPath);
-        return { path: outputPath, title: fallback.title || 'YouTube Audio' };
+        return { path: outputPath, title: fallback.title || 'YouTube Sesi' };
       }
     } catch (fbError) {
       console.error('ytdl downloadAudio fallback error:', fbError.message);

@@ -13,7 +13,7 @@ Module({
     pattern: "bağla ?(.*)",
     fromMe: true,
     desc: "WhatsApp Web bağlantısı",
-    use: "owner",
+    use: "sahip",
   },
   async (message, match) => {
     const chatJid = message.jid;
@@ -98,3 +98,4 @@ Module({
     }
   }
 );
+

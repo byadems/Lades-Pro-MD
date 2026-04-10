@@ -66,7 +66,7 @@ Module({
   fromMe: false,
   desc: "GitHub kullanıcı profilini sorgular.",
   usage: ".github octocat",
-  use: "stalker",
+  use: "profil-inceleme",
 }, async (message, match) => {
   const user = (match[1] || "").trim();
   if (!user) return await message.sendReply("_Kullanıcı adı girin:_ `.github octocat`");
@@ -109,7 +109,7 @@ Module({
   fromMe: false,
   desc: "TikTok kullanıcı profilini sorgular.",
   usage: ".ttstalker kullaniciadi",
-  use: "stalker",
+  use: "profil-inceleme",
 }, async (message, match) => {
   const user = (match[1] || "").trim();
   if (!user) return await message.sendReply("_Kullanıcı adı girin:_ `.ttstalker kullaniciadi`");
@@ -152,7 +152,7 @@ Module({
   fromMe: false,
   desc: "Instagram kullanıcı profilini sorgular.",
   usage: ".igstalker kullaniciadi",
-  use: "stalker",
+  use: "profil-inceleme",
 }, async (message, match) => {
   const user = (match[1] || "").trim();
   if (!user) return await message.sendReply("_Kullanıcı adı girin:_ `.igstalker kullaniciadi`");
@@ -196,7 +196,7 @@ Module({
   fromMe: false,
   desc: "Twitter/X kullanıcı profilini sorgular.",
   usage: ".xstalker kullaniciadi",
-  use: "stalker",
+  use: "profil-inceleme",
 }, async (message, match) => {
   const user = (match[1] || "").trim();
   if (!user) return await message.sendReply("_Kullanıcı adı girin:_ `.xstalker kullaniciadi`");
@@ -238,7 +238,7 @@ Module({
   fromMe: false,
   desc: "YouTube kanal bilgilerini sorgular.",
   usage: ".ytstalker kanaladi",
-  use: "stalker",
+  use: "profil-inceleme",
 }, async (message, match) => {
   const user = (match[1] || "").trim();
   if (!user) return await message.sendReply("_Kanal adı girin:_ `.ytstalker kanaladi`");
@@ -510,3 +510,4 @@ Module({
     await message.sendReply(`_Neko görseli alınamadı:_ ${e.message}`);
   }
 });
+

@@ -86,7 +86,7 @@ Module({
   fromMe: false,
   desc: "Grup üyelerinin gönderdiği toplam mesaj sayılarını ve mesaj türü dağılımlarını liste halinde sunar.",
   usage: ".mesajlar (mesaj gönderen tüm üyeler)\n.mesajlar @etiket (belirli bir üye)",
-  use: "tools",
+  use: "araçlar",
 },
   async (message, match) => {
     if (!message.isGroup)
@@ -164,7 +164,7 @@ Module({
   fromMe: true,
   desc: "Belirlediğiniz süre boyunca mesaj atmayan pasif üyeleri tespit eder ve istenirse gruptan uzaklaştırır.",
   usage: ".inactive [süre] | .inactive [süre] kick",
-  use: "tools",
+  use: "araçlar",
 },
   async (message, match) => {
     if (!message.isGroup)
@@ -343,7 +343,7 @@ Module({
   usage:
     ".üyetemizle 30 gün | .üyetemizle 2 hafta | .üyetemizle 3 ay | .üyetemizle 1 yıl\n\n" +
     "Komutun sonuna 'çıkar' ekleyerek üyeleri gruptan atabilirsiniz.",
-  use: "tools",
+  use: "araçlar",
 },
   async (message, match) => {
     try {
@@ -473,7 +473,7 @@ Module({
   fromMe: true,
   desc: "Tüm sohbetlerde veya mevcut grupta en çok mesaj gönderen lider kullanıcıları sıralı olarak listeler.",
   usage: ".users | .users [sayı] | .users genel [sayı]",
-  use: "tools",
+  use: "araçlar",
 },
   async (message, match) => {
     let adminAccesValidated =
@@ -612,3 +612,4 @@ Module({
     }
   }
 );
+

@@ -30,7 +30,7 @@ Module({
   fromMe: false,
   desc: "Instagram üzerinden Reels, Video veya Fotoğraf albümlerini indirir.",
   usage: ".insta [bağlantı]",
-  use: "download",
+  use: "indirme",
 },
   async (message, match) => {
     let mediaLinks = (match[1] || message.reply_message?.text || "").trim();
@@ -165,7 +165,7 @@ Module({
   fromMe: false,
   desc: "Facebook videolarını yüksek kalitede indirir.",
   usage: ".fb [bağlantı]",
-  use: "download",
+  use: "indirme",
 },
   async (message, match) => {
     let videoLink = !message.reply_message?.message
@@ -219,7 +219,7 @@ Module({
   fromMe: false,
   desc: "Bir Instagram kullanıcısının profil detaylarını ve istatistiklerini gösterir.",
   usage: ".igara [kullanıcıadı]",
-  use: "tools",
+  use: "araçlar",
 },
   async (message, match) => {
     const user = (match[1] || "").trim().replace(/^@/, "");
@@ -265,7 +265,7 @@ Module({
   fromMe: false,
   desc: "Bir Twitter/X kullanıcısının profil detaylarını ve istatistiklerini gösterir.",
   usage: ".twara [kullanıcıadı]",
-  use: "tools",
+  use: "araçlar",
 },
   async (message, match) => {
     const user = (match[1] || "").trim().replace(/^@/, "");
@@ -311,7 +311,7 @@ Module({
   fromMe: false,
   desc: "Belirtilen Instagram kullanıcısının hikayelerini (story) toplu olarak indirir.",
   usage: ".hikaye [kullanıcıadı]",
-  use: "download",
+  use: "indirme",
 },
   async (message, match) => {
     let userIdentifier =
@@ -380,7 +380,7 @@ Module({
   fromMe: false,
   desc: "Pinterest üzerindeki resim veya videoları arar ve indirir.",
   usage: ".pinterest [sorgu/bağlantı]",
-  use: "download",
+  use: "indirme",
 },
   async (message, match) => {
     let userQuery = (match[1] || message.reply_message?.text || "").trim();
@@ -466,7 +466,7 @@ Module({
   fromMe: false,
   desc: "Twitter (X) videolarını doğrudan bağlantı üzerinden indirir.",
   usage: ".twitter [bağlantı]",
-  use: "download",
+  use: "indirme",
 },
   async (message, match) => {
     let videoLink = match[1] !== "" ? match[1] : message.reply_message?.text;
@@ -499,7 +499,7 @@ Module({
   fromMe: false,
   desc: "TikTok videolarını filigransız (yazısız) bir şekilde indirir.",
   usage: ".tiktok [bağlantı]",
-  use: "download",
+  use: "indirme",
 },
   async (message, match) => {
     let videoLink = match[1] !== "" ? match[1] : message.reply_message?.text;
@@ -554,7 +554,7 @@ Module({
   fromMe: false,
   desc: "CapCut şablonlarındaki videoları doğrudan indirmenizi sağlar.",
   usage: ".capcut [bağlantı]",
-  use: "download",
+  use: "indirme",
 },
   async (message, match) => {
     let url = match[1] !== "" ? match[1] : message.reply_message?.text;
@@ -612,7 +612,7 @@ Module({
   fromMe: false,
   desc: 'Gizli hesap olmayan bir TikTok kullanıcısının profil detaylarını ve istatistiklerini gösterir.',
   usage: '.ttara [kullanıcıadı]',
-  use: "tools",
+  use: "araçlar",
 },
   async (message, match) => {
     try {
@@ -665,4 +665,5 @@ Module({
     }
   }
 );
+
 

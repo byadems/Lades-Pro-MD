@@ -5,7 +5,7 @@ let choices = ['⚖️ Doğruluk', '🙌🏻 Cesaret'];
 Module({
     pattern: 'dc ?(.*)',
     fromMe: false,
-    use: 'group',
+    use: 'grup',
     usage: '.dc',
     desc: "Doğruluk mu Cesaret mi oyununu oynatır."
   },
@@ -297,3 +297,4 @@ Module({
     await message.sendReply(text);
   }
 }));
+

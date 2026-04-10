@@ -35,7 +35,7 @@ Module({
     fromMe: false,
     desc: "Fotoğrafın arka planını yapay zeka ile siler veya farklı bir renkle/resimle değiştirir.",
     usage: ".apsil | .apsil mavi | .apsil #ff0000 | .apsil <resim_url>",
-    use: "ai",
+    use: "yapay-zeka",
   },
   async (message, match) => {
     if (!message.reply_message?.image && !message.reply_message?.document) {
@@ -203,3 +203,4 @@ Module({
     }
   }
 );
+

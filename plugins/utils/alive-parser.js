@@ -17,11 +17,11 @@ async function parseAliveMessage(template, messageObject) {
     const total = bytesToSize(os.totalmem());
     const totalUsers = await getTotalUserCount();
     const infoParts = config.BOT_INFO.split(";");
-    const botName = infoParts[0] || "Botum";
+    const botName = infoParts[0] || "Lades-Pro";
     const botOwner = infoParts[1] || "Belirtilmedi";
     const botVersion = config.VERSION || "1.0.0";
     const mode = config.MODE || "private";
-    const serverOS = os.platform() === "linux" ? "Linux" : "Bilinmeyen İşletim Sistemi";
+    const serverOS = { "win32": "Windows", "linux": "Linux", "darwin": "MacOS", "android": "Android" }[os.platform()] || os.platform();
     const uptime = formatUptime(process.uptime());
 
     let senderName = "";

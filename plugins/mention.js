@@ -57,7 +57,7 @@ Module({
     pattern: "bahsetme ?(.*)",
     fromMe: false,
     desc: "Biri sizi etiketlediğinde botun vereceği otomatik yanıtı ayarlamanıza, görüntülemenize veya silmenize olanak tanır.",
-    use: "tools",
+    use: "araçlar",
     usage: ".bahsetme [mesaj/getir/sil/yardım]",
   },
   async (message, match) => {
@@ -319,3 +319,4 @@ Module({
     }
   }
 );
+

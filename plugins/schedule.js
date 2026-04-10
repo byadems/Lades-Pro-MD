@@ -162,7 +162,7 @@ Module({
     pattern: "planla ?(.*)",
     fromMe: false,
     desc: "⏰ Mesaj planla - Gruba veya özele zamanlanmış mesaj gönder",
-    use: "tools",
+    use: "araçlar",
   },
   async (m, match) => {
     if (!m.reply_message) {
@@ -258,7 +258,7 @@ Module({
     pattern: "plandurum ?(.*)",
     fromMe: false,
     desc: "📋 Planlanan tüm mesajları listeler",
-    use: "tools",
+    use: "araçlar",
     usage: ".plandurum",
   },
   async (m, match) => {
@@ -305,7 +305,7 @@ Module({
     pattern: "plansil ?(.*)",
     fromMe: false,
     desc: "🗑️ Planlanan mesajı ID ile iptal eder",
-    use: "tools",
+    use: "araçlar",
     usage: ".plansil <id>",
   },
   async (m, match) => {
@@ -341,3 +341,4 @@ module.exports = {
   parseTime,
   createMessageObject,
 };
+

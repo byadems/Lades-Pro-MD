@@ -45,6 +45,7 @@ try {
 }
 
 if (fs.existsSync("./config.env")) require("dotenv").config({ path: "./config.env" });
+process.env.YTDL_NO_DEBUG_FILE = "1";
 const config = require("./config");
 const { logger } = config;
 const { initializeDatabase } = require("./core/database");

@@ -7,7 +7,7 @@ Module({
     pattern: "ifade ?(.*)",
     fromMe: false,
     desc: "Yanıtlanan mesaja belirtilen emoji ile ifade bırakır.",
-    use: "tools",
+    use: "araçlar",
   },
   async (m, t) => {
     if (!m.reply_message) return await m.sendReply("_💬 Bir mesaja yanıtlayın!_");
@@ -29,7 +29,7 @@ Module({
     pattern: "düzenle ?(.*)",
     fromMe: true,
     desc: "Botun gönderdiği mesajı düzenler.",
-    use: "tools",
+    use: "araçlar",
   },
   async (m, t) => {
     if (!m.reply_message) return await m.sendReply("_💬 Düzenlenecek mesajı yanıtlayın!_");
@@ -48,7 +48,7 @@ Module({
     pattern: "msjat ?(.*)",
     fromMe: true,
     desc: "Sohbeti veya mesajı, belirtilen JID adresine (numaraya) doğrudan iletir.",
-    use: "tools",
+    use: "araçlar",
   },
   async (m, t) => {
     const query = (t[1] || "").trim();
@@ -91,7 +91,7 @@ Module({
     pattern: "msjyönlendir ?(.*)",
     fromMe: true,
     desc: "Sohbeti veya mesajı, belirtilen JID adresine `İletildi` olarak gönderir.",
-    use: "tools",
+    use: "araçlar",
   },
   async (m, t) => {
     const query = (t[1] || "").trim();
@@ -136,7 +136,7 @@ Module({
     pattern: "tekrar ?(.*)",
     fromMe: false,
     desc: "Yanıtlanan komutu tekrar çalıştırmayı dener",
-    use: "tools",
+    use: "araçlar",
   },
   async (m, t) => {
     if (!m.reply_message)
@@ -152,7 +152,7 @@ Module({
     pattern: "vv ?(.*)",
     fromMe: true,
     desc: "Tek görünürlü (view once) mesajları yakalar",
-    use: "tools",
+    use: "araçlar",
   },
   async (m, match) => {
     const quoted = m.quoted?.message,
@@ -202,7 +202,7 @@ Module({
     pattern: "msjsil",
     fromMe: true,
     desc: "Mesajı herkesten siler. Yönetici silmesini destekler",
-    use: "tools",
+    use: "araçlar",
   },
   async (m, t) => {
     if (!m.reply_message) return await m.sendReply("_💬 Silinecek mesajı yanıtlayın!_");
@@ -225,3 +225,4 @@ Module({
     }
   }
 );
+

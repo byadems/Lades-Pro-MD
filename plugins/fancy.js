@@ -4,7 +4,7 @@ const { fancy } = require('./utils');
 Module({
   pattern: 'fancy ?(.*)',
   fromMe: false,
-  use: 'edit',
+  use: 'düzenleme',
   desc: "Girdiğiniz metni farklı ve şık yazı tiplerine dönüştürerek daha dikkat çekici görünmesini sağlar.",
   usage: ".fancy [sayı] [metin]"
 },

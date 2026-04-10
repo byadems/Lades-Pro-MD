@@ -410,7 +410,7 @@ Module({
   fromMe: false,
   desc: "Profil kartı oluşturur.",
   usage: ".profilkart",
-  use: "canvas",
+  use: "tasarım",
 }, async (message, match) => {
   try {
     const sender = message.sender || message.participant;
@@ -462,3 +462,4 @@ Module({
     `*.aşkölç* - Aşk ölçer`
   );
 });
+

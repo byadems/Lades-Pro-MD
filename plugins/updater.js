@@ -33,7 +33,7 @@ Module({
     pattern: "güncelle ?(.*)",
     fromMe: true,
     desc: "Bot güncellemelerini kontrol eder ve uygular.",
-    use: "system",
+    use: "sistem",
   },
   async (message, match) => {
     if (!(await isGitRepo())) {
@@ -227,3 +227,4 @@ Module({
     }
   }
 );
+

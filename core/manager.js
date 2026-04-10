@@ -19,12 +19,12 @@ class BotManager extends EventEmitter {
   }
 
   suspend(sessionId) {
-    logger.info(`Session ${sessionId} is now SUSPENDED (Dashboard Control).`);
+    logger.info(`Oturum ${sessionId} ASKIYA ALINDI (Kontrol Panelinde).`);
     this.suspendedSessions.add(sessionId);
   }
 
   resume(sessionId) {
-    logger.info(`Session ${sessionId} is now RESUMED.`);
+    logger.info(`Oturum ${sessionId} DEVAM EDİYOR.`);
     this.suspendedSessions.delete(sessionId);
   }
 
@@ -37,7 +37,7 @@ class BotManager extends EventEmitter {
       logger.warn(`Session ${sessionId} already exists`);
       return this.bots.get(sessionId);
     }
-    logger.info(`Starting session: ${sessionId}`);
+    logger.info(`Oturum başlatılıyor: ${sessionId}`);
     this.states.set(sessionId, "connecting");
     this.emit("status", { sessionId, status: "connecting" });
 

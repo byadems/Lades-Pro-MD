@@ -46,7 +46,7 @@ Module({
   pattern: "otoçıkartma ?(.*)",
   fromMe: false,
   desc: "Komutları çıkartmalara yapıştırır. Çıkartma gönderilirse komut gibi çalışır!",
-  use: "tools",
+  use: "araçlar",
   usage: ".otoçıkartma .ban",
   warn: "Sadece çıkartmalarda çalışır",
 },
@@ -76,7 +76,7 @@ Module({
   fromMe: false,
   desc: "Çıkartmalardaki komutları siler",
   usage: ".otoçıkartmasil .ban",
-  use: "tools",
+  use: "araçlar",
 },
   async (message, match) => {
     if (message.reply_message && message.reply_message.sticker) {
@@ -120,7 +120,7 @@ Module({
   pattern: "otoçıkartmalar ?(.*)",
   fromMe: false,
   desc: "Çıkartmalardaki komutları gösterir",
-  use: "tools",
+  use: "araçlar",
 },
   async (message, match) => {
     const all = await stickcmd.get();
@@ -136,7 +136,7 @@ Module({
   onlyAdmin: true,
   desc: "Grup sohbetinin otomatik kapanma özelliğini aktif eder.",
   warn: "Sunucu saatine göre çalışır",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
@@ -176,7 +176,7 @@ Module({
   onlyAdmin: true,
   desc: "Grup sohbetinin otomatik açılma özelliğini aktif eder.",
   warn: "Sunucu saatine göre çalışır",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
@@ -213,7 +213,7 @@ Module({
   fromMe: true,
   onlyAdmin: true,
   desc: "Grup sohbetinin otomatik açılış ve kapanış saatlerini ayarlar. (Örn: .otosohbet 09:00|23:00)",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
@@ -242,7 +242,7 @@ Module({
   pattern: "antinumara ?(.*)",
   fromMe: false,
   desc: "Belirli ülke koduna sahip numaraların gruba girişini engeller/yönetir.",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
@@ -485,3 +485,4 @@ Module({
     }
   }
 );
+

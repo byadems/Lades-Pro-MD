@@ -60,12 +60,12 @@ function makeKey(pattern) {
  */
 function createMockMsg(ownJid, text, cmd) {
   const noop = async () => ({});
-  
+
   const isGroupCmd = cmd.onlyGroup || cmd.onlyAdmin || text.includes("test") || text.includes("kick") || text.includes("ban");
-  
+
   const mockClient = {
     sendMessage: noop,
-    groupMetadata: async () => ({ subject: "Test Group", id: "1234567890-123456@g.us", participants: [{ id: ownJid, admin: "admin" }, { id: "11111111111@s.whatsapp.net", admin: null }] }),
+    groupMetadata: async () => ({ subject: "Test Grubu", id: "1234567890-123456@g.us", participants: [{ id: ownJid, admin: "admin" }, { id: "11111111111@s.whatsapp.net", admin: null }] }),
     groupLeave: noop,
     groupUpdateSubject: noop,
     groupUpdateDescription: noop,
@@ -109,7 +109,7 @@ function createMockMsg(ownJid, text, cmd) {
       const path = require('path');
       const { getTempPath } = require('./helpers');
       const pat = String(cmd.pattern);
-      
+
       // Determine expected file type
       const isVideo = ["mp4", "video", "slow", "sped", "trim", "vmix", "ağırçekim", "fps", "kes", "flip", "gif"].some(x => pat.includes(x));
       const isSticker = ["take", "sticker", "stickerara", "stara", "col", "url"].some(x => pat.includes(x)) && (mockReplyMsg.sticker || !pat.includes("bass"));
@@ -119,14 +119,14 @@ function createMockMsg(ownJid, text, cmd) {
         const sourcePath = path.join(__dirname, 'dummy.mp4');
         const dummyPath = getTempPath('.mp4');
         if (!fs.existsSync(sourcePath)) {
-           // Create a tiny valid MP4 header or just a dummy file
-           fs.writeFileSync(sourcePath, Buffer.alloc(100)); 
+          // Create a tiny valid MP4 header or just a dummy file
+          fs.writeFileSync(sourcePath, Buffer.alloc(100));
         }
         fs.copyFileSync(sourcePath, dummyPath);
         if (type === 'buffer') return fs.readFileSync(dummyPath);
         return dummyPath;
       }
-      
+
       if (isSticker) {
         const dummyPath = getTempPath('.webp');
         // Tiny valid 1x1 WebP
@@ -139,7 +139,7 @@ function createMockMsg(ownJid, text, cmd) {
       const ext = isAudio ? '.mp3' : '.jpg';
       const sourcePath = isAudio ? path.join(__dirname, 'dummy.mp3') : path.join(__dirname, 'dummy.jpg');
       const dummyPath = getTempPath(ext);
-      
+
       if (!fs.existsSync(sourcePath)) {
         const dummyBuf = isAudio ? Buffer.alloc(100, 'ABC') : Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
         fs.writeFileSync(sourcePath, dummyBuf);
@@ -160,8 +160,8 @@ function createMockMsg(ownJid, text, cmd) {
     jid: jid,
     sender: sender,
     senderJid: sender,
-    senderName: "Test User",
-    pushName: "Test User",
+    senderName: "Test Kullanıcısı",
+    pushName: "Test Kullanıcısı",
     fromMe: true,
     fromOwner: true,
     isAdmin: true,
@@ -238,7 +238,7 @@ async function testCommand(cmd, prefix, ownJid) {
         rej(new Error("timeout"));
       }, TIMEOUT_MS)),
     ]);
-  
+
     return { key, result: { status: "ok", ms: Date.now() - t0, lastRun: new Date().toISOString(), error: null, runs: 1 } };
   } catch (err) {
     const isTimeout = err.message === "timeout";
@@ -289,8 +289,8 @@ async function runSelfTest(sock) {
   process.emit('dashboard_activity', {
     time: new Date().toLocaleTimeString(),
     sender: 'Sistem',
-    type: 'Self-Test',
-    content: `Self-test başladı: ${queue.length} komut taranacak...`,
+    type: 'Sistem Testi',
+    content: `Genel-test başladı: ${queue.length} komut taranacak...`,
     isGroup: false
   });
 
@@ -347,7 +347,7 @@ async function runSelfTest(sock) {
       process.emit('dashboard_activity', {
         time: new Date().toLocaleTimeString(),
         sender: 'Sistem',
-        type: 'Heartbeat',
+        type: 'Sistem Nabzı',
         content: `Test devam ediyor... (${Math.min(i + batch.length, queue.length)}/${queue.length})`,
         isGroup: false
       });
@@ -394,8 +394,8 @@ async function runSelfTest(sock) {
   process.emit('dashboard_activity', {
     time: new Date().toLocaleTimeString(),
     sender: 'Sistem',
-    type: 'Self-Test',
-    content: isSuiteTimedOut ? `Self-test ZAMAN AŞIMINA uğradı. ${ok} BAŞARILI.` : `Self-test bitti: ${ok} BAŞARILI, ${err} HATA.`,
+    type: 'Sistem Testi',
+    content: isSuiteTimedOut ? `Genel-test ZAMAN AŞIMINA uğradı. ${ok} BAŞARILI.` : `Genel-test bitti: ${ok} BAŞARILI, ${err} HATA.`,
     isGroup: false
   });
 }

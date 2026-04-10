@@ -684,11 +684,20 @@ function connectLogs() {
             senderHtml = `<span style="color:var(--green)">${esc(log.sender || 'Bilinmiyor')}</span> <span style="font-size:10px;padding:2px 6px;border-radius:6px;background:var(--green-dim);color:var(--green);margin-left:6px;font-weight:500;">Özel</span>`;
           }
 
+          const typeMap = {
+            'Error': 'Hata',
+            'Sistem Testi': 'Sistem Testi',
+            'Sistem Nabzı': 'Sistem Nabzı',
+            'Self-Test': 'Sistem Testi',
+            'Heartbeat': 'Sistem Nabzı'
+          };
+          const displayType = typeMap[log.type] || log.type || 'Sistem';
+
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td style="color:var(--text3)">${log.time || '--:--'}</td>
             <td>${senderHtml}</td>
-            <td><span class="cmd-type" style="padding:2px 6px">${esc(log.type || 'Sistem')}</span></td>
+            <td><span class="cmd-type" style="padding:2px 6px">${esc(displayType)}</span></td>
             <td>${esc(log.content || '-')}</td>
             <td style="color:var(--text2);font-family:monospace">${esc(log.command || '-')}</td>
           `;
@@ -720,6 +729,12 @@ function connectLogs() {
 
 function detectLevel(txt) {
   const t = txt.toLowerCase();
+  const lvLabelsArr = {
+    error: 'HATA',
+    warn: 'UYARI',
+    success: 'BAŞARILI',
+    info: 'BİLGİ'
+  };
   if (t.includes('error') || t.includes('hata') || t.includes('fatal')) return 'error';
   if (t.includes('warn') || t.includes('uyarı')) return 'warn';
   if (t.includes('success') || t.includes('connected') || t.includes('bağlandı') || t.includes('başarı')) return 'success';
@@ -740,7 +755,14 @@ function appendLog(log) {
   contentHtml = contentHtml.replace(/(\{.*\}|\[.*\])/g, '<span style="color:#60a5fa">$1</span>'); // JSON
   contentHtml = contentHtml.replace(/(\+\d{10,15})/g, '<span style="color:#10b981">$1</span>'); // Numbers/Phones
 
-  el.innerHTML = `<span class="ltime">${log.time || ''}</span><span class="llv ${lv}">${lv.toUpperCase()}</span><span class="lcontent">${contentHtml}</span>`;
+  const lvLabels = {
+    error: 'HATA',
+    warn: 'UYARI',
+    success: 'BAŞARILI',
+    info: 'BİLGİ'
+  };
+  const displayLv = lvLabels[lv] || lv.toUpperCase();
+  el.innerHTML = `<span class="ltime">${log.time || ''}</span><span class="llv ${lv}">${displayLv}</span><span class="lcontent">${contentHtml}</span>`;
   body.appendChild(el);
   if (body.children.length > 200) body.removeChild(body.firstChild);
   if (S.autoScroll) body.scrollTop = body.scrollHeight;

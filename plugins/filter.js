@@ -9,7 +9,7 @@ Module({
   fromMe: true,
   desc: "Belirli kelimelere botun otomatik olarak vermesini istediğiniz yanıtları (filtreleri) oluşturur.",
   usage: ".filtre merhaba | Merhaba! | sohbet\n.filtre yardım | Size yardım edebilirim | herkes\n.filtre güle | Güle güle! | grup | tam-eşleşme",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     if (match[0].includes("filtreler")) return;
@@ -106,7 +106,7 @@ Module({
   fromMe: false,
   desc: "Sohbet veya genel kapsamda oluşturulmuş olan tüm aktif filtreleri listeler.",
   usage: ".filtreler\n.filtreler herkes\n.filtreler grup",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     let adminAccess = await isAdmin(message);
@@ -161,7 +161,7 @@ Module({
   fromMe: false,
   desc: "Daha önce oluşturulmuş olan bir filtre tetikleyicisini sistemden kalıcı olarak siler.",
   usage: ".filtresil tetikleyici\n.filtresil tetikleyici herkes",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     let adminAccess = await isAdmin(message);
@@ -204,7 +204,7 @@ Module({
   fromMe: false,
   desc: "Belirlediğiniz bir filtreyi geçici olarak devre dışı bırakır veya tekrar aktif eder.",
   usage: ".filtredurum tetikleyici\n.filtredurum tetikleyici herkes",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     let adminAccess = await isAdmin(message);
@@ -259,7 +259,7 @@ Module({
   fromMe: false,
   desc: "Yazdığınız bir kelimenin herhangi bir filtreyle eşleşip eşleşmediğini test eder.",
   usage: ".testfiltre [metin]",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     let adminAccess = await isAdmin(message);
@@ -301,7 +301,7 @@ Module({
   fromMe: false,
   desc: "Filtreleme sistemi ve gelişmiş seçenekleri hakkında detaylı yardım sunar.",
   usage: ".filtreyardım",
-  use: "group",
+  use: "grup",
 },
   async (message) => {
     const helpText =
@@ -339,3 +339,4 @@ Module({
     await message.sendReply(helpText);
   }
 );
+

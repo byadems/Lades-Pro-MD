@@ -13,7 +13,7 @@ Module({
   fromMe: true,
   onlyAdmin: true,
   desc: "Yeni üye katıldığında gönderilecek olan grup karşılama mesajını özelleştirmenizi ve yönetmenizi sağlar.",
-  usage: ".welcome Merhaba $mention, $group grubuna hoş geldin! $pp\n.welcome aç/kapat\n.welcome getir\n.welcome sil", use: "group",
+  usage: ".welcome Merhaba $mention, $group grubuna hoş geldin! $pp\n.welcome aç/kapat\n.welcome getir\n.welcome sil", use: "grup",
 },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
@@ -104,7 +104,7 @@ Module({
   onlyAdmin: true,
   desc: "Üye ayrıldığında gönderilecek olan grup veda mesajını özelleştirmenizi ve yönetmenizi sağlar.",
   usage: ".goodbye [mesaj] | .goodbye aç/kapat",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
@@ -153,7 +153,7 @@ Module({
   onlyAdmin: true,
   desc: "Mevcut gruptaki karşılama mesajının nasıl göründüğünü denemeniz için bir test mesajı gönderir.",
   usage: ".testwelcome",
-  use: "group",
+  use: "grup",
 },
   async (message) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
@@ -176,7 +176,7 @@ Module({
   onlyAdmin: true,
   desc: "Mevcut gruptaki veda mesajının nasıl göründüğünü denemeniz için bir test mesajı gönderir.",
   usage: ".testgoodbye",
-  use: "group",
+  use: "grup",
 },
   async (message) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
@@ -192,3 +192,4 @@ Module({
     }
   }
 );
+

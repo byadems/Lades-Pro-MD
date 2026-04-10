@@ -137,30 +137,33 @@ body {
 .sidebar-top { padding: 24px 20px 0; }
 .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
 .brand-logo {
-  width: 44px; height: 44px;
+  width: 52px; height: 52px;
   background: linear-gradient(135deg, var(--surface3) 0%, var(--surface2) 100%);
-  border: 1px solid var(--green-glow);
-  border-radius: 12px;
+  border: 1.5px solid var(--green-glow);
+  border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   color: var(--green); flex-shrink: 0;
-  box-shadow: 0 0 20px var(--green-dim), inset 0 2px 0 rgba(255,255,255,0.1);
+  box-shadow: 0 0 25px var(--green-dim), inset 0 2px 4px rgba(255,255,255,0.1);
   position: relative;
+  overflow: hidden;
+  z-index: 1;
 }
 /* Logo pulse */
 .brand-logo::after {
-  content:''; position: absolute; inset:-4px; border-radius:14px;
-  border: 1px solid var(--green); opacity: 0;
+  content:''; position: absolute; inset:-5px; border-radius: 50%;
+  border: 1.5px solid var(--green); opacity: 0;
   animation: expandPulse 3s infinite cubic-bezier(0.1, 0, 0.3, 1);
+  z-index: -1;
 }
 @keyframes expandPulse { 0% { transform: scale(1); opacity: 0.4; } 100% { transform: scale(1.3); opacity: 0; } }
 
 .brand-name {
-  font-weight: 900; font-size: 19px; line-height: 1.1; margin-bottom: 2px;
+  font-weight: 900; font-size: 22px; line-height: 1.1; margin-bottom: 2px;
   background: linear-gradient(135deg, var(--green) 0%, var(--blue) 50%, var(--purple) 100%);
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 4px 10px rgba(0,255,163,0.2);
   letter-spacing: -0.5px;
 }
-.brand-version { font-size: 11px; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+.brand-version { font-size: 12px; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; }
 
 .bot-status-card {
   margin: 0 16px 20px;

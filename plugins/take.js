@@ -15,7 +15,7 @@ Module({
   fromMe: false,
   desc: "Yanıtladığınız çıkartma veya ses dosyasının paket adını ve yazar bilgilerini günceller.",
   usage: ".take [paket];[yazar]",
-  use: "media",
+  use: "medya",
 },
   async (m, match) => {
     if (!m.reply_message)
@@ -107,7 +107,7 @@ Module({
   fromMe: false,
   desc: "Hareketli çıkartmaları MP4 video formatına dönüştürür.",
   usage: ".mp4 [yanıtla]",
-  use: "media",
+  use: "medya",
 },
   async (m, t) => {
     if (m.reply_message.sticker) {
@@ -137,7 +137,7 @@ Module({
   fromMe: false,
   desc: "Medya dosyalarını bulut sunuculara yükleyerek paylaşılabilir bir bağlantı oluşturur.",
   usage: ".url (bir görsele, videoya veya sese yanıt vererek)",
-  use: "media",
+  use: "medya",
 },
   async (m, match) => {
     let result;
@@ -156,3 +156,4 @@ Module({
     }
   }
 );
+

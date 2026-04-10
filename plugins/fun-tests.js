@@ -27,7 +27,7 @@ Module({
   fromMe: false,
   desc: "Etiketlediğiniz üyenin gaylik yüzdesini ölçer.",
   usage: ".testgay [etiket/yanıt]",
-  use: "game",
+  use: "oyun",
 },
   async (message) => {
     await runSingleRateCommand(message, {
@@ -42,7 +42,7 @@ Module({
   fromMe: false,
   desc: "Etiketlediğiniz üyenin lezlik yüzdesini ölçer.",
   usage: ".testlez [etiket/yanıt]",
-  use: "game",
+  use: "oyun",
 },
   async (message) => {
     await runSingleRateCommand(message, {
@@ -57,7 +57,7 @@ Module({
   fromMe: false,
   desc: "Etiketlediğiniz üyenin prenseslik seviyesini ölçer.",
   usage: ".testprenses [etiket/yanıt]",
-  use: "game",
+  use: "oyun",
 },
   async (message) => {
     await runSingleRateCommand(message, {
@@ -72,7 +72,7 @@ Module({
   fromMe: false,
   desc: "Etiketlediğiniz üyenin Regl olma ihtimalini ölçer.",
   usage: ".testregl [etiket/yanıt]",
-  use: "game",
+  use: "oyun",
 },
   async (message) => {
     await runSingleRateCommand(message, {
@@ -87,7 +87,7 @@ Module({
   fromMe: false,
   desc: "Etiketlediğiniz üyenin inanç seviyesini ölçer.",
   usage: ".testinanç [etiket/yanıt]",
-  use: "game",
+  use: "oyun",
 },
   async (message) => {
     await runSingleRateCommand(message, {
@@ -102,7 +102,7 @@ Module({
   fromMe: false,
   desc: "İki kişi arasındaki aşk yüzdesini ölçer.",
   usage: ".aşkölç [etiket1] [etiket2]",
-  use: "game",
+  use: "oyun",
 },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
@@ -141,7 +141,7 @@ Module({
   fromMe: false,
   desc: "Zeka gelişimine katkıda bulunan rastgele bir beyin jimnastiği sorusu sorar.",
   usage: ".beyin",
-  use: "game",
+  use: "oyun",
 },
   async (message) => {
     try {
@@ -167,7 +167,7 @@ Module({
   fromMe: false,
   desc: "Keyifli vakit geçirmeniz için rastgele ve düşündürücü bir bilmece sorar.",
   usage: ".bilmece",
-  use: "game",
+  use: "oyun",
 },
   async (message) => {
     try {
@@ -193,7 +193,7 @@ Module({
   fromMe: false,
   desc: "Kimya bilginizi tazeleyecek element sembolleri üzerine bir soru sorar.",
   usage: ".kimyasoru",
-  use: "game",
+  use: "oyun",
 },
   async (message) => {
     try {
@@ -222,7 +222,7 @@ Module({
   fromMe: false,
   desc: "Yazdığınız metni eğlenceli ve alaycı bir slang formatına dönüştürür.",
   usage: ".alay [metin]",
-  use: "fun",
+  use: "eğlence",
 },
   async (message, match) => {
     let text = (match[1] || "").trim();
@@ -243,7 +243,7 @@ Module({
   fromMe: false,
   desc: "Yazdığınız metni Dragon Ball tarzında şık bir logoya dönüştürür.",
   usage: ".dragonyazı [metin]",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message, match) => {
     const text = trToEn((match[1] || "").trim());
@@ -262,7 +262,7 @@ Module({
   fromMe: false,
   desc: "Yazdığınız metni neon ışıklı ve dikkat çekici bir tabela logosu haline getirir.",
   usage: ".neonyazı [metin]",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message, match) => {
     const text = trToEn((match[1] || "").trim());
@@ -281,7 +281,7 @@ Module({
   fromMe: false,
   desc: "Yazdığınız metni sokak sanatı olan grafiti stiliyle bir logoya dönüştürür.",
   usage: ".grafitiyazı [metin]",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message, match) => {
     const text = trToEn((match[1] || "").trim());
@@ -300,7 +300,7 @@ Module({
   fromMe: false,
   desc: "Yazdığınız metni şeytan kanatları temalı karanlık bir logoya dönüştürür.",
   usage: ".devilyazı [metin]",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message, match) => {
     const text = trToEn((match[1] || "").trim());
@@ -319,7 +319,7 @@ Module({
   fromMe: false,
   desc: "Şarkı ve sanatçı ismine özel şık bir Spotify tarzı müzik kartı tasarımı oluşturur.",
   usage: ".müzikkart [şarkı|sanatçı]",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message, match) => {
     const parts = (match[1] || "").split("|").map(s => s.trim());
@@ -348,3 +348,4 @@ Module({
     }
   }
 );
+

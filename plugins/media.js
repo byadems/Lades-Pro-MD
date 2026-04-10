@@ -201,7 +201,7 @@ Module({
   fromMe: false,
   desc: "Sesli mesajı metne dönüştürür. (Tek seferlik sesler de dahil)",
   usage: ".dinle (bir ses mesajına yanıtlayarak)",
-  use: "tools",
+  use: "araçlar",
 },
   async (message, match) => {
     const replied = message.reply_message;
@@ -215,7 +215,7 @@ Module({
   on: 'message',
   fromMe: false,
   desc: "Ses mesajını otomatik olarak metne dönüştürür.",
-  use: "tools",
+  use: "araçlar",
 },
   async (message, match) => {
     try {
@@ -238,7 +238,7 @@ Module({
   fromMe: false,
   desc: "Video veya ses dosyalarını belirlediğiniz sürelere göre keser.",
   usage: ".kes [başlangıç,bitiş]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     if (
@@ -271,7 +271,7 @@ Module({
   fromMe: false,
   desc: "Siyah-beyaz olan fotoğrafı renklendirir.",
   usage: ".renklendir (görsele yanıt verin)",
-  use: "media",
+  use: "medya",
 },
   async (message) => {
     if (!message.reply_message || !message.reply_message.image)
@@ -308,7 +308,7 @@ Module({
   fromMe: false,
   desc: "Bir ses dosyasını siyah ekranlı video formatına dönüştürür.",
   usage: ".siyahvideo [yanıtla]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     if (!message.reply_message || !message.reply_message.audio)
@@ -364,7 +364,7 @@ Module({
   fromMe: false,
   desc: "Ayrı olan ses ve video dosyalarını tek bir videoda birleştirir.",
   usage: ".birleştir [yanıtla]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     const avmixDir = getTempSubdir("avmix");
@@ -410,7 +410,7 @@ Module({
   fromMe: false,
   desc: "İki farklı video dosyasını tek bir video haline getirir.",
   usage: ".vbirleştir [yanıtla]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     const vmixDir = getTempSubdir("vmix");
@@ -474,7 +474,7 @@ Module({
   fromMe: false,
   desc: "Videoya pürüzsüz bir ağır çekim efekti uygular.",
   usage: ".ağırçekim [yanıtla]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     if (!message.reply_message || !message.reply_message.video)
@@ -500,7 +500,7 @@ Module({
   fromMe: false,
   desc: "Görselleri veya çıkartmaları oval (yuvarlak) şekilde kırpar.",
   usage: ".oval [yanıtla]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     if (!message.reply_message || (!message.reply_message.image && !message.reply_message.sticker)) {
@@ -518,7 +518,7 @@ Module({
 Module({
   pattern: "gif",
   fromMe: false,
-  use: "media",
+  use: "medya",
   desc: "Videoyu sesli bir GIF (hareketli resim) formatına dönüştürür.",
   usage: ".gif [yanıtla]",
 },
@@ -547,7 +547,7 @@ Module({
   fromMe: false,
   desc: "Videonun kare hızını (FPS) arttırarak daha akıcı görünmesini sağlar.",
   usage: ".fps [değer]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     if (!message.reply_message || !message.reply_message.video)
@@ -575,7 +575,7 @@ Module({
   fromMe: false,
   desc: "Arka planda çalan müziği dinleyerek şarkıyı bulur.",
   usage: ".bul [yanıtla]",
-  use: "tools",
+  use: "araçlar",
 },
   async (message, match) => {
     if (!message.reply_message?.audio)
@@ -620,7 +620,7 @@ Module({
 Module({
   pattern: "döndür ?(.*)",
   fromMe: false,
-  use: "media",
+  use: "medya",
   desc: "Videonun yönünü sola, sağa veya ters şekilde döndürmenizi sağlar.",
   usage: ".döndür [sol/sağ/ters]",
 },
@@ -645,7 +645,7 @@ Module({
 Module({
   pattern: "flip ?(.*)",
   fromMe: false,
-  use: "media",
+  use: "medya",
   desc: "Videoyu yatay veya dikey eksende aynalayarak ters çevirir.",
   usage: ".flip [yanıtla]",
 },
@@ -669,7 +669,7 @@ Module({
   fromMe: false,
   desc: "Belirlediğiniz bir internet sitesinin anlık ekran görüntüsünü alır.",
   usage: ".ss [link]",
-  use: "tools",
+  use: "araçlar",
 },
   async (message, match) => {
     let url = (match[1] || "").trim();
@@ -699,7 +699,7 @@ Module({
   fromMe: false,
   desc: "Görsel içerisindeki metinleri tarayarak yazıya dönüştürür (OCR).",
   usage: ".metin [yanıtla]",
-  use: "tools",
+  use: "araçlar",
 },
   async (message, match) => {
     const replyMime = message.reply_message?.mimetype || "";
@@ -734,7 +734,7 @@ Module({
   fromMe: false,
   desc: "Düşük çözünürlüklü görselleri netleştirir ve HD kaliteye yükseltir.",
   usage: ".hd [yanıtla]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     const replyMime = message.reply_message?.mimetype || "";
@@ -768,7 +768,7 @@ Module({
   fromMe: false,
   desc: "Görsellere üst ve alt metin ekleyerek meme (caps) oluşturur.",
   usage: ".meme ÜSTMETIN|ALTMETIN (görsel yanıtla)",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     const input = (match[1] || "").trim();
@@ -800,7 +800,7 @@ Module({
   fromMe: false,
   desc: "Yazdığınız programlama kodlarını şık ve okunabilir bir görsele dönüştürür.",
   usage: ".kodgörsel [metin]",
-  use: "media",
+  use: "medya",
 },
   async (message, match) => {
     let code = (match[1] || "").trim();
@@ -814,3 +814,4 @@ Module({
     }
   }
 );
+

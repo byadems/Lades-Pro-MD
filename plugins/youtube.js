@@ -31,7 +31,7 @@ Module({
   fromMe: false,
   desc: "Spotify üzerinden şarkı araması yapar ve yüksek kalitede indirir.",
   usage: ".spotify [şarkı/bağlantı]",
-  use: "download",
+  use: "indirme",
 },
   async (message, match) => {
     const input = match[1] || message.reply_message?.text;
@@ -124,7 +124,7 @@ Module({
   fromMe: false,
   desc: "YouTube üzerinde detaylı arama yaparak video ve kanal bilgilerini listeler.",
   usage: ".ytara [sorgu]",
-  use: "download",
+  use: "indirme",
 },
   async (message, match) => {
     const query = match[1];
@@ -169,7 +169,7 @@ Module({
   fromMe: false,
   desc: "YouTube videolarını kalite seçeneği sunarak (360p, 1080p vb.) indirmenizi sağlar.",
   usage: ".ytvideo [sorgu/bağlantı]",
-  use: "download",
+  use: "indirme",
 },
   async (message, match) => {
     let input = (match[1] || message.reply_message?.text || "").trim();
@@ -282,7 +282,7 @@ Module({
   fromMe: false,
   desc: "YouTube videolarını en hızlı ve en yüksek kalitede doğrudan indirir.",
   usage: ".video [sorgu/bağlantı]",
-  use: "download",
+  use: "indirme",
 },
   async (message, match) => {
     let input = (match[1] || message.reply_message?.text || "").trim();
@@ -423,7 +423,7 @@ Module({
   fromMe: false,
   desc: "YouTube videolarını belge (.mp3/.m4a) formatında ses olarak indirir.",
   usage: ".ytsesb [bağlantı]",
-  use: "download",
+  use: "indirme",
 },
   async (message, match) => {
     let url = match[1] || message.reply_message?.text;
@@ -517,7 +517,7 @@ Module({
   fromMe: false,
   desc: "YouTube üzerinden ses/şarkı indirir. (anahtar kelime veya bağlantı ile)",
   usage: ".şarkı <sorgu/bağlantı> | .şarkıara <sorgu>",
-  use: "download",
+  use: "indirme",
 },
   async (message, match) => {
     let input = (match[1] || message.reply_message?.text || "").trim();
@@ -1153,3 +1153,4 @@ Module({
     }
   }
 );
+

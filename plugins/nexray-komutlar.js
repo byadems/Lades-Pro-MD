@@ -80,7 +80,7 @@ Module({
   fromMe: false,
   desc: "İki farklı emojiyi birleştirerek özel bir çıkartma oluşturur.",
   usage: ".emojimix 😀 🔥",
-  use: "fun",
+  use: "eğlence",
 },
   async (message, match) => {
     const input = (match[1] || "").trim();
@@ -105,7 +105,7 @@ Module({
   fromMe: false,
   desc: "Yazdığınız metni glitch efektli profesyonel bir görsele dönüştürür.",
   usage: ".yazı LADES",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message, match) => {
     const text = (match[1] || "").trim();
@@ -127,7 +127,7 @@ Module({
   fromMe: false,
   desc: "Yazdığınız metni Naruto stili bir logoya dönüştürür.",
   usage: ".naruto LADES",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message, match) => {
     const text = (match[1] || "").trim();
@@ -149,7 +149,7 @@ Module({
   fromMe: false,
   desc: "Yazdığınız metni Marvel stili bir logoya dönüştürür. (2 kelime gerektirir)",
   usage: ".marvel LADES BOT",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message, match) => {
     const input = (match[1] || "").trim();
@@ -172,7 +172,7 @@ Module({
   fromMe: false,
   desc: "Yazdığınız metni Blackpink stili bir görsele dönüştürür.",
   usage: ".blackpink LADES",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message, match) => {
     const text = (match[1] || "").trim();
@@ -194,7 +194,7 @@ Module({
   fromMe: false,
   desc: "Yazdığınız metni Brat (Charli XCX) stili yeşil bir görsele dönüştürür.",
   usage: ".brat Lades Bot",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message, match) => {
     const text = (match[1] || "").trim();
@@ -216,7 +216,7 @@ Module({
   fromMe: false,
   desc: "İstediğiniz şarkının sözlerini farklı kaynaklardan arayarak getirir.",
   usage: ".şarkısözü [şarkı adı]",
-  use: "search",
+  use: "arama",
 },
   async (message, match) => {
     const query = (match[1] || "").trim();
@@ -287,7 +287,7 @@ Module({
   fromMe: false,
   desc: "Belirlediğiniz konuya uygun HD kalitede duvar kağıtları bulur.",
   usage: ".duvarkağıdı [konu]",
-  use: "search",
+  use: "arama",
 },
   async (message, match) => {
     const query = (match[1] || "").trim();
@@ -316,7 +316,7 @@ Module({
   fromMe: false,
   desc: "WhatsApp için hazır çıkartma paketleri aramanızı sağlar.",
   usage: ".çıkartmabul [konu]",
-  use: "search",
+  use: "arama",
 },
   async (message, match) => {
     const query = (match[1] || "").trim();
@@ -346,7 +346,7 @@ Module({
   fromMe: false,
   desc: "Vikipedi üzerinden belirttiğiniz konu hakkında özet bilgi getirir.",
   usage: ".vikipedi [konu]",
-  use: "search",
+  use: "arama",
 },
   async (message, match) => {
     const query = (match[1] || "").trim();
@@ -375,7 +375,7 @@ Module({
   fromMe: false,
   desc: "Mesajı veya metni WhatsApp tarzı şık bir alıntı çıkartmasına dönüştürür.",
   usage: ".alıntı [metin]",
-  use: "edit",
+  use: "düzenleme",
 },
   async (message, match) => {
     let text = (match[1] || "").trim();
@@ -405,7 +405,7 @@ Module({
   fromMe: false,
   desc: "Gördüğünüz rüyayı yapay zeka desteğiyle detaylıca yorumlar.",
   usage: ".rüya [anlatım]",
-  use: "ai",
+  use: "yapay-zeka",
 },
   async (message, match) => {
     let text = (match[1] || "").trim();
@@ -434,7 +434,7 @@ Module({
   fromMe: false,
   desc: "Yazdığınız metin açıklamasını yapay zeka ile görsel bir sanat eserine çevirir.",
   usage: ".görsel [açıklama]",
-  use: "ai",
+  use: "yapay-zeka",
 },
   async (message, match) => {
     const prompt = (match[1] || "").trim();
@@ -461,7 +461,7 @@ Module({
   fromMe: false,
   desc: "Threads üzerinden video veya fotoğraf içeriklerini indirmenizi sağlar.",
   usage: ".threads [bağlantı]",
-  use: "download",
+  use: "indirme",
 },
   async (message, match) => {
     let url = (match[1] || "").trim();
@@ -524,7 +524,7 @@ Module({
   fromMe: false,
   desc: "SoundCloud üzerindeki şarkıları yüksek kalitede MP3 olarak indirir.",
   usage: ".soundcloud [bağlantı]",
-  use: "download",
+  use: "indirme",
 },
   async (message, match) => {
     let url = (match[1] || "").trim();
@@ -575,7 +575,7 @@ Module({
   fromMe: false,
   desc: "Metni belirlediğiniz diller arasında anlık olarak çevirir.",
   usage: ".çevir [dil1] [dil2]",
-  use: "search",
+  use: "arama",
 },
   async (message, match) => {
     try {
@@ -614,3 +614,4 @@ Module({
     }
   }
 );
+

@@ -143,7 +143,7 @@ Module({
   fromMe: true,
   desc: "Veritabanında kayıtlı olan belirli bir değişkenin güncel değerini sorgular.",
   usage: ".değişkengetir [key]",
-  use: "system",
+  use: "sistem",
 },
   async (message, args) => {
     const key = args[1]?.trim();
@@ -166,7 +166,7 @@ Module({
   fromMe: true,
   desc: "Veritabanında kayıtlı olan bir değişkeni sistemden kalıcı olarak temizler.",
   usage: ".değişkensil [key]",
-  use: "system",
+  use: "sistem",
 },
   async (message, args) => {
     const key = args[1]?.trim();
@@ -245,7 +245,7 @@ Module({
   fromMe: true,
   desc: "Veritabanında kayıtlı olan tüm özel değişkenleri ve değerleri liste halinde sunar.",
   usage: ".değişkenler",
-  use: "system",
+  use: "sistem",
 },
   async (message, match) => {
     try {
@@ -272,7 +272,7 @@ Module({
   fromMe: true,
   desc: "Botun üzerinde çalıştığı sunucu altyapısı, işletim sistemi ve sürüm bilgilerini görüntüler.",
   usage: ".platform",
-  use: "system",
+  use: "sistem",
 },
   async (message, match) => {
     return await message.sendReply(`_Bot ${config.PLATFORM} üzerinde çalışıyor_`);
@@ -284,7 +284,7 @@ Module({
   fromMe: true,
   desc: "Botun belirli komutlarda kullandığı varsayılan dil seçeneğini (TR/EN) anlık olarak değiştirir.",
   usage: ".dil [turkish/english]",
-  use: "system",
+  use: "sistem",
 },
   async (message, match) => {
     if (
@@ -302,7 +302,7 @@ Module({
   fromMe: true,
   desc: "Botun ek özelliklerini ve WhatsApp tercihlerini yönetebileceğiniz interaktif menüyü açar.",
   usage: ".ayarlar",
-  use: "system",
+  use: "sistem",
 },
   async (message, match) => {
     let configs = settingsMenu || [];
@@ -336,7 +336,7 @@ Module({
   fromMe: true,
   desc: "Botun çalışma modunu genel (public) veya özel (private) olarak değiştirir.",
   usage: ".mod [genel/özel]",
-  use: "system",
+  use: "sistem",
   dontAddCommandList: true,
 },
   async (message, match) => {
@@ -359,7 +359,7 @@ Module({
   fromMe: true,
   desc: "Sohbetlerde silinen mesajları otomatik olarak yakalar ve belirlediğiniz hedefe iletir.",
   usage: ".antisilme [aç/kapat/sudo/jid]",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
@@ -410,7 +410,7 @@ Module({
   fromMe: true,
   desc: "Belirlediğiniz bir kullanıcıya bot üzerinde tam yetkili (SUDO) yönetim izni tanımlar.",
   usage: ".setsudo [etiket/yanıt]",
-  use: "system",
+  use: "sistem",
   dontAddCommandList: true,
 },
   async (message, mm) => {
@@ -473,7 +473,7 @@ Module({
   fromMe: true,
   desc: "Bot üzerinde en üst düzey yönetim yetkisine (SUDO) sahip olan numaraları listeler.",
   usage: ".sudolar",
-  use: "system",
+  use: "sistem",
 },
   async (message, match) => {
     let sudoMap = [];
@@ -508,7 +508,7 @@ Module({
   fromMe: true,
   desc: "Belirlediğiniz bir kullanıcının bot üzerindeki en üst düzey (SUDO) yönetim yetkisini iptal eder.",
   usage: ".sudosil [etiket/yanıt]",
-  use: "system",
+  use: "sistem",
   dontAddCommandList: true,
 },
   async (m, mm) => {
@@ -570,7 +570,7 @@ Module({
   fromMe: true,
   desc: "Botun belirli komutlarını tüm kullanıcılar için geçici olarak devre dışı bırakır veya tekrar açar.",
   usage: ".toggle [komut_adı]",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     if (match[0].includes("filter")) return;
@@ -626,7 +626,7 @@ Module({
   fromMe: true,
   desc: "Sohbete katılan diğer botları otomatik olarak tespit eder ve gruptan uzaklaştırır.",
   usage: ".antibot [aç/kapat]",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
@@ -666,7 +666,7 @@ Module({
   fromMe: true,
   desc: "Grupta hızlı ve tekrarlayan (spam) mesaj atan kullanıcıları otomatik olarak tespit eder ve atar.",
   usage: ".antispam [aç/kapat]",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
@@ -706,7 +706,7 @@ Module({
   fromMe: true,
   desc: "Gruptaki yetki verme veya yetki alma durumlarını takip eder ve anlık bilgilendirme yapar.",
   usage: ".pdm [aç/kapat]",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
@@ -744,7 +744,7 @@ Module({
   fromMe: true,
   desc: "Yöneticilerin yetkisinin alınmasını engeller; yapanın yetkisini alır ve mağdura iade eder.",
   usage: ".antiyetkidüşürme [aç/kapat]",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     match[1] = match[1] ? match[1].toLowerCase() : "";
@@ -779,7 +779,7 @@ Module({
   fromMe: true,
   desc: "Onaysız yetki verilmesini engeller; hem yetki verenin hem de yeni yetkilinin yetkilerini alır.",
   usage: ".antiyetkiverme [aç/kapat]",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     match[1] = match[1] ? match[1].toLowerCase() : "";
@@ -816,7 +816,7 @@ Module({
   fromMe: true,
   desc: "Grupta link paylaşımını engeller. Uyarı, silme veya atma gibi farklı modlarda çalışır.",
   usage: ".antibağlantı [yardım/aç/kapat]",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
@@ -1065,7 +1065,7 @@ Module({
   fromMe: true,
   desc: "Yasaklı kelime kullanımını engeller ve bu kelimeleri kullananları gruptan uzaklaştırır.",
   usage: ".antikelime [aç/kapat]",
-  use: "group",
+  use: "grup",
 },
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
@@ -1135,7 +1135,7 @@ Module({
   desc: "Gelen sesli ve görüntülü aramaları otomatik olarak reddeder. (uyarı mesajı gönderebilir)",
   usage:
     ".aramaengel aç/kapat\n.aramaengel beyazlisteyeekle <numara>\n.aramaengel beyazlistelerisil <numara>\n.aramaengel beyazlistelerigöster\n.aramaengel beyazlistelerisil\n.aramaengel mesaj <mesaj>\n.aramaengel mesaj kapat",
-  use: "system",
+  use: "sistem",
 },
   async (message, match) => {
     const input = match[1]?.trim();
@@ -1622,7 +1622,7 @@ Module({
 Module({
   pattern: "uptime",
   fromMe: false,
-  use: "system",
+  use: "sistem",
   desc: "Botun ve üzerinde çalıştığı sunucunun ne kadar süredir kesintisiz aktif olduğunu gösterir.",
   usage: ".uptime",
 },
@@ -1847,3 +1847,4 @@ module.exports = {
   setVar,
   delVar,
 };
+
