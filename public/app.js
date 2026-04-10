@@ -13,6 +13,9 @@ const S = {
   ramHistory: [],
   chart: null,
   testProgressPoll: null,
+  selectedBroadcastJids: new Set(),
+  activeSingleTarget: null,
+  allCommands: []
 };
 let es = null;
 let pairCountdownTimer = null;
@@ -51,11 +54,27 @@ function setupNav() {
           if (body) body.scrollTop = body.scrollHeight;
         }, 50);
       }
+      if (page === 'uzakkomut') { loadGroups(); loadCategorizedCommands(); loadGroupsForBroadcast(); }
       if (page === 'komutlar') loadCommands();
       if (page === 'ayarlar') { fetchConfig(); loadEnvPreview(); }
       if (page === 'plugins') loadPlugins();
       if (page === 'stats') initChart();
     });
+  });
+}
+
+function setupRemoteTabs() {
+  document.querySelectorAll('[data-remote-tab]').forEach(tab => {
+    tab.onclick = () => {
+      const target = tab.dataset.remoteTab;
+      document.querySelectorAll('[data-remote-tab]').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.remote-tab-pane').forEach(p => {
+        p.classList.toggle('active', p.id === `remote-tab-content-${target}`);
+        if (p.id !== `remote-tab-content-${target}`) p.style.display = 'none';
+        else p.style.display = 'block';
+      });
+    };
   });
 }
 
@@ -479,33 +498,95 @@ async function togglePlugin(id) {
   } catch { toast('Bağlantı hatası.', 'error'); }
 }
 
-// ─── BROADCAST ───────────────────────────────────────────
+// --- Redundant broadcast render function removed --
+
+function toggleBroadcastGroup(jid) {
+  if (S.selectedBroadcastJids.has(jid)) S.selectedBroadcastJids.delete(jid);
+  else S.selectedBroadcastJids.add(jid);
+  updateBroadcastSelectionUI();
+}
+
+function selectAllGroups(select) {
+  if (select) {
+    S.broadcastGroups.forEach(g => S.selectedBroadcastJids.add(g.jid || g.id));
+  } else {
+    S.selectedBroadcastJids.clear();
+  }
+  updateBroadcastSelectionUI();
+}
+
+function updateBroadcastSelectionUI() {
+  renderBroadcastGroups(document.getElementById('bcSearch')?.value.trim());
+  const badge = document.getElementById('selectedCountBadge');
+  if (badge) badge.textContent = `${S.selectedBroadcastJids.size} Alıcı Seçildi`;
+}
+
+function filterBroadcastGroups() {
+  renderBroadcastGroups(document.getElementById('bcSearch')?.value.trim());
+}
+
 function setupBroadcast() {
   const form = document.getElementById('broadcastForm');
   if (!form) return;
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const jid = getVal('bc_jid').trim();
     const message = getVal('bc_message').trim();
     if (!message) return toast('Mesaj boş olamaz!', 'error');
+    if (S.selectedBroadcastJids.size === 0) return toast('En az bir alıcı seçmelisiniz!', 'warn');
 
-    try {
-      const btn = document.getElementById('bcSubmit');
-      const btnSpan = btn.querySelector('span');
-      btn.disabled = true; if (btnSpan) btnSpan.textContent = 'Gönderiliyor...';
-      const r = await fetch('/api/system/broadcast', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jid, message })
-      });
-      btn.disabled = false; if (btnSpan) btnSpan.textContent = 'MESAJI ŞİMDİ GÖNDER';
-      if (r.ok) {
-        toast('Sinyal başarıyla gönderildi!', 'success');
-        setVal('bc_message', '');
-      } else { toast('Gönderim başarısız.', 'error'); }
-    } catch { toast('Sunucu bağlantı hatası.', 'error'); }
+    const targets = Array.from(S.selectedBroadcastJids);
+    const total = targets.length;
+    let minD = parseInt(getVal('bc_min_delay')) || 2;
+    let maxD = parseInt(getVal('bc_max_delay')) || 5;
+    if (minD > maxD) [minD, maxD] = [maxD, minD]; // Auto-correct
+    
+    const btn = document.getElementById('bcSubmit');
+    const progBox = document.getElementById('bcProgressBox');
+    const progFill = document.getElementById('bcProgressBarFill');
+    const progTxt = document.getElementById('bcProgressStatus');
+
+    btn.disabled = true;
+    progBox.style.display = 'block';
+    let successCount = 0;
+
+    for (let i = 0; i < total; i++) {
+      const jid = targets[i];
+      const progress = Math.round(((i + 1) / total) * 100);
+      progFill.style.width = `${progress}%`;
+      progTxt.innerHTML = `<span style="color:var(--blue)">Gönderiliyor:</span> ${i + 1}/${total} <br><small>${esc(jid)}</small>`;
+
+      try {
+        const r = await fetch('/api/system/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jid, message })
+        });
+        if (r.ok) successCount++;
+      } catch (err) { console.error('Broadcast error for ' + jid, err); }
+
+      if (i < total - 1) {
+        const nextDelay = Math.floor(Math.random() * (maxD - minD + 1) + minD);
+        for (let s = nextDelay; s > 0; s--) {
+          progTxt.innerHTML = `<span style="color:var(--green)">Sıradaki:</span> ${i + 2}/${total} <br><small>${s} saniye bekleniyor... (${nextDelay}s aralık)</small>`;
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+    }
+
+    btn.disabled = false;
+    progTxt.innerHTML = `<span style="color:var(--green); font-weight:bold;">TAMAMLANDI</span><br>${successCount}/${total} başarılı gönderim.`;
+    toast(`${successCount} duyuru başarıyla gönderildi!`, 'success');
+    
+    setTimeout(() => {
+      progBox.style.display = 'none';
+      progFill.style.width = '0%';
+    }, 5000);
   });
 }
+
+window.toggleBroadcastGroup = toggleBroadcastGroup;
+window.selectAllGroups = selectAllGroups;
+window.filterBroadcastGroups = filterBroadcastGroups;
 
 // ─── ANALYTICS / CHART ────────────────────────────────────
 function initChart() {
@@ -832,6 +913,8 @@ function toast(msg, type = 'info') {
   box.appendChild(t);
   setTimeout(() => t.remove(), 3200);
 }
+function showToast(msg, type = 'info') { toast(msg, type); }
+window.showToast = showToast;
 
 // ══════════════════════════════
 //  HELPERS
@@ -862,6 +945,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupTerminalControls();
   setupSettings();
   setupBroadcast();
+  setupRemoteTabs();
   connectLogs();
   fetchStatus();
   setInterval(fetchStatus, 5000);
@@ -962,35 +1046,118 @@ async function saveAiCommand() {
 // ══════════════════════════════
 async function loadGroups() {
   const container = document.getElementById('groupList');
-  container.innerHTML = '<p style="color:var(--text-muted)">Yükleniyor...</p>';
+  if (!container) return;
+  container.innerHTML = '<p style="color:var(--text-muted); padding:20px;">Yükleniyor...</p>';
 
   try {
     const res = await fetch('/api/groups');
     const data = await res.json();
     const groups = data.groups || [];
-
-    if (groups.length === 0) {
-      container.innerHTML = '<p style="color:var(--text-muted)">Henüz grup verisi yok. Bot bağlantısı kurulduktan sonra gruplar görünecektir.</p>';
-      return;
-    }
-
-    container.innerHTML = groups.map(g => {
-      const name = g.subject || g.name || g.jid;
-      const jid = g.jid || g.id;
-      return `<div class="cmd-row" style="cursor:pointer" onclick="document.getElementById('remoteJid').value='${esc(jid)}'">
-        <span class="cmd-name" style="color:var(--accent)">${esc(name)}</span>
-        <span class="cmd-desc" style="font-size:11px;color:var(--text-muted)">${esc(jid)}</span>
-      </div>`;
-    }).join('');
+    S.remoteGroups = groups;
+    renderSingleTargetGroups();
   } catch (e) {
-    container.innerHTML = `<p style="color:var(--red)">Hata: ${esc(e.message)}</p>`;
+    container.innerHTML = `<p style="color:var(--red); padding:20px;">Hata: ${esc(e.message)}</p>`;
   }
+}
+
+function renderSingleTargetGroups(filter = '') {
+  const container = document.getElementById('groupList');
+  if (!container) return;
+  const filtered = filter ? S.remoteGroups.filter(g => (g.subject || g.name || '').toLowerCase().includes(filter.toLowerCase())) : S.remoteGroups;
+  
+  if (!filtered.length) {
+    container.innerHTML = '<p style="color:var(--text3); padding:20px;">Grup bulunamadı.</p>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(g => {
+    const jid = g.jid || g.id;
+    const name = g.subject || g.name || jid;
+    const isActive = S.activeSingleTarget?.jid === jid;
+    return `
+      <div class="bc-item ${isActive ? 'selected' : ''}" onclick="selectSingleTarget('${esc(jid)}', '${esc(name)}')">
+        <div class="target-avatar-mini" data-avatar-jid="${esc(jid)}" style="width:32px; height:32px; background:var(--surface3); border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          <svg viewBox="0 0 24 24" fill="none" width="16" height="16" stroke="var(--text2)" style="opacity:0.4;"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke-width="2"/></svg>
+        </div>
+        <div class="bc-item-info">
+          <span class="bc-item-name">${esc(name)}</span>
+          <span class="bc-item-jid">${esc(jid)}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Lazy load avatars
+  setTimeout(loadGroupAvatars, 100);
+}
+
+async function loadGroupAvatars() {
+  const avatars = document.querySelectorAll('[data-avatar-jid], [data-jid]');
+  for (const el of avatars) {
+    const jid = el.dataset.avatarJid || el.dataset.jid;
+    // Special: if it already has an img, skip
+    if (el.querySelector('img')) continue;
+    
+    try {
+      const res = await fetch(`/api/group-pp?jid=${encodeURIComponent(jid)}`);
+      const data = await res.json();
+      if (data.imgUrl) {
+        // Update both the list and the S.remoteGroups data
+        const g = S.remoteGroups.find(rg => (rg.jid || rg.id) === jid);
+        if (g) g.imgUrl = data.imgUrl;
+
+        el.innerHTML = `<img src="${esc(data.imgUrl)}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+        <svg viewBox="0 0 24 24" fill="none" width="16" height="16" stroke="var(--text2)" style="display:none; opacity:0.4;"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke-width="2"/></svg>`;
+      }
+    } catch (e) { }
+  }
+}
+
+function selectSingleTarget(jid, name) {
+  const group = S.remoteGroups.find(g => (g.jid || g.id) === jid);
+  S.activeSingleTarget = { jid, name, imgUrl: group?.imgUrl };
+  document.getElementById('remoteJid').value = jid;
+  
+  const header = document.getElementById('activeTargetHeader');
+  const nameEl = document.getElementById('activeTargetName');
+  const jidEl = document.getElementById('activeTargetJid');
+  
+  // Update header avatar
+  const avatarContainer = header.querySelector('.target-avatar-mini');
+  if (avatarContainer) {
+    if (group && group.imgUrl) {
+      avatarContainer.innerHTML = `<img src="${esc(group.imgUrl)}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+      <svg viewBox="0 0 24 24" fill="none" width="20" height="20" stroke="var(--accent)" style="display:none;"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke-width="2"/></svg>`;
+    } else {
+      // Try to fetch it live if not in cache (lazy load)
+      avatarContainer.innerHTML = `<svg viewBox="0 0 24 24" fill="none" width="20" height="20" stroke="var(--accent)"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke-width="2"/></svg>`;
+      fetch(`/api/group-pp?jid=${encodeURIComponent(jid)}`).then(r => r.json()).then(data => {
+        if (data.imgUrl) {
+          if (group) group.imgUrl = data.imgUrl;
+          avatarContainer.innerHTML = `<img src="${esc(data.imgUrl)}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+          <svg viewBox="0 0 24 24" fill="none" width="20" height="20" stroke="var(--accent)" style="display:none;"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke-width="2"/></svg>`;
+        }
+      }).catch(()=>{});
+    }
+  }
+
+  header.style.display = 'block';
+  nameEl.textContent = name;
+  jidEl.textContent = jid;
+
+  renderSingleTargetGroups(document.getElementById('targetSearch')?.value.trim());
+  toast(`${name} hedefine kilitlenildi.`, 'info');
+}
+
+function filterSingleTargets() {
+  renderSingleTargetGroups(document.getElementById('targetSearch')?.value.trim());
 }
 
 async function sendRemoteCommand() {
   const jid = document.getElementById('remoteJid')?.value?.trim();
   const cmd = document.getElementById('remoteCmd')?.value?.trim();
-  if (!jid || !cmd) { showToast('JID ve komut girin.', 'warning'); return; }
+  if (!jid) { toast('Önce bir hedef seçin!', 'warn'); return; }
+  if (!cmd) { toast('Komut girin.', 'warning'); return; }
 
   const resultDiv = document.getElementById('remoteResult');
   try {
@@ -1001,22 +1168,22 @@ async function sendRemoteCommand() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Hata');
+    
     resultDiv.style.display = 'block';
-    resultDiv.style.color = 'var(--green)';
-    resultDiv.textContent = data.message;
-    showToast('Komut gönderildi!', 'success');
+    resultDiv.innerHTML = `<span style="color:var(--green)">[OK]</span> ${esc(cmd)} -> Gönderildi.`;
+    toast('Komut yürütüldü.', 'success');
   } catch (e) {
     resultDiv.style.display = 'block';
-    resultDiv.style.color = 'var(--red)';
-    resultDiv.textContent = 'Hata: ' + e.message;
-    showToast('Gönderim hatası: ' + e.message, 'error');
+    resultDiv.innerHTML = `<span style="color:var(--red)">[HATA]</span> ${esc(e.message)}`;
+    toast('Hata: ' + e.message, 'error');
   }
 }
 
 async function sendRemoteMessage() {
   const jid = document.getElementById('remoteJid')?.value?.trim();
   const text = document.getElementById('remoteCmd')?.value?.trim();
-  if (!jid || !text) { showToast('JID ve mesaj girin.', 'warning'); return; }
+  if (!jid) { toast('Önce bir hedef seçin!', 'warn'); return; }
+  if (!text) { toast('Mesaj yazın.', 'warning'); return; }
 
   try {
     const res = await fetch('/api/send-message', {
@@ -1026,40 +1193,233 @@ async function sendRemoteMessage() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Hata');
-    showToast('Mesaj gönderildi!', 'success');
+    toast('Mesaj gönderildi.', 'success');
   } catch (e) {
-    showToast('Gönderim hatası: ' + e.message, 'error');
+    toast('Hata: ' + e.message, 'error');
   }
 }
 
 async function loadCategorizedCommands() {
   const container = document.getElementById('categorizedCommands');
-  container.innerHTML = '<p style="color:var(--text-muted)">Yükleniyor...</p>';
+  if (!container) return;
+  container.innerHTML = '<p style="color:var(--text3); padding:20px;">Yükleniyor...</p>';
 
   try {
     const res = await fetch('/api/commands/categorized');
     const data = await res.json();
-    const cats = data.categories || {};
-
-    if (Object.keys(cats).length === 0) {
-      container.innerHTML = '<p style="color:var(--text-muted)">Komut bulunamadı.</p>';
-      return;
-    }
-
-    let html = '';
-    for (const [cat, cmds] of Object.entries(cats)) {
-      html += `<div style="margin-bottom:16px;">
-        <h4 style="color:var(--accent); margin-bottom:8px; text-transform:uppercase;">${esc(cat)} (${cmds.length})</h4>`;
-      cmds.forEach(c => {
-        html += `<div class="cmd-row" style="cursor:pointer" onclick="document.getElementById('remoteCmd').value='.${esc(c.command)}'">
-          <span class="cmd-name">.${esc(c.command)}</span>
-          <span class="cmd-desc">${esc(c.desc || '')}</span>
-        </div>`;
-      });
-      html += '</div>';
-    }
-    container.innerHTML = html;
+    S.allCategorizedCmds = data.categories || {};
+    renderCmdLibrary('');
   } catch (e) {
     container.innerHTML = `<p style="color:var(--red)">Hata: ${esc(e.message)}</p>`;
   }
 }
+
+function renderCmdLibrary(query = '') {
+  const container = document.getElementById('categorizedCommands');
+  if (!container) return;
+  
+  let html = '';
+  const cats = S.allCategorizedCmds || {};
+  let found = 0;
+
+  for (const [cat, cmds] of Object.entries(cats)) {
+    const filtered = query ? cmds.filter(c => 
+      c.command.toLowerCase().includes(query.toLowerCase()) || 
+      (c.desc && c.desc.toLowerCase().includes(query.toLowerCase()))
+    ) : cmds;
+
+    if (filtered.length === 0) continue;
+    found += filtered.length;
+    
+    html += `<div style="margin-bottom:20px;">
+      <div class="op-cat-header">
+        <div class="op-cat-line"></div>
+        <div class="op-cat-title">${esc(cat)} (${filtered.length})</div>
+      </div>
+      <div class="cmd-grid" style="grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:8px;">
+        ${filtered.map(c => `
+          <div class="cmd-item" style="padding:8px 12px; cursor:pointer; background:rgba(255,255,255,0.03);" onclick="setRemoteCmd('.${esc(c.command)}')">
+            <span style="font-weight:700; font-size:13px; color:var(--text);">.${esc(c.command)}</span>
+            <span style="font-size:10px; color:var(--text3); display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${esc(c.desc || '')}">${esc(c.desc || '')}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  }
+  container.innerHTML = html || `<p style="color:var(--text-muted); padding:20px;">"${esc(query)}" ile eşleşen komut bulunamadı.</p>`;
+}
+
+function searchCmdLibrary() {
+  const val = document.getElementById('cmdLibSearch')?.value.trim();
+  renderCmdLibrary(val);
+}
+
+function setRemoteCmd(val) {
+  setVal('remoteCmd', val);
+  toast('Komut seçildi.', 'info');
+}
+
+window.selectSingleTarget = selectSingleTarget;
+window.filterSingleTargets = filterSingleTargets;
+window.searchCmdLibrary = searchCmdLibrary;
+window.setRemoteCmd = setRemoteCmd;
+
+window.addEventListener('load', () => {
+  document.body.classList.remove('preload');
+});
+
+// ══════════════════════════════
+//  STAT MODAL
+// ══════════════════════════════
+window.openStatModal = async function(type) {
+  const overlay = document.getElementById('statModalOverlay');
+  const title = document.getElementById('smTitle');
+  const sub = document.getElementById('smSub');
+  const icon = document.getElementById('smIcon');
+  const body = document.getElementById('smBody');
+  if (!overlay || !body) return;
+
+  body.innerHTML = '<div style="text-align:center; padding: 30px; color:var(--text3);">Yükleniyor...</div>';
+  overlay.classList.add('active');
+
+  let themeColor = 'var(--blue)';
+  let iconHtml = '';
+  
+  if (type === 'messages') {
+    themeColor = 'var(--blue)';
+    iconHtml = '<svg viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" stroke-width="2"/></svg>';
+    title.textContent = 'Toplam Mesaj Analizi';
+    sub.textContent = 'Sistem kurulduğundan beri işlenen veriler';
+    
+    body.innerHTML = `
+      <div class="sm-stat-box" style="align-items:center; border-color:rgba(0,225,255,0.3); background:rgba(0,225,255,0.05);">
+        <span class="sm-sb-lbl" style="color:var(--blue);">TÜM İŞLENEN MESAJLAR</span>
+        <span class="sm-sb-val" style="font-size:32px; color:var(--blue);">${document.getElementById('statMessages').textContent}</span>
+      </div>
+      <p style="color:var(--text3); font-size:13px; line-height:1.6; text-align:center; margin-top:10px;">
+        Bot kurulduğundan itibaren gelen ve giden tüm mesajların toplam sayısıdır.
+      </p>
+    `;
+  } else if (type === 'commands') {
+    themeColor = 'var(--purple)';
+    iconHtml = '<svg viewBox="0 0 24 24" fill="none"><polyline points="4 17 10 11 4 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="19" x2="20" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    title.textContent = 'Komut Kullanım Verileri';
+    sub.textContent = 'Performans ve komut başarı dökümü';
+
+    try {
+      if (!S.commands || S.commands.length === 0) {
+        const r = await fetch('/api/commands?t=' + Date.now());
+        const d = await r.json();
+        S.commands = d.commands || [];
+      }
+      
+      let totalRuns = 0; let okCount = 0; let errCount = 0;
+      S.commands.forEach(c => {
+        if (c.stat) {
+          totalRuns += (c.stat.runs || 0);
+          if (c.stat.status === 'ok') okCount++;
+          if (c.stat.status === 'error') errCount++;
+        }
+      });
+      
+      body.innerHTML = `
+        <div class="sm-stat-grid">
+          <div class="sm-stat-box">
+            <span class="sm-sb-lbl" style="color:var(--purple);">Toplam Çalıştırma</span>
+            <span class="sm-sb-val">${totalRuns}</span>
+          </div>
+          <div class="sm-stat-box">
+            <span class="sm-sb-lbl" style="color:var(--green);">Başarılı Komut</span>
+            <span class="sm-sb-val">${okCount}</span>
+          </div>
+          <div class="sm-stat-box">
+            <span class="sm-sb-lbl" style="color:var(--red);">Hatalı Komut</span>
+            <span class="sm-sb-val">${errCount}</span>
+          </div>
+          <div class="sm-stat-box">
+            <span class="sm-sb-lbl" style="color:var(--text2);">Kayıtlı Komut</span>
+            <span class="sm-sb-val">${S.commands.length}</span>
+          </div>
+        </div>
+      `;
+    } catch {
+      body.innerHTML = '<p style="color:var(--red);">Veri yüklenemedi.</p>';
+    }
+  } else if (type === 'users') {
+    themeColor = 'var(--green)';
+    iconHtml = '<svg viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" stroke-width="2"/></svg>';
+    title.textContent = 'Aktif Kullanıcılar';
+    sub.textContent = 'Sistemle etkileşime geçen kişi sayısı';
+    
+    body.innerHTML = `
+      <div class="sm-stat-box" style="align-items:center; border-color:rgba(0,255,163,0.3); background:rgba(0,255,163,0.05);">
+        <span class="sm-sb-lbl" style="color:var(--green);">BENZERSİZ KULLANICI</span>
+        <span class="sm-sb-val" style="font-size:32px; color:var(--green);">${document.getElementById('statUsers').textContent}</span>
+      </div>
+      <p style="color:var(--text3); font-size:13px; line-height:1.6; text-align:center; margin-top:10px;">
+        Grup veya özel mesajlardan otomatik olarak kaydedilen ve botu kullanan toplam kişi sayısı.
+      </p>
+    `;
+  } else if (type === 'groups') {
+    themeColor = 'var(--amber)';
+    iconHtml = '<svg viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" stroke-width="2"/></svg>';
+    title.textContent = 'Yönetilen Gruplar';
+    sub.textContent = 'Botun bulunduğu whatsapp grupları';
+
+    try {
+      if (!S.remoteGroups || S.remoteGroups.length === 0) {
+        const res = await fetch('/api/groups');
+        const data = await res.json();
+        S.remoteGroups = data.groups || [];
+      }
+      
+      if (S.remoteGroups.length === 0) {
+         body.innerHTML = '<p style="color:var(--text3);">Bot henüz hiçbir grupta değil.</p>';
+      } else {
+         const groupHtml = S.remoteGroups.map(g => {
+           let jid = g.jid || g.id;
+           let name = g.subject || g.name || jid;
+           return `
+             <div class="modal-list-item">
+               <div data-avatar-jid="${esc(jid)}" style="width:36px; height:36px; border-radius:50%; background:var(--surface3); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                 ${g.imgUrl ? `<img src="${esc(g.imgUrl)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">` : `<svg viewBox="0 0 24 24" fill="none" width="18" height="18" stroke="var(--text2)" style="opacity:0.5;"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke-width="2"/></svg>`}
+               </div>
+               <div style="display:flex; flex-direction:column; overflow:hidden;">
+                 <span style="font-weight:700; font-size:13.5px; color:var(--text); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${esc(name)}</span>
+                 <span style="font-size:11px; color:var(--text3);">${esc(jid)}</span>
+               </div>
+             </div>
+           `;
+         }).join('');
+         
+         body.innerHTML = `
+           <div style="font-size:12px; font-weight:700; color:var(--text3); margin-bottom:4px;">TOPLAM ${S.remoteGroups.length} GRUP</div>
+           <div style="display:flex; flex-direction:column; gap:8px;">
+             ${groupHtml}
+           </div>
+         `;
+         // Trigger lazy loader for avatars
+         setTimeout(loadGroupAvatars, 100);
+      }
+    } catch {
+      body.innerHTML = '<p style="color:var(--red);">Grup verileri alınamadı.</p>';
+    }
+  }
+
+  icon.innerHTML = iconHtml;
+  icon.style.color = themeColor;
+  icon.style.borderColor = themeColor;
+  icon.style.boxShadow = `0 0 15px ${themeColor}`;
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  const smClose = document.getElementById('smCloseBtn');
+  const overlay = document.getElementById('statModalOverlay');
+  if (smClose && overlay) {
+    smClose.addEventListener('click', () => overlay.classList.remove('active'));
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.classList.remove('active');
+    });
+  }
+});
+

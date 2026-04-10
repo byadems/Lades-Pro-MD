@@ -271,7 +271,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
 
       // Load plugins on first connect
       const pluginsDir = path.join(__dirname, "..", "plugins");
-      loadPlugins(pluginsDir);
+      await loadPlugins(pluginsDir);
 
       // Self-test: tüm komutları ilk bağlantıda test et
       if (process.env.SELF_TEST !== 'false' && !selfTestRan) {
@@ -324,11 +324,13 @@ async function createBot(sessionId = "lades-session", options = {}) {
           }
         }, delay);
       } else {
-        // Manual dashboard stop/logout should not kill the whole process.
+        // Manual dashboard stop/logout - still clear state if it's a full logout
         if (sock.__intentionalLogout) {
-          logger.info("Oturum manuel olarak kapatıldı.");
+          logger.info("Oturum manuel olarak kapatıldı. Veriler temizleniyor...");
+          await clearState().catch(() => {});
           return;
         }
+
         logger.error("Oturum kapatıldı! Lütfen yeniden doğrulama yapın.");
         // Oturum geçersiz olduğunda HEM yerel dosyayı HEM veri tabanını temizleyelim
         try {

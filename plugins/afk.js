@@ -9,23 +9,12 @@ const afkCache = new Map();
 
 async function initAFKCache() {
   try {
-    const afkData = config.AFK_DATA || "{}";
-    const afkUsers = JSON.parse(afkData);
-
-    for (const [userJid, userData] of Object.entries(afkUsers)) {
-      afkCache.set(userJid, {
-        reason: userData.reason,
-        setAt: new Date(userData.setAt),
-        lastSeen: new Date(userData.lastSeen),
-        messageCount: userData.messageCount || 0,
-      });
-    }
+    // Clear the persistent AFK data on startup to avoid automatic 'Away' mode entry
+    afkCache.clear();
+    await setVar("AFK_DATA", "{}");
+    console.log("[AFK] Önbellek ve kalıcı veriler sıfırlandı.");
   } catch (error) {
-    console.error("AFK önbelleği başlatılamadı:", error);
-
-    if (!config.AFK_DATA) {
-      await setVar("AFK_DATA", "{}");
-    }
+    console.error("AFK önbelleği sıfırlanamadı:", error);
   }
 }
 

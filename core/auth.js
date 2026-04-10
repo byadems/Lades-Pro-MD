@@ -176,7 +176,16 @@ async function getAuthState(config, sessionId = "lades-session") {
       const { useMultiFileAuthState } = await loadBaileys();
       const auth = await useMultiFileAuthState(sessionPath);
       if (!auth.clearState) {
-        auth.clearState = async () => {};
+        auth.clearState = async () => {
+          try {
+            if (fs.existsSync(sessionPath)) {
+              fs.rmSync(sessionPath, { recursive: true, force: true });
+              logger.info(`Lokal oturum dizini temizlendi: ${sessionPath}`);
+            }
+          } catch (e) {
+            logger.error({ err: e.message }, "Lokal oturum temizleme hatası");
+          }
+        };
       }
       return auth;
     }

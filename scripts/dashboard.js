@@ -11,8 +11,9 @@ const qrcode = require('qrcode');
 const pino = require('pino');
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 const envPath = path.join(__dirname, "../config.env");
+const { BotMetric, CommandStat, CommandRegistry, UserData, GroupSettings } = require('../core/database');
 
 // Prevent Baileys unhandled promise rejections / connection timeouts from crashing the Dashboard
 process.on('uncaughtException', err => {
@@ -117,6 +118,8 @@ process.on('message', (msg) => {
       pendingRequests.delete(msg.requestId);
       if (msg.type === 'groups_result') {
         pending.resolve(msg.data || []);
+      } else if (msg.type === 'group_pp_result') {
+        pending.resolve({ imgUrl: msg.imgUrl });
       } else if (msg.type === 'send_result') {
         if (msg.success) pending.resolve(true);
         else pending.reject(new Error(msg.error || 'Gönderim hatası'));
@@ -164,13 +167,32 @@ let activePairCode = null;
 // CRITICAL FIX: Track pair-success reconnect (isNewLogin flag from Baileys)
 let _isNewLoginPending = false;
 
-app.get('/api/status', (req, res) => {
+app.get('/api/status', async (req, res) => {
   const conf = getEnvConfig();
   const mem = process.memoryUsage();
   const hasLocalSession = fs.existsSync(path.join(__dirname, "../sessions/lades-session/creds.json"));
   const hasDashboardSession = fs.existsSync(path.join(__dirname, "../sessions/dashboard-auth/creds.json"));
   const hasDb = !!(conf.DATABASE_URL && conf.DATABASE_URL.trim());
   const hasStoredSession = hasLocalSession || hasDashboardSession || hasDb;
+
+  // Runtime stats
+  let totalMessages = 0;
+  let totalCommands = 0;
+  let activeUsers = 0;
+  let managedGroups = 0;
+
+  try {
+    const [msgM, cmdM, uCount, gCount] = await Promise.all([
+      BotMetric.findByPk('total_messages'),
+      BotMetric.findByPk('total_commands'),
+      UserData.count(),
+      GroupSettings.count()
+    ]);
+    totalMessages = msgM ? parseInt(msgM.value) : 0;
+    totalCommands = cmdM ? parseInt(cmdM.value) : 0;
+    activeUsers = uCount;
+    managedGroups = gCount;
+  } catch (e) { /* fallback to 0 */ }
 
   // Check if creds.json has valid credentials (registered = true)
   let sessionPhone = null;
@@ -195,17 +217,14 @@ app.get('/api/status', (req, res) => {
     }
   }
 
-  // Use file-based detection when IPC is not available
-  const connected = liveBotConnected || isRegistered;
+  // Use file-based detection only for session existence, not connection.
+  const connected = liveBotConnected;
   const phone = liveBotPhone || sessionPhone;
   
-  // Load runtime stats
-  const runtimeStats = loadRuntimeStats();
-
   res.json({
     bot: conf.BOT_NAME || "Lades-Pro-MD",
     botName: conf.BOT_NAME || "Lades-Pro-MD",
-    hasSession: connected,
+    hasSession: isRegistered,
     connected: connected,
     hasStoredSession,
     hasDb,
@@ -214,10 +233,10 @@ app.get('/api/status', (req, res) => {
     memory: Math.round(mem.heapUsed / 1024 / 1024) + " MB",
     nodeVersion: process.version,
     // Runtime stats
-    totalMessages: runtimeStats.totalMessages,
-    totalCommands: runtimeStats.totalCommands,
-    activeUsers: runtimeStats.activeUsers,
-    managedGroups: runtimeStats.managedGroups
+    totalMessages,
+    totalCommands,
+    activeUsers,
+    managedGroups
   });
 });
 
@@ -347,70 +366,68 @@ app.post('/api/system/broadcast', (req, res) => {
 });
 
 // ─── Commands list ───────────────────────────────────────
-const STATS_FILE = path.join(__dirname, '../sessions/cmd-stats.json');
-const RUNTIME_STATS_FILE = path.join(__dirname, '../sessions/runtime-stats.json');
-
-function loadStats() {
+async function loadStats() {
   try {
-    if (fs.existsSync(STATS_FILE)) return JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
-  } catch { }
-  return {};
-}
-
-function loadRuntimeStats() {
-  try {
-    if (fs.existsSync(RUNTIME_STATS_FILE)) {
-      const data = JSON.parse(fs.readFileSync(RUNTIME_STATS_FILE, 'utf8'));
-      return {
-        totalMessages: data.totalMessages || 0,
-        totalCommands: data.totalCommands || 0,
-        activeUsers: Array.isArray(data.activeUsers) ? data.activeUsers.length : 0,
-        managedGroups: Array.isArray(data.managedGroups) ? data.managedGroups.length : 0
+    const rows = await CommandStat.findAll();
+    const stats = {};
+    rows.forEach(r => {
+      stats[r.pattern] = {
+        status: r.status,
+        ms: r.avgMs,
+        lastRun: r.lastRun,
+        error: r.lastError,
+        runs: r.runs
       };
-    }
-  } catch { }
-  return { totalMessages: 0, totalCommands: 0, activeUsers: 0, managedGroups: 0 };
+    });
+    return stats;
+  } catch { return {}; }
 }
 
-app.get('/api/runtime-stats', (req, res) => {
-  res.json(loadRuntimeStats());
-});
-
-app.get('/api/cmd-stats', (req, res) => {
-  res.json(loadStats());
-});
-
-app.get('/api/commands', (req, res) => {
+async function loadRuntimeStats() {
   try {
-    const stats = loadStats();
-    let allModules = [];
-    let total = 0;
+    const [msgM, cmdM, uCount, gCount] = await Promise.all([
+      BotMetric.findByPk('total_messages'),
+      BotMetric.findByPk('total_commands'),
+      UserData.count(),
+      GroupSettings.count()
+    ]);
+    return {
+      totalMessages: msgM ? parseInt(msgM.value) : 0,
+      totalCommands: cmdM ? parseInt(cmdM.value) : 0,
+      activeUsers: uCount,
+      managedGroups: gCount
+    };
+  } catch { return { totalMessages: 0, totalCommands: 0, activeUsers: 0, managedGroups: 0 }; }
+}
+
+app.get('/api/runtime-stats', async (req, res) => {
+  res.json(await loadRuntimeStats());
+});
+
+app.get('/api/cmd-stats', async (req, res) => {
+  res.json(await loadStats());
+});
+
+app.get('/api/commands', async (req, res) => {
+  try {
+    const stats = await loadStats();
     
-    // Read directly from the bot's exported commands!
-    const activeCommandsPath = path.join(__dirname, '../sessions', 'active-commands.json');
-    if (fs.existsSync(activeCommandsPath)) {
-      try {
-        const data = JSON.parse(fs.readFileSync(activeCommandsPath, 'utf8'));
-        const commands = data.commands || [];
-        
-        // Merge stats with the accurate command list
-        allModules = commands.map(cmd => {
-          const stat = stats[cmd.statKey] || null;
-          return {
-            pattern: cmd.pattern,
-            desc: cmd.desc,
-            use: cmd.use,
-            stat: stat
-          };
-        });
-        total = data.total || allModules.length;
-      } catch (err) {
-        console.error("Error reading active-commands.json:", err.message);
-      }
-    }
+    // SQL tabanlı registry'den komutları çek
+    const commands = await CommandRegistry.findAll();
     
-    res.json({ commands: allModules, total: total });
+    const allModules = commands.map(cmd => {
+      const stat = stats[cmd.statKey] || null;
+      return {
+        pattern: cmd.pattern,
+        desc: cmd.description,
+        use: cmd.usage,
+        stat: stat
+      };
+    });
+    
+    res.json({ commands: allModules, total: allModules.length });
   } catch (err) {
+    console.error("API Commands Error:", err.message);
     res.json({ commands: [], total: 0 });
   }
 });
@@ -764,6 +781,17 @@ app.get('/api/groups', async (req, res) => {
       try { cachedGroups = JSON.parse(fs.readFileSync(groupCachePath, 'utf8')); } catch {}
     }
     res.json({ success: true, groups: cachedGroups, cached: true });
+  }
+});
+
+app.get('/api/group-pp', async (req, res) => {
+  const { jid } = req.query;
+  if (!jid) return res.status(400).json({ error: "JID gerekli" });
+  try {
+    const result = await requestFromParent('fetch_group_pp', { jid });
+    res.json({ success: true, imgUrl: result.imgUrl });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 

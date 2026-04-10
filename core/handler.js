@@ -14,8 +14,8 @@ const { logger } = require("../config");
 const { getGroupSettings } = require("./db-cache");
 const { isGroup, getGroupAdmins, getMessageText, getMentioned, getQuotedMsg, loadBaileys } = require("./helpers");
 const { getMessageByKey } = require("./store");
-const { antidelete } = require("../plugins/utils");
 const { LRUCache } = require("lru-cache");
+const { BotMetric, CommandStat, CommandRegistry, UserData, GroupSettings, MessageStats: MsgStats, Op, sequelize } = require("./database");
 
 let commandQueue = null;
 import('p-queue').then(({ default: PQueue }) => {
@@ -25,103 +25,140 @@ import('p-queue').then(({ default: PQueue }) => {
 });
 
 // ─────────────────────────────────────────────────────────
-//  Command Stats Tracker
+//  Atomic Statistics Tracker (SQL Backed)
 // ─────────────────────────────────────────────────────────
-const STATS_FILE = path.join(__dirname, '../sessions/cmd-stats.json');
-const RUNTIME_STATS_FILE = path.join(__dirname, '../sessions/runtime-stats.json');
+let _runtimeStartTime = Date.now();
 
-let cmdStats = {};
-let runtimeStats = {
-  totalMessages: 0,
-  totalCommands: 0,
-  activeUsers: new LRUCache({ max: 2000, ttl: 1000 * 60 * 60 * 24 }),
-  managedGroups: new Set(),
-  startTime: Date.now()
-};
+/**
+ * One-time migration from JSON stats to SQL
+ */
+async function migrateJsonToSql() {
+  const STATS_FILE = path.join(__dirname, '../sessions/cmd-stats.json');
+  const RUNTIME_STATS_FILE = path.join(__dirname, '../sessions/runtime-stats.json');
 
-try {
-  if (fs.existsSync(STATS_FILE)) cmdStats = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
-} catch { cmdStats = {}; }
+  // Skip if already migrated or files don't exist
+  if (!fs.existsSync(STATS_FILE) && !fs.existsSync(RUNTIME_STATS_FILE)) return;
 
-try {
-  if (fs.existsSync(RUNTIME_STATS_FILE)) {
-    const saved = JSON.parse(fs.readFileSync(RUNTIME_STATS_FILE, 'utf8'));
-    runtimeStats.totalMessages = saved.totalMessages || 0;
-    runtimeStats.totalCommands = saved.totalCommands || 0;
-    runtimeStats.activeUsers = new LRUCache({ max: 2000, ttl: 1000 * 60 * 60 * 24 });
-    if (saved.activeUsers && Array.isArray(saved.activeUsers)) {
-      saved.activeUsers.forEach(u => runtimeStats.activeUsers.set(u, true));
-    }
-    runtimeStats.managedGroups = new Set(saved.managedGroups || []);
-  }
-} catch {}
+  logger.info("Starting stats migration from JSON to SQL Database...");
 
-function saveRuntimeStats() {
   try {
-    const toSave = {
-      totalMessages: runtimeStats.totalMessages,
-      totalCommands: runtimeStats.totalCommands,
-      activeUsers: Array.from(runtimeStats.activeUsers.keys()).slice(0, 100), // Son 100 kullanıcı
-      managedGroups: Array.from(runtimeStats.managedGroups),
-      startTime: runtimeStats.startTime
+    // 1. Migrate Runtime Stats
+    if (fs.existsSync(RUNTIME_STATS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(RUNTIME_STATS_FILE, 'utf8'));
+      if (data.totalMessages) {
+        await BotMetric.upsert({ key: 'total_messages', value: data.totalMessages });
+      }
+      if (data.totalCommands) {
+        await BotMetric.upsert({ key: 'total_commands', value: data.totalCommands });
+      }
+      fs.renameSync(RUNTIME_STATS_FILE, RUNTIME_STATS_FILE + '.bak');
+    }
+
+    // 2. Migrate Command Stats
+    if (fs.existsSync(STATS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
+      for (const [pattern, stat] of Object.entries(data)) {
+        await CommandStat.upsert({
+          pattern: pattern,
+          status: stat.status || 'success',
+          runs: stat.runs || 0,
+          avgMs: stat.ms || 0,
+          lastRun: stat.lastRun ? new Date(stat.lastRun) : new Date(),
+          lastError: stat.error || null
+        });
+      }
+      fs.renameSync(STATS_FILE, STATS_FILE + '.bak');
+    }
+    logger.info("Stats migration completed successfully.");
+  } catch (err) {
+    logger.error("Stats migration failed: " + err.message);
+  }
+}
+
+// Run migration on load
+migrateJsonToSql();
+
+async function recordMessage(senderJid, isGroup, groupJid) {
+  try {
+    const [metric] = await BotMetric.findOrCreate({ where: { key: 'total_messages' }, defaults: { value: 0 } });
+    await metric.increment('value');
+  } catch (e) { /* ignore */ }
+}
+
+async function recordCommand() {
+  try {
+    const [metric] = await BotMetric.findOrCreate({ where: { key: 'total_commands' }, defaults: { value: 0 } });
+    await metric.increment('value');
+  } catch (e) { /* ignore */ }
+}
+
+async function getRuntimeStats() {
+  try {
+    const [msgMetric, cmdMetric, userCount, groupCount] = await Promise.all([
+      BotMetric.findByPk('total_messages'),
+      BotMetric.findByPk('total_commands'),
+      UserData.count(),
+      GroupSettings.count()
+    ]);
+
+    return {
+      totalMessages: msgMetric ? parseInt(msgMetric.value) : 0,
+      totalCommands: cmdMetric ? parseInt(cmdMetric.value) : 0,
+      activeUsers: userCount,
+      managedGroups: groupCount,
+      uptime: Math.floor((Date.now() - _runtimeStartTime) / 1000)
     };
-    fs.writeFileSync(RUNTIME_STATS_FILE, JSON.stringify(toSave));
-  } catch {}
+  } catch (e) {
+    return { totalMessages: 0, totalCommands: 0, activeUsers: 0, managedGroups: 0, uptime: 0 };
+  }
 }
 
-function recordMessage(senderJid, isGroup, groupJid) {
-  runtimeStats.totalMessages++;
-  if (senderJid) runtimeStats.activeUsers.set(senderJid.split('@')[0], true);
-  if (isGroup && groupJid) runtimeStats.managedGroups.add(groupJid);
-}
-
-function recordCommand() {
-  runtimeStats.totalCommands++;
-}
-
-function getRuntimeStats() {
-  return {
-    totalMessages: runtimeStats.totalMessages,
-    totalCommands: runtimeStats.totalCommands,
-    activeUsers: runtimeStats.activeUsers.size,
-    managedGroups: runtimeStats.managedGroups.size,
-    uptime: Math.floor((Date.now() - runtimeStats.startTime) / 1000)
-  };
-}
-
-let _statsSaveTimer = null;
-function recordStat(pattern, status, durationMs, error = null, isTest = false) {
+async function recordStat(pattern, status, durationMs, error = null, isTest = false) {
   const key = String(pattern).replace(/^\(\?:\s*|\)$/g, '').split('|')[0].split('?')[0].split(' ')[0].replace(/[^\wçğıöşüÇĞİÖŞÜ]/gi, '');
   if (!key) return;
-  
-  cmdStats[key] = {
-    status,
-    ms: durationMs,
-    lastRun: new Date().toISOString(),
-    error: error ? String(error).slice(0, 120) : null,
-    runs: (cmdStats[key]?.runs || 0) + 1
-  };
-  
-  if (!isTest) recordCommand(); // Sadece gerçek komutlarda Runtime stats'ı güncelle
 
-  if (!_statsSaveTimer) {
-    _statsSaveTimer = setTimeout(async () => {
-       try {
-         await fs.promises.writeFile(STATS_FILE, JSON.stringify(cmdStats));
-         saveRuntimeStats(); // Runtime stats'ı da kaydet
-       } catch (e) { }
-       _statsSaveTimer = null;
-    }, 30 * 1000); // 30 seconds debounce
+  try {
+    const [stat, created] = await CommandStat.findOrCreate({
+      where: { pattern: key },
+      defaults: {
+        status: status,
+        runs: 1,
+        avgMs: durationMs,
+        lastRun: new Date(),
+        lastError: error ? String(error).slice(0, 120) : null
+      }
+    });
+
+    if (!created) {
+      await stat.update({
+        status: status,
+        avgMs: durationMs,
+        lastRun: new Date(),
+        lastError: error ? String(error).slice(0, 120) : null
+      });
+      await stat.increment('runs');
+    }
+
+    if (!isTest) await recordCommand();
+  } catch (e) {
+    logger.error("Failed to record command stat: " + e.message);
   }
 }
 
-// Process çıkarken son halini kaydet
-process.on('exit', () => {
-  try { fs.writeFileSync(STATS_FILE, JSON.stringify(cmdStats)); } catch {}
-  saveRuntimeStats();
-});
-
-function getStats() { return cmdStats; }
+async function getStats() {
+  const rows = await CommandStat.findAll();
+  const stats = {};
+  rows.forEach(r => {
+    stats[r.pattern] = {
+      status: r.status,
+      ms: r.avgMs,
+      lastRun: r.lastRun,
+      error: r.lastError,
+      runs: r.runs
+    };
+  });
+  return stats;
+}
 
 /**
  * Extracts the pure phone number from a Baileys JID.
@@ -516,7 +553,7 @@ function getCommands() { return commands; }
 // ─────────────────────────────────────────────────────────
 //  Plugin loader
 // ─────────────────────────────────────────────────────────
-function loadPlugins(pluginsDir) {
+async function loadPlugins(pluginsDir) {
   const pluginFiles = [];
 
   function scan(dir) {
@@ -569,16 +606,21 @@ function loadPlugins(pluginsDir) {
       return {
         pattern: cleanPattern,
         statKey: statKey,
-        desc: cmd.desc || '',
-        use: cmd.use || cmd.type || 'genel'
+        description: cmd.desc || '',
+        usage: cmd.use || cmd.type || 'genel'
       };
     });
-    fs.writeFileSync(path.join(__dirname, "../sessions", "active-commands.json"), JSON.stringify({
-      commands: activeCmds,
-      total: activeCmds.length
-    }, null, 2), "utf8");
+
+    // SQL tabanlı registry güncelleme
+    await CommandRegistry.destroy({ where: {}, truncate: true });
+    await CommandRegistry.bulkCreate(activeCmds);
+    
+    // Eski JSON dosyasını temizle (istenirse silinebilir)
+    const activeCommandsPath = path.join(__dirname, "../sessions", "active-commands.json");
+    if (fs.existsSync(activeCommandsPath)) fs.unlinkSync(activeCommandsPath);
+
   } catch (err) {
-    logger.error("Failed to write active-commands.json", err.message);
+    logger.error("Failed to update CommandRegistry", err.message);
   }
 
   logger.info(`Plugins loaded: ${loaded} files, ${commands.length} commands, ${onCount} event handlers`);
@@ -1028,6 +1070,19 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
         } catch (err) {
           logger.error({ err, cmd: cmd.pattern }, "Command execution error");
           recordStat(cmd.pattern, 'error', 0, err.message);
+
+          // PUSH FAILED COMMAND TO ACTIVITY BOARD
+          const actSender = (senderJid || '').split('@')[0] || (message.sender || '').split('@')[0];
+          const actGroup = (message.isGroup && groupMetadata) ? groupMetadata.subject : 'Grup';
+          process.emit('dashboard_activity', {
+            isGroup: !!message.isGroup,
+            sender: actSender,
+            groupName: actGroup,
+            type: 'Error', // Plain text for UI handling
+            text: String(err.message).slice(0, 80),
+            cmd: cmd.pattern,
+            time: new Date().toLocaleTimeString('tr-TR', { hour12: false })
+          });
 
           // Error Reaction
           await message.react("❌");

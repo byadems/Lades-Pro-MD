@@ -122,6 +122,30 @@ const MessageStats = sequelize.define("MessageStats", {
   ]
 });
 
+/** Global bot metrics (Total messages, commands, etc.) */
+const BotMetric = sequelize.define("BotMetric", {
+  key: { type: DataTypes.STRING(64), primaryKey: true, allowNull: false },
+  value: { type: DataTypes.BIGINT, defaultValue: 0 },
+}, { tableName: "bot_metrics", timestamps: true });
+
+/** Command execution statistics */
+const CommandStat = sequelize.define("CommandStat", {
+  pattern: { type: DataTypes.STRING(128), primaryKey: true, allowNull: false },
+  status: { type: DataTypes.STRING(32), defaultValue: "success" }, // success or error
+  runs: { type: DataTypes.INTEGER, defaultValue: 0 },
+  avgMs: { type: DataTypes.INTEGER, defaultValue: 0 },
+  lastRun: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  lastError: { type: DataTypes.TEXT, allowNull: true },
+}, { tableName: "command_stats", timestamps: true });
+
+/** Registered command metadata */
+const CommandRegistry = sequelize.define("CommandRegistry", {
+  pattern: { type: DataTypes.STRING(128), primaryKey: true, allowNull: false },
+  statKey: { type: DataTypes.STRING(64), allowNull: false },
+  description: { type: DataTypes.TEXT, allowNull: true },
+  usage: { type: DataTypes.STRING(64), allowNull: true },
+}, { tableName: "command_registry", timestamps: false });
+
 // Associations
 MessageStats.belongsTo(UserData, { foreignKey: "userJid", targetKey: "jid", as: "User" });
 
@@ -153,7 +177,7 @@ async function initializeDatabase() {
   const models = [
     WhatsappSession, BotConfig, GroupSettings, UserData,
     WarnLog, Filter, Schedule, ExternalPlugin, AiCommand,
-    MessageStats,
+    MessageStats, BotMetric, CommandStat, CommandRegistry,
   ];
 
   // Eski Lades-MD eklentilerinden gelen (SQLite'ta hata veren) tabloları da senkronize et
@@ -243,6 +267,9 @@ module.exports = {
   ExternalPlugin,
   AiCommand,
   MessageStats,
+  BotMetric,
+  CommandStat,
+  CommandRegistry,
   initializeDatabase,
   Op,
 };

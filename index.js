@@ -137,7 +137,7 @@ process.on("uncaughtException", (err) => {
     checkSingleInstance();
     await initializeDatabase();
     applyDatabaseCaching();
-    startKeepAlive();
+    // startKeepAlive(); // Disabled redundant server to let Dashboard take port 3000
 
     const manager = new BotManager();
     const phoneNumber = process.env.PAIR_PHONE || null;
@@ -148,7 +148,7 @@ process.on("uncaughtException", (err) => {
     if (fs.existsSync(dashboardPath)) {
       const dashboard = fork(dashboardPath, [], {
         stdio: ['inherit', 'pipe', 'pipe', 'ipc'],
-        env: { ...process.env, NODE_ENV: 'production' }
+        env: { ...process.env, NODE_ENV: 'production', PORT: process.env.PORT || 3000 }
       });
 
       // Forward QR and Status from BotManager to Dashboard
@@ -229,6 +229,20 @@ process.on("uncaughtException", (err) => {
           } else {
             if (dashboard.connected) dashboard.send({ type: 'groups_result', data: [], requestId: msg.requestId, error: 'Bot bağlı değil' });
           }
+        } else if (msg.type === 'fetch_group_pp') {
+          const sock = manager.getSession('lades-session');
+          if (sock) {
+            try {
+              const jid = msg.data.jid;
+              const imgUrl = await Promise.race([
+                sock.profilePictureUrl(jid, 'preview').catch(() => null),
+                new Promise(r => setTimeout(() => r(null), 2000))
+              ]);
+              if (dashboard.connected) dashboard.send({ type: 'group_pp_result', jid, imgUrl, requestId: msg.requestId });
+            } catch (e) {
+              if (dashboard.connected) dashboard.send({ type: 'group_pp_result', jid: msg.data.jid, imgUrl: null, requestId: msg.requestId });
+            }
+          }
         } else if (msg.type === 'send_to_chat') {
           const sock = manager.getSession('lades-session');
           if (sock) {
@@ -243,7 +257,7 @@ process.on("uncaughtException", (err) => {
             if (dashboard.connected) dashboard.send({ type: 'send_result', success: false, error: 'Bot bağlı değil', requestId: msg.requestId });
           }
         } else if (msg.type === 'restart') {
-          if (restartType === 'system') {
+          if (msg.restartType === 'system') {
             const child = fork(__filename, process.argv.slice(2), { detached: true, stdio: 'inherit' });
             child.unref();
             process.exit(0);
