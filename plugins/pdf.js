@@ -1,5 +1,4 @@
 const { Module } = require("../main");
-const { convert: imageToPdf, sizes } = require("image-to-pdf");
 const fileSystem = require("node:fs/promises");
 const fileType = require("file-type");
 const path = require("path");
@@ -62,12 +61,26 @@ Module({
         return await message.sendReply("_💬 Dosya girişi yapılmadı!_");
       }
 
-      const pdfGenerationStream = imageToPdf(imageFilePaths, sizes.A4);
-      const pdfWriteStream = fs.createWriteStream(finalPdfOutputPath);
+      try {
+        const { PDFDocument } = require('pdf-lib');
+        const pdfDoc = await PDFDocument.create();
 
-      pdfGenerationStream.pipe(pdfWriteStream);
+        for (const imgPath of imageFilePaths) {
+          const imgBytes = await fileSystem.readFile(imgPath);
+          let image;
+          if (imgPath.toLowerCase().endsWith('.png')) {
+            image = await pdfDoc.embedPng(imgBytes);
+          } else {
+            image = await pdfDoc.embedJpg(imgBytes);
+          }
+          const { width, height } = image.scale(1);
+          const page = pdfDoc.addPage([width, height]);
+          page.drawImage(image, { x: 0, y: 0, width, height });
+        }
 
-      pdfWriteStream.on("finish", async () => {
+        const pdfBytes = await pdfDoc.save();
+        await fileSystem.writeFile(finalPdfOutputPath, pdfBytes);
+
         await message.client.sendMessage(
           message.jid,
           {
@@ -86,11 +99,9 @@ Module({
           tempFilesForDeletion.map((filePath) => fileSystem.unlink(filePath))
         );
         await fileSystem.unlink(finalPdfOutputPath);
-      });
-
-      pdfWriteStream.on("error", async (error) => {
+      } catch (error) {
         await message.sendReply(`_PDF dönüşümü başarısız: ${error.message}_`);
-      });
+      }
     } else if (message.reply_message && message.reply_message.album) {
       // handle album
       const albumData = await message.reply_message.download();

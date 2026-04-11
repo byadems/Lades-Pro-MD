@@ -24,12 +24,24 @@ async (message, match) => {
     return await message.sendReply("_❌ Geçersiz komut adı veya kod!_");
   }
 
-  // Security Check: No eval, exec, or other dangerous keywords
-  const dangerousKeywords = ["eval", "exec", "child_process", "spawn", "rm -rf", "process.exit"];
-  const foundDangerous = dangerousKeywords.find(kw => code.includes(kw));
+  // Security Check: Strict syntax and blacklist
+  const dangerousKeywords = [
+    "eval", "exec", "execSync", "child_process", "spawn", 
+    "rm -rf", "process.exit", "fs.unlink", "fs.rmdir", 
+    "chmod", "chown", "__dirname"
+  ];
   
+  const foundDangerous = dangerousKeywords.find(kw => code.includes(kw));
   if (foundDangerous) {
     return await message.sendReply(`_🛡️ Güvenlik Engeli: Kod içerisinde tehlikeli bir ifade tespit edildi: *${foundDangerous}*_`);
+  }
+
+  // Syntax Validation
+  try {
+    const vm = require("vm");
+    new vm.Script(code);
+  } catch (syntaxErr) {
+    return await message.sendReply(`_❌ Kod sözdizimi (syntax) hatası içeriyor:_\n\`\`\`${syntaxErr.message}\`\`\``);
   }
 
   const generatedDir = path.join(__dirname, "ai-generated");

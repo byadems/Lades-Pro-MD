@@ -36,7 +36,7 @@ try {
   const ffmpeg = require("fluent-ffmpeg");
   const ffmpegPath = require("ffmpeg-static");
   ffmpeg.setFfmpegPath(ffmpegPath);
-  
+
   // Baileys requires ffmpeg in the system PATH to generate video thumbnails.
   const ffmpegDir = path.dirname(ffmpegPath);
   process.env.PATH = ffmpegDir + path.delimiter + process.env.PATH;
@@ -121,7 +121,7 @@ function startKeepAlive() {
 async function shutdown(signal) {
   logger.info(`${signal} sinyali alındı. Kapatılıyor...`);
   if (_memTimer) clearInterval(_memTimer);
-  
+
   if (global.manager) {
     // Wait for all sessions to close (max 10s)
     await Promise.race([
@@ -201,10 +201,10 @@ process.on("uncaughtException", (err) => {
             if (jid === 'all') {
               const chats = await sock.groupFetchAllParticipating();
               const groupJids = Object.keys(chats).slice(0, 300); // Limit to max 300 groups
-              
+
               const { default: PQueue } = await import('p-queue');
               const queue = new PQueue({ concurrency: 1, interval: 3000, intervalCap: 1 });
-              
+
               for (const j of groupJids) {
                 queue.add(async () => {
                   try {
@@ -306,32 +306,12 @@ process.on("uncaughtException", (err) => {
                 } catch { }
               }
               const sessionData = JSON.stringify({ creds: credsData, keys: keysData });
-              async removeSession(sessionId, isLogout = false) {
-    const sock = this.bots.get(sessionId);
-    if (sock) {
-      if (isLogout) {
-        logger.info(`Performing full logout for session: ${sessionId}`);
-        sock.__intentionalLogout = true;
-        await sock.logout().catch(() => {});
-      } else {
-        logger.info(`Stopping session (connection only): ${sessionId}`);
-        if (sock.ws) sock.ws.close();
-      }
-      this.bots.delete(sessionId);
-      this.states.delete(sessionId);
-      logger.info(`Session ${sessionId} removed from manager.`);
-    }
-  }
-
-  async stopAll() {
-    logger.info("Tüm oturumlar kapatılıyor...");
-    const sessions = this.getAllSessions();
-    for (const id of sessions) {
-      await this.removeSession(id);
-    }
-    logger.info("Tüm oturumlar başarıyla kapatıldı.");
-  }
-}
+              await WhatsappSession.upsert({ sessionId: 'lades-session', sessionData });
+              logger.info("Oturum veritabanına kaydedildi.");
+            }
+          } catch (e) {
+            logger.error(e, "Oturum aktarma hatası");
+          }
           // CRITICAL: Remove existing (possibly fake/waiting) session before resuming
           // Without this, addSession sees the existing fakeSock and returns early → bot never starts!
           manager.resume("lades-session");

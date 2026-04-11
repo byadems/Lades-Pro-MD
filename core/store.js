@@ -12,12 +12,11 @@ const { logger } = require("../config");
 
 // Message store: jid → Map<msgId, msg>
 const messageStore = new LRUCache({
-  max: 1000,   // max 1000 messages globally (approximate as buckets)
+  max: 100,   // max 100 active groups/chats in memory
   ttl: 24 * 60 * 60 * 1000, // 24h TTL
 });
 
-const MAX_MSGS_PER_JID = 50; 
-const GLOBAL_MAX_MSGS = 2000;
+const MAX_MSGS_PER_JID = 500; 
 let totalMessagesCached = 0;
 
 function storeMessage(jid, message) {
@@ -44,6 +43,11 @@ function getMessageByKey(key) {
 // ─────────────────────────────────────────────────────────
 //  Group metadata
 // ─────────────────────────────────────────────────────────
+const groupMetaCache = new LRUCache({
+  max: 500,
+  ttl: 24 * 60 * 60 * 1000,
+});
+
 function setGroupMeta(groupId, meta) {
   groupMetaCache.set(groupId, meta);
 }

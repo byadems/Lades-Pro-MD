@@ -7,12 +7,12 @@
 
 const ffmpeg = require("fluent-ffmpeg");
 const ffmpegStatic = require("ffmpeg-static");
-const { Jimp, JimpMime } = require("jimp");
 const { Image } = require("node-webpmux");
+const sharp = require("sharp");
 const fs = require("fs");
 const path = require("path");
 
-const { getTempPath, cleanTempFile } = require("../../core/helpers");
+const { getTempPath, cleanTempFile, ffmpegLimit } = require("../../core/helpers");
 const nx = require("./nexray");
 
 // Configure ffmpeg path
@@ -71,7 +71,7 @@ async function bass(audioBuffer, gain = 20) {
   const fsPromises = require("fs").promises;
   await fsPromises.writeFile(input, audioBuffer);
 
-  return new Promise((resolve, reject) => {
+  return ffmpegLimit(() => new Promise((resolve, reject) => {
     ffmpeg(input)
       .audioFilter(`equalizer=f=40:width_type=h:width=50:g=${gain}`)
       .format("mp3")
@@ -91,7 +91,7 @@ async function bass(audioBuffer, gain = 20) {
         reject(e);
       })
       .save(output);
-  });
+  }));
 }
 
 /**
@@ -99,24 +99,27 @@ async function bass(audioBuffer, gain = 20) {
  * Supports webp, png, jpeg formats
  */
 async function circle(imageBuffer) {
-  // Check if webp - convert to png first using sharp
-  const sharp = require("sharp");
-  let processBuffer = imageBuffer;
-
-  // Detect format and convert webp to png
   try {
     const metadata = await sharp(imageBuffer).metadata();
-    if (metadata.format === 'webp') {
-      processBuffer = await sharp(imageBuffer).png().toBuffer();
-    }
+    const width = metadata.width || 512;
+    const height = metadata.height || 512;
+    const minSize = Math.min(width, height);
+    
+    // Create a circular SVG mask
+    const circleSvg = `<svg width="${minSize}" height="${minSize}"><circle cx="${minSize/2}" cy="${minSize/2}" r="${minSize/2}" fill="white"/></svg>`;
+    
+    return await sharp(imageBuffer)
+      .resize(minSize, minSize)
+      .composite([{
+        input: Buffer.from(circleSvg),
+        blend: 'dest-in'
+      }])
+      .png()
+      .toBuffer();
   } catch (e) {
-    // If sharp fails, try direct conversion
-    processBuffer = await sharp(imageBuffer).png().toBuffer();
+    console.error("Circle processing error:", e);
+    return await sharp(imageBuffer).png().toBuffer();
   }
-
-  const image = await Jimp.read(processBuffer);
-  image.circle();
-  return await image.getBuffer(JimpMime.png);
 }
 
 /**
@@ -124,22 +127,17 @@ async function circle(imageBuffer) {
  * Supports webp, png, jpeg formats
  */
 async function blur(imageBuffer, level = 5) {
-  const sharp = require("sharp");
-  let processBuffer = imageBuffer;
-
-  // Convert webp to png if needed
   try {
-    const metadata = await sharp(imageBuffer).metadata();
-    if (metadata.format === 'webp') {
-      processBuffer = await sharp(imageBuffer).png().toBuffer();
-    }
+    // Sharp blur takes a sigma value usually between 0.3 and 1000.
+    const sigma = Math.min(1000, Math.max(0.3, level * 2));
+    return await sharp(imageBuffer)
+      .blur(sigma)
+      .jpeg()
+      .toBuffer();
   } catch (e) {
-    processBuffer = await sharp(imageBuffer).png().toBuffer();
+    console.error("Blur processing error:", e);
+    return await sharp(imageBuffer).jpeg().toBuffer();
   }
-
-  const image = await Jimp.read(processBuffer);
-  image.blur(level);
-  return await image.getBuffer(JimpMime.jpeg);
 }
 
 /**
@@ -158,7 +156,7 @@ async function sticker(buffer, isVideo = false) {
   const fsPromises = require("fs").promises;
   await fsPromises.writeFile(input, buffer);
 
-  return new Promise((resolve, reject) => {
+  return ffmpegLimit(() => new Promise((resolve, reject) => {
     const ff = ffmpeg(input);
     if (isVideo) {
       ff.addOptions([
@@ -188,7 +186,7 @@ async function sticker(buffer, isVideo = false) {
         reject(e);
       })
       .save(output);
-  });
+  }));
 }
 
 /**
@@ -199,7 +197,7 @@ async function rotate(buffer, deg = 90) {
   const output = getTempPath();
   const fsPromises = require("fs").promises;
   await fsPromises.writeFile(input, buffer);
-  return new Promise((resolve, reject) => {
+  return ffmpegLimit(() => new Promise((resolve, reject) => {
     ffmpeg(input)
       .addOptions([`-vf`, `rotate=${deg}*(PI/180)`])
       .on('end', async () => {
@@ -218,7 +216,7 @@ async function rotate(buffer, deg = 90) {
         reject(e);
       })
       .save(output);
-  });
+  }));
 }
 
 /**
@@ -232,7 +230,7 @@ async function avMix(videoBuffer, audioBuffer) {
   await fsPromises.writeFile(video, videoBuffer);
   await fsPromises.writeFile(audio, audioBuffer);
 
-  return new Promise((resolve, reject) => {
+  return ffmpegLimit(() => new Promise((resolve, reject) => {
     ffmpeg(video)
       .input(audio)
       .addOptions(['-c:v copy', '-c:a aac', '-map 0:v:0', '-map 1:a:0', '-shortest'])
@@ -254,7 +252,7 @@ async function avMix(videoBuffer, audioBuffer) {
         reject(e);
       })
       .save(output);
-  });
+  }));
 }
 
 /**
@@ -276,7 +274,7 @@ async function trim(buffer, start, end) {
   const output = getTempPath();
   const fsPromises = require("fs").promises;
   await fsPromises.writeFile(input, buffer);
-  return new Promise((resolve, reject) => {
+  return ffmpegLimit(() => new Promise((resolve, reject) => {
     ffmpeg(input)
       .setStartTime(start)
       .setDuration(end - start)
@@ -296,7 +294,7 @@ async function trim(buffer, start, end) {
         reject(e);
       })
       .save(output);
-  });
+  }));
 }
 
 async function addID3(audioBuffer, title, artist, imageBuffer) {

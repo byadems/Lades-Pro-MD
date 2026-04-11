@@ -17,7 +17,7 @@ const {
 const config = require("../config");
 const axios = require("axios");
 const fileType = require("file-type");
-const { getTempPath, getTempSubdir } = require("../core/helpers");
+const { getTempPath, getTempSubdir, ffmpegLimit } = require("../core/helpers");
 const { badWords } = require("./utils/censor");
 
 /** TTS için metni google-tts-api limitine (200 karakter) uygun hale getirir. */
@@ -205,7 +205,7 @@ Module({
       const outWebp = getTempPath("out_sticker.webp");
 
       // Direct ffmpeg processing
-      await new Promise((resolve, reject) => {
+      await ffmpegLimit(() => new Promise((resolve, reject) => {
         ffmpeg(savedFile)
           .outputOptions([
             "-vcodec", "libwebp",
@@ -217,7 +217,7 @@ Module({
           .save(outWebp)
           .on("end", resolve)
           .on("error", reject);
-      });
+      }));
 
       const stickerBuf = await addExif(outWebp, exif);
       await message.sendMessage(stickerBuf, "sticker", { quoted: message.quoted });
@@ -269,12 +269,12 @@ Module({
         try {
           const file = videoFiles[i];
           const outputPath = getTempPath(`album_${i}.mp3`);
-          await new Promise((resolve, reject) => {
+          await ffmpegLimit(() => new Promise((resolve, reject) => {
             ffmpeg(file)
               .save(outputPath)
               .on("end", resolve)
               .on("error", reject);
-          });
+          }));
           await message.sendMessage(
             { url: outputPath },
             "audio",
@@ -290,12 +290,12 @@ Module({
     try {
       const savedFile = await message.reply_message.download();
       const outPath = getTempPath(`tomp3_${Date.now()}.mp3`);
-      await new Promise((resolve, reject) => {
+      await ffmpegLimit(() => new Promise((resolve, reject) => {
         ffmpeg(savedFile)
           .save(outPath)
           .on("end", resolve)
           .on("error", reject);
-      });
+      }));
       await message.sendMessage(
         { url: outPath },
         "audio",
@@ -308,10 +308,10 @@ Module({
   }
 );
 Module({
-  pattern: "slow",
+  pattern: "yavaşlat",
   fromMe: false,
   desc: "Ses tonunu düşürerek müziğe yavaşlatma efekti verir.",
-  usage: ".slow [yanıtla]",
+  usage: ".yavaşlat [yanıtla]",
   use: "medya",
 },
   async (message, match) => {
@@ -332,7 +332,7 @@ Module({
         try {
           const file = videoFiles[i];
           const outputPath = getTempPath(`album_slow_${i}.mp3`);
-          await new Promise((resolve, reject) => {
+          await ffmpegLimit(() => new Promise((resolve, reject) => {
             ffmpeg(file)
               .audioFilter("atempo=0.8,asetrate=44100*0.9")
               .format("mp3")
@@ -340,7 +340,7 @@ Module({
               .save(outputPath)
               .on("end", resolve)
               .on("error", reject);
-          });
+          }));
           await message.sendMessage(
             { url: outputPath },
             "audio",
@@ -365,14 +365,14 @@ Module({
         await message.sendReply(`_⚠️ Süre 2 dakikadan uzun, işlem yavaş sürebilir..._`);
 
       const outPath = getTempPath("slow.mp3");
-      await new Promise((resolve, reject) => {
+      await ffmpegLimit(() => new Promise((resolve, reject) => {
         ffmpeg(savedPath)
           .audioFilter("atempo=0.8,asetrate=44100*0.9")
           .format("mp3")
           .save(outPath)
           .on("end", resolve)
           .on("error", reject);
-      });
+      }));
       await message.sendMessage({ url: outPath }, "audio", { quoted: message.data });
       await message.edit("_✅ Başarılı!_", message.jid, waitMsg.key);
       try { fs.unlinkSync(savedPath); fs.unlinkSync(outPath); } catch (e) { }
@@ -407,7 +407,7 @@ Module({
         try {
           const file = videoFiles[i];
           const outputPath = getTempPath(`album_sped_${i}.mp3`);
-          await new Promise((resolve, reject) => {
+          await ffmpegLimit(() => new Promise((resolve, reject) => {
             ffmpeg(file)
               .audioFilter("atempo=1.2,asetrate=44100*1.15")
               .format("mp3")
@@ -415,7 +415,7 @@ Module({
               .save(outputPath)
               .on("end", resolve)
               .on("error", reject);
-          });
+          }));
           await message.sendMessage(
             { url: outputPath },
             "audio",
@@ -440,14 +440,14 @@ Module({
         await message.sendReply(`_⚠️ Süre 2 dakikadan uzun, işlem yavaş sürebilir..._`);
 
       const outPath = getTempPath("sped.mp3");
-      await new Promise((resolve, reject) => {
+      await ffmpegLimit(() => new Promise((resolve, reject) => {
         ffmpeg(savedPath)
           .audioFilter("atempo=1.2,asetrate=44100*1.15")
           .format("mp3")
           .save(outPath)
           .on("end", resolve)
           .on("error", reject);
-      });
+      }));
       await message.sendMessage({ url: outPath }, "audio", { quoted: message.data });
       await message.edit("_✅ Başarılı!_", message.jid, waitMsg.key);
       try { fs.unlinkSync(savedPath); fs.unlinkSync(outPath); } catch (e) { }
@@ -526,12 +526,12 @@ Module({
 
       // Otherwise (sticker, webp) - convert via ffmpeg
       const outPng = getTempPath(`foto_${Date.now()}.png`);
-      await new Promise((resolve, reject) => {
+      await ffmpegLimit(() => new Promise((resolve, reject) => {
         ffmpeg(savedFile)
           .save(outPng)
           .on("end", resolve)
           .on("error", reject);
-      });
+      }));
       await message.sendMessage({ url: outPng }, "image", { quoted: message.quoted });
     } catch (e) {
       console.error("Foto dönüştürme hatası:", e);

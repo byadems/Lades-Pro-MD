@@ -292,9 +292,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
     if (connection === "close") {
       stopTempCleanup();
       const statusCode = lastDisconnect?.error?.output?.statusCode;
-
-      const shouldReconnect = !isFatal;
-      logger.warn({ statusCode, errorMsg, shouldReconnect }, `Bağlantı kesildi.`);
+      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+      logger.warn({ statusCode, shouldReconnect }, `Bağlantı kesildi.`);
 
       if (shouldReconnect) {
         reconnectCount++;

@@ -8,7 +8,10 @@
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
+const pLimit = require("p-limit");
 const { logger } = require("../config");
+
+const ffmpegLimit = pLimit(3); // Global FFmpeg concurrency limit
 
 // ─────────────────────────────────────────────────────────
 //  Temp directory
@@ -335,5 +338,6 @@ module.exports = {
   extractUrls, validateUrl,
   suppressLibsignalLogs,
   getMessageText, getQuotedMsg, getMentioned,
-  loadBaileys, getTempSubdir, saveToDisk, isMediaImage, readMp4Dimensions
+  loadBaileys, getTempSubdir, saveToDisk, isMediaImage, readMp4Dimensions,
+  ffmpegLimit
 };

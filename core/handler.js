@@ -520,21 +520,9 @@ class BaseMessage {
 
 // ─────────────────────────────────────────────────────────
 //  Command registry
-// ── Command Matching Loop ────────────────────────────
-for (const cmd of commands) {
-  const match = text.match(cmd.pattern);
-  if (match) {
-    // Rate Limiting Check (Point 13)
-    if (!isSudoOrOwner && !checkRateLimit(senderJid)) {
-      return await message.sendReply("_⚠️ Çok hızlı komut yazıldı! Lütfen biraz bekleyin._");
-    }
-    try {
-      await cmd.run(message, match);
-    } catch (err) {
-      logger.error(err, "Command execution error");
-    }
-  }
-}
+const commands = [];
+const eventHandlers = new Map();
+// ── Command Matching Loop (Removed from global scope) ──────────────────
 // on: event handler'lar — text/message/group/groupParticipants tiplerine göre
 const onHandlers = { text: [], message: [], group: [], groupParticipants: [] };
 
