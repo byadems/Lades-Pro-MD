@@ -85,35 +85,138 @@ Module({
 
       // download from all urls
       for (const url of instagramUrls) {
+        let found = false;
+
+        // 1. Nexray v2
         try {
-          let downloadResult = await downloadGram(url);
-          if (!downloadResult?.length) {
-            downloadResult = await nexray.downloadInstagram(url);
-          }
-          if (downloadResult && downloadResult.length) {
-            allMediaUrls.push(...downloadResult);
-          }
-        } catch (err) {
-          // Fallback: Siputzx API
-          try {
-            const fallback = await siputGet("/api/d/igdl", { url });
-            const r = fallback.data || fallback.result;
-            if (r) {
-              const items = Array.isArray(r) ? r : [r];
-              for (const item of items.slice(0, 5)) {
-                const mediaUrl = item.url || item.download || item;
-                if (typeof mediaUrl === "string" && mediaUrl.startsWith("http")) {
-                  allMediaUrls.push(mediaUrl);
-                }
+          const r = await axios.get('https://api.nexray.web.id/downloader/v2/instagram?url=' + encodeURIComponent(url), { timeout: 40000 });
+          const media = r.data.result?.media;
+          if (media && Array.isArray(media)) {
+            for (const item of media.slice(0, 3)) {
+              if (item.url && (item.type === 'video' || item.type === 'mp4')) {
+                allMediaUrls.push(item.url);
               }
             }
-          } catch (_) { }
-          try {
-            const fallback = await nexray.downloadInstagram(url);
-            if (fallback?.length) allMediaUrls.push(...fallback);
-          } catch (_) {
-            console.error("İndirme hatası:", url, err?.message);
+            if (allMediaUrls.length > 0) found = true;
           }
+        } catch (_) { }
+
+        // 2. Nexray v1
+        if (!found) {
+          try {
+            const r = await axios.get('https://api.nexray.web.id/downloader/instagram?url=' + encodeURIComponent(url), { timeout: 40000 });
+            const nexrayData = r.data.result;
+            if (nexrayData && Array.isArray(nexrayData)) {
+              for (const item of nexrayData.slice(0, 3)) {
+                if (item.url && (item.type === 'video' || item.url.includes('.mp4'))) {
+                  allMediaUrls.push(item.url);
+                }
+              }
+              if (allMediaUrls.length > 0) found = true;
+            }
+          } catch (_) { }
+        }
+
+        // 3. Siputzx - sssinstagram
+        if (!found) {
+          try {
+            const fallback = await siputGet("/api/d/sssinstagram", { url });
+            const r = fallback.result || fallback.data;
+            
+            // POST/PHOTO: data: [{ url: [...] }]
+            // REEL/VIDEO: data: { url: [...] }
+            
+            // Check object format first (for reel/video)
+            if (r?.url && !Array.isArray(r)) {
+              const items = r.url;
+              if (Array.isArray(items)) {
+                for (const item of items.slice(0, 5)) {
+                  if (item?.url && Array.isArray(item.url)) {
+                    for (const u of item.url.slice(0, 3)) {
+                      if (u?.url?.startsWith("http")) allMediaUrls.push(u.url);
+                    }
+                  }
+                }
+                if (allMediaUrls.length > 0) found = true;
+              }
+            }
+            
+            // Check array format (for post/photo)
+            if (!found && r && Array.isArray(r)) {
+              for (const item of r.slice(0, 5)) {
+                if (item?.url && Array.isArray(item.url)) {
+                  for (const u of item.url.slice(0, 3)) {
+                    if (u?.url?.startsWith("http")) allMediaUrls.push(u.url);
+                  }
+                }
+              }
+              if (allMediaUrls.length > 0) found = true;
+            }
+          } catch (_) { }
+        }
+
+        // 4. Siputzx - igram
+        if (!found) {
+          try {
+            const fallback = await siputGet("/api/d/igram", { url });
+            const r = fallback.result || fallback.data;
+            // Format: data[{ node: { media: { edges: [{ node: { display_url } }] } } }]
+            if (r && Array.isArray(r)) {
+              for (const item of r.slice(0, 5)) {
+                const edges = item?.node?.media?.edges;
+                if (edges && Array.isArray(edges)) {
+                  for (const edge of edges.slice(0, 5)) {
+                    if (edge?.node?.display_url) {
+                      allMediaUrls.push(edge.node.display_url);
+                    }
+                  }
+                }
+              }
+              if (allMediaUrls.length > 0) found = true;
+            }
+          } catch (_) { }
+        }
+
+        // 5. Siputzx - fastdl
+        if (!found) {
+          try {
+            const fallback = await siputGet("/api/d/fastdl", { url });
+            const r = fallback.result || fallback.data;
+            
+            // POST/PHOTO: data: [{ url: [...] }]
+            // REEL/VIDEO: data: { url: [...] }
+            
+            // Check object format first (for reel/video)
+            if (r?.url && !Array.isArray(r)) {
+              const items = r.url;
+              if (Array.isArray(items)) {
+                for (const item of items.slice(0, 5)) {
+                  if (item?.url && Array.isArray(item.url)) {
+                    for (const u of item.url.slice(0, 3)) {
+                      if (u?.url?.startsWith("http")) allMediaUrls.push(u.url);
+                    }
+                  }
+                }
+                if (allMediaUrls.length > 0) found = true;
+              }
+            }
+            
+            // Check array format (for post/photo)
+            if (!found && r && Array.isArray(r)) {
+              for (const item of r.slice(0, 5)) {
+                if (item?.url && Array.isArray(item.url)) {
+                  for (const u of item.url.slice(0, 3)) {
+                    if (u?.url?.startsWith("http")) allMediaUrls.push(u.url);
+                  }
+                }
+              }
+              if (allMediaUrls.length > 0) found = true;
+            }
+          } catch (_) { }
+        }
+
+        if (!found) {
+          console.error("İndirme hatası:", url);
         }
       }
 

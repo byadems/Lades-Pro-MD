@@ -5,7 +5,17 @@ const { downloadGram, pinterestDl, tiktok, fb } = require("./utils");
 const { getVideoInfo, downloadAudio, convertM4aToMp3, searchYoutube } = require("./utils/yt");
 const { saveToDisk, getTempPath, cleanTempFile, isMediaImage, readMp4Dimensions } = require("../core/helpers");
 const nexray = require("./utils/nexray");
+const axios = require("axios");
 const fs = require("fs");
+
+const SIPUTZX_BASE = "https://api.siputzx.my.id";
+
+async function siputGet(path, params = {}) {
+  const url = `${SIPUTZX_BASE}${path}`;
+  const res = await axios.get(url, { params, timeout: 30000, validateStatus: () => true });
+  if (res.data && res.data.status) return res.data;
+  throw new Error(res.data?.error || "API yanıt vermedi");
+}
 const fromMe = config.isPrivate;
 
 const HANDLER_PREFIX = config.HANDLER_PREFIX;
@@ -281,20 +291,103 @@ Module({
             : message.data;
 
           for (const url of platformGroups["instagram"]) {
+            let found = false;
+
+            // 1. Nexray v2
             try {
-              let downloadResult = await downloadGram(url);
-              if (!downloadResult || !downloadResult.length) {
-                downloadResult = await nexray.downloadInstagram(url);
+              const r = await axios.get('https://api.nexray.web.id/downloader/v2/instagram?url=' + encodeURIComponent(url), { timeout: 40000 });
+              const media = r.data.result?.media;
+              if (media && Array.isArray(media)) {
+                for (const item of media.slice(0, 5)) {
+                  if (item.url && (item.type === 'video' || item.type === 'mp4')) {
+                    allMediaUrls.push(item.url);
+                  }
+                }
+                if (allMediaUrls.length > 0) found = true;
               }
-              if (downloadResult && downloadResult.length) {
-                allMediaUrls.push(...downloadResult);
-              }
-            } catch (err) {
-              if (config.DEBUG) console.error("[Otomatik İndirme IG]", err?.message || err);
+            } catch (_) { }
+
+            // 2. Nexray v1
+            if (!found) {
               try {
-                const fallback = await nexray.downloadInstagram(url);
-                if (fallback?.length) allMediaUrls.push(...fallback);
+                const r = await axios.get('https://api.nexray.web.id/downloader/instagram?url=' + encodeURIComponent(url), { timeout: 40000 });
+                const nexrayData = r.data.result;
+                if (nexrayData && Array.isArray(nexrayData)) {
+                  for (const item of nexrayData.slice(0, 3)) {
+                    if (item.url && (item.type === 'video' || item.url.includes('.mp4'))) {
+                      allMediaUrls.push(item.url);
+                    }
+                  }
+                  if (allMediaUrls.length > 0) found = true;
+                }
               } catch (_) { }
+            }
+
+            // 3. Siputzx - sssinstagram
+            if (!found) {
+              try {
+                const fallback = await siputGet("/api/d/sssinstagram", { url });
+                const r = fallback.result || fallback.data;
+                // POST: data: [{ url: [...] }] | REEL: data: { url: [...] }
+                if (r?.url && !Array.isArray(r)) {
+                  const items = r.url;
+                  if (Array.isArray(items)) {
+                    for (const item of items.slice(0, 5)) {
+                      if (item?.url && Array.isArray(item.url)) {
+                        for (const u of item.url.slice(0, 3)) {
+                          if (u?.url?.startsWith("http")) allMediaUrls.push(u.url);
+                        }
+                      }
+                    }
+                    if (allMediaUrls.length > 0) found = true;
+                  }
+                }
+                if (!found && r && Array.isArray(r)) {
+                  for (const item of r.slice(0, 5)) {
+                    if (item?.url && Array.isArray(item.url)) {
+                      for (const u of item.url.slice(0, 3)) {
+                        if (u?.url?.startsWith("http")) allMediaUrls.push(u.url);
+                      }
+                    }
+                  }
+                  if (allMediaUrls.length > 0) found = true;
+                }
+              } catch (_) { }
+            }
+
+            // 4. Siputzx - fastdl
+            if (!found) {
+              try {
+                const fallback = await siputGet("/api/d/fastdl", { url });
+                const r = fallback.result || fallback.data;
+                if (r?.url && !Array.isArray(r)) {
+                  const items = r.url;
+                  if (Array.isArray(items)) {
+                    for (const item of items.slice(0, 5)) {
+                      if (item?.url && Array.isArray(item.url)) {
+                        for (const u of item.url.slice(0, 3)) {
+                          if (u?.url?.startsWith("http")) allMediaUrls.push(u.url);
+                        }
+                      }
+                    }
+                    if (allMediaUrls.length > 0) found = true;
+                  }
+                }
+                if (!found && r && Array.isArray(r)) {
+                  for (const item of r.slice(0, 5)) {
+                    if (item?.url && Array.isArray(item.url)) {
+                      for (const u of item.url.slice(0, 3)) {
+                        if (u?.url?.startsWith("http")) allMediaUrls.push(u.url);
+                      }
+                    }
+                  }
+                  if (allMediaUrls.length > 0) found = true;
+                }
+              } catch (_) { }
+            }
+
+            if (!found) {
+              if (config.DEBUG) console.error("[Otomatik İndirme IG] Hiçbir API çalışmadı:", url);
             }
           }
 
