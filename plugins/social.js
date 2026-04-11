@@ -670,6 +670,61 @@ Module({
     }
     try {
       const downloadResult = await nexray.downloadTiktok(videoLink);
+      
+      // Photo album (slideshow)
+      if (downloadResult?.type === "album" && downloadResult?.urls) {
+        const imageUrls = downloadResult.urls;
+        if (imageUrls.length > 10) {
+          return await message.sendReply(`_⚠️ Albüm çok fazla medya içeriyor (Maksimum 10)._`);
+        }
+        
+        const tempFiles = [];
+        const quotedMessage = message.reply_message ? message.quoted : message.data;
+        
+        for (const imgUrl of imageUrls) {
+          const tempPath = getTempPath(".jpg");
+          try {
+            await saveToDisk(imgUrl, tempPath);
+            tempFiles.push(tempPath);
+          } catch (e) {
+            console.error("Fotoğraf indirme hatası:", e?.message);
+          }
+        }
+        
+        if (tempFiles.length === 0) {
+          return await message.sendReply("_⚠️ Fotoğraflar indirilemedi_");
+        }
+        
+        if (tempFiles.length === 1) {
+          return await message.sendReply(
+            { image: { url: tempFiles[0] } },
+            { quoted: quotedMessage }
+          );
+        }
+        
+        const albumObject = tempFiles.map((path, index) => {
+          const item = { image: { url: path } };
+          if (index === 0) {
+            item.caption = `📸 TikTok Albümü (${tempFiles.length} fotoğraf)\n👤 ${downloadResult.author || ""}`;
+          }
+          return item;
+        });
+        
+        try {
+          await message.client.albumMessage(message.jid, albumObject, quotedMessage);
+        } catch (e) {
+          console.error("Albüm gönderilemedi:", e.message);
+          for (const path of tempFiles) {
+            await message.sendReply({ image: { url: path } });
+            await new Promise(r => setTimeout(r, 500));
+          }
+        } finally {
+          for (const path of tempFiles) cleanTempFile(path);
+        }
+        return;
+      }
+      
+      // Video indirme
       if (downloadResult?.url) {
         const tempPath = getTempPath(".mp4");
         try {

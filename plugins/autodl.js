@@ -422,10 +422,63 @@ Module({
           return;
         }
 
-        // handle tiktok (5'li fallback sistemi)
+        // handle tiktok (5'li fallback sistemi + photo album desteği)
         if (platformGroups["tiktok"]) {
           try {
             const downloadResult = await nexray.downloadTiktok(platformGroups["tiktok"][0]);
+            
+            // Photo album (slides)
+            if (downloadResult?.type === "album" && downloadResult?.urls) {
+              const imageUrls = downloadResult.urls;
+              if (imageUrls.length > 10) {
+                await message.react("⚠️");
+                return;
+              }
+              
+              const tempFiles = [];
+              for (const imgUrl of imageUrls) {
+                const tempPath = getTempPath(".jpg");
+                try {
+                  await saveToDisk(imgUrl, tempPath);
+                  tempFiles.push(tempPath);
+                } catch (e) {
+                  if (config.DEBUG) console.error("[TikTok fotoğraf]", e?.message);
+                }
+              }
+              
+              if (tempFiles.length === 0) {
+                await message.react("❌");
+                return;
+              }
+              
+              const quotedMessage = message.reply_message ? message.quoted : message.data;
+              
+              if (tempFiles.length === 1) {
+                await message.sendReply({ image: { url: tempFiles[0] } }, { quoted: quotedMessage });
+              } else {
+                const albumObject = tempFiles.map((path, index) => {
+                  const item = { image: { url: path } };
+                  if (index === 0) {
+                    item.caption = `📸 TikTok Albümü (${tempFiles.length} fotoğraf)`;
+                  }
+                  return item;
+                });
+                try {
+                  await message.client.albumMessage(message.jid, albumObject, quotedMessage);
+                } catch (e) {
+                  for (const path of tempFiles) {
+                    await message.sendReply({ image: { url: path } });
+                    await new Promise(r => setTimeout(r, 500));
+                  }
+                }
+              }
+              
+              for (const path of tempFiles) cleanTempFile(path);
+              await message.react("✅");
+              return;
+            }
+            
+            // Video
             if (downloadResult?.url) {
               await message.sendReply(downloadResult, "video");
             } else {

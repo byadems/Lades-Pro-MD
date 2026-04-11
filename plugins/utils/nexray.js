@@ -268,7 +268,23 @@ async function downloadTiktok(url, options = {}) {
     });
     if (res.data?.status && res.data?.data) {
       const d = res.data.data;
-      // HD varsa HD, yoksa normal no_watermark_link
+      
+      // Type 3: Photo slideshow (slides) - 14 fotoğraflık albüm
+      if (d.slides && Array.isArray(d.slides)) {
+        const imageUrls = d.slides.map(s => s.url).filter(Boolean);
+        if (imageUrls.length > 0) {
+          return {
+            type: "album",
+            urls: imageUrls,
+            title: d.text || d.title || "TikTok Albümü",
+            thumbnail: d.cover_link,
+            author: d.author_nickname || d.author_unique_id,
+            count: imageUrls.length
+          };
+        }
+      }
+      
+      // Video: HD varsa HD, yoksa normal no_watermark_link
       const videoUrl = d.no_watermark_link_hd || d.no_watermark_link;
       if (videoUrl) {
         return {
@@ -292,6 +308,20 @@ async function downloadTiktok(url, options = {}) {
     });
     if (res.data?.status && res.data?.data) {
       const d = res.data.data;
+      
+      // Slides format (type 3 - photo slideshow)
+      if (d.slides && Array.isArray(d.slides)) {
+        const imageUrls = d.slides.map(s => s.url).filter(Boolean);
+        if (imageUrls.length > 0) {
+          return {
+            type: "album",
+            urls: imageUrls,
+            title: d.title || "TikTok Albümü",
+            count: imageUrls.length
+          };
+        }
+      }
+      
       // Yeni format: media array (opsiyonel)
       if (d.media && Array.isArray(d.media)) {
         const hdItem = d.media.find(m => m.quality === "HD" && m.url);
@@ -365,6 +395,18 @@ async function downloadTiktok(url, options = {}) {
     }, options.signal));
     if (res.data?.status && res.data?.data) {
       const d = res.data.data;
+      // Slides (photo album)
+      if (d.slides && Array.isArray(d.slides)) {
+        const imageUrls = d.slides.map(s => s.url).filter(Boolean);
+        if (imageUrls.length > 0) {
+          return {
+            type: "album",
+            urls: imageUrls,
+            title: d.text || "TikTok Albümü",
+            count: imageUrls.length
+          };
+        }
+      }
       const videoUrl = d.no_watermark_link_hd || d.no_watermark_link;
       if (videoUrl) {
         return {
