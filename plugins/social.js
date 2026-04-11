@@ -668,64 +668,26 @@ Module({
     } else {
       return await message.sendReply("_❌ Lütfen geçerli bir TikTok bağlantısı girin._");
     }
-    let downloadResult;
     try {
-      downloadResult = await tiktok(videoLink);
-      if (!downloadResult) {
-        const fallback = await nexray.downloadTiktok(videoLink);
-        downloadResult = fallback?.url ? { url: fallback.url } : null;
-      }
-      if (downloadResult && downloadResult.url) {
+      const downloadResult = await nexray.downloadTiktok(videoLink);
+      if (downloadResult?.url) {
         const tempPath = getTempPath(".mp4");
         try {
           await saveToDisk(downloadResult.url, tempPath);
-          await message.sendReply({ video: { url: tempPath } });
+          const sendContent = { video: { url: tempPath } };
+          if (downloadResult.title) {
+            sendContent.caption = `🎵 ${downloadResult.title}`;
+          }
+          await message.sendReply(sendContent);
         } finally {
           cleanTempFile(tempPath);
         }
       } else {
-        await message.sendReply("_⚠️ Bir şeyler ters gitti, Lütfen tekrar deneyin!_");
+        await message.sendReply("_⚠️ Video bulunamadı, Lütfen tekrar deneyin!_");
       }
     } catch (error) {
-      // Fallback: Siputzx API
-      try {
-        const fallback = await siputGet("/api/d/tiktok", { url: videoLink });
-        const r = fallback.data || fallback.result;
-        // New API format: { media: [{ quality: "SD"/"HD", url: "...", type: "video"/"video_hd" }] }
-        const mediaArr = r?.media;
-        if (mediaArr && Array.isArray(mediaArr)) {
-          // Prefer HD quality, fallback to SD
-          const hdItem = mediaArr.find(m => m.quality === "HD" && m.url);
-          const sdItem = mediaArr.find(m => m.quality === "SD" && m.url);
-          const videoUrl = hdItem?.url || sdItem?.url;
-          if (videoUrl) {
-            const tempPath = getTempPath(".mp4");
-            try {
-              await saveToDisk(videoUrl, tempPath);
-              await message.sendReply({ video: { url: tempPath } });
-            } finally {
-              cleanTempFile(tempPath);
-            }
-            return;
-          }
-        }
-      } catch (_) { }
-      try {
-        const fallback = await nexray.downloadTiktok(videoLink);
-        if (fallback?.url) {
-          const tempPath = getTempPath(".mp4");
-          try {
-            await saveToDisk(fallback.url, tempPath);
-            await message.sendReply({ video: { url: tempPath } });
-          } finally {
-            cleanTempFile(tempPath);
-          }
-        } else {
-          await message.sendReply("_⚠️ Bir şeyler ters gitti, Lütfen tekrar deneyin!_");
-        }
-      } catch (_) {
-        await message.sendReply("_⚠️ Bir şeyler ters gitti, Lütfen tekrar deneyin!_");
-      }
+      console.error("TikTok indirme hatası:", error?.message);
+      await message.sendReply("_⚠️ Bir şeyler ters gitti, Lütfen tekrar deneyin!_");
     }
   }
 );

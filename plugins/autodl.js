@@ -422,10 +422,10 @@ Module({
           return;
         }
 
-        // handle tiktok (en yeni V2 API entegre edildi)
+        // handle tiktok (5'li fallback sistemi)
         if (platformGroups["tiktok"]) {
           try {
-            const downloadResult = await tiktok(platformGroups["tiktok"][0]);
+            const downloadResult = await nexray.downloadTiktok(platformGroups["tiktok"][0]);
             if (downloadResult?.url) {
               await message.sendReply(downloadResult, "video");
             } else {
