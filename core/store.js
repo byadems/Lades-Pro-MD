@@ -12,20 +12,13 @@ const { logger } = require("../config");
 
 // Message store: jid → Map<msgId, msg>
 const messageStore = new LRUCache({
-  max: 300,   // max 300 JIDs
-  ttl: 60 * 60 * 1000, // 1h per JID bucket
+  max: 1000,   // max 1000 messages globally (approximate as buckets)
+  ttl: 24 * 60 * 60 * 1000, // 24h TTL
 });
 
-// Group metadata cache
-const groupMetaCache = new LRUCache({
-  max: 200,
-  ttl: 10 * 60 * 1000, // 10min
-});
-
-// ─────────────────────────────────────────────────────────
-//  Message store
-// ─────────────────────────────────────────────────────────
-const MAX_MSGS_PER_JID = parseInt(process.env.MAX_MESSAGES_PER_JID || "50", 10);
+const MAX_MSGS_PER_JID = 50; 
+const GLOBAL_MAX_MSGS = 2000;
+let totalMessagesCached = 0;
 
 function storeMessage(jid, message) {
   if (!jid || !message || !message.key) return;

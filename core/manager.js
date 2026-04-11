@@ -104,11 +104,19 @@ class BotManager extends EventEmitter {
         await sock.logout().catch(() => {});
       } else {
         logger.info(`Stopping session (connection only): ${sessionId}`);
-        sock.ws.close();
+        if (sock.ws) sock.ws.close();
       }
       this.bots.delete(sessionId);
       this.states.delete(sessionId);
       logger.info(`Session ${sessionId} removed from manager.`);
+    }
+  }
+
+  async stopAll() {
+    logger.info("Tüm oturumlar kapatılıyor...");
+    const sessions = this.getAllSessions();
+    for (const id of sessions) {
+      await this.removeSession(id);
     }
   }
 }

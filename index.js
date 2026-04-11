@@ -119,10 +119,20 @@ function startKeepAlive() {
 }
 
 async function shutdown(signal) {
-  logger.info(`${signal} sinyali alındı.`);
+  logger.info(`${signal} sinyali alındı. Kapatılıyor...`);
   if (_memTimer) clearInterval(_memTimer);
+  
+  if (global.manager) {
+    // Wait for all sessions to close (max 10s)
+    await Promise.race([
+      global.manager.stopAll(),
+      new Promise(r => setTimeout(r, 10000))
+    ]);
+  }
+
   shutdownCache();
   if (fs.existsSync(PID_FILE)) try { fs.unlinkSync(PID_FILE); } catch { }
+  logger.info("Sistem temiz bir şekilde kapatıldı.");
   process.exit(0);
 }
 
@@ -296,14 +306,32 @@ process.on("uncaughtException", (err) => {
                 } catch { }
               }
               const sessionData = JSON.stringify({ creds: credsData, keys: keysData });
-              await WhatsappSession.upsert({ sessionId: 'lades-session', sessionData });
-              logger.info("Oturum verisi 'lades-session' DB'ye aktarıldı.");
-            } else {
-              logger.warn("dashboard_login_complete: creds.json bulunamadı! Aktarım atlandı.");
-            }
-          } catch (e) {
-            logger.error({ err: e.message }, "Oturum aktarım hatası");
-          }
+              async removeSession(sessionId, isLogout = false) {
+    const sock = this.bots.get(sessionId);
+    if (sock) {
+      if (isLogout) {
+        logger.info(`Performing full logout for session: ${sessionId}`);
+        sock.__intentionalLogout = true;
+        await sock.logout().catch(() => {});
+      } else {
+        logger.info(`Stopping session (connection only): ${sessionId}`);
+        if (sock.ws) sock.ws.close();
+      }
+      this.bots.delete(sessionId);
+      this.states.delete(sessionId);
+      logger.info(`Session ${sessionId} removed from manager.`);
+    }
+  }
+
+  async stopAll() {
+    logger.info("Tüm oturumlar kapatılıyor...");
+    const sessions = this.getAllSessions();
+    for (const id of sessions) {
+      await this.removeSession(id);
+    }
+    logger.info("Tüm oturumlar başarıyla kapatıldı.");
+  }
+}
           // CRITICAL: Remove existing (possibly fake/waiting) session before resuming
           // Without this, addSession sees the existing fakeSock and returns early → bot never starts!
           manager.resume("lades-session");

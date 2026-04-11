@@ -11,6 +11,7 @@ const groupCache = new LRUCache({ max: 500, ttl: 5 * 60 * 1000 });   // 5 min TT
 const userCache  = new LRUCache({ max: 2000, ttl: 10 * 60 * 1000 }); // 10 min TTL
 const configCache = new LRUCache({ max: 100, ttl: 15 * 60 * 1000 }); // 15 min TTL
 const filterCache = new LRUCache({ max: 300, ttl: 5 * 60 * 1000 });
+const adminCache  = new LRUCache({ max: 500, ttl: 2 * 60 * 1000 });  // 2 min TTL for admins
 
 // ─────────────────────────────────────────────────────────
 //  Group settings helpers
@@ -97,6 +98,21 @@ function invalidateFilters(groupId) {
 }
 
 // ─────────────────────────────────────────────────────────
+//  Admin helpers
+// ─────────────────────────────────────────────────────────
+function getCachedAdmins(groupId) {
+  return adminCache.get(groupId) || null;
+}
+
+function setCachedAdmins(groupId, admins) {
+  adminCache.set(groupId, admins);
+}
+
+function invalidateAdmins(groupId) {
+  adminCache.delete(groupId);
+}
+
+// ─────────────────────────────────────────────────────────
 //  Cache stats (debug)
 // ─────────────────────────────────────────────────────────
 function getCacheStats() {
@@ -129,4 +145,5 @@ module.exports = {
   getConfig, setConfig, invalidateConfig,
   getFilters, invalidateFilters,
   getCacheStats, applyDatabaseCaching, shutdownCache,
+  getCachedAdmins, setCachedAdmins, invalidateAdmins
 };

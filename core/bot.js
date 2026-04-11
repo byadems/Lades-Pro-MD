@@ -269,9 +269,11 @@ async function createBot(sessionId = "lades-session", options = {}) {
       
       startTempCleanup();
 
-      // Load plugins on first connect
+      // Load plugins and schedulers on first connect
+      const { startSchedulers } = require("./schedulers");
       const pluginsDir = path.join(__dirname, "..", "plugins");
       await loadPlugins(pluginsDir);
+      await startSchedulers(sock);
 
       // Self-test: tüm komutları ilk bağlantıda test et
       if (process.env.SELF_TEST !== 'false' && !selfTestRan) {
@@ -290,13 +292,6 @@ async function createBot(sessionId = "lades-session", options = {}) {
     if (connection === "close") {
       stopTempCleanup();
       const statusCode = lastDisconnect?.error?.output?.statusCode;
-      const errorMsg = lastDisconnect?.error?.message || "";
-      
-      // If it's a logged out code OR a fatal key error (noise-handler crash)
-      const isFatal = statusCode === DisconnectReason.loggedOut || 
-                      statusCode === 401 || 
-                      errorMsg.includes("reading 'public'") || 
-                      errorMsg.includes("reading 'private'");
 
       const shouldReconnect = !isFatal;
       logger.warn({ statusCode, errorMsg, shouldReconnect }, `Bağlantı kesildi.`);

@@ -95,16 +95,22 @@ function isBroadcast(jid) {
 //  Group admin helpers
 // ─────────────────────────────────────────────────────────
 function getGroupAdmins(groupMetadata) {
-  if (!groupMetadata || !groupMetadata.participants) return [];
-  return groupMetadata.participants
+  if (!groupMetadata || !groupMetadata.participants || !groupMetadata.id) return [];
+  
+  const { getCachedAdmins, setCachedAdmins } = require("./db-cache");
+  const cached = getCachedAdmins(groupMetadata.id);
+  if (cached) return cached;
+
+  const admins = groupMetadata.participants
     .filter(p => p.admin === "admin" || p.admin === "superadmin")
     .map(p => {
-      // Baileys bazen p.id içinde device ID (örn: :15) döndürebilir.
-      // JID'yi temizleyip saf numara ve domain ile döndürüyoruz.
       const id = p.id.split(":")[0];
       if (id.includes("@")) return id;
       return id + (p.id.includes("@lid") ? "@lid" : "@s.whatsapp.net");
     });
+    
+  setCachedAdmins(groupMetadata.id, admins);
+  return admins;
 }
 
 function isSuperAdmin(jid, groupMetadata) {

@@ -1,0 +1,1 @@
+const fs = require('fs'); let c = fs.readFileSync('plugins/manage.js', 'utf8'); c = c.replace(/message\.message\?/g, 'message.text?').replace(/message\.message/g, 'message.text'); fs.writeFileSync('plugins/manage.js', c); console.log('success');

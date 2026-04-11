@@ -51,6 +51,7 @@
     "node-cron": "^3.0.3",
     "node-webpmux": "^3.1.9",
     "openai": "^4.77.0",
+    "p-limit": "^3.1.0",
     "p-queue": "^8.0.1",
     "pg": "^8.13.1",
     "pg-hstore": "^2.3.4",

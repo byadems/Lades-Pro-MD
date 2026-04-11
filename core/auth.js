@@ -53,13 +53,16 @@ async function useDbAuthState(sessionId) {
   const saveCreds = async () => {
     // Chain writes to avoid race conditions (Write Queue)
     writePromise = writePromise.then(async () => {
+      const { sequelize } = require("./database");
       try {
-        const sessionData = JSON.stringify({ creds, keys: storedKeys }, BufferJSON.replacer);
-        if (!sessionRow) {
-          sessionRow = await WhatsappSession.create({ sessionId, sessionData });
-        } else {
-          await sessionRow.update({ sessionData });
-        }
+        await sequelize.transaction(async (t) => {
+          const sessionData = JSON.stringify({ creds, keys: storedKeys }, BufferJSON.replacer);
+          if (!sessionRow) {
+            sessionRow = await WhatsappSession.create({ sessionId, sessionData }, { transaction: t });
+          } else {
+            await sessionRow.update({ sessionData }, { transaction: t });
+          }
+        });
       } catch (err) {
         logger.error({ err: err.message, sessionId }, "Failed to save session data to DB");
       }

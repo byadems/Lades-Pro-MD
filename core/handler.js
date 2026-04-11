@@ -212,12 +212,12 @@ class ReplyMessage {
     this.jid = contextInfo.participant || contextInfo.remoteJid || parentMsg.jid;
     this.remoteJid = contextInfo.remoteJid || parentMsg.jid;
     this.message = contextInfo.quotedMessage;
-    
+
     // Robust fromMe detection for replies
     const myId = client.user?.id ? getNumericalId(client.user.id) : null;
     const myLid = (client.user && client.user.lid) ? getNumericalId(client.user.lid) : null;
     const senderId = getNumericalId(this.jid);
-    
+
     this.fromMe = (
       (this.jid?.split("@")[0] === client.user?.id?.split(":")[0]) ||
       (myId && senderId === myId) ||
@@ -319,9 +319,9 @@ class BaseMessage {
       const myId = client.user?.id ? getNumericalId(client.user.id) : null;
       const myLid = (client.user && client.user.lid) ? getNumericalId(client.user.lid) : null;
       const senderId = getNumericalId(this.jid);
-      
+
       const isActuallyMe = this.fromMe || (myId && senderId === myId) || (myLid && senderId === myLid);
-      
+
       if (isActuallyMe) {
         this.sender = client.user.id;
         this.fromMe = true;
@@ -342,10 +342,10 @@ class BaseMessage {
     // fromOwner: bot sahibi mi gönderiyor kontrol et
     const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, "");
     const senderNum = (this.sender || "").split("@")[0].split(":")[0].replace(/[^0-9]/g, "");
-    
+
     // Çoklu kontrol: Sıkı (strict) JID numarası doğrulama
-    this.fromOwner = this.fromMe || 
-                     (ownerNum && ownerNum !== "905XXXXXXXXX" && senderNum === ownerNum);
+    this.fromOwner = this.fromMe ||
+      (ownerNum && ownerNum !== "905XXXXXXXXX" && senderNum === ownerNum);
 
     const msg = rawMsg.message || {};
     this.image = !!msg.imageMessage;
@@ -520,9 +520,21 @@ class BaseMessage {
 
 // ─────────────────────────────────────────────────────────
 //  Command registry
-// ─────────────────────────────────────────────────────────
-const commands = [];
-const eventHandlers = new Map();
+// ── Command Matching Loop ────────────────────────────
+for (const cmd of commands) {
+  const match = text.match(cmd.pattern);
+  if (match) {
+    // Rate Limiting Check (Point 13)
+    if (!isSudoOrOwner && !checkRateLimit(senderJid)) {
+      return await message.sendReply("_⚠️ Çok hızlı komut yazıldı! Lütfen biraz bekleyin._");
+    }
+    try {
+      await cmd.run(message, match);
+    } catch (err) {
+      logger.error(err, "Command execution error");
+    }
+  }
+}
 // on: event handler'lar — text/message/group/groupParticipants tiplerine göre
 const onHandlers = { text: [], message: [], group: [], groupParticipants: [] };
 
@@ -634,7 +646,7 @@ async function loadPlugins(pluginsDir) {
     if (uniqueCmds.length > 0) {
       await CommandRegistry.bulkCreate(uniqueCmds, { ignoreDuplicates: true });
     }
-    
+
     // Eski JSON dosyasını temizle (istenirse silinebilir)
     const activeCommandsPath = path.join(__dirname, "../sessions", "active-commands.json");
     if (fs.existsSync(activeCommandsPath)) fs.unlinkSync(activeCommandsPath);
@@ -676,10 +688,10 @@ const OWNER_LIDS = new Set();
 
 function isOwner(senderJid, originalSenderJid, client = null) {
   if (!senderJid) return false;
-  
+
   const sNum = getNumericalId(senderJid);
   const oNum = getNumericalId(originalSenderJid);
-  
+
   // ─────────────────────────────────────────────────────────
   //  1. CONFIG OWNER_NUMBER KONTROLÜ
   // ─────────────────────────────────────────────────────────
@@ -701,14 +713,14 @@ function isOwner(senderJid, originalSenderJid, client = null) {
       return true;
     }
   }
-  
+
   // ─────────────────────────────────────────────────────────
   //  2. ÖĞRENİLMİŞ LID KONTROLÜ
   // ─────────────────────────────────────────────────────────
   if (OWNER_LIDS.has(senderJid) || OWNER_LIDS.has(originalSenderJid)) {
     return true;
   }
-  
+
   // ─────────────────────────────────────────────────────────
   //  3. SUDO_MAP KONTROLÜ (Veritabanından)
   // ─────────────────────────────────────────────────────────
@@ -724,9 +736,9 @@ function isOwner(senderJid, originalSenderJid, client = null) {
           if (lidNum === sNum || lidNum === oNum) return true;
         }
       }
-    } catch(e) {}
+    } catch (e) { }
   }
-  
+
   // ─────────────────────────────────────────────────────────
   //  4. BOT'UN KENDİSİ Mİ KONTROLÜ (client varsa)
   // ─────────────────────────────────────────────────────────
@@ -736,16 +748,16 @@ function isOwner(senderJid, originalSenderJid, client = null) {
     if (sNum === botId || oNum === botId) return true;
     if (botLid && (sNum === botLid || oNum === botLid)) return true;
   }
-  
+
   return false;
 }
 
 function isSudo(senderJid, originalSenderJid) {
   // Owner zaten sudo'dur
   if (isOwner(senderJid, originalSenderJid)) return true;
-  
+
   const sudos = config.SUDO ? config.SUDO.split(",").map(s => s.trim().replace(/[^0-9]/g, "")).filter(s => s) : [];
-  
+
   const senderNum = getNumericalId(senderJid);
   const originalSenderNum = getNumericalId(originalSenderJid);
 
@@ -760,7 +772,7 @@ function isSudo(senderJid, originalSenderJid) {
         if (senderJid && sudoMap.includes(senderJid)) return true;
         if (originalSenderJid && sudoMap.includes(originalSenderJid)) return true;
       }
-    } catch(e) {}
+    } catch (e) { }
   }
 
   // 3. Substring match for each sudo
@@ -824,7 +836,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     const botNumber = client.user?.id ? getNumericalId(client.user.id) : null;
     const botLidNumber = client.user?.lid ? getNumericalId(client.user.lid) : null;
     const senderNumber = getNumericalId(resolvedSenderJid);
-    
+
     let isBotOwnerNumber = false;
     // Alternatif: Bot bağlı numarayı config'den kontrol et
     const configOwner = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, "");
@@ -835,13 +847,13 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     // KnightBot-Mini Yöntemi: LID -> PN Çevirisi (anlık auth state sorgusu)
     // participantPn yoksa veya hala LID ise dene
     if (resolvedSenderJid && resolvedSenderJid.includes('@lid')) {
-       try {
-         const { resolveLidToPn } = require("./lid-helper");
-         const pn = await resolveLidToPn(client, senderJid);
-         if (pn && pn !== senderJid) {
-             resolvedSenderJid = pn;
-         }
-       } catch(e) {}
+      try {
+        const { resolveLidToPn } = require("./lid-helper");
+        const pn = await resolveLidToPn(client, senderJid);
+        if (pn && pn !== senderJid) {
+          resolvedSenderJid = pn;
+        }
+      } catch (e) { }
     }
 
     // --- DYNAMİC OWNER/SUDO LEARNING ---
@@ -859,7 +871,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
             logger.info(`[Dynamic Auth] Sahip LID öğrenildi: ${senderJid}`);
             // Opsiyonel: DB'ye kaydet
           }
-        } catch(e) {}
+        } catch (e) { }
       }
     }
 
@@ -881,7 +893,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     const ownerCheck = fromMe || isBotOwnerNumber || isOwner(resolvedSenderJid, senderJid, client);
     const sudoCheck = isSudo(resolvedSenderJid, senderJid);
     const publicMode = !config.isPrivate;
-    
+
     // ─────────────────────────────────────────────────────────
     //  LID ÖĞRENME: Eğer owner ise ve LID ile geliyorsa, kaydet
     // ─────────────────────────────────────────────────────────
@@ -895,13 +907,13 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     message.fromSudo = sudoCheck;
 
     if (config.DEBUG) {
-        console.log(`\n--- [NEW MESSAGE] ---`);
-        console.log(`| Text: "${text.slice(0, 50)}"`);
-        console.log(`| From (resolved): ${resolvedSenderJid}`);
-        console.log(`| From (original): ${senderJid}`);
-        console.log(`| participantPn: ${rawMsg?.key?.participantPn || 'N/A'}`);
-        console.log(`| Auth: Owner=${ownerCheck}, Sudo=${sudoCheck}, Public=${publicMode}`);
-        console.log(`--------------------\n`);
+      console.log(`\n--- [NEW MESSAGE] ---`);
+      console.log(`| Text: "${text.slice(0, 50)}"`);
+      console.log(`| From (resolved): ${resolvedSenderJid}`);
+      console.log(`| From (original): ${senderJid}`);
+      console.log(`| participantPn: ${rawMsg?.key?.participantPn || 'N/A'}`);
+      console.log(`| Auth: Owner=${ownerCheck}, Sudo=${sudoCheck}, Public=${publicMode}`);
+      console.log(`--------------------\n`);
     }
 
     logger.debug({ jid, sender: resolvedSenderJid, text: text.slice(0, 50) }, "Processing message");
@@ -917,10 +929,10 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     if (!fromMe) {
       if (global.metrics_messages > 1000000) global.metrics_messages = 0; // Prevent overflow
       global.metrics_messages++;
-      
+
       // Bellek güvenliği için otomatik budanan LRUCache kullanılır
       global.metrics_users_set.set(resolvedSenderJid, true);
-      
+
       if (isGroup) {
         global.metrics_groups_set.set(jid, true);
       }
@@ -937,7 +949,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
         try {
           if (h._disabled) continue; await h.run(message, [text]); h._errorCount = 0;
         } catch (e) {
-          h._errorCount = (h._errorCount || 0) + 1; logger.warn({ err: e.message, pattern: h.on, count: h._errorCount }, "on-event handler error"); if (h._errorCount >= 3) { h._disabled = true; logger.error({ pattern: h.on }, "Handler devredışı bırakıldı (3 ardışık hata)"); const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, ""); if (ownerNum && message.client) { try { message.client.sendMessage(ownerNum + "@s.whatsapp.net", { text: "🚨 *Kritik Hata Uyarısı*\nBir `on:` event handler 3 ardışık hata nedeniyle devredışı bırakıldı.\n\n*Type:* " + (h.on || "Bilinmiyor") + "\n*Son Hata:* " + e.message }); } catch (_) {} } }
+          h._errorCount = (h._errorCount || 0) + 1; logger.warn({ err: e.message, pattern: h.on, count: h._errorCount }, "on-event handler error"); if (h._errorCount >= 3) { h._disabled = true; logger.error({ pattern: h.on }, "Handler devredışı bırakıldı (3 ardışık hata)"); const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, ""); if (ownerNum && message.client) { try { message.client.sendMessage(ownerNum + "@s.whatsapp.net", { text: "🚨 *Kritik Hata Uyarısı*\nBir `on:` event handler 3 ardışık hata nedeniyle devredışı bırakıldı.\n\n*Type:* " + (h.on || "Bilinmiyor") + "\n*Son Hata:* " + e.message }); } catch (_) { } } }
         }
       }
     }
@@ -984,14 +996,14 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           try {
             // metadata yoksa çekmeye çalış
             if (!groupMetadata) {
-                groupMetadata = await client.groupMetadata(jid).catch(() => null);
+              groupMetadata = await client.groupMetadata(jid).catch(() => null);
             }
             if (groupMetadata) {
               const { isBotIdentifier } = require("../plugins/utils/lid-helper");
               const admins = getGroupAdmins(groupMetadata);
               message.groupAdmins = admins; // Tüm liste (eklentiler için)
-              isAdmin = admins.some(a => a.split("@")[0].split(":")[0] === senderJid.split("@")[0].split(":")[0] || 
-                                         a.split("@")[0].split(":")[0] === resolvedSenderJid.split("@")[0].split(":")[0]);
+              isAdmin = admins.some(a => a.split("@")[0].split(":")[0] === senderJid.split("@")[0].split(":")[0] ||
+                a.split("@")[0].split(":")[0] === resolvedSenderJid.split("@")[0].split(":")[0]);
               isBotAdmin = admins.some(a => isBotIdentifier(a, client));
             }
           } catch (e) {
@@ -1006,7 +1018,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
         message.isBotAdmin = isBotAdmin;
         message.fromOwner = ownerCheck;
         message.fromSudo = sudoCheck;
- 
+
         // Core Logic Filters - fromMe: true komutlar için hata mesajı
         if (cmd.fromMe && !fromMe && !ownerOrSudo) {
           if (!(cmd.onlyAdmin && isAdmin)) {
@@ -1162,8 +1174,8 @@ async function handleGroupParticipantsUpdate(client, update) {
       ...update
     };
     for (const h of onH) {
-      try { 
-        await h.run(message, []); 
+      try {
+        await h.run(message, []);
       } catch (e) {
         logger.debug({ err: e.message, type: "groupParticipants" }, "on-groupParticipants handler error");
       }

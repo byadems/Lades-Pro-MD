@@ -1,10 +1,15 @@
 const {
   WarnLog,
-  GroupSettings,
-  UserData,
   Filter,
-  BotConfig
 } = require("../../../core/database");
+const { 
+  getGroupSettings, 
+  updateGroupSettings, 
+  getUserData, 
+  updateUserData, 
+  getConfig, 
+  setConfig 
+} = require("../../../core/db-cache");
 const {
   antiBotDB,
   antiSpamDB,
@@ -159,7 +164,7 @@ async function getAntilinkConfig(jid = null) {
   if (!jid) {
     return [];
   }
-  const [settings] = await GroupSettings.findOrCreate({ where: { groupId: jid } });
+  const settings = await getGroupSettings(jid);
   return {
     jid: jid,
     mode: "delete",
@@ -169,9 +174,9 @@ async function getAntilinkConfig(jid = null) {
 
 async function setAntilinkConfig(jid, conf = {}) {
   if (!jid) return false;
-  const [settings] = await GroupSettings.findOrCreate({ where: { groupId: jid } });
-  settings.antiLink = conf.enabled !== undefined ? conf.enabled : settings.antiLink;
-  await settings.save();
+  const settings = await updateGroupSettings(jid, {
+     antiLink: conf.enabled !== undefined ? conf.enabled : undefined
+  });
   return { jid, enabled: settings.antiLink, mode: "delete" };
 }
 
@@ -198,16 +203,12 @@ async function getAntiSpam() {
 }
 
 async function setAntiSpam(jid) {
-  const [settings] = await GroupSettings.findOrCreate({ where: { groupId: jid } });
-  settings.antiSpam = true;
-  await settings.save();
+  await updateGroupSettings(jid, { antiSpam: true });
   return true;
 }
 
 async function delAntiSpam(jid) {
-  const [settings] = await GroupSettings.findOrCreate({ where: { groupId: jid } });
-  settings.antiSpam = false;
-  await settings.save();
+  await updateGroupSettings(jid, { antiSpam: false });
   return true;
 }
 
@@ -484,26 +485,28 @@ async function getFiltersByScope(scope, jid = null) {
   return await FilterDB.findAll({ where: whereCondition });
 }
 
+// Regex cache for filters
+const filterRegexCache = new Map();
+
 async function checkFilterMatch(text, jid) {
   if (!text) return null;
 
-  const filters = await getFilter(jid);
+  const filters = await getFilters(jid); // Use cached filters
 
   for (const filter of filters) {
-    const trigger = filter.caseSensitive
-      ? filter.trigger
-      : filter.trigger.toLowerCase();
-    const textToCheck = filter.caseSensitive ? text : text.toLowerCase();
-
-    let isMatch = false;
-
-    if (filter.exactMatch) {
-      isMatch = textToCheck === trigger;
-    } else {
-      isMatch = textToCheck.includes(trigger);
+    const isExact = filter.exactMatch;
+    const isCase = filter.caseSensitive;
+    const cacheKey = `${filter.trigger}:${isExact}:${isCase}`;
+    
+    let regex = filterRegexCache.get(cacheKey);
+    if (!regex) {
+      const escaped = filter.trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = isExact ? `^${escaped}$` : escaped;
+      regex = new RegExp(pattern, isCase ? "" : "i");
+      filterRegexCache.set(cacheKey, regex);
     }
 
-    if (isMatch) {
+    if (regex.test(text)) {
       return filter;
     }
   }
