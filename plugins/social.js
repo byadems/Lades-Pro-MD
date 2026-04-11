@@ -26,9 +26,9 @@ async function siputGet(path, params = {}) {
 
 async function checkRedirect(url) {
   try {
-    let split_url = url.split("/");
-    if (split_url.includes("share")) {
-      let res = await axios.get(url, { timeout: 10000, maxRedirects: 5 });
+    const isShortTiktok = /t\.tiktok\.com|vm\.tiktok\.com|v\.tiktok\.com/.test(url);
+    if (url.includes("share") || isShortTiktok) {
+      let res = await axios.get(url, { timeout: 15000, maxRedirects: 5, headers: { 'User-Agent': 'Mozilla/5.0' } });
       return res.request.res.responseUrl || url;
     }
   } catch (_) { }
@@ -665,7 +665,7 @@ Module({
     
     const urls = extractUrls(videoLink);
     if (urls.length > 0) {
-      videoLink = urls[0];
+      videoLink = await checkRedirect(urls[0]);
     }
     
     if (!videoLink.includes("tiktok.com") && !videoLink.includes("vt.tiktok.com") && !videoLink.includes("vm.tiktok.com") && !videoLink.includes("v.tiktok.com")) {
@@ -682,55 +682,57 @@ Module({
         return await message.sendReply("_⚠️ Video bulunamadı, Lütfen tekrar deneyin!_");
       }
       
-      // Photo album (slideshow)
+      // Photo album (slideshow) — buffer'larla gönder (disk'e yazmadan)
       if (result.type === "album" && result.urls && result.urls.length > 0) {
         const imageUrls = result.urls.slice(0, 10);
-        
-        const tempFiles = [];
-        for (const imgUrl of imageUrls) {
-          const tempPath = getTempPath(".jpg");
+        const caption = result.title ? `📸 *${result.title}*\n` : "";
+        const albumTitle = `${caption}TikTok Albümü (${imageUrls.length} fotoğraf)`;
+
+        // Tüm görselleri paralel indirip buffer al
+        const buffers = [];
+        await Promise.all(imageUrls.map(async (imgUrl) => {
           try {
-            await saveToDisk(imgUrl, tempPath);
-            tempFiles.push(tempPath);
+            const resp = await axios.get(imgUrl, {
+              responseType: "arraybuffer",
+              timeout: 30000,
+              headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                "Referer": "https://www.tiktok.com/",
+                "Accept": "image/*,*/*"
+              }
+            });
+            if (resp.status === 200 && resp.data?.byteLength > 100) {
+              buffers.push(Buffer.from(resp.data));
+            }
           } catch (e) {
-            console.error("Fotoğraf indirme hatası:", e?.message);
+            console.error("TikTok fotoğraf indirme hatası:", e?.message);
           }
+        }));
+
+        if (buffers.length === 0) {
+          return await message.sendReply("_⚠️ Fotoğraflar indirilemedi, lütfen tekrar deneyin._");
         }
-        
-        if (tempFiles.length === 0) {
-          return await message.sendReply("_⚠️ Fotoğraflar indirilemedi_");
+
+        // Tek fotoğraf
+        if (buffers.length === 1) {
+          return await message.sendReply({ image: buffers[0], caption: albumTitle });
         }
-        
-        if (tempFiles.length === 1) {
-          const path = tempFiles[0];
-          try {
-            await message.sendReply({ image: { url: path } }, { quoted: quotedMessage });
-          } finally {
-            cleanTempFile(path);
-          }
-          return;
-        }
-        
-        const albumObject = tempFiles.map((path, index) => {
-          const item = { image: { url: path } };
-          if (index === 0) {
-            item.caption = `📸 TikTok Albümü (${tempFiles.length} fotoğraf)`;
-          }
-          return item;
-        });
-        
+
+        // Çoklu: önce albumMessage, başarısız olursa tek tek gönder
         try {
-          await message.client.albumMessage(message.jid, albumObject, quotedMessage);
-        } catch (e) {
-          console.error("Albüm gönderilemedi:", e.message);
-          for (const path of tempFiles) {
+          const albumItems = buffers.map((buf, i) => ({
+            image: buf,
+            ...(i === 0 ? { caption: albumTitle } : {})
+          }));
+          await message.client.albumMessage(message.jid, albumItems, quotedMessage);
+        } catch (albumErr) {
+          console.error("Albüm gönderilemedi, tek tek gönderiliyor:", albumErr.message);
+          for (const buf of buffers) {
             try {
-              await message.sendReply({ image: { url: path } });
-              await new Promise(r => setTimeout(r, 500));
+              await message.sendReply({ image: buf });
+              await new Promise(r => setTimeout(r, 700));
             } catch (_) {}
           }
-        } finally {
-          for (const path of tempFiles) cleanTempFile(path);
         }
         return;
       }
@@ -751,6 +753,7 @@ Module({
       }
     } catch (error) {
       console.error("TikTok indirme hatası:", error?.message || error);
+      if (error?.stack) console.error(error.stack.split('\n').slice(0,4).join('\n'));
       await message.sendReply("_⚠️ Bir şeyler ters gitti, Lütfen tekrar deneyin!_");
     }
   }

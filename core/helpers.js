@@ -250,16 +250,25 @@ function getMentioned(message) {
  * @returns {Promise<string>} The path to the saved file.
  */
 async function saveToDisk(url, destPath) {
+  if (!url || typeof url !== "string" || !url.startsWith("http")) {
+    throw new Error("Invalid URL: " + url);
+  }
   const axios = require("axios");
   const writer = fs.createWriteStream(destPath);
+
+  // URL'den hostname'e göre Referer ekle (TikTok CDN gibi kısıtlı CDN'ler için)
+  const urlHostname = (() => { try { return new URL(url).hostname; } catch { return ""; } })();
+  const referer = urlHostname.includes("tiktok") ? "https://www.tiktok.com/" : undefined;
 
   const response = await axios({
     url,
     method: "GET",
     responseType: "stream",
-    timeout: 30000,
+    timeout: 60000,
     headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Accept": "*/*",
+      ...(referer ? { "Referer": referer } : {}),
     }
   });
 

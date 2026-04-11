@@ -359,12 +359,12 @@ async function downloadTiktok(url, options = {}) {
       const r = data.result;
       // result.data içinde direkt URL
       const videoUrl = r.data || r.url || r.video || r.play?.url || r.download_url;
-      if (videoUrl) {
+      if (videoUrl && typeof videoUrl === "string" && videoUrl.startsWith("http")) {
         return { 
           url: videoUrl, 
-          title: r.title || r.desc,
-          thumbnail: r.cover,
-          author: r.author?.nickname
+          title: r.title || r.desc || r.text,
+          thumbnail: r.cover || r.thumbnail,
+          author: r.author?.nickname || r.author
         };
       }
     }
@@ -426,9 +426,6 @@ async function downloadTiktok(url, options = {}) {
   } catch (e) {
     if (process.env.DEBUG) console.error("[Siputzx V2 POST]", e?.message);
   }
-
-  return null;
-}
 
   return null;
 }
