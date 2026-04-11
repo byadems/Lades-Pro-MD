@@ -127,15 +127,23 @@ async function getAllWarns(jid = null) {
 }
 
 // AntiFake (AntiNumara) - Gerçek veritabanı implementasyonu
-async function getAntifake() {
+async function getAntifake(jid = null) {
+  if (jid) {
+    return await FakeDB.findOne({ where: { jid } });
+  }
   return await FakeDB.findAll();
 }
 
-async function setAntifake(jid) {
+async function setAntifake(jid, allowed = null) {
   // Duplikat önleme
   const existing = await FakeDB.findOne({ where: { jid } });
-  if (existing) return existing;
-  return await FakeDB.create({ jid });
+  if (existing) {
+    if (allowed !== null) {
+      await existing.update({ allowed });
+    }
+    return existing;
+  }
+  return await FakeDB.create({ jid, allowed });
 }
 
 async function delAntifake(jid = null) {

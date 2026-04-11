@@ -239,74 +239,6 @@ Module({
 );
 
 Module({
-  pattern: "antinumara ?(.*)",
-  fromMe: false,
-  desc: "Belirli ülke koduna sahip numaraların gruba girişini engeller/yönetir.",
-  use: "grup",
-},
-  async (message, match) => {
-    let adminAccesValidated = await isAdmin(message);
-    if (message.fromOwner || adminAccesValidated) {
-      const adminCheck = await isAdmin(message);
-      if (!adminCheck) return await message.sendReply(Lang.NEED_ADMIN);
-      if (match[1] === "aç") {
-        await antifake.set(message.jid);
-        return await message.sendReply("_✅ Anti-Numara açıldı!_");
-      }
-      if (match[1] === "izinli") {
-        return await message.sendReply(
-          `_İzin verilen alan kodları: ${ALLOWED || "90"} (tüm gruplar için geçerlidir)_`
-        );
-      }
-      if (match[1] === "kapat") {
-        await antifake.delete(message.jid);
-        return await message.sendReply("_❌ Anti-Numara kapatıldı!_");
-      }
-      const db = await antifake.get();
-      const jids = [];
-      db.map((data) => {
-        jids.push(data.jid);
-      });
-      const status = jids.includes(message.jid) ? "Açık ✅" : "Kapalı ❌";
-
-      const buttons = [
-        {
-          buttonId: handler + "antinumara aç",
-          buttonText: {
-            displayText: "Açık",
-          },
-          type: 1,
-        },
-        {
-          buttonId: handler + "antinumara kapat",
-          buttonText: {
-            displayText: "Kapalı",
-          },
-          type: 1,
-        },
-        {
-          buttonId: handler + "antinumara izinli",
-          buttonText: {
-            displayText: "İzinli Önekler",
-          },
-          type: 1,
-        },
-      ];
-
-      const buttonMessage = {
-        text: `🚨 *Anti-Numara Kontrol Menüsü*\n\nℹ️ *Mevcut Durum:* ${status}\n\n💬 *Kullanım:* \`.antinumara aç/kapat\``,
-        footer: "",
-        buttons: buttons,
-        headerType: 1,
-      };
-      await message.client.sendMessage(message.jid, buttonMessage, {
-        quoted: message.data,
-      });
-    }
-  }
-);
-
-Module({
   on: "groupParticipants",
   fromMe: false,
 },
@@ -407,8 +339,25 @@ Module({
       );
     }
     if (message.action === "add" && jids.includes(message.jid)) {
-      const allowed = (ALLOWED || "90").split(",").map((p) => p.trim()).filter(Boolean);
+      const fakeRecord = db.find((d) => d.jid === message.jid);
+      const groupAllowed = (fakeRecord && fakeRecord.allowed) ? fakeRecord.allowed : (ALLOWED || "90");
+      const allowed = groupAllowed.split(",").map((p) => p.trim()).filter(Boolean);
       let participantId = typeof message.participant[0] === "string" ? message.participant[0] : message.participant[0].id;
+
+      // YÖNETİCİ BYPASS: Gruba bir yönetici tarafından manüel eklenen kişiler korunur ve göz ardı edilir.
+      if (message.from) {
+        const { isBotIdentifier } = require("./utils/lid-helper");
+        const adderClean = message.from.split(":")[0] + "@s.whatsapp.net";
+
+        if (isBotIdentifier(adderClean, message.client)) return; // Bot'un eklediklerini atla
+
+        try {
+          const isActionByAdmin = await isAdmin(message, adderClean);
+          if (isActionByAdmin) {
+            return console.log(`[Anti-Numara] Uyarı: Bir yönetici birini eklediği için antinumara istisnası uygulandı.`);
+          }
+        } catch (e) { }
+      }
 
       // MIGRATION: Antinumara için LID'yi Telefon Numarasına Çevir
       let isLid = participantId.includes("@lid");
@@ -423,27 +372,56 @@ Module({
         } catch (e) { }
       }
 
-      // ÖNEMLİ: Eğer hala bir LID ise ve PN'ye çevrilemediyse, 
-      // bu kişinin +90 olup olmadığını kesin olarak bilemiyoruz.
-      // Hatalı atma yapmamak (false positive) için bu kontrolü atlıyoruz.
-      if (isLid) return;
+      // ALTERNATİF: LID çözülemediyse ve yönetici bypassından geçtiysek bu kişi kendi kendine linkle girmiştir.
+      // O halde 'message.from' (hareketi yapan) alanındaki veri kişinin gerçek telefon numarasıdır!
+      if (isLid && message.from && message.from.includes("@s.whatsapp.net")) {
+        participantId = message.from;
+      }
 
+      // KÖKTEN ÇÖZÜM: 'if (isLid) return;' kapatıldı. Artık LID numarasıyla katılıp
+      // numarası tespit edilemeyen kişiler de "güvenlik ihlali / yabancı numara" sayılarak
+      // taviz verilmeden gruptan atılacaktır. Sistem %100 herkezi tarayacaktır.
+
+      // KÖKTEN ÇÖZÜM: LID ve PN her koşulda inceleniyor
       const participantNumber = participantId.split("@")[0];
       const isAllowedNumber = allowed.some((prefix) =>
         participantNumber.startsWith(prefix)
       );
 
+      // Yabancı numara veya çözülemeyen LID tespit edildi
       if (!isAllowedNumber) {
         const { isBotIdentifier } = require("./utils/lid-helper");
-        const isBotAdmin = await isAdmin(message, message.client.user.id);
-        if (!isBotAdmin) return;
 
-        if (!isBotIdentifier(participantId, message.client)) {
-          return await message.client.groupParticipantsUpdate(
+        // Bot'un kendisi olup olmadığını kontrol edelim
+        if (isBotIdentifier(participantId, message.client)) return;
+
+        // Bot admin mi? WhatsApp Multi-Device session (örn. :15) kimlik karmaşası yaratmaması için temizliyoruz.
+        const botIdClean = message.client.user.id.split(":")[0] + "@s.whatsapp.net";
+        const isBotAdmin = await isAdmin(message, botIdClean);
+        if (!isBotAdmin) {
+          return console.log("[Anti-Numara] Bot yönetici olmadığı için atma işlemi iptal edildi.");
+        }
+
+        // Atılacak hedefi belirle
+        const targetKick = typeof message.participant[0] === "string" ? message.participant[0] : message.participant[0].id;
+
+        // Kullanıcıya şeffaf bildirim yapalım
+        await message.client.sendMessage(message.jid, {
+          text: `🚨 *Anti-Numara Koruması!*\n\n🛡️ _İzin verilmeyen bir numara tespit ettim._\n🧹 _Gruptan uzaklaştırıyorum..._`
+        });
+
+        try {
+          await message.client.groupParticipantsUpdate(
             message.jid,
-            [participantId],
+            [targetKick],
             "remove"
           );
+          console.log(`[Anti-Numara] ${targetKick} gruptan atıldı.`);
+        } catch (err) {
+          console.error(`[Anti-Numara] Atma hatası:`, err);
+          await message.client.sendMessage(message.jid, {
+            text: `❌ *Bot kişiyi atarken WhatsApp kaynaklı bir sunucu hatası yaşadı.*\n(Lütfen kişiyi manuel atınız.)`
+          });
         }
       }
     }

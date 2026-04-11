@@ -1842,6 +1842,76 @@ Module({
   }
 );
 
+Module({
+  pattern: "antinumara ?(.*)",
+  fromMe: true,
+  desc: "Belirli ülke koduna sahip numaraların gruba girişini engeller/izin verir.",
+  usage: ".antinumara [aç/kapat/izin 90, 1]",
+  use: "grup",
+},
+  async (message, match) => {
+    let adminAccesValidated = await isAdmin(message);
+    if (message.fromOwner || adminAccesValidated) {
+      if (!message.isGroup) return await message.sendReply("⚠️ _*Bu komut sadece gruplarda kullanılabilir!*_");
+
+      const adminCheck = await isAdmin(message);
+      if (!adminCheck) return await message.sendReply(Lang.NEED_ADMIN);
+
+      const input = match[1] ? match[1].toLowerCase().trim() : "";
+
+      const db = await antifake.get();
+      const fakeRecord = db.find(d => d.jid === message.jid);
+      const isEnabled = !!fakeRecord;
+
+      if (input === "aç") {
+        await antifake.set(message.jid);
+        return await message.sendReply("_✅ Anti-Numara açıldı!_\n_(Varsayılan izin verilen alan kodları: *+90*)_\n_Özelleştirmek için:_ `.antinumara izin 90, 1`");
+      }
+
+      if (input === "kapat") {
+        await antifake.delete(message.jid);
+        return await message.sendReply("_❌ Anti-Numara tamamen kapatıldı!_");
+      }
+
+      if (input.startsWith("izin")) {
+        const allowedParam = input.replace("izin", "").trim();
+        if (!allowedParam) {
+          return await message.sendReply("_❌ Lütfen izin verilen ülke kodlarını virgülle ayırarak yazın. (Örnek: `.antinumara izin 90, 1`)_");
+        }
+        await antifake.set(message.jid, allowedParam);
+        return await message.sendReply(`_✅ İzin verilen ülke numara önekleri başarıyla güncellendi!\n👉🏻 Artık sadece şu numara önekine sahip üyeler girebilir: *${allowedParam}*_`);
+      }
+
+      // Default menu
+      const status = isEnabled ? "Açık ✅" : "Kapalı ❌";
+      const groupAllowed = (fakeRecord && fakeRecord.allowed) ? fakeRecord.allowed : (config.ALLOWED || "90");
+
+      const buttons = [
+        {
+          buttonId: handler + "antinumara aç",
+          buttonText: { displayText: "Açık" },
+          type: 1,
+        },
+        {
+          buttonId: handler + "antinumara kapat",
+          buttonText: { displayText: "Kapalı" },
+          type: 1,
+        },
+      ];
+
+      const buttonMessage = {
+        text: `🚨 *Anti-Numara Kontrol Menüsü*\n\nℹ️ *Mevcut Durum:* ${status}\n🌍 *İzinli Numara Önekleri:* ${groupAllowed}\n\n💬 *Kullanım:* \`.antinumara aç\` / \`.antinumara kapat\` / \`.antinumara izin 90, 1\``,
+        footer: "",
+        buttons: buttons,
+        headerType: 1,
+      };
+      await message.client.sendMessage(message.jid, buttonMessage, {
+        quoted: message.data,
+      });
+    }
+  }
+);
+
 module.exports = {
   containsDisallowedWords,
   setVar,

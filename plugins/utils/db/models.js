@@ -32,6 +32,10 @@ const FakeDB = config.sequelize.define("fake", {
     type: DataTypes.TEXT,
     allowNull: false,
   },
+  allowed: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  }
 }, { indexes: [{ fields: ['jid'] }] });
 
 // Advanced antilink system
