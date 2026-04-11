@@ -664,24 +664,27 @@ Module({
     if (!videoLink) return await message.sendReply("_⚠️ Bir TikTok URL'si gerekli_");
     
     const urls = extractUrls(videoLink);
-    if (urls.length > 0 && validateUrl(urls[0], "tiktok")) {
+    if (urls.length > 0) {
       videoLink = urls[0];
-    } else {
+    }
+    
+    if (!videoLink.includes("tiktok.com") && !videoLink.includes("vt.tiktok.com") && !videoLink.includes("vm.tiktok.com") && !videoLink.includes("v.tiktok.com")) {
       return await message.sendReply("_❌ Lütfen geçerli bir TikTok bağlantısı girin._");
     }
     
     const quotedMessage = message.reply_message ? message.quoted : message.data;
     
     try {
+      await message.sendReply("_⏳ İşleniyor..._");
       const result = await nexray.downloadTiktok(videoLink);
       
       if (!result) {
         return await message.sendReply("_⚠️ Video bulunamadı, Lütfen tekrar deneyin!_");
       }
       
-      // Photo album (slideshow) - 14 fotoğraflık albüm
+      // Photo album (slideshow)
       if (result.type === "album" && result.urls && result.urls.length > 0) {
-        const imageUrls = result.urls.slice(0, 10); // Max 10
+        const imageUrls = result.urls.slice(0, 10);
         
         const tempFiles = [];
         for (const imgUrl of imageUrls) {
