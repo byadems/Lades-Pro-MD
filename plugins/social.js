@@ -662,25 +662,28 @@ Module({
   async (message, match) => {
     let videoLink = match[1] !== "" ? match[1] : message.reply_message?.text;
     if (!videoLink) return await message.sendReply("_⚠️ Bir TikTok URL'si gerekli_");
+    
     const urls = extractUrls(videoLink);
     if (urls.length > 0 && validateUrl(urls[0], "tiktok")) {
       videoLink = urls[0];
     } else {
       return await message.sendReply("_❌ Lütfen geçerli bir TikTok bağlantısı girin._");
     }
+    
+    const quotedMessage = message.reply_message ? message.quoted : message.data;
+    
     try {
-      const downloadResult = await nexray.downloadTiktok(videoLink);
+      const result = await nexray.downloadTiktok(videoLink);
       
-      // Photo album (slideshow)
-      if (downloadResult?.type === "album" && downloadResult?.urls) {
-        const imageUrls = downloadResult.urls;
-        if (imageUrls.length > 10) {
-          return await message.sendReply(`_⚠️ Albüm çok fazla medya içeriyor (Maksimum 10)._`);
-        }
+      if (!result) {
+        return await message.sendReply("_⚠️ Video bulunamadı, Lütfen tekrar deneyin!_");
+      }
+      
+      // Photo album (slideshow) - 14 fotoğraflık albüm
+      if (result.type === "album" && result.urls && result.urls.length > 0) {
+        const imageUrls = result.urls.slice(0, 10); // Max 10
         
         const tempFiles = [];
-        const quotedMessage = message.reply_message ? message.quoted : message.data;
-        
         for (const imgUrl of imageUrls) {
           const tempPath = getTempPath(".jpg");
           try {
@@ -696,16 +699,19 @@ Module({
         }
         
         if (tempFiles.length === 1) {
-          return await message.sendReply(
-            { image: { url: tempFiles[0] } },
-            { quoted: quotedMessage }
-          );
+          const path = tempFiles[0];
+          try {
+            await message.sendReply({ image: { url: path } }, { quoted: quotedMessage });
+          } finally {
+            cleanTempFile(path);
+          }
+          return;
         }
         
         const albumObject = tempFiles.map((path, index) => {
           const item = { image: { url: path } };
           if (index === 0) {
-            item.caption = `📸 TikTok Albümü (${tempFiles.length} fotoğraf)\n👤 ${downloadResult.author || ""}`;
+            item.caption = `📸 TikTok Albümü (${tempFiles.length} fotoğraf)`;
           }
           return item;
         });
@@ -715,8 +721,10 @@ Module({
         } catch (e) {
           console.error("Albüm gönderilemedi:", e.message);
           for (const path of tempFiles) {
-            await message.sendReply({ image: { url: path } });
-            await new Promise(r => setTimeout(r, 500));
+            try {
+              await message.sendReply({ image: { url: path } });
+              await new Promise(r => setTimeout(r, 500));
+            } catch (_) {}
           }
         } finally {
           for (const path of tempFiles) cleanTempFile(path);
@@ -725,14 +733,12 @@ Module({
       }
       
       // Video indirme
-      if (downloadResult?.url) {
+      if (result.url) {
         const tempPath = getTempPath(".mp4");
         try {
-          await saveToDisk(downloadResult.url, tempPath);
+          await saveToDisk(result.url, tempPath);
           const sendContent = { video: { url: tempPath } };
-          if (downloadResult.title) {
-            sendContent.caption = `🎵 ${downloadResult.title}`;
-          }
+          if (result.title) sendContent.caption = `🎵 ${result.title}`;
           await message.sendReply(sendContent);
         } finally {
           cleanTempFile(tempPath);
@@ -741,7 +747,7 @@ Module({
         await message.sendReply("_⚠️ Video bulunamadı, Lütfen tekrar deneyin!_");
       }
     } catch (error) {
-      console.error("TikTok indirme hatası:", error?.message);
+      console.error("TikTok indirme hatası:", error?.message || error);
       await message.sendReply("_⚠️ Bir şeyler ters gitti, Lütfen tekrar deneyin!_");
     }
   }
