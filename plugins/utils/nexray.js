@@ -268,7 +268,22 @@ async function downloadTiktok(url, options = {}) {
 
     if (res.data?.status && res.data?.data) {
       const d = res.data.data;
-      // HD linki varsa onu kullan, yoksa normal no watermark linki
+      // Yeni format: media array [{ quality: "SD"/"HD", url: "...", type: "video"/"video_hd" }]
+      if (d.media && Array.isArray(d.media)) {
+        const hdItem = d.media.find(m => m.quality === "HD" && m.url);
+        const sdItem = d.media.find(m => m.quality === "SD" && m.url);
+        const videoUrl = hdItem?.url || sdItem?.url;
+        if (videoUrl) {
+          return {
+            url: videoUrl,
+            title: d.text || d.title || "TikTok Videosu",
+            thumbnail: d.cover_link || d.thumbnail,
+            author: d.author_nickname || d.author || d.author_unique_id,
+            music: d.music_link
+          };
+        }
+      }
+      // Eski format: no_watermark_link_hd / no_watermark_link
       const videoUrl = d.no_watermark_link_hd || d.no_watermark_link;
       if (videoUrl) {
         return {
@@ -282,6 +297,32 @@ async function downloadTiktok(url, options = {}) {
     }
   } catch (e) {
     if (process.env.DEBUG) console.error("[Siputzx V2 Error]", e?.message);
+  }
+
+  // 1b. Siputzx TikTok GET API (alternatif yeni format)
+  try {
+    const res = await axios.get("https://api.siputzx.my.id/api/d/tiktok", { params: { url }, timeout: TIMEOUT });
+    if (res.data?.status && res.data?.data) {
+      const d = res.data.data;
+      // Yeni format: media array
+      if (d.media && Array.isArray(d.media)) {
+        const hdItem = d.media.find(m => m.quality === "HD" && m.url);
+        const sdItem = d.media.find(m => m.quality === "SD" && m.url);
+        const videoUrl = hdItem?.url || sdItem?.url;
+        if (videoUrl) {
+          return {
+            url: videoUrl,
+            title: d.title || "TikTok Videosu",
+            thumbnail: d.thumbnail,
+            author: d.author
+          };
+        }
+      }
+      // Eski format
+      if (d.play) return { url: d.play, title: d.title };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Siputzx GET]", e?.message);
   }
 
   // 2. TikWM API (ikincil güvenilir kaynak)

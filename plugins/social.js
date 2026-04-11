@@ -691,16 +691,23 @@ Module({
       try {
         const fallback = await siputGet("/api/d/tiktok", { url: videoLink });
         const r = fallback.data || fallback.result;
-        if (r?.play || r?.hdplay || r?.video || r?.url) {
-          const videoUrl = r.play || r.hdplay || r.video || r.url;
-          const tempPath = getTempPath(".mp4");
-          try {
-            await saveToDisk(videoUrl, tempPath);
-            await message.sendReply({ video: { url: tempPath } });
-          } finally {
-            cleanTempFile(tempPath);
+        // New API format: { media: [{ quality: "SD"/"HD", url: "...", type: "video"/"video_hd" }] }
+        const mediaArr = r?.media;
+        if (mediaArr && Array.isArray(mediaArr)) {
+          // Prefer HD quality, fallback to SD
+          const hdItem = mediaArr.find(m => m.quality === "HD" && m.url);
+          const sdItem = mediaArr.find(m => m.quality === "SD" && m.url);
+          const videoUrl = hdItem?.url || sdItem?.url;
+          if (videoUrl) {
+            const tempPath = getTempPath(".mp4");
+            try {
+              await saveToDisk(videoUrl, tempPath);
+              await message.sendReply({ video: { url: tempPath } });
+            } finally {
+              cleanTempFile(tempPath);
+            }
+            return;
           }
-          return;
         }
       } catch (_) { }
       try {
