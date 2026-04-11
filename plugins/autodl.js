@@ -536,11 +536,11 @@ Module({
   });
 
 Module({
-  pattern: "otodl ?(.*)",
+  pattern: "otoindir ?(.*)",
   fromMe: true,
   onlyAdmin: true,
   desc: "Belirlediğiniz sohbetlerde veya tüm gruplarda sosyal medya bağlantılarını otomatik olarak algılar ve medyayı indirir.",
-  usage: ".otodl | .otodl aç/kapat | .otodl durum",
+  usage: ".otoindir | .otoindir aç/kapat | .otoindir durum",
 },
   async (message, match) => {
     const input = match[1]?.trim();

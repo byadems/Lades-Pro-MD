@@ -57,7 +57,7 @@ Module({
       "👀 .vv\nTek seferlik görüntülenebilen medyayı gösterir.\n\n" +
       "📲 .dc\nDestek grubu iletişim bilgilerini gösterir.\n\n" +
       "🔗 .bağla\nBotu kapatır.\n\n" +
-      "🔄 .otodl\nOtomatik indirme özelliğini aç/kapat.\n\n" +
+      "🔄 .otoindir\nOtomatik indirme özelliğini aç/kapat.\n\n" +
       "🔄 .ybaşlat|reload|reboot\nBotu yeniden başlatır.\n\n" +
       "🔄 .güncelle\nBot'u günceller.\n\n" +
       "📦 .modülyükle\nHarici bir modül yükler.\n\n" +
@@ -84,8 +84,7 @@ Module({
       "🖼️ .setimage\nBot resmini ayarlar.\n\n" +
       "🧪 .testalive\nMevcut çevrimiçi mesajını test eder.\n\n" +
       "📊 .mesajlar\nÜyelerin mesaj istatistiklerini gösterir.\n\n" +
-      "📉 .inactive\nAktif olmayan üyeleri listeler.\n\n" +
-      "👥 .üyetemizle\nAktif olmayan üyeleri temizler.\n\n" +
+      "👥 .üyetemizle\nAktif olmayan üyeleri tespit eder / çıkarır.\n\n" +
       "👥 .users\nKullanıcı listesini gösterir.\n\n" +
       "🚫 .bahsetme\nBahsetmeyi engeller.\n\n" +
       "🔧 *GRUP YÖNETİM KOMUTLARI*\n" +
@@ -192,10 +191,10 @@ Module({
       "📳 .sondeprem\nSon depremi gösterir.\n\n" +
       "🎓 .bilgikaçnet\nÜniversite bölümleri hakkında bilgi verir.\n\n" +
       "💬 *SOHBET & MESAJ KOMUTLARI*\n" +
-      "👋 .welcome\nHoş geldiniz mesajı ayarlar.\n\n" +
-      "👋 .goodbye\nGörüşürüz mesajı ayarlar.\n\n" +
-      "🧪 .testwelcome\nHoş geldiniz mesajını test eder.\n\n" +
-      "🧪 .testgoodbye\nGörüşürüz mesajını test eder.\n\n" +
+      "👋 .karşıla\nHoş geldiniz mesajı ayarlar.\n\n" +
+      "👋 .elveda\nGörüşürüz mesajı ayarlar.\n\n" +
+      "🧪 .karşılatest\nHoş geldiniz mesajını test eder.\n\n" +
+      "🧪 .elvedatest\nGörüşürüz mesajını test eder.\n\n" +
       "👑 *KURUCU & GELŞTRC KOMUTLARI*\n" +
       " .değişkengetir\nDeğişken getirir.\n\n" +
       "🗑️ .değişkensil\nDeğişken siler.\n\n" +

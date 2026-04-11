@@ -1,6 +1,7 @@
 const { Module } = require("../main");
 const fs = require("fs");
 const path = require("path");
+const axios = require("axios");
 const {
   downloadVideo,
   downloadAudio,
@@ -14,6 +15,15 @@ const nexray = require("./utils/nexray");
 const config = require("../config");
 const { bytesToSize: formatBytes } = require("./utils");
 const { extractUrls, validateUrl } = require("../core/helpers");
+
+const SIPUTZX_BASE = "https://api.siputzx.my.id";
+
+async function siputGet(path, params = {}) {
+  const url = `${SIPUTZX_BASE}${path}`;
+  const res = await axios.get(url, { params, timeout: 30000, validateStatus: () => true });
+  if (res.data && res.data.status) return res.data;
+  throw new Error(res.data?.error || "API yanıt vermedi");
+}
 
 const VIDEO_SIZE_LIMIT = 150 * 1024 * 1024;
 
@@ -109,6 +119,21 @@ Module({
         return await message.edit("_✅ İndirme tamamlandı!_", message.jid, downloadMsg.key);
       }
     } catch (error) {
+      // Fallback: Siputzx API
+      try {
+        if (isUrl) {
+          const fallback = await siputGet("/api/d/spotify", { url: extractedUrls[0] });
+          const r = fallback.data || fallback.result;
+          if (r?.url || r?.download || r?.audio) {
+            const audioUrl = r.url || r.download || r.audio;
+            await message.client.sendMessage(message.jid, {
+              audio: { url: audioUrl },
+              mimetype: "audio/mpeg",
+            }, { quoted: message.data });
+            return;
+          }
+        }
+      } catch (_) { }
       console.error("Spotify indirme hatası:", error);
       if (downloadMsg) {
         await message.edit("_❌ Spotify işlemi başarısız oldu!_", message.jid, downloadMsg.key);

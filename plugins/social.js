@@ -15,6 +15,15 @@ const botConfig = require("../config");
 const axios = require("axios");
 const { saveToDisk, getTempPath, cleanTempFile, extractUrls, validateUrl, isMediaImage, readMp4Dimensions } = require("../core/helpers");
 
+const SIPUTZX_BASE = "https://api.siputzx.my.id";
+
+async function siputGet(path, params = {}) {
+  const url = `${SIPUTZX_BASE}${path}`;
+  const res = await axios.get(url, { params, timeout: 30000, validateStatus: () => true });
+  if (res.data && res.data.status) return res.data;
+  throw new Error(res.data?.error || "API yanıt vermedi");
+}
+
 async function checkRedirect(url) {
   try {
     let split_url = url.split("/");
@@ -85,6 +94,20 @@ Module({
             allMediaUrls.push(...downloadResult);
           }
         } catch (err) {
+          // Fallback: Siputzx API
+          try {
+            const fallback = await siputGet("/api/d/igdl", { url });
+            const r = fallback.data || fallback.result;
+            if (r) {
+              const items = Array.isArray(r) ? r : [r];
+              for (const item of items.slice(0, 5)) {
+                const mediaUrl = item.url || item.download || item;
+                if (typeof mediaUrl === "string" && mediaUrl.startsWith("http")) {
+                  allMediaUrls.push(mediaUrl);
+                }
+              }
+            }
+          } catch (_) { }
           try {
             const fallback = await nexray.downloadInstagram(url);
             if (fallback?.length) allMediaUrls.push(...fallback);
@@ -195,6 +218,21 @@ Module({
         }
       }
     } catch (e) {
+      // Fallback: Siputzx API
+      try {
+        const fallback = await siputGet("/api/d/facebook", { url: videoLink });
+        const r = fallback.data || fallback.result;
+        if (r?.url || r?.video || r?.hd || r?.sd) {
+          const videoUrl = r.hd || r.sd || r.url || r.video;
+          const tempPath = getTempPath(".mp4");
+          try {
+            await saveToDisk(typeof videoUrl === "object" ? videoUrl.url : videoUrl, tempPath);
+            return await message.sendReply({ video: { url: tempPath } });
+          } finally {
+            cleanTempFile(tempPath);
+          }
+        }
+      } catch (_) { }
       try {
         const fallback = await nexray.downloadFacebook(videoLink);
         if (fallback?.url) {
@@ -394,6 +432,23 @@ Module({
       try {
         const url = await nexray.downloadPinterest(userQuery);
         if (!url) {
+          // Fallback: Siputzx API
+          try {
+            const fallback = await siputGet("/api/d/pinterest", { url: userQuery });
+            const r = fallback.data || fallback.result;
+            if (r?.url || r?.image || r?.video) {
+              const mediaUrl = r.url || r.image || r.video;
+              const isImage = !mediaUrl.includes(".mp4") && r.type !== "video";
+              const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
+              try {
+                await saveToDisk(mediaUrl, tempPath);
+                await message.sendReply({ [isImage ? "image" : "video"]: { url: tempPath } });
+              } finally {
+                cleanTempFile(tempPath);
+              }
+              return;
+            }
+          } catch (_) { }
           return await message.sendReply("_❌ Bu bağlantı için indirilebilir medya bulunamadı veya sunucu cevap vermiyor_");
         }
 
@@ -529,6 +584,22 @@ Module({
         await message.sendReply("_⚠️ Bir şeyler ters gitti, Lütfen tekrar deneyin!_");
       }
     } catch (error) {
+      // Fallback: Siputzx API
+      try {
+        const fallback = await siputGet("/api/d/tiktok", { url: videoLink });
+        const r = fallback.data || fallback.result;
+        if (r?.play || r?.hdplay || r?.video || r?.url) {
+          const videoUrl = r.play || r.hdplay || r.video || r.url;
+          const tempPath = getTempPath(".mp4");
+          try {
+            await saveToDisk(videoUrl, tempPath);
+            await message.sendReply({ video: { url: tempPath } });
+          } finally {
+            cleanTempFile(tempPath);
+          }
+          return;
+        }
+      } catch (_) { }
       try {
         const fallback = await nexray.downloadTiktok(videoLink);
         if (fallback?.url) {
@@ -584,6 +655,22 @@ Module({
         cleanTempFile(tempPath);
       }
     } catch (e) {
+      // Fallback: Siputzx API
+      try {
+        const fallback = await siputGet("/api/d/capcut", { url });
+        const r = fallback.data || fallback.result;
+        if (r?.url || r?.video || r?.download) {
+          const videoUrl = r.url || r.video || r.download;
+          const tempPath = getTempPath(".mp4");
+          try {
+            await saveToDisk(videoUrl, tempPath);
+            await message.client.sendMessage(message.jid, { video: { url: tempPath }, caption: "*CapCut*" }, { quoted: message.data });
+          } finally {
+            cleanTempFile(tempPath);
+          }
+          return;
+        }
+      } catch (_) { }
       await message.sendReply(`❌ _CapCut videosu indirilemedi:_ ${e.message}`);
     }
   }

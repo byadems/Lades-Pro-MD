@@ -105,14 +105,14 @@ Module({
 // TikTok Profil Sorgulama
 // ══════════════════════════════════════════════════════
 Module({
-  pattern: "ttstalker ?(.*)",
+  pattern: "ttara ?(.*)",
   fromMe: false,
   desc: "TikTok kullanıcı profilini sorgular.",
-  usage: ".ttstalker kullaniciadi",
+  usage: ".ttara kullaniciadi",
   use: "profil-inceleme",
 }, async (message, match) => {
   const user = (match[1] || "").trim();
-  if (!user) return await message.sendReply("_Kullanıcı adı girin:_ `.ttstalker kullaniciadi`");
+  if (!user) return await message.sendReply("_Kullanıcı adı girin:_ `.ttara kullaniciadi`");
 
   try {
     const data = await siputGet("/api/stalk/tiktok", { user });
@@ -148,14 +148,14 @@ Module({
 // Instagram Profil Sorgulama
 // ══════════════════════════════════════════════════════
 Module({
-  pattern: "igstalker ?(.*)",
+  pattern: "igara ?(.*)",
   fromMe: false,
   desc: "Instagram kullanıcı profilini sorgular.",
-  usage: ".igstalker kullaniciadi",
+  usage: ".igara kullaniciadi",
   use: "profil-inceleme",
 }, async (message, match) => {
   const user = (match[1] || "").trim();
-  if (!user) return await message.sendReply("_Kullanıcı adı girin:_ `.igstalker kullaniciadi`");
+  if (!user) return await message.sendReply("_Kullanıcı adı girin:_ `.igara kullaniciadi`");
 
   try {
     const data = await siputGet("/api/stalk/instagram", { user });
@@ -192,14 +192,14 @@ Module({
 // Twitter/X Profil Sorgulama
 // ══════════════════════════════════════════════════════
 Module({
-  pattern: "(?:xstalker|twitterstalker) ?(.*)",
+  pattern: "(?:xara|twitterara) ?(.*)",
   fromMe: false,
   desc: "Twitter/X kullanıcı profilini sorgular.",
-  usage: ".xstalker kullaniciadi",
+  usage: ".xara kullaniciadi",
   use: "profil-inceleme",
 }, async (message, match) => {
   const user = (match[1] || "").trim();
-  if (!user) return await message.sendReply("_Kullanıcı adı girin:_ `.xstalker kullaniciadi`");
+  if (!user) return await message.sendReply("_Kullanıcı adı girin:_ `.xara kullaniciadi`");
 
   try {
     const data = await siputGet("/api/stalk/twitter", { user });
@@ -234,14 +234,14 @@ Module({
 // YouTube Profil Sorgulama
 // ══════════════════════════════════════════════════════
 Module({
-  pattern: "ytstalker ?(.*)",
+  pattern: "ytara ?(.*)",
   fromMe: false,
   desc: "YouTube kanal bilgilerini sorgular.",
-  usage: ".ytstalker kanaladi",
+  usage: ".ytara kanaladi",
   use: "profil-inceleme",
 }, async (message, match) => {
   const user = (match[1] || "").trim();
-  if (!user) return await message.sendReply("_Kanal adı girin:_ `.ytstalker kanaladi`");
+  if (!user) return await message.sendReply("_Kanal adı girin:_ `.ytara kanaladi`");
 
   try {
     const data = await siputGet("/api/stalk/youtube", { user });

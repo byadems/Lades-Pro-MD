@@ -8,6 +8,15 @@ const { saveToDisk, getTempPath, cleanTempFile, isMediaImage } = require("../cor
 const BASE = "https://api.nexray.web.id";
 const TIMEOUT = 30000;
 
+const SIPUTZX_BASE = "https://api.siputzx.my.id";
+
+async function siputGet(path, params = {}) {
+  const url = `${SIPUTZX_BASE}${path}`;
+  const res = await axios.get(url, { params, timeout: 30000, validateStatus: () => true });
+  if (res.data && res.data.status) return res.data;
+  throw new Error(res.data?.error || "API yanıt vermedi");
+}
+
 // Nexray API için kategorize edilmiş devre kesiciler (Circuit Breaker Pool)
 const breakers = new Map();
 
@@ -560,6 +569,19 @@ Module({
 
       await message.edit("_✅ İndirme tamamlandı!_", message.jid, statusMsg.key);
     } catch (e) {
+      // Fallback: Siputzx API
+      try {
+        const fallback = await siputGet("/api/d/soundcloud", { url });
+        const r = fallback.data || fallback.result;
+        if (r?.url || r?.download || r?.audio) {
+          const audioUrl = r.url || r.download || r.audio;
+          await message.client.sendMessage(message.jid, {
+            audio: { url: audioUrl },
+            mimetype: "audio/mpeg",
+          }, { quoted: message.data });
+          return;
+        }
+      } catch (_) { }
       console.error("SoundCloud indirme hatası:", e?.message);
       if (statusMsg) {
         await message.edit(`_❌ SoundCloud indirme başarısız:_ ${e.message}`, message.jid, statusMsg.key);

@@ -9,11 +9,11 @@ const {
 } = require("./utils/welcome-parser");
 
 Module({
-  pattern: "welcome ?(.*)",
+  pattern: "karşıla ?(.*)",
   fromMe: true,
   onlyAdmin: true,
   desc: "Yeni üye katıldığında gönderilecek olan grup karşılama mesajını özelleştirmenizi ve yönetmenizi sağlar.",
-  usage: ".welcome Merhaba $mention, $group grubuna hoş geldin! $pp\n.welcome aç/kapat\n.welcome getir\n.welcome sil", use: "grup",
+  usage: ".karşıla Merhaba $mention, $group grubuna hoş geldin! $pp\n.karşıla aç/kapat\n.karşıla getir\n.karşıla sil", use: "grup",
 },
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
@@ -28,12 +28,12 @@ Module({
 ℹ️ *Mevcut Durum:* ${status}
 
 💬 *Kullanım:*
-• \`.welcome <mesaj>\` - Karşılama mesajını ayarla
-• \`.welcome aç/kapat\` - Karşılamayı aç/kapat
-• \`.welcome getir\` - Mevcut mesajı görüntüle
-• \`.welcome sil\` - Karşılama mesajını sil
-• \`.welcome durum\` - Tüm grupların durumunu göster (sadece sahip)
-• \`.welcome yardım\` - Örneklerle ayrıntılı yardımı göster
+• \`.karşıla <mesaj>\` - Karşılama mesajını ayarla
+• \`.karşıla aç/kapat\` - Karşılamayı aç/kapat
+• \`.karşıla getir\` - Mevcut mesajı görüntüle
+• \`.karşıla sil\` - Karşılama mesajını sil
+• \`.karşıla durum\` - Tüm grupların durumunu göster (sadece sahip)
+• \`.karşıla yardım\` - Örneklerle ayrıntılı yardımı göster
 
 *Yer Tutucular:*
 • \`$mention\` - Kullanıcıyı etiketle
@@ -47,14 +47,14 @@ Module({
 • \`$time\` - Şu anki saat
 
 *Örnek:*
-\`.welcome Merhaba $mention! $group grubuna hoş geldin 🎉 $pp\`
-\`.welcome Hoş geldin $user! Harika grubumuzda artık $count üyeyiz! $gpp\``);
+\`.karşıla Merhaba $mention! $group grubuna hoş geldin 🎉 $pp\`
+\`.karşıla Hoş geldin $user! Harika grubumuzda artık $count üyeyiz! $gpp\``);
     }
 
     if (input === "aç") {
       const current = await welcome.get(message.jid);
       if (!current) {
-        return await message.sendReply("_⚙️ Karşılama mesajı ayarlanmamış! Önce şunu kullanarak bir tane ayarlayın:_\n*.welcome <mesajınız>*");
+        return await message.sendReply("_⚙️ Karşılama mesajı ayarlanmamış! Önce şunu kullanarak bir tane ayarlayın:_\n*.karşıla <mesajınız>*");
       }
       await welcome.toggle(message.jid, true);
       return await message.sendReply("_✅ Karşılama mesajları etkinleştirildi!_ ✅");
@@ -94,16 +94,16 @@ Module({
     }
 
     await welcome.set(message.jid, welcomeMessage);
-    await message.sendReply(`_Karşılama mesajı ayarlandı!_ ✅\n\n💡 _İpucu:_ \`.testwelcome\` _kullanın!_`);
+    await message.sendReply(`_Karşılama mesajı ayarlandı!_ ✅\n\n💡 _İpucu:_ \`.karşılatest\` _kullanın!_`);
   }
 );
 
 Module({
-  pattern: "goodbye ?(.*)",
+  pattern: "elveda ?(.*)",
   fromMe: true,
   onlyAdmin: true,
   desc: "Üye ayrıldığında gönderilecek olan grup veda mesajını özelleştirmenizi ve yönetmenizi sağlar.",
-  usage: ".goodbye [mesaj] | .goodbye aç/kapat",
+  usage: ".elveda [mesaj] | .elveda aç/kapat",
   use: "grup",
 },
   async (message, match) => {
@@ -115,7 +115,7 @@ Module({
     if (!input) {
       const current = await goodbye.get(message.jid);
       const status = current?.enabled ? "Açık ✅" : "Kapalı ❌";
-      return await message.sendReply(`🥺 *Veda Mesajı Ayarları*\nℹ️ *Mevcut Durum:* ${status}\n\n*Kullanım:* .goodbye <mesaj>, .goodbye aç/kapat, .goodbye sil`);
+      return await message.sendReply(`🥺 *Veda Mesajı Ayarları*\nℹ️ *Mevcut Durum:* ${status}\n\n*Kullanım:* .elveda <mesaj>, .elveda aç/kapat, .elveda sil`);
     }
 
     if (input === "aç") {
@@ -148,11 +148,11 @@ Module({
 );
 
 Module({
-  pattern: "testwelcome ?(.*)",
+  pattern: "karşılatest ?(.*)",
   fromMe: true,
   onlyAdmin: true,
   desc: "Mevcut gruptaki karşılama mesajının nasıl göründüğünü denemeniz için bir test mesajı gönderir.",
-  usage: ".testwelcome",
+  usage: ".karşılatest",
   use: "grup",
 },
   async (message) => {
@@ -171,11 +171,11 @@ Module({
 );
 
 Module({
-  pattern: "testgoodbye ?(.*)",
+  pattern: "elvedatest ?(.*)",
   fromMe: true,
   onlyAdmin: true,
   desc: "Mevcut gruptaki veda mesajının nasıl göründüğünü denemeniz için bir test mesajı gönderir.",
-  usage: ".testgoodbye",
+  usage: ".elvedatest",
   use: "grup",
 },
   async (message) => {
