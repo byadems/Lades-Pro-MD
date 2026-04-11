@@ -269,9 +269,11 @@ async function downloadTiktok(url, options = {}) {
     if (res.data?.status && res.data?.data) {
       const d = res.data.data;
       
-      // Type 3: Photo slideshow (slides) - 14 fotoğraflık albüm
-      if (d.slides && Array.isArray(d.slides)) {
-        const imageUrls = d.slides.map(s => s.url).filter(Boolean);
+      // Type 3: Photo slideshow (slides) - object format
+      if (d.slides && typeof d.slides === "object" && !Array.isArray(d.slides)) {
+        const imageUrls = Object.values(d.slides)
+          .filter(s => s && s.url)
+          .map(s => s.url);
         if (imageUrls.length > 0) {
           return {
             type: "album",
@@ -309,9 +311,11 @@ async function downloadTiktok(url, options = {}) {
     if (res.data?.status && res.data?.data) {
       const d = res.data.data;
       
-      // Slides format (type 3 - photo slideshow)
-      if (d.slides && Array.isArray(d.slides)) {
-        const imageUrls = d.slides.map(s => s.url).filter(Boolean);
+      // Slides format (type 3 - photo slideshow) - object format
+      if (d.slides && typeof d.slides === "object" && !Array.isArray(d.slides)) {
+        const imageUrls = Object.values(d.slides)
+          .filter(s => s && s.url)
+          .map(s => s.url);
         if (imageUrls.length > 0) {
           return {
             type: "album",
@@ -395,9 +399,11 @@ async function downloadTiktok(url, options = {}) {
     }, options.signal));
     if (res.data?.status && res.data?.data) {
       const d = res.data.data;
-      // Slides (photo album)
-      if (d.slides && Array.isArray(d.slides)) {
-        const imageUrls = d.slides.map(s => s.url).filter(Boolean);
+      // Slides (photo album) - object format
+      if (d.slides && typeof d.slides === "object" && !Array.isArray(d.slides)) {
+        const imageUrls = Object.values(d.slides)
+          .filter(s => s && s.url)
+          .map(s => s.url);
         if (imageUrls.length > 0) {
           return {
             type: "album",
