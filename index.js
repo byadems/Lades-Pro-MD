@@ -20,7 +20,7 @@ const { logger } = config;
 const { initializeDatabase, WhatsappSession } = require("./core/database");
 const { BotManager } = require("./core/manager");
 const { suppressLibsignalLogs, startTempCleanup } = require("./core/helpers");
-const { applyDatabaseCaching, shutdownCache } = require("./core/db-cache");
+const { shutdownCache } = require("./core/db-cache");
 const { getAllGroups } = require("./core/store");
 const { setupDashboardBridge } = require("./core/dashboard-bridge");
 
@@ -60,9 +60,7 @@ try {
   console.log("ffmpeg config skipped");
 }
 
-if (fs.existsSync("./config.env")) require("dotenv").config({ path: "./config.env" });
 suppressLibsignalLogs();
-// startTempCleanup(); // Redundant, bot.js handles it
 runtime.startTime = Date.now();
 
 const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 450;
@@ -196,7 +194,7 @@ async function startSessionCleanup() {
   try {
     await checkSingleInstance();
     await initializeDatabase();
-    applyDatabaseCaching();
+    logger.info("Bot is initializing...");
     await startSessionCleanup();
     // startKeepAlive(); // Still disabled to avoid port conflict, but optimized for when needed
 

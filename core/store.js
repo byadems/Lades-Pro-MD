@@ -17,19 +17,29 @@ const scheduler = require("./scheduler");
 const messageStore = new LRUCache({
   max: 50,   // max 50 active groups/chats in memory
   ttl: 4 * 60 * 60 * 1000, // 4h TTL
+  dispose: (bucket, jid) => {
+    // Clean reverse index when LRU evicts a bucket
+    if (bucket instanceof Map) {
+      for (const msgId of bucket.keys()) msgIdIndex.delete(msgId);
+    }
+  },
 });
 
+// Reverse index: msgId → jid (O(1) lookup for getFullMessage)
+const msgIdIndex = new Map();
 const MAX_MSGS_PER_JID = 100;
-let totalMessagesCached = 0;
 
 function storeMessage(jid, message) {
   if (!jid || !message || !message.key) return;
   let bucket = messageStore.get(jid);
   if (!bucket) { bucket = new Map(); messageStore.set(jid, bucket); }
-  bucket.set(message.key.id, message);
+  const msgId = message.key.id;
+  bucket.set(msgId, message);
+  msgIdIndex.set(msgId, jid); // O(1) reverse index
   if (bucket.size > MAX_MSGS_PER_JID) {
     const firstKey = bucket.keys().next().value;
     bucket.delete(firstKey);
+    msgIdIndex.delete(firstKey);
   }
 }
 
@@ -132,11 +142,12 @@ function getStoreStats() {
 
 async function getFullMessage(msgId) {
   try {
-    // msgId might come with suffix or prefix, search accurately
     const id = (msgId || "").split("_")[0];
     if (!id || id === "undefined" || id === "null") return { found: false };
 
-    for (const jid of messageStore.keys()) {
+    // O(1) lookup via reverse index
+    const jid = msgIdIndex.get(id);
+    if (jid) {
       const bucket = messageStore.get(jid);
       if (bucket && bucket.has(id)) {
         return { found: true, messageData: bucket.get(id) };
@@ -155,7 +166,6 @@ async function fetchRecentChats() {
 
 async function getTotalUserCount() {
   try {
-    const { UserData } = require("./database");
     return await UserData.count();
   } catch (err) {
     return 0;
@@ -164,7 +174,6 @@ async function getTotalUserCount() {
 
 async function fetchFromStore(jid) {
   try {
-    const { MessageStats, UserData } = require("./database");
     return await MessageStats.findAll({
       where: { jid },
       include: [{ model: UserData, as: "User" }],
@@ -177,7 +186,6 @@ async function fetchFromStore(jid) {
 
 async function getTopUsers(jid, limit = 10) {
   try {
-    const { MessageStats, UserData } = require("./database");
     return await MessageStats.findAll({
       where: { jid },
       order: [["totalMessages", "DESC"]],
@@ -192,8 +200,6 @@ async function getTopUsers(jid, limit = 10) {
 
 async function getGlobalTopUsers(limit = 10) {
   try {
-    const { MessageStats, UserData, sequelize } = require("./database");
-    // Global stats: sum totals for each user across all chats
     const results = await MessageStats.findAll({
       attributes: [
         "userJid",

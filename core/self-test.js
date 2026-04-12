@@ -14,7 +14,6 @@
 const path = require("path");
 const fs = require("fs");
 
-const STATS_FILE = path.join(__dirname, "../sessions/cmd-stats.json");
 const TIMEOUT_MS = 10000;   // Accelerated command timeout
 const BATCH_SIZE = 5;
 const BATCH_DELAY = 150;
@@ -294,7 +293,9 @@ async function runSelfTest(sock) {
     isGroup: false
   });
 
-  if (!global.testProgress) global.testProgress = {};
+  const runtime = require("./runtime");
+
+  if (!runtime.testProgress) runtime.testProgress = {};
 
   // Global Timeout: Test suite 180 saniyeyi (3dk) geçemez
   const GLOBAL_SUITE_TIMEOUT = 180000;
@@ -319,13 +320,13 @@ async function runSelfTest(sock) {
 
         // Sadece ilk komutu progress olarak göster ama hepsini çalıştır
         if (j === 0) {
-          global.testProgress = {
+          runtime.testProgress = {
             currentCommand: cmdName,
             currentIndex: cmdIndex,
             totalCommands: queue.length,
             status: 'testing'
           };
-          process.emit('test_progress', global.testProgress);
+          process.emit('test_progress', runtime.testProgress);
         }
 
         return testCommand(cmd, prefix, ownJid);
@@ -381,13 +382,13 @@ async function runSelfTest(sock) {
 
   logger.info(report);
 
-  global.testProgress = {
+  runtime.testProgress = {
     currentCommand: null,
     currentIndex: queue.length,
     totalCommands: queue.length,
     status: 'completed'
   };
-  process.emit('test_progress', global.testProgress);
+  process.emit('test_progress', runtime.testProgress);
 
   process.env.IS_SELF_TEST = 'false';
 

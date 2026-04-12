@@ -72,9 +72,6 @@ async function migrateJsonToSql() {
   }
 }
 
-// Run migration on load
-migrateJsonToSql();
-
 // ─────────────────────────────────────────────────────────
 //  Metrics Batching
 // ─────────────────────────────────────────────────────────
@@ -130,8 +127,8 @@ async function getRuntimeStats() {
       totalMessages: msgMetric ? parseInt(msgMetric.value) : 0,
       totalCommands: cmdMetric ? parseInt(cmdMetric.value) : 0,
       activeUsers: userCount,
-      managedGroups: groupCount,
-      uptime: Math.floor((Date.now() - _runtimeStartTime) / 1000)
+      modules: commands.length,
+      uptime: Math.floor((Date.now() - runtime.startTime) / 1000)
     };
   } catch (e) {
     return { totalMessages: 0, totalCommands: 0, activeUsers: 0, managedGroups: 0, uptime: 0 };
@@ -188,6 +185,9 @@ scheduler.register('command_metrics_flush', async () => {
   }
 }, 30000);
 
+/**
+ * Function factory to build the handler objects consistently.
+ */
 async function getStats() {
   const rows = await CommandStat.findAll();
   const stats = {};
@@ -204,17 +204,6 @@ async function getStats() {
 }
 
 /**
- * Extracts the pure phone number from a Baileys JID.
- * e.g. "121590692456:80@s.whatsapp.net" -> "+121590692456"
- *      "905391234567@s.whatsapp.net"      -> "+905391234567"
- */
-function jidToPhone(jid) {
-  if (!jid) return 'Bilinmiyor';
-  const num = jid.split('@')[0].split(':')[0]; // strip domain and device
-  return '+' + num;
-}
-
-/**
  * Extracts and standardizes numerical ID for universal comparison (phone or LID).
  */
 function getNumericalId(jid) {
@@ -223,13 +212,6 @@ function getNumericalId(jid) {
   // Strip device: "12345:1" -> "12345"
   // Strip leading non-digits (like +)
   return jid.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
-}
-
-/**
- * Standardizes a JID for comparison (legacy support)
- */
-function cleanJid(jid) {
-  return getNumericalId(jid);
 }
 
 // ─────────────────────────────────────────────────────────
@@ -552,7 +534,9 @@ class BaseMessage {
 // ─────────────────────────────────────────────────────────
 //  Command registry
 const commands = [];
-const commandMap = new Map();
+const commandMap = new Map(); // Store handlers organized by prefix / trigger.
+
+// Store legacy plugins correctly
 const eventHandlers = new Map();
 // ── Command Matching Loop (Removed from global scope) ──────────────────
 // on: event handler'lar — text/message/group/groupParticipants tiplerine göre
@@ -996,18 +980,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
       }
     }
 
-    // Input Validation (Sanitizasyon) katmanı
-    const sanitizeInput = (str) => {
-      if (typeof str !== 'string') return str;
-      // SQL/NoSQL Injection ve temel XSS koruması için tehlikeli karakterleri escape et
-      return str.replace(/['";\\]/g, '\\$&').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    };
 
-    if (message.text) {
-      // Metni temizle ama komut parametrelerini bozma (komut prefixleri vs için)
-      // Ancak loglama ve veritabanı sorgularında bu sanitizeInput kullanılmalıdır.
-      // message.text = sanitizeInput(message.text);
-    }
 
     // HANDLERS (Multiple Prefix) Support
     const prefixes = (process.env.HANDLERS || config.PREFIX || ".").split("");

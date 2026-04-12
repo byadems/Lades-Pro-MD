@@ -273,15 +273,15 @@ async function initializeDatabase() {
     logger.warn(`Migration error: ${e.message}`);
   }
 
-  for (const model of models) {
-    try {
-      if (model.sync) {
-        await model.sync(); // Using basic sync; schema changes must be managed via migrations
-      }
-      logger.info(`Table synced: ${model.getTableName ? model.getTableName() : 'unknown'}`);
-    } catch (e) {
-      logger.warn(`Tablo senkronizasyonunda hata oluştu: ${e.message}`);
-    }
+  // Sync schema in parallel for faster startup
+  try {
+    await Promise.allSettled(
+      models.filter(m => m && m.sync).map(model => 
+        model.sync().then(() => logger.info(`Table synced: ${model.getTableName ? model.getTableName() : 'unknown'}`))
+      )
+    );
+  } catch (e) {
+    logger.warn(`Tablo senkronizasyonunda hata oluştu: ${e.message}`);
   }
 
   logger.info("Database initialization complete.");

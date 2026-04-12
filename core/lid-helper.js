@@ -3,6 +3,41 @@
 const { logger } = require("../config");
 const config = require("../config");
 
+// ─────────────────────────────────────────────────────────
+//  Bot identity helpers (shared with handler.js)
+// ─────────────────────────────────────────────────────────
+function getBotJid(client) {
+  if (client.user && client.user.id) {
+    return client.user.id.split(":")[0] + "@s.whatsapp.net";
+  }
+  return null;
+}
+
+function getBotLid(client) {
+  if (client.user && client.user.lid) {
+    return client.user.lid.split(":")[0] + "@lid";
+  }
+  return null;
+}
+
+function getBotNumericIds(client) {
+  if (!client || !client.user) return [];
+  const jidNum = getBotJid(client) ? getBotJid(client).split('@')[0] : null;
+  const lidNum = getBotLid(client) ? getBotLid(client).split('@')[0] : null;
+  return [...new Set([jidNum, lidNum].filter(Boolean))];
+}
+
+/**
+ * Checks if the given identifier belongs to this bot instance.
+ * Compares numeric IDs from both JID and LID.
+ */
+function isBotIdentifier(identifier, client) {
+  if (!identifier) return false;
+  const targetNumeric = (identifier || '').split('@')[0].split(':')[0];
+  if (!targetNumeric) return false;
+  return getBotNumericIds(client).includes(targetNumeric);
+}
+
 /**
  * Rakamları ayrıştırır
  */
@@ -110,5 +145,9 @@ async function resolveLidToPn(client, lidJid) {
 module.exports = {
   migrateSudoToLID,
   resolveLidToPn,
-  getNumericalIdLocal
+  getNumericalIdLocal,
+  isBotIdentifier,
+  getBotJid,
+  getBotLid,
+  getBotNumericIds,
 };

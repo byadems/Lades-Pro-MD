@@ -21,7 +21,7 @@ const state = {
     commands: 0,
     users: new LRUCache({ max: 2000 }),
     groups: new LRUCache({ max: 500 }),
-    /** Global group cache (Point 8) */
+    /** Global group cache */
     allGroupsCache: null,
     allGroupsLastFetch: 0,
     errors: 0,
@@ -36,8 +36,11 @@ const state = {
   /** LRU cache for LID -> PN resolutions (Avoid redundant auth-state queries) */
   lidCache: new LRUCache({ max: 5000, ttl: 1000 * 60 * 60 * 24 }), // 24h cache
 
-  /** Batch for command performance metrics (recordStat) - Point 14 */
-  commandStatsBatch: new LRUCache({ max: 500 }),
+  /** Batch for command performance metrics — plain Map prevents data loss from LRU eviction before flush */
+  commandStatsBatch: new Map(),
+
+  /** Self-test progress (moved from global namespace) */
+  testProgress: null,
 };
 
 module.exports = state;

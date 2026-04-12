@@ -11,6 +11,7 @@ const os = require("os");
 const pLimit = require("p-limit");
 const { getCachedAdmins, setCachedAdmins } = require("./db-cache");
 const axios = require("axios");
+const { logger } = require("../config");
 
 const ffmpegLimit = pLimit(3); // Global FFmpeg concurrency limit
 const fsp = fs.promises;
@@ -354,6 +355,14 @@ function isMediaImage(url) {
 }
 
 
+/**
+ * Extracts and standardizes numerical ID for universal comparison (phone or LID).
+ */
+function getNumericalId(jid) {
+  if (!jid) return '';
+  return jid.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
+}
+
 module.exports = {
   TEMP_DIR, ensureTempDir, getTempPath, cleanTempFile,
   startTempCleanup, stopTempCleanup,
@@ -364,5 +373,5 @@ module.exports = {
   suppressLibsignalLogs,
   getMessageText, getQuotedMsg, getMentioned,
   loadBaileys, getTempSubdir, saveToDisk, isMediaImage, readMp4Dimensions,
-  ffmpegLimit
+  ffmpegLimit, getNumericalId
 };

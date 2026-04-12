@@ -127,10 +127,6 @@ function getCacheStats() {
 // ─────────────────────────────────────────────────────────
 //  Apply caching to models (called from index.js)
 // ─────────────────────────────────────────────────────────
-function applyDatabaseCaching() {
-  logger.info("DB cache layer initialized.");
-}
-
 function shutdownCache() {
   groupCache.clear();
   userCache.clear();
@@ -144,6 +140,6 @@ module.exports = {
   getUserData, updateUserData, invalidateUser,
   getConfig, setConfig, invalidateConfig,
   getFilters, invalidateFilters,
-  getCacheStats, applyDatabaseCaching, shutdownCache,
+  getCacheStats, shutdownCache,
   getCachedAdmins, setCachedAdmins, invalidateAdmins
 };
