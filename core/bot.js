@@ -8,18 +8,24 @@
 
 const path = require("path");
 const fs = require("fs");
+const fsp = fs.promises;
 const { logger, ...config } = require("../config");
 const { getAuthState, displayQR } = require("./auth");
 const { bindToSocket, fetchGroupMeta } = require("./store");
 const { handleMessage, handleGroupUpdate, handleGroupParticipantsUpdate, loadPlugins } = require("./handler");
 const { getNumericalId, getMessageText, isGroup, suppressLibsignalLogs, startTempCleanup, stopTempCleanup, loadBaileys } = require("./helpers");
 const runtime = require("./runtime");
-// Point 17: Standardizing on p-queue for all concurrency.
-// ESM-Bridging: PQueue load is async.
-let _pqPromise = import('p-queue').then(({ default: PQueue }) => new PQueue({ concurrency: 5 }));
-
+const { WhatsappSession, sequelize } = require("./database");
+const { migrateSudoToLID } = require("./lid-helper");
+const { startSchedulers } = require("./schedulers");
+const { runSelfTest } = require("./self-test");
+let _queue = null;
 async function getMessageQueue() {
-  return await _pqPromise;
+  if (!_queue) {
+    const { default: PQueue } = await import('p-queue');
+    _queue = new PQueue({ concurrency: 5 });
+  }
+  return _queue;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -46,25 +52,43 @@ async function createBot(sessionId = "lades-session", options = {}) {
   } = await loadBaileys();
 
   // --- SESSION MIGRATION & HEALTH CHECK ---
-  const { WhatsappSession } = require("./database");
   const sessionsDir = path.join(__dirname, "..", "sessions", sessionId);
   const credsFile = path.join(sessionsDir, "creds.json");
   
   // 1. Migration: If file exists but DB is empty, migrate to DB
-  try {
-    const existingInDb = await WhatsappSession.findByPk(sessionId);
-    if (!existingInDb && fs.existsSync(credsFile)) {
-      logger.info(`Oturum senkronizasyonu: Yerel dosyadan veri tabanına aktarılıyor (${sessionId})...`);
-      const creds = JSON.parse(fs.readFileSync(credsFile, 'utf-8'));
-      await WhatsappSession.create({ 
-        sessionId, 
-        sessionData: JSON.stringify({ creds, keys: {} }) 
+  const MIGRATION_FLAG = path.join(sessionsDir, ".migrated");
+  const credsExists = await fsp.access(credsFile).then(() => true).catch(() => false);
+  const flagExists = await fsp.access(MIGRATION_FLAG).then(() => true).catch(() => false);
+
+  if (credsExists && !flagExists) {
+    try {
+      let shouldMove = false;
+      
+      await sequelize.transaction(async (t) => {
+        // Use lock to prevent concurrent migrations during multi-instance boot
+        const existingInDb = await WhatsappSession.findByPk(sessionId, { transaction: t, lock: true });
+        if (!existingInDb) {
+          logger.info(`Oturum senkronizasyonu: Yerel dosyadan veri tabanına aktarılıyor (${sessionId})...`);
+          const data = await fsp.readFile(credsFile, 'utf-8');
+          const creds = JSON.parse(data);
+          await WhatsappSession.create({ 
+            sessionId, 
+            sessionData: JSON.stringify({ creds, keys: {} }) 
+          }, { transaction: t });
+          shouldMove = true;
+        }
       });
-      // Rename old folder to avoid double migration
-      fs.renameSync(sessionsDir, sessionsDir + "_migrated_" + Date.now());
+
+      if (shouldMove) {
+        // Create flag to prevent future re-migration attempts
+        await fsp.writeFile(MIGRATION_FLAG, Date.now().toString());
+        // Rename folder only after DB commit
+        await fsp.rename(sessionsDir, sessionsDir + "_migrated_" + Date.now());
+        logger.info("Oturum taşıma başarıyla tamamlandı.");
+      }
+    } catch (e) {
+      logger.warn({ err: e.message }, "Oturum taşıma sırasında hata oluştu");
     }
-  } catch (e) {
-    logger.warn({ err: e.message }, "Oturum taşıma sırasında hata oluştu");
   }
 
   const { state, saveCreds, clearState } = await getAuthState(config, sessionId);
@@ -80,15 +104,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
     logger.info(`[${sessionId}] Geçerli oturum bulunamadı. Dashboard üzerinden giriş yapılması bekleniyor...`);
     // Return a minimal fake socket so manager doesn't crash
     // The dashboard will handle the actual login flow
-    const { EventEmitter } = require('events');
-    const fakeSock = Object.assign(new EventEmitter(), {
-      user: null,
-      ws: { close: () => {}, readyState: 3 },
-      ev: new EventEmitter(),
-      sendMessage: async () => { throw new Error("Oturum henüz başlatılmadı. Lütfen cihaz bağlayın."); },
-      groupMetadata: async () => ({}),
-      __isWaitingForLogin: true,
-    });
+    const fakeSock = createFakeSocket(sessionId);
     // Emit events that manager needs
     setTimeout(() => {
       fakeSock.ev.emit('connection.update', { connection: 'waiting_for_login' });
@@ -266,7 +282,6 @@ async function createBot(sessionId = "lades-session", options = {}) {
       
       // MIGRATION: Convert SUDO numbers to LIDs (Raganork-MD style)
       try {
-        const { migrateSudoToLID } = require("./lid-helper");
         await migrateSudoToLID(sock);
       } catch (e) {
         logger.warn({ err: e.message }, "SUDO to LID migration failed");
@@ -278,7 +293,6 @@ async function createBot(sessionId = "lades-session", options = {}) {
       startTempCleanup();
 
       // Load plugins and schedulers on first connect
-      const { startSchedulers } = require("./schedulers");
       const pluginsDir = path.join(__dirname, "..", "plugins");
       await loadPlugins(pluginsDir);
       await startSchedulers(sock);
@@ -288,7 +302,6 @@ async function createBot(sessionId = "lades-session", options = {}) {
         selfTestRan = true;
         setTimeout(async () => {
           try {
-            const { runSelfTest } = require("./self-test");
             await runSelfTest(sock);
           } catch (e) {
             logger.warn({ err: e.message }, "Self-test atlandı");
@@ -431,3 +444,38 @@ async function createBot(sessionId = "lades-session", options = {}) {
 }
 
 module.exports = { createBot };
+
+/**
+ * createFakeSocket
+ * Returns a Proxy that mimics a Baileys socket to prevent crashes while waiting for login.
+ */
+function createFakeSocket(sessionId) {
+  const { EventEmitter } = require('events');
+  const ev = new EventEmitter();
+  
+  return new Proxy(ev, {
+    get(target, prop) {
+      if (prop === 'ev') return ev;
+      if (prop === 'user') return null;
+      if (prop === '__isWaitingForLogin') return true;
+      if (prop === 'ws') return { close: () => { }, readyState: 3 };
+      
+      // Methods that must return promises to avoid 'await' crashes
+      const asyncMethods = ['sendMessage', 'groupMetadata', 'profilePictureUrl', 'groupFetchAllParticipating'];
+      if (asyncMethods.includes(prop)) {
+        return async () => {
+          if (prop === 'sendMessage') throw new Error("Oturum henüz başlatılmadı. Lütfen cihaz bağlayın.");
+          if (prop === 'groupMetadata') return { participants: [] };
+          return null;
+        };
+      }
+
+      // Default for unknown methods/props
+      if (typeof prop === 'string') {
+        logger.debug({ sessionId, prop }, `FakeSocket: ${prop} called but not active`);
+      }
+      
+      return typeof target[prop] === 'function' ? target[prop].bind(target) : target[prop];
+    }
+  });
+}

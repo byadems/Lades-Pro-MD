@@ -80,7 +80,9 @@ migrateJsonToSql();
 // ─────────────────────────────────────────────────────────
 const metricsBatch = { total_messages: 0, total_commands: 0 };
 
-setInterval(async () => {
+const scheduler = require("./scheduler");
+
+scheduler.register('metrics_batch_flush', async () => {
   if (metricsBatch.total_messages === 0 && metricsBatch.total_commands === 0) return;
   const currentBatch = { ...metricsBatch };
   metricsBatch.total_messages = 0;
@@ -159,7 +161,7 @@ async function recordStat(pattern, status, durationMs, error = null, isTest = fa
 }
 
 // ── Command metrics batch flush (30s) ───────────────────
-setInterval(async () => {
+scheduler.register('command_metrics_flush', async () => {
   if (runtime.commandStatsBatch.size === 0) return;
   const currentBatch = new Map();
   runtime.commandStatsBatch.forEach((v, k) => currentBatch.set(k, v));

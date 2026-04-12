@@ -7,42 +7,45 @@
 
 const path = require("path");
 const fs = require("fs");
+const fsp = fs.promises;
 const http = require("http");
+const express = require("express");
+const compression = require("compression");
 const { fork } = require('child_process');
 const runtime = require("./core/runtime");
-
+const scheduler = require("./core/scheduler");
 const PID_FILE = path.join(__dirname, "bot.pid");
+const config = require("./config");
+const { logger } = config;
+const { initializeDatabase, WhatsappSession } = require("./core/database");
+const { BotManager } = require("./core/manager");
+const { suppressLibsignalLogs, startTempCleanup } = require("./core/helpers");
+const { applyDatabaseCaching, shutdownCache } = require("./core/db-cache");
+const { getAllGroups } = require("./core/store");
+const { setupDashboardBridge } = require("./core/dashboard-bridge");
 
-function checkSingleInstance() {
-  if (fs.existsSync(PID_FILE)) {
-    try {
-      const oldPid = parseInt(fs.readFileSync(PID_FILE, "utf-8").trim());
+async function checkSingleInstance() {
+  try {
+    if (fs.existsSync(PID_FILE)) {
+      const data = await fsp.readFile(PID_FILE, "utf-8");
+      const oldPid = parseInt(data.trim());
       if (!isNaN(oldPid) && oldPid !== process.pid) {
         try {
           process.kill(oldPid, 0);
-          console.log(`[ANTI-DUBLE] Eski bot süreci (PID: ${oldPid}) tespit edildi. Sonlandırılıyor...`);
-          
+          logger.info(`[ANTI-DUBLE] Eski bot süreci (PID: ${oldPid}) tespit edildi. Sonlandırılıyor...`);
           process.kill(oldPid, "SIGTERM");
-          
-          // Wait 2s for graceful exit
-          setTimeout(() => {
-            try {
-              process.kill(oldPid, 0);
-              console.log(`[ANTI-DUBLE] Eski süreç hala aktif, SIGKILL gönderiliyor.`);
-              process.kill(oldPid, "SIGKILL");
-            } catch {
-              // Successfully exited
-            }
-          }, 2000);
-        } catch (e) {
-          // PID not found or no permission
-        }
+          await new Promise(r => setTimeout(r, 2000));
+          try {
+            process.kill(oldPid, 0);
+            process.kill(oldPid, "SIGKILL");
+          } catch {}
+        } catch (e) {}
       }
-    } catch (e) {
-      console.error("[ANTI-DUBLE] PID hatası:", e.message);
     }
+    await fsp.writeFile(PID_FILE, process.pid.toString());
+  } catch (e) {
+    logger.error({ err: e.message }, "[ANTI-DUBLE] PID hatası");
   }
-  fs.writeFileSync(PID_FILE, process.pid.toString());
 }
 
 try {
@@ -58,83 +61,56 @@ try {
 }
 
 if (fs.existsSync("./config.env")) require("dotenv").config({ path: "./config.env" });
-process.env.YTDL_NO_DEBUG_FILE = "1";
-const config = require("./config");
-const { logger } = config;
-const { initializeDatabase, WhatsappSession } = require("./core/database");
-const { BotManager } = require("./core/manager");
-const { suppressLibsignalLogs, startTempCleanup } = require("./core/helpers");
-const { applyDatabaseCaching, shutdownCache } = require("./core/db-cache");
-const { getAllGroups } = require("./core/store");
-
 suppressLibsignalLogs();
 // startTempCleanup(); // Redundant, bot.js handles it
 runtime.startTime = Date.now();
 
 const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 450;
-let _memTimer = setInterval(() => {
+scheduler.register('memory_check', () => {
   const mem = process.memoryUsage();
   if (mem.heapUsed > PM2_RESTART_MB * 1024 * 1024) {
     logger.warn(`Bellek sınırı (${PM2_RESTART_MB}MB) aşıldı. Otomatik yeniden başlatılıyor...`);
     process.exit(1);
   }
-  // STATUS IPC optimization: Unifying status reporting into statusTimer
-}, 10000); // Check memory every 10s
+}, 10000);
 
 function startKeepAlive() {
-  const MIME_TYPES = {
-    '.html': 'text/html',
-    '.css': 'text/css',
-    '.js': 'application/javascript',
-    '.json': 'application/json',
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.svg': 'image/svg+xml',
-    '.ico': 'image/x-icon',
-  };
+  const app = express();
   const publicDir = path.join(__dirname, 'public');
 
-  const server = http.createServer((req, res) => {
-    // Health check endpoint
-    if (req.url === '/health') {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      const mem = process.memoryUsage();
-      return res.end(JSON.stringify({
-        status: "ok", bot: "Lades-Pro-MD",
-        uptime: Math.floor((Date.now() - runtime.startTime) / 1000),
-        memory: Math.round(mem.heapUsed / 1024 / 1024) + "MB"
-      }));
-    }
-
-    // Serve static files from /public
-    let filePath = path.join(publicDir, req.url === '/' ? 'index.html' : req.url.split('?')[0]);
-    const ext = path.extname(filePath);
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        // Fallback to index.html for SPA routing
-        fs.readFile(path.join(publicDir, 'index.html'), (err2, data2) => {
-          if (err2) {
-            res.writeHead(404);
-            return res.end('Not Found');
-          }
-          res.writeHead(200, { "Content-Type": "text/html" });
-          res.end(data2);
-        });
-        return;
-      }
-      res.writeHead(200, { "Content-Type": contentType });
-      res.end(data);
+  app.use(compression());
+  
+  // Health check endpoint
+  app.get('/health', (req, res) => {
+    const mem = process.memoryUsage();
+    res.json({
+      status: "ok", 
+      bot: "Lades-Pro-MD",
+      uptime: Math.floor((Date.now() - runtime.startTime) / 1000),
+      memory: Math.round(mem.heapUsed / 1024 / 1024) + "MB"
     });
   });
-  server.on('error', () => { });
-  server.listen(process.env.PORT || 3000);
+
+  // Serve static files with caching
+  app.use(express.static(publicDir, {
+    maxAge: '1h',
+    immutable: true
+  }));
+
+  // SPA fallback
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(publicDir, 'index.html'));
+  });
+
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => {
+    logger.info(`Keep-alive sunucusu aktif (Port: ${port})`);
+  }).on('error', () => {});
 }
 
 async function shutdown(signal) {
   logger.info(`${signal} sinyali alındı. Kapatılıyor...`);
-  if (_memTimer) clearInterval(_memTimer);
+  scheduler.stop();
 
   if (runtime.manager) {
     // Wait for all sessions to close (max 10s)
@@ -145,7 +121,10 @@ async function shutdown(signal) {
   }
 
   shutdownCache();
-  if (fs.existsSync(PID_FILE)) try { fs.unlinkSync(PID_FILE); } catch { }
+  try {
+    const exists = await fsp.access(PID_FILE).then(() => true).catch(() => false);
+    if (exists) await fsp.unlink(PID_FILE); 
+  } catch { }
   logger.info("Sistem temiz bir şekilde kapatıldı.");
   process.exit(0);
 }
@@ -154,62 +133,78 @@ process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
 
 // ── Global hata yakalama — Bot çökmesini engeller ─────────────────────────
+const FATAL_ERRORS = ["ERR_OUT_OF_MEMORY", "ENOMEM", "SQLITE_CORRUPT"];
+
 process.on("uncaughtException", (err) => {
   if (err.code === "ERR_IPC_DISCONNECTED") return;
-  logger.error(err, "[KRİTİK] Beklenmedik İstisna (uncaughtException)");
-  // Kritik sistem hatası değilse devam et — process.exit() KULLANMA
+  
+  logger.error(err, "[KRİTİK] Uncaught Exception");
+  runtime.metrics.errors++;
+
+  // Fatal hata durumunda güvenli yeniden başlatma
+  if (FATAL_ERRORS.some(e => err.code === e || err.message?.includes(e))) {
+    logger.warn("Kritik sistem hatası algılandı. Yeniden başlatılıyor...");
+    shutdown("FATAL_ERROR");
+  }
 });
 
 process.on("unhandledRejection", (reason, promise) => {
-  // Yalnızca loglama yap — süreci öldürme
-  // Her komut handler try-catch ile sarıldığı için bu nadiren tetiklenir
   if (reason?.code === "ERR_IPC_DISCONNECTED") return;
-  logger.error({ reason: String(reason), promise }, "[KRİTİK] Yakalanmamış Promise Rejection");
-  // process.exit() is intentionally omitted — bot should survive rejections
+  
+  logger.error({ 
+    reason: String(reason), 
+    stack: reason?.stack,
+    promise 
+  }, "[KRİTİK] Unhandled Rejection");
+  
+  runtime.metrics.errors++;
+
+  if (config.DEBUG) {
+    console.error("Tam rejection detayı:", reason);
+  }
 });
 
 // ─────────────────────────────────────────────────────────
 //  Auth Session Cleanup (Point 15)
 // ─────────────────────────────────────────────────────────
-function startSessionCleanup() {
+async function startSessionCleanup() {
   const dashAuthDir = path.join(__dirname, 'sessions', 'dashboard-auth');
-  if (!fs.existsSync(dashAuthDir)) return;
+  const exists = await fsp.access(dashAuthDir).then(() => true).catch(() => false);
+  if (!exists) return;
 
-  const cleanup = () => {
+  const cleanup = async () => {
     try {
-      const files = fs.readdirSync(dashAuthDir);
+      const files = await fsp.readdir(dashAuthDir);
       const now = Date.now();
       let count = 0;
       for (const f of files) {
         const fp = path.join(dashAuthDir, f);
-        const stat = fs.statSync(fp);
+        const stat = await fsp.stat(fp);
         if (now - stat.mtimeMs > 7 * 24 * 60 * 60 * 1000) { // 7 days
-          fs.unlinkSync(fp);
+          await fsp.unlink(fp);
           count++;
         }
       }
       if (count > 0) logger.info(`[Cleanup] ${count} eski dashboard oturum dosyası silindi.`);
     } catch (e) { }
   };
-  cleanup(); // Run at startup
-  setInterval(cleanup, 24 * 60 * 60 * 1000); // 1x per day
+  await cleanup(); // Run at startup
+  scheduler.register('session_cleanup', cleanup, 24 * 60 * 60 * 1000); // 1x per day
 }
 
 (async () => {
   try {
-    checkSingleInstance();
+    await checkSingleInstance();
     await initializeDatabase();
     applyDatabaseCaching();
-    startSessionCleanup();
-    // startKeepAlive(); // Disabled redundant server to let Dashboard take port 3000
+    await startSessionCleanup();
+    // startKeepAlive(); // Still disabled to avoid port conflict, but optimized for when needed
 
     const manager = new BotManager();
     runtime.manager = manager;
     const phoneNumber = process.env.PAIR_PHONE || null;
     await manager.addSession("lades-session", { phoneNumber });
 
-    // Dashboard initialization
-    const { setupDashboardBridge } = require("./core/dashboard-bridge");
     setupDashboardBridge(manager, config);
 
     logger.info("Lades-Pro-MD Aktif!");

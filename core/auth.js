@@ -48,20 +48,33 @@ async function useDbAuthState(sessionId) {
   const state = getState();
   const creds = state.creds || {};
   const storedKeys = state.keys || {};
+  const modifiedKeys = new Set();
+  let saveThrottle = null;
 
   let writePromise = Promise.resolve();
-  const saveCreds = async () => {
+  const saveCreds = async (force = false) => {
+    if (!force) {
+      if (saveThrottle) return;
+      saveThrottle = setTimeout(() => {
+        saveThrottle = null;
+        saveCreds(true);
+      }, 5000); // 5s throttle
+      return;
+    }
+
     // Chain writes to avoid race conditions (Write Queue)
     writePromise = writePromise.then(async () => {
       const { sequelize } = require("./database");
       try {
         await sequelize.transaction(async (t) => {
+          // Serialize current state
           const sessionData = JSON.stringify({ creds, keys: storedKeys }, BufferJSON.replacer);
           if (!sessionRow) {
             sessionRow = await WhatsappSession.create({ sessionId, sessionData }, { transaction: t });
           } else {
             await sessionRow.update({ sessionData }, { transaction: t });
           }
+          modifiedKeys.clear();
         });
       } catch (err) {
         logger.error({ err: err.message, sessionId }, "Failed to save session data to DB");
@@ -80,14 +93,22 @@ async function useDbAuthState(sessionId) {
       return data;
     },
     set: async (data) => {
+      let changed = false;
       for (const category in data) {
         storedKeys[category] = storedKeys[category] || {};
         for (const id in data[category]) {
-          if (data[category][id]) storedKeys[category][id] = data[category][id];
-          else delete storedKeys[category][id];
+          const val = data[category][id];
+          if (val) {
+            storedKeys[category][id] = val;
+            modifiedKeys.add(`${category}:${id}`);
+          } else {
+            delete storedKeys[category][id];
+            modifiedKeys.add(`${category}:${id}`);
+          }
+          changed = true;
         }
       }
-      await saveCreds();
+      if (changed) await saveCreds();
     },
   }, logger.child({ module: "signal" }));
 

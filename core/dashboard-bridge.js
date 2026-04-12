@@ -21,43 +21,94 @@ function setupDashboardBridge(manager, config) {
     env: { ...process.env, NODE_ENV: 'production', PORT: process.env.PORT || 3000 }
   });
 
-  // Export to global for situational access if needed
-  global.dashboard = dashboard;
+  let _dashboardRef = dashboard; // Module-level reference
+
+  /**
+   * sendIPC
+   * Sends a message to the dashboard and optionally waits for a response based on requestId.
+   */
+  async function sendIPC(type, data = {}, requestId = null, timeoutMs = 5000) {
+    if (!_dashboardRef || !_dashboardRef.connected) return;
+
+    return new Promise((resolve, reject) => {
+      const payload = { type, data, requestId };
+      
+      let timer = null;
+      const handler = (msg) => {
+        if (requestId && msg.requestId === requestId) {
+          if (timer) clearTimeout(timer);
+          _dashboardRef.off('message', handler);
+          resolve(msg);
+        }
+      };
+
+      if (requestId) {
+        timer = setTimeout(() => {
+          _dashboardRef.off('message', handler);
+          reject(new Error(`IPC Timeout: ${type} (${requestId})`));
+        }, timeoutMs);
+        _dashboardRef.on('message', handler);
+      }
+
+      try {
+        _dashboardRef.send(payload, (err) => {
+          if (err) {
+            if (timer) clearTimeout(timer);
+            _dashboardRef.off('message', handler);
+            reject(err);
+          } else if (!requestId) {
+            resolve({ success: true });
+          }
+        });
+      } catch (e) {
+        if (timer) clearTimeout(timer);
+        _dashboardRef.off('message', handler);
+        reject(e);
+      }
+    });
+  }
 
   // --- BOT -> DASHBOARD EVENTS ---
 
   manager.on('qr', (data) => {
-    if (dashboard.connected) dashboard.send({ type: 'qr', qr: data.qr });
+    sendIPC('qr', { qr: data.qr }).catch(() => {});
   });
 
   manager.on('status', (data) => {
     const isConnected = data.status === 'open';
-    if (dashboard.connected) {
-      const sock = manager.getSession(data.sessionId);
-      dashboard.send({
-        type: 'bot_status',
-        data: {
-          connected: isConnected,
-          phone: sock?.user?.id ? sock.user.id.split('@')[0].split(':')[0] : null
-        }
-      });
-    }
+    const sock = manager.getSession(data.sessionId);
+    sendIPC('bot_status', {
+      connected: isConnected,
+      phone: sock?.user?.id ? sock.user.id.split('@')[0].split(':')[0] : null
+    }).catch(() => {});
   });
 
   // --- LOG STREAMING ---
 
   let isLogging = false;
   const sendLog = (d) => {
-    if (isLogging || !dashboard || !dashboard.connected) return;
+    if (isLogging || !_dashboardRef || !_dashboardRef.connected) return;
     const s = d.toString();
     if (s.length < 5 || s.includes('rootKey')) return;
     isLogging = true;
-    try { dashboard.send({ type: 'log', data: s }); } catch (e) { }
+    try { 
+      _dashboardRef.send({ type: 'log', data: s }); 
+    } catch (e) { }
     isLogging = false;
   };
 
   dashboard.stdout?.on('data', (d) => { process.stdout.write(d); sendLog(d); });
   dashboard.stderr?.on('data', (d) => { process.stderr.write(d); sendLog(d); });
+
+  // --- BROADCAST QUEUE (Singleton) ---
+  let _broadcastQueue = null;
+  async function getBroadcastQueue() {
+    if (!_broadcastQueue) {
+      const { default: PQueue } = await import('p-queue');
+      _broadcastQueue = new PQueue({ concurrency: 1, interval: 3000, intervalCap: 1 });
+    }
+    return _broadcastQueue;
+  }
 
   // --- DASHBOARD -> BOT MESSAGES ---
 
@@ -72,8 +123,7 @@ function setupDashboardBridge(manager, config) {
           const chats = await getAllGroups(sock);
           const groupJids = Object.keys(chats).slice(0, 300);
           
-          const { default: PQueue } = await import('p-queue');
-          const queue = new PQueue({ concurrency: 1, interval: 3000, intervalCap: 1 });
+          const queue = await getBroadcastQueue();
           
           for (const j of groupJids) {
             queue.add(async () => {
@@ -104,12 +154,12 @@ function setupDashboardBridge(manager, config) {
             participants: g.participants?.length || 0,
             owner: g.owner || null,
           }));
-          if (dashboard.connected) dashboard.send({ type: 'groups_result', data: groupList, requestId: msg.requestId });
+          sendIPC('groups_result', groupList, msg.requestId).catch(() => {});
         } catch (e) {
-          if (dashboard.connected) dashboard.send({ type: 'groups_result', data: [], requestId: msg.requestId, error: e.message });
+          sendIPC('groups_result', { error: e.message }, msg.requestId).catch(() => {});
         }
       } else {
-        if (dashboard.connected) dashboard.send({ type: 'groups_result', data: [], requestId: msg.requestId, error: 'Bot bağlı değil' });
+        sendIPC('groups_result', { error: 'Bot bağlı değil' }, msg.requestId).catch(() => {});
       }
     } else if (msg.type === 'fetch_group_pp') {
       if (sock) {
@@ -119,9 +169,9 @@ function setupDashboardBridge(manager, config) {
             sock.profilePictureUrl(jid, 'preview').catch(() => null),
             new Promise(r => setTimeout(() => r(null), 2000))
           ]);
-          if (dashboard.connected) dashboard.send({ type: 'group_pp_result', jid, imgUrl, requestId: msg.requestId });
+          sendIPC('group_pp_result', { jid, imgUrl }, msg.requestId).catch(() => {});
         } catch (e) {
-          if (dashboard.connected) dashboard.send({ type: 'group_pp_result', jid: msg.data.jid, imgUrl: null, requestId: msg.requestId });
+          sendIPC('group_pp_result', { jid: msg.data.jid, imgUrl: null }, msg.requestId).catch(() => {});
         }
       }
     } else if (msg.type === 'send_to_chat') {
@@ -129,12 +179,12 @@ function setupDashboardBridge(manager, config) {
          try {
            const jid = msg.data.jid.includes('@') ? msg.data.jid : msg.data.jid + '@s.whatsapp.net';
            await sock.sendMessage(jid, { text: msg.data.text });
-           if (dashboard.connected) dashboard.send({ type: 'send_result', success: true, requestId: msg.requestId });
+           sendIPC('send_result', { success: true }, msg.requestId).catch(() => {});
          } catch (e) {
-           if (dashboard.connected) dashboard.send({ type: 'send_result', success: false, error: e.message, requestId: msg.requestId });
+           sendIPC('send_result', { success: false, error: e.message }, msg.requestId).catch(() => {});
          }
        } else {
-         if (dashboard.connected) dashboard.send({ type: 'send_result', success: false, error: 'Bot bağlı değil', requestId: msg.requestId });
+         sendIPC('send_result', { success: false, error: 'Bot bağlı değil' }, msg.requestId).catch(() => {});
        }
     }
     // 3. Lifecycle Logic (Restart, Stop, Session Transfer)
@@ -191,10 +241,8 @@ function setupDashboardBridge(manager, config) {
       logger.info(`Dashboard ${msg.isLogout ? 'Kapatma' : 'Durdurma'} sinyali alındı. Suspending...`);
       manager.suspend("lades-session");
       await manager.removeSession("lades-session", !!msg.isLogout);
-      if (dashboard.connected) {
-        dashboard.send({ type: 'bot_status', data: { connected: false } });
-        dashboard.send({ type: 'ready_to_login' });
-      }
+      sendIPC('bot_status', { connected: false }).catch(() => {});
+      sendIPC('ready_to_login').catch(() => {});
     }
   });
 
@@ -210,25 +258,23 @@ function setupDashboardBridge(manager, config) {
     if (dashboard.connected) dashboard.send({ type: 'test_progress', data: prog });
   });
 
-  // --- STATUS POLLING ---
+  // --- STATUS POLLING (Migrated to Scheduler) ---
 
-  const statusTimer = setInterval(() => {
-    if (!dashboard || !dashboard.connected) {
-      clearInterval(statusTimer);
-      return;
-    }
+  const scheduler = require("./scheduler");
+  const statusTask = scheduler.register('dashboard_status_polling', () => {
+    if (!_dashboardRef || !_dashboardRef.connected) return;
     const isConnected = manager.isConnected('lades-session');
     const sock = manager.getSession('lades-session');
-    dashboard.send({
-      type: 'bot_status',
-      data: {
-        connected: isConnected,
-        phone: sock?.user?.id ? sock.user.id.split('@')[0].split(':')[0] : null
-      }
-    });
-  }, 5000);
+    sendIPC('bot_status', {
+      connected: isConnected,
+      phone: sock?.user?.id ? sock.user.id.split('@')[0].split(':')[0] : null
+    }).catch(() => {});
+  }, 5000, { runImmediately: true });
 
-  dashboard.on('exit', () => clearInterval(statusTimer));
+  dashboard.on('exit', () => {
+    _dashboardRef = null;
+    statusTask(); // Unregister task
+  });
 
   return dashboard;
 }

@@ -115,9 +115,9 @@ class BotManager extends EventEmitter {
   async stopAll() {
     logger.info("Tüm oturumlar kapatılıyor...");
     const sessions = this.getAllSessions();
-    for (const id of sessions) {
-      await this.removeSession(id);
-    }
+    await Promise.allSettled(
+      sessions.map(id => this.removeSession(id))
+    );
   }
 }
 

@@ -24,6 +24,7 @@ const state = {
     /** Global group cache (Point 8) */
     allGroupsCache: null,
     allGroupsLastFetch: 0,
+    errors: 0,
   },
   
   /** Active session information */

@@ -9,9 +9,11 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const pLimit = require("p-limit");
-const { logger } = require("../config");
+const { getCachedAdmins, setCachedAdmins } = require("./db-cache");
+const axios = require("axios");
 
 const ffmpegLimit = pLimit(3); // Global FFmpeg concurrency limit
+const fsp = fs.promises;
 
 // ─────────────────────────────────────────────────────────
 //  Temp directory
@@ -43,27 +45,41 @@ function cleanTempFile(filePath) {
 }
 
 // Auto-cleanup temp dir every 30 min
-let _tempCleanupTimer = null;
+const scheduler = require("./scheduler");
+let _tempCleanupTask = null;
+
 function startTempCleanup(intervalMs = 30 * 60 * 1000) {
-  if (_tempCleanupTimer) return;
-  _tempCleanupTimer = setInterval(() => {
+  if (_tempCleanupTask) return;
+  
+  _tempCleanupTask = scheduler.register('temp_cleanup', async () => {
     try {
-      ensureTempDir();
-      const files = fs.readdirSync(TEMP_DIR);
+      if (!fs.existsSync(TEMP_DIR)) return;
+      
+      const files = await fsp.readdir(TEMP_DIR);
       const now = Date.now();
+      let count = 0;
       for (const f of files) {
-        const fp = path.join(TEMP_DIR, f);
+        const p = path.join(TEMP_DIR, f);
         try {
-          const stat = fs.statSync(fp);
-          if (now - stat.mtimeMs > 60 * 60 * 1000) fs.unlinkSync(fp); // older than 1h
+          const stat = await fsp.stat(p);
+          if (now - stat.mtimeMs > intervalMs) {
+            await fsp.rm(p, { recursive: true, force: true });
+            count++;
+          }
         } catch {}
       }
-    } catch {}
+      if (count > 0) logger.debug(`[Cleanup] ${count} temp file cleaned.`);
+    } catch (e) {
+      logger.debug({ err: e.message }, "Temp cleanup failed");
+    }
   }, intervalMs);
 }
 
 function stopTempCleanup() {
-  if (_tempCleanupTimer) { clearInterval(_tempCleanupTimer); _tempCleanupTimer = null; }
+  if (_tempCleanupTask) {
+    _tempCleanupTask(); // Unregister
+    _tempCleanupTask = null;
+  }
 }
 
 // ─────────────────────────────────────────────────────────
@@ -100,7 +116,6 @@ function isBroadcast(jid) {
 function getGroupAdmins(groupMetadata) {
   if (!groupMetadata || !groupMetadata.participants || !groupMetadata.id) return [];
   
-  const { getCachedAdmins, setCachedAdmins } = require("./db-cache");
   const cached = getCachedAdmins(groupMetadata.id);
   if (cached) return cached;
 
@@ -255,7 +270,6 @@ async function saveToDisk(url, destPath) {
   if (!url || typeof url !== "string" || !url.startsWith("http")) {
     throw new Error("Invalid URL: " + url);
   }
-  const axios = require("axios");
   const writer = fs.createWriteStream(destPath);
 
   // URL'den hostname'e göre Referer ekle (TikTok CDN gibi kısıtlı CDN'ler için)

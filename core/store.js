@@ -10,14 +10,16 @@
 const { LRUCache } = require("lru-cache");
 const { logger } = require("../config");
 const runtime = require("./runtime");
+const { WhatsappSession, BotMetric, MessageStats, UserData, sequelize } = require("./database");
+const scheduler = require("./scheduler");
 
 // Message store: jid → Map<msgId, msg>
 const messageStore = new LRUCache({
-  max: 100,   // max 100 active groups/chats in memory
-  ttl: 24 * 60 * 60 * 1000, // 24h TTL
+  max: 50,   // max 50 active groups/chats in memory
+  ttl: 4 * 60 * 60 * 1000, // 4h TTL
 });
 
-const MAX_MSGS_PER_JID = 500; 
+const MAX_MSGS_PER_JID = 100;
 let totalMessagesCached = 0;
 
 function storeMessage(jid, message) {
@@ -79,17 +81,17 @@ async function getAllGroups(sock) {
   if (runtime.metrics.allGroupsCache && (now - runtime.metrics.allGroupsLastFetch < 10 * 60 * 1000)) { // 10 min cache
     return runtime.metrics.allGroupsCache;
   }
-  
+
   try {
     const chats = await sock.groupFetchAllParticipating();
     runtime.metrics.allGroupsCache = chats;
     runtime.metrics.allGroupsLastFetch = now;
-    
+
     // Also populate individual meta cache
     for (const jid in chats) {
       setGroupMeta(jid, chats[jid]);
     }
-    
+
     return chats;
   } catch (err) {
     logger.debug({ err: err.message }, "getAllGroups failed");
@@ -216,26 +218,22 @@ async function getGlobalTopUsers(limit = 10) {
  * @param {string} userJid - The user JID
  * @param {string} type - Message type (text, image, video, audio, sticker, other)
  */
-const statsBatch = new Map();
+const statsBatch = new LRUCache({ max: 1000, ttl: 120_000 }); // Auto-cleanup after 2min
 
-setInterval(async () => {
+scheduler.register('message_stats_flush', async () => {
   if (statsBatch.size === 0) return;
-  const currentBatch = new Map(statsBatch);
+  // Copy current entries for processing
+  const currentBatch = [];
+  for (const [key, val] of statsBatch.entries()) {
+    currentBatch.push([key, val]);
+  }
   statsBatch.clear();
 
   try {
-    const { sequelize } = require("./database");
-    for (const [key, inc] of currentBatch.entries()) {
+    for (const [key, inc] of currentBatch) {
       const { jid, userJid, data } = inc;
-      
-      // Point 3: Optimized batch stats update using raw SQL
-      // 1. Ensure UserData exists (minimal O(1) impact)
-      await sequelize.query(
-        "INSERT OR IGNORE INTO user_data (jid, createdAt, updatedAt) VALUES (?, DATETIME('now'), DATETIME('now'))",
-        { replacements: [userJid], type: sequelize.QueryTypes.INSERT }
-      );
 
-      // 2. Atomic UPSERT for MessageStats
+      // Atomic UPSERT for MessageStats
       await sequelize.query(
         "INSERT INTO message_stats (jid, userJid, totalMessages, textMessages, imageMessages, videoMessages, audioMessages, stickerMessages, otherMessages, lastMessageAt, createdAt, updatedAt) " +
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now'), DATETIME('now'), DATETIME('now')) " +
@@ -249,19 +247,19 @@ setInterval(async () => {
         "otherMessages = otherMessages + excluded.otherMessages, " +
         "lastMessageAt = DATETIME('now'), " +
         "updatedAt = DATETIME('now')",
-        { 
+        {
           replacements: [
-            jid, userJid, 
-            data.totalMessages, data.textMessages, data.imageMessages, 
-            data.videoMessages, data.audioMessages, data.stickerMessages, 
+            jid, userJid,
+            data.totalMessages, data.textMessages, data.imageMessages,
+            data.videoMessages, data.audioMessages, data.stickerMessages,
             data.otherMessages
           ],
-          type: sequelize.QueryTypes.INSERT 
+          type: sequelize.QueryTypes.INSERT
         }
       );
     }
   } catch (e) {
-    logger.debug({ err: e.message }, "Batch stats update failed");
+    logger.debug({ err: e.message }, "Stats batch flush failed");
   }
 }, 60000);
 
