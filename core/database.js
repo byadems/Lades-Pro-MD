@@ -50,8 +50,6 @@ if (DATABASE_URL && DATABASE_URL.startsWith("postgres")) {
   });
 }
 
-module.exports = { sequelize, Sequelize, Op, DataTypes };
-
 // ─────────────────────────────────────────────────────────
 //  Models
 // ─────────────────────────────────────────────────────────
@@ -323,4 +321,6 @@ module.exports = {
   CommandRegistry,
   initializeDatabase,
   Op,
+  DataTypes,
+  Sequelize,
 };

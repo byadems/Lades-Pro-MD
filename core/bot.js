@@ -12,7 +12,7 @@ const { logger, ...config } = require("../config");
 const { getAuthState, displayQR } = require("./auth");
 const { bindToSocket, fetchGroupMeta } = require("./store");
 const { handleMessage, handleGroupUpdate, handleGroupParticipantsUpdate, loadPlugins } = require("./handler");
-const { getNumericalId, getMessageText, isGroup, suppressLibsignalLogs, startTempCleanup, stopTempCleanup } = require("./helpers");
+const { getNumericalId, getMessageText, isGroup, suppressLibsignalLogs, startTempCleanup, stopTempCleanup, loadBaileys } = require("./helpers");
 const runtime = require("./runtime");
 // Point 17: Standardizing on p-queue for all concurrency.
 // ESM-Bridging: PQueue load is async.
