@@ -161,13 +161,15 @@ async function sticker(buffer, isVideo = false) {
     if (isVideo) {
       ff.addOptions([
         "-vcodec", "libwebp",
-        "-vf", "scale='min(320,iw)':min'(320,ih)':force_original_aspect_ratio=decrease,fps=15, pad=320:320:(320-iw)/2:(320-ih)/2:color=0x00000000,setsar=1",
-        "-loop", "0", "-ss", "00:00:00", "-t", "00:00:05", "-an", "-vsync", "0"
+        "-vf", "scale='min(512,iw)':min'(512,ih)':force_original_aspect_ratio=decrease,fps=24, pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000,setsar=1",
+        "-loop", "0", "-ss", "00:00:00", "-t", "00:00:05", "-an", "-vsync", "0",
+        "-quality", "100"
       ]);
     } else {
       ff.addOptions([
         "-vcodec", "libwebp",
-        "-vf", "scale='min(320,iw)':min'(320,ih)':force_original_aspect_ratio=decrease,fps=15, pad=320:320:(320-iw)/2:(320-ih)/2:color=0x00000000,setsar=1"
+        "-vf", "scale='min(512,iw)':min'(512,ih)':force_original_aspect_ratio=decrease,fps=24, pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000,setsar=1",
+        "-quality", "100"
       ]);
     }
     ff.on("end", async () => {

@@ -209,8 +209,8 @@ Module({
     const text = (match[1] || "").trim();
     if (!text) return await message.sendReply("💚 _Metin girin:_ `.brat lades bot`");
     try {
-      const buf = await nexGet(`/maker/brat?text=${encodeURIComponent(text)}`, { buffer: true });
-      await message.client.sendMessage(message.jid, { image: buf }, { quoted: message.data });
+const buf = await nexGet(`/maker/brat?text=${encodeURIComponent(text)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { sticker: buf }, { quoted: message.data });
     } catch (e) {
       await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
     }

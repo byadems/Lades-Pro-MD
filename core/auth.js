@@ -110,7 +110,7 @@ async function useDbAuthState(sessionId) {
       }
       if (changed) await saveCreds();
     },
-  }, logger.child({ module: "signal" }));
+  }, logger.child({ module: "signal", level: "error" }));
 
   const clearState = async () => {
     if (sessionRow) {
@@ -167,7 +167,7 @@ async function useSessionStringAuthState(sessionString) {
       }
       state.keys = stored;
     },
-  }, logger.child({ module: "signal" }));
+  }, logger.child({ module: "signal", level: "error" }));
 
   return { state: { creds: state.creds || {}, keys }, saveCreds, clearState: async () => {} };
 }

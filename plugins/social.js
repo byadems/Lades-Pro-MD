@@ -1,4 +1,4 @@
-﻿const { Module } = require("../main");
+const { Module } = require("../main");
 const {
   pinterestSearch,
   downloadGram,
@@ -17,6 +17,75 @@ const { saveToDisk, getTempPath, cleanTempFile, extractUrls, validateUrl, isMedi
 
 const SIPUTZX_BASE = "https://api.siputzx.my.id";
 
+function formatNumber(num) {
+  if (num === null || num === undefined) return "Bilinmiyor";
+  const n = Number(num);
+  if (isNaN(n)) return String(num);
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1).replace(".0", "") + "B";
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(".0", "") + "M";
+  return n.toLocaleString("tr-TR");
+}
+
+function normalizeUser(data, apiIndex) {
+  try {
+    if (apiIndex === 0) {
+      if (data?.status !== 200 || !data?.result) return null;
+      const u = data.result;
+      if (!u.username) return null;
+      return {
+        username: u.username,
+        id: u.id || "Bilinmiyor",
+        name: u.name || "Bilinmiyor",
+        followers: u.followers ?? null,
+        following: u.following ?? null,
+        likes: u.likes ?? null,
+        bio: u.bio || null,
+        verified: u.verified === true,
+        private: u.private === true,
+        avatar: u.avatar || null,
+      };
+    }
+    if (apiIndex === 1) {
+      if (data?.status !== true || !data?.data) return null;
+      const u = data.data.user;
+      const s = data.data.stats;
+      if (!u?.uniqueId) return null;
+      return {
+        username: u.uniqueId,
+        id: u.id || "Bilinmiyor",
+        name: u.nickname || "Bilinmiyor",
+        followers: s?.followerCount ?? null,
+        following: s?.followingCount ?? null,
+        likes: s?.heartCount ?? null,
+        bio: u.signature || null,
+        verified: u.verified === true,
+        private: u.privateAccount === true,
+        avatar: u.avatarLarger || null,
+      };
+    }
+    if (apiIndex === 2) {
+      if (data?.status !== true || !data?.result) return null;
+      const u = data.result;
+      if (!u.username) return null;
+      return {
+        username: u.username,
+        id: u.id || "Bilinmiyor",
+        name: u.name || "Bilinmiyor",
+        followers: u.stats?.raw_followers ?? null,
+        following: u.stats?.raw_following ?? null,
+        likes: u.stats?.raw_likes ?? null,
+        bio: u.bio || null,
+        verified: u.verified === "Verified",
+        private: u.private === true,
+        avatar: u.avatar || null,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function siputGet(path, params = {}) {
   const url = `${SIPUTZX_BASE}${path}`;
   const res = await axios.get(url, { params, timeout: 30000, validateStatus: () => true });
@@ -34,6 +103,25 @@ async function checkRedirect(url) {
   } catch (_) { }
   return url;
 }
+
+function extractTikTokUsername(input) {
+  if (!input) return null;
+  input = input.trim();
+  if (input.startsWith('@')) {
+    return input.slice(1).toLowerCase();
+  }
+  if (/^[a-zA-Z0-9._]+$/.test(input) && input.length >= 2 && input.length <= 24) {
+    return input.toLowerCase();
+  }
+  try {
+    const match = input.match(/tiktok\.com\/@([^/?]+)/i);
+    if (match && match[1]) {
+      return match[1].toLowerCase();
+    }
+  } catch (_) { }
+  return null;
+}
+
 Module({
   pattern: "insta ?(.*)",
   fromMe: false,
@@ -47,12 +135,10 @@ Module({
       return await message.sendReply("_*⚠️ Instagram bağlantı(lar)ı gerekli*_");
     if (mediaLinks.startsWith("ll")) return;
 
-    // extract all urls from the text
     const allUrls = extractUrls(mediaLinks);
     if (!allUrls.length)
       return await message.sendReply("_*⚠️ Instagram bağlantı(lar)ı gerekli*_");
 
-    // filter and validate instagram urls
     const instagramUrls = [];
 
     for (let url of allUrls) {
@@ -68,7 +154,7 @@ Module({
       if (validateUrl(url, "instagram")) {
         const cleanUrl = url.split("?")[0].replace(/\/$/, "");
         const mediaId = cleanUrl.match(/\/([\w-]+)\/?$/)?.[1];
-        if (mediaId && mediaId.length > 20) continue; // skip private accounts
+        if (mediaId && mediaId.length > 20) continue;
 
         instagramUrls.push(url);
       }
@@ -83,11 +169,9 @@ Module({
         ? message.quoted
         : message.data;
 
-      // download from all urls
       for (const url of instagramUrls) {
         let found = false;
 
-        // 1. Nexray v2
         try {
           const r = await axios.get('https://api.nexray.web.id/downloader/v2/instagram?url=' + encodeURIComponent(url), { timeout: 40000 });
           const media = r.data.result?.media;
@@ -101,7 +185,6 @@ Module({
           }
         } catch (_) { }
 
-        // 2. Nexray v1
         if (!found) {
           try {
             const r = await axios.get('https://api.nexray.web.id/downloader/instagram?url=' + encodeURIComponent(url), { timeout: 40000 });
@@ -117,16 +200,11 @@ Module({
           } catch (_) { }
         }
 
-        // 3. Siputzx - sssinstagram
         if (!found) {
           try {
             const fallback = await siputGet("/api/d/sssinstagram", { url });
             const r = fallback.result || fallback.data;
 
-            // POST/PHOTO: data: [{ url: [...] }]
-            // REEL/VIDEO: data: { url: [...] }
-
-            // Check object format first (for reel/video)
             if (r?.url && !Array.isArray(r)) {
               const items = r.url;
               if (Array.isArray(items)) {
@@ -141,7 +219,6 @@ Module({
               }
             }
 
-            // Check array format (for post/photo)
             if (!found && r && Array.isArray(r)) {
               for (const item of r.slice(0, 5)) {
                 if (item?.url && Array.isArray(item.url)) {
@@ -155,12 +232,10 @@ Module({
           } catch (_) { }
         }
 
-        // 4. Siputzx - igram
         if (!found) {
           try {
             const fallback = await siputGet("/api/d/igram", { url });
             const r = fallback.result || fallback.data;
-            // Format: data[{ node: { media: { edges: [{ node: { display_url } }] } } }]
             if (r && Array.isArray(r)) {
               for (const item of r.slice(0, 5)) {
                 const edges = item?.node?.media?.edges;
@@ -177,16 +252,11 @@ Module({
           } catch (_) { }
         }
 
-        // 5. Siputzx - fastdl
         if (!found) {
           try {
             const fallback = await siputGet("/api/d/fastdl", { url });
             const r = fallback.result || fallback.data;
 
-            // POST/PHOTO: data: [{ url: [...] }]
-            // REEL/VIDEO: data: { url: [...] }
-
-            // Check object format first (for reel/video)
             if (r?.url && !Array.isArray(r)) {
               const items = r.url;
               if (Array.isArray(items)) {
@@ -201,7 +271,6 @@ Module({
               }
             }
 
-            // Check array format (for post/photo)
             if (!found && r && Array.isArray(r)) {
               for (const item of r.slice(0, 5)) {
                 if (item?.url && Array.isArray(item.url)) {
@@ -223,14 +292,8 @@ Module({
       if (!allMediaUrls.length)
         return await message.sendReply("_⚠️ Bir şeyler ters gitti, Lütfen tekrar deneyin!_");
 
-      // Check if total album size or count is too large to prevent crashes
-      if (allMediaUrls.length > 10) {
-        return await message.sendReply("_⚠️ Albüm çok fazla medya içeriyor (Maksimum 10)._");
-      }
-
       const tempFiles = [];
       try {
-        // Download all media to temp files
         for (const mediaUrl of allMediaUrls) {
           const isImage = isMediaImage(mediaUrl);
           const ext = isImage ? ".jpg" : ".mp4";
@@ -247,10 +310,8 @@ Module({
           );
         }
 
-        // Send as album
         const albumObject = tempFiles.map((file, index) => {
           const item = { [file.isImage ? "image" : "video"]: { url: file.path } };
-          // Albüm başlığı (Caption) genellikle ilk veya son öğeye eklenir
           if (index === 0) {
             item.caption = `✅ İndirme tamamlandı! (${tempFiles.length} medya)`;
           }
@@ -274,7 +335,6 @@ Module({
         }
         return;
       } finally {
-        // CLEANUP
         for (const file of tempFiles) {
           cleanTempFile(file.path);
         }
@@ -302,7 +362,7 @@ Module({
     if (urls.length > 0 && validateUrl(urls[0], "facebook")) {
       videoLink = urls[0];
     } else {
-      return await message.sendReply("_❌ Lütfen geçerli bir Facebook bağlantısı girin._");
+      return await message.sendReply("_⚠️ Lütfen geçerli bir Facebook bağlantısı girin._");
     }
 
     if (!videoLink) return await message.sendReply("_⚠️ Facebook bağlantısı gerekli_");
@@ -321,7 +381,6 @@ Module({
         }
       }
     } catch (e) {
-      // Fallback: Siputzx API
       try {
         const fallback = await siputGet("/api/d/facebook", { url: videoLink });
         const r = fallback.data || fallback.result;
@@ -364,7 +423,7 @@ Module({
 },
   async (message, match) => {
     const user = (match[1] || "").trim().replace(/^@/, "");
-    if (!user) return await message.sendReply("📸 _Kullanıcı adı girin:_ `.igara kullanıcıadı`");
+    if (!user) return await message.sendReply("👤 _Kullanıcı adı girin:_ `.igara kullanıcıadı`");
     try {
       const r = await nxTry([
         `/stalker/instagram?username=${encodeURIComponent(user)}`,
@@ -374,19 +433,19 @@ Module({
       const followers = r.follower_count ?? r.followers ?? "-";
       const following = r.following_count ?? r.following ?? "-";
       const posts = r.media_count ?? r.posts ?? "-";
-      const priv = r.is_private ? "🔒 Gizli" : "🌐 Açık";
+      const priv = r.is_private ? "🔒 Gizli" : "✅ Açık";
       const verified = r.is_verified ? "✅" : "❌";
       const avatar = r.profile_pic_url || r.profile_pic || r.avatar || r.profile?.avatar;
 
       const caption =
         `📸 *Instagram Profili*\n\n` +
-        `👤 *Ad:* ${full}\n` +
-        `🔑 *Kullanıcı:* @${user}\n` +
+        `📛 *Ad:* ${full}\n` +
+        `👤 *Kullanıcı:* @${user}\n` +
         `📝 *Bio:* ${bio}\n` +
         `👥 *Takipçi:* ${fmtCount(followers)}\n` +
-        `➡️ *Takip:* ${fmtCount(following)}\n` +
-        `📷 *Gönderi:* ${posts}\n` +
-        `🔐 *Hesap:* ${priv}\n` +
+        `➕ *Takip:* ${fmtCount(following)}\n` +
+        `📤 *Gönderi:* ${posts}\n` +
+        `🔓 *Hesap:* ${priv}\n` +
         `✅ *Doğrulanmış:* ${verified}`;
 
       if (avatar) {
@@ -395,7 +454,7 @@ Module({
         await message.sendReply(caption);
       }
     } catch (e) {
-      const msg = e.message.includes("429") ? "⚠️ _Instagram yoğunluk nedeniyle cevap vermiyor, lütfen biraz sonra tekrar deneyin._" : `❌ _Instagram profili alınamadı:_ ${e.message}`;
+      const msg = e.message.includes("429") ? "⏰ _Instagram yoğunluk nedeniyle cevap vermiyor, lütfen biraz sonra tekrar deneyin._" : `⚠️ _Instagram profili alınamadı:_ ${e.message}`;
       await message.sendReply(msg);
     }
   }
@@ -410,7 +469,7 @@ Module({
 },
   async (message, match) => {
     const user = (match[1] || "").trim().replace(/^@/, "");
-    if (!user) return await message.sendReply("🐦 _Kullanıcı adı giriniz:_ `.twara kullanıcı adı`");
+    if (!user) return await message.sendReply("👤 _Kullanıcı adı giriniz:_ `.twara kullanıcı adı`");
     try {
       const r = await nxTry([
         `/stalker/twitter?username=${encodeURIComponent(user)}`,
@@ -421,18 +480,18 @@ Module({
       const followers = stats.followers ?? r.followers_count ?? r.followers ?? "-";
       const following = stats.following ?? r.friends_count ?? r.following ?? "-";
       const tweets = stats.tweets ?? r.statuses_count ?? r.tweets ?? "-";
-      const likes = stats.likes ?? r.favourites_count ?? "-";
+      const likes = stats.favourites_count ?? "-";
       const verified = r.verified ? "✅" : "❌";
       const avatar = r.profile?.avatar || r.avatar || r.profile_image_url;
 
       const caption =
-        `🐦 *X/Twitter Profili*\n\n` +
-        `👤 *Ad:* ${name}\n` +
-        `🔑 *Kullanıcı:* @${user}\n` +
+        `𝕏 *X/Twitter Profili*\n\n` +
+        `📛 *Ad:* ${name}\n` +
+        `👤 *Kullanıcı:* @${user}\n` +
         `📝 *Biyografi:* ${bio}\n` +
         `👥 *Takipçi:* ${fmtCount(followers)}\n` +
-        `➡️ *Takip:* ${fmtCount(following)}\n` +
-        `🐦 *Tweet:* ${fmtCount(tweets)}\n` +
+        `➕ *Takip:* ${fmtCount(following)}\n` +
+        `📤 *Tweet:* ${fmtCount(tweets)}\n` +
         `❤️ *Beğeni:* ${fmtCount(likes)}\n` +
         `✅ *Doğrulanmış mı?:* ${verified}`;
 
@@ -442,7 +501,7 @@ Module({
         await message.sendReply(caption);
       }
     } catch (e) {
-      await message.sendReply(`❌ _X profiline ulaşamadım:_ ${e.message}`);
+      await message.sendReply(`⚠️ _X profiline ulaşamadım:_ ${e.message}`);
     }
   }
 );
@@ -476,12 +535,11 @@ Module({
     try {
       var storyData = await downloadGram(userIdentifier);
     } catch {
-      return await message.sendReply("*_❌ Üzgünüm, sunucu hatası_*");
+      return await message.sendReply("*_⚠️ Üzgünüm, sunucu hatası_*");
     }
     if (!storyData || !storyData.length)
-      return await message.sendReply("*_❌ Bulunamadı!_*");
+      return await message.sendReply("*_⚠️ Bulunamadı!_*");
 
-    // Mükerrer URL'leri temizle
     storyData = [...new Set(storyData)];
     if (storyData.length === 1) {
       const isImage = isMediaImage(storyData[0]);
@@ -535,7 +593,6 @@ Module({
       try {
         const url = await nexray.downloadPinterest(userQuery);
         if (!url) {
-          // Fallback: Siputzx API
           try {
             const fallback = await siputGet("/api/d/pinterest", { url: userQuery });
             const r = fallback.data || fallback.result;
@@ -552,7 +609,7 @@ Module({
               return;
             }
           } catch (_) { }
-          return await message.sendReply("_❌ Bu bağlantı için indirilebilir medya bulunamadı veya sunucu cevap vermiyor_");
+          return await message.sendReply("_⚠️ Bu bağlantı için indirilebilir medya bulunamadı veya sunucu cevap vermiyor_");
         }
 
         const isImage = isMediaImage(url);
@@ -576,24 +633,21 @@ Module({
         }
       } catch (e) {
         console.error("Pinterest İşlem Hatası:", e.message);
-        await message.sendReply(`_❌ Pinterest medyası işlenirken bir hata oluştu._\n_Hata: ${e.message}_`);
+        await message.sendReply(`_⚠️ Pinterest medyası işlenirken bir hata oluştu._\n_Hata: ${e.message}_`);
       }
-
-
     } else {
-
       let desiredCount = parseInt(userQuery.split(",")[1]) || 5;
       let searchQuery = userQuery.split(",")[0] || userQuery;
       let searchResults;
       try {
         const res = await pinterestSearch(searchQuery, desiredCount);
         if (!res || !res.status || !Array.isArray(res.result)) {
-          return await message.sendReply("_❌ Bu sorgu için sonuç bulunamadı_");
+          return await message.sendReply("_⚠️ Bu sorgu için sonuç bulunamadı_");
         }
         searchResults = res.result;
       } catch (err) {
         console.error("Pinterest arama hatası:", err?.message || err);
-        return await message.sendReply("_❌ Pinterest'te arama yaparken sunucu hatası_"
+        return await message.sendReply("_⚠️ Pinterest'te arama yaparken sunucu hatası_"
         );
       }
 
@@ -610,7 +664,7 @@ Module({
           await message.sendReply({ image: { url: tempPath } });
           await new Promise(r => setTimeout(r, 1000));
         } catch (error) {
-          console.error("Pinterest öğesi indirilemedi:", error?.message || error);
+          console.error("Pinterest resmi indirilemedi:", error?.message || error);
         } finally {
           cleanTempFile(tempPath);
         }
@@ -655,7 +709,7 @@ Module({
 Module({
   pattern: "tiktok ?(.*)",
   fromMe: false,
-  desc: "TikTok videolarını filigransız (yazısız) bir şekilde indirir.",
+  desc: "TikTok videolarını ve albümlerini (kaydırmalı fotoğrafları) filigransız indirir.",
   usage: ".tiktok [bağlantı]",
   use: "indirme",
 },
@@ -666,7 +720,7 @@ Module({
     if (urls.length > 0 && validateUrl(urls[0], "tiktok")) {
       videoLink = urls[0];
     } else {
-      return await message.sendReply("_❌ Lütfen geçerli bir TikTok bağlantısı girin._");
+      return await message.sendReply("_⚠️ Lütfen geçerli bir TikTok bağlantısı girin._");
     }
     let downloadResult;
     try {
@@ -678,7 +732,6 @@ Module({
 
       if (downloadResult?.type === "album" && downloadResult?.urls) {
         const imageUrls = downloadResult.urls;
-        
 
         const tempFiles = [];
         for (const imgUrl of imageUrls) {
@@ -733,14 +786,11 @@ Module({
         await message.sendReply("_⚠️ Bir şeyler ters gitti, Lütfen tekrar deneyin!_");
       }
     } catch (error) {
-      // Fallback: Siputzx API
       try {
         const fallback = await siputGet("/api/d/tiktok", { url: videoLink });
         const r = fallback.data || fallback.result;
-        // New API format: { media: [{ quality: "SD"/"HD", url: "...", type: "video"/"video_hd" }] }
         const mediaArr = r?.media;
         if (mediaArr && Array.isArray(mediaArr)) {
-          // Prefer HD quality, fallback to SD
           const hdItem = mediaArr.find(m => m.quality === "HD" && m.url);
           const sdItem = mediaArr.find(m => m.quality === "SD" && m.url);
           const videoUrl = hdItem?.url || sdItem?.url;
@@ -801,7 +851,7 @@ Module({
       const usage = r.usage || r.uses || "-";
       let caption = `🎬 *${title}*\n`;
       if (desc) caption += `📝 ${desc}\n`;
-      if (usage !== "-") caption += `📈 *Kullanım:* ${fmtCount(usage)}`;
+      if (usage !== "-") caption += `👤 *Kullanım:* ${fmtCount(usage)}`;
 
       const tempPath = getTempPath(".mp4");
       try {
@@ -811,7 +861,6 @@ Module({
         cleanTempFile(tempPath);
       }
     } catch (e) {
-      // Fallback: Siputzx API
       try {
         const fallback = await siputGet("/api/d/capcut", { url });
         const r = fallback.data || fallback.result;
@@ -827,85 +876,181 @@ Module({
           return;
         }
       } catch (_) { }
-      await message.sendReply(`❌ _CapCut videosu indirilemedi:_ ${e.message}`);
+      await message.sendReply(`🎬 _CapCut videosu indirilemedi:_ ${e.message}`);
     }
   }
 );
 
-function extractTikTokUsername(input) {
-  if (!input) return null;
-  input = input.trim();
-  if (input.startsWith('@')) {
-    return input.slice(1).toLowerCase();
-  }
-  if (/^[a-zA-Z0-9._]{2,24}$/.test(input)) {
-    return input.toLowerCase();
-  }
-  try {
-    const match = input.match(/tiktok\.com\/@([^/?]+)/i);
-    if (match && match[1]) {
-      return match[1].toLowerCase();
+Module({
+  pattern: 'igara ?(.*)',
+  fromMe: false,
+  desc: 'Instagram kullanıcı bilgilerini getirir.',
+  usage: '.igara [kullanıcıadı]',
+  use: "search",
+},
+  async (message, match) => {
+    const user = (match[1] || '').trim().replace(/^@/, '');
+    if (!user) return await message.sendReply('👤 _Kullanıcı adı girin:_ `.igara kullanıcıadı`');
+    try {
+      const r = await nxTry([`/stalker/instagram?username=${encodeURIComponent(user)}`]);
+      const full = r.full_name || r.fullname || r.name || user;
+      const bio = r.biography || r.bio || '-';
+      const followers = r.follower_count ?? r.followers ?? '-';
+      const following = r.following_count ?? r.following ?? '-';
+      const posts = r.media_count ?? r.posts ?? '-';
+      const priv = r.is_private ? '🔒 Gizli' : '✅ Açık';
+      const verified = r.is_verified ? '✅' : '❌';
+      const avatar = r.profile_pic_url || r.profile_pic || r.avatar || r.profile?.avatar;
+
+      const caption = `📸 *Instagram Profili*\n\n📛 *Ad:* ${full}\n👤 *Kullanıcı:* @${user}\n📝 *Bio:* ${bio}\n👥 *Takipçi:* ${fmtCount(followers)}\n➕ *Takip:* ${fmtCount(following)}\n📤 *Gönderi:* ${posts}\n🔓 *Hesap:* ${priv}\n✅ *Doğrulanmış:* ${verified}`;
+
+      if (avatar) {
+        await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
+      } else {
+        await message.sendReply(caption);
+      }
+    } catch (e) {
+      const msg = e.message.includes('429') ? '⏰ _Instagram yoğunluk nedeniyle cevap vermiyor, lütfen biraz sonra tekrar deneyin._' : `⚠️ _Instagram profili alınamadı:_ ${e.message}`;
+      await message.sendReply(msg);
     }
-  } catch (_) { }
-  return null;
-}
+  }
+);
+
+Module({
+  pattern: 'twara ?(.*)',
+  fromMe: false,
+  desc: 'Twitter/X kullanıcı bilgilerini getirir.',
+  usage: '.twara [kullanıcıadı]',
+  use: "search",
+},
+  async (message, match) => {
+    const user = (match[1] || '').trim().replace(/^@/, '');
+    if (!user) return await message.sendReply('👤 _Kullanıcı adı giriniz:_ `.twara kullanıcı adı`');
+    try {
+      const r = await nxTry([`/stalker/twitter?username=${encodeURIComponent(user)}`]);
+      const name = r.name || user;
+      const bio = r.description || r.bio || r.signature || '-';
+      const stats = r.stats || {};
+      const followers = stats.followers ?? r.followers_count ?? r.followers ?? '-';
+      const following = stats.following ?? r.friends_count ?? r.following ?? '-';
+      const tweets = stats.tweets ?? r.statuses_count ?? r.tweets ?? '-';
+      const verified = r.verified ? '✅' : '❌';
+      const avatar = r.profile?.avatar || r.avatar || r.profile_image_url;
+
+      const caption = `𝕏 *X/Twitter Profili*\n\n📛 *Ad:* ${name}\n👤 *Kullanıcı:* @${user}\n📝 *Biyografi:* ${bio}\n👥 *Takipçi:* ${fmtCount(followers)}\n➕ *Takip:* ${fmtCount(following)}\n📤 *Tweet:* ${fmtCount(tweets)}\n✅ *Doğrulanmış mı?:* ${verified}`;
+
+      if (avatar) {
+        await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
+      } else {
+        await message.sendReply(caption);
+      }
+    } catch (e) {
+      await message.sendReply(`⚠️ _X profiline ulaşamadım:_ ${e.message}`);
+    }
+  }
+);
+
+Module({
+  pattern: ' Threads ?(.*)',
+  fromMe: false,
+  desc: 'Threads kullanıcı bilgilerini getirir.',
+  usage: '.threads [kullanıcıadı]',
+  use: "search",
+},
+  async (message, match) => {
+    const user = (match[1] || '').trim().replace(/^@/, '');
+    if (!user) return await message.sendReply('🧵 _Kullanıcı adı girin:_ `.threads kullanıcıadı`');
+    try {
+      const r = await nxTry([`/stalker/threads?username=${encodeURIComponent(user)}`]);
+      if (!r || !r.id) return await message.sendReply('⚠️ _Kullanıcı bulunamadı!_');
+
+      const name = r.name || r.username || user;
+      const bio = r.bio || '-';
+      const followers = r.followers_count ?? r.followers ?? '-';
+      const following = r.following_count ?? r.following ?? '-';
+      const posts = r.threads_count ?? r.posts ?? '-';
+      const avatar = r.profile_pic_url || r.avatar || r.profile?.avatar;
+
+      const caption = `🧵 *Threads Profili*\n\n📛 *Ad:* ${name}\n👤 *Kullanıcı:* @${user}\n📝 *Bio:* ${bio}\n👥 *Takipçi:* ${fmtCount(followers)}\n➕ *Takip:* ${fmtCount(following)}\n📤 *Gönderi:* ${fmtCount(posts)}\n🔗 *Profil:* https://threads.net/@${user}`;
+
+      if (avatar) {
+        await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
+      } else {
+        await message.sendReply(caption);
+      }
+    } catch (e) {
+      await message.sendReply(`⚠️ _Threads profiline ulaşamadım:_ ${e.message}`);
+    }
+  }
+);
 
 Module({
   pattern: 'ttara ?(.*)',
   fromMe: false,
-  desc: 'Gizli hesap olmayan bir TikTok kullanıcısının profil detaylarını ve istatistiklerini gösterir.',
+  desc: 'TikTok kullanıcı bilgilerini getirir.',
   usage: '.ttara [kullanıcıadı]',
-  use: "araçlar",
+  use: 'search',
 },
   async (message, match) => {
+    const extractUsername = (input) => {
+      const urlMatch = input.match(/tiktok\.com\/@?([A-Za-z0-9_.]+)/i);
+      if (urlMatch) return urlMatch[1];
+      const atMatch = input.match(/^@?([A-Za-z0-9_.]{2,24})$/);
+      return atMatch ? atMatch[1] : null;
+    };
+    const formatNumber = (n) => {
+      if (n == null) return 'Bilinmiyor';
+      n = Number(n);
+      if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1).replace('.0', '') + 'B';
+      if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace('.0', '') + 'M';
+      if (n >= 1_000) return (n / 1_000).toFixed(1).replace('.0', '') + 'K';
+      return n.toLocaleString('tr-TR');
+    };
+    const normalizeUser = (data, i) => {
+      try {
+        if (i === 0) {
+          if (data?.status !== true || !data?.result?.username) return null;
+          const u = data.result;
+          return { username: u.username, id: u.id || 'Bilinmiyor', name: u.name || 'Bilinmiyor', followers: u.stats?.raw_followers ?? null, following: u.stats?.raw_following ?? null, likes: u.stats?.raw_likes ?? null, bio: u.bio || null, verified: u.verified === 'Verified', private: u.private === 'Yes', avatar: u.avatar || null };
+        }
+        if (i === 1) {
+          if (data?.status !== 200 || !data?.result) return null;
+          const u = data.result;
+          return { username: u.username, id: u.id || 'Bilinmiyor', name: u.name || 'Bilinmiyor', followers: u.followers ?? null, following: u.following ?? null, likes: u.likes ?? null, bio: u.bio || null, verified: u.verified === true, private: u.private === true, avatar: u.avatar || null };
+        }
+        if (i === 2) {
+          if (data?.status !== true || !data?.data?.user?.uniqueId) return null;
+          const u = data.data.user;
+          const s = data.data.stats;
+          return { username: u.uniqueId, id: u.id || 'Bilinmiyor', name: u.nickname || 'Bilinmiyor', followers: s?.followerCount ?? null, following: s?.followingCount ?? null, likes: s?.heartCount ?? null, bio: u.signature || null, verified: u.verified === true, private: u.privateAccount === true, avatar: u.avatarLarger || null };
+        }
+        return null;
+      } catch { return null; }
+    };
     try {
-      let input = (match?.[1] || '').trim();
-      if (!input) {
-        input = message.reply_message?.text || message.reply_message?.caption || '';
-        input = input.trim();
+      let input = (match?.[1] || '').trim() || (message.reply_message?.text || message.reply_message?.caption || '').trim();
+      if (!input) return await message.sendReply('⚠️ _Lütfen bir TikTok @kullanıcı adı veya profil bağlantısı girin!_\n*Örnekler:*\n.ttara mrbeast\n.ttara @mrbeast');
+      const username = extractUsername(input);
+      if (!username) return await message.sendReply('❌ _Geçersiz TikTok kullanıcı adı!_');
+      const apis = [
+        `https://api.nexray.web.id/stalker/tiktok?username=${encodeURIComponent(username)}`,
+        `https://api.princetechn.com/api/stalk/tiktokstalk?apikey=prince&username=${encodeURIComponent(username)}`,
+        `https://api.siputzx.my.id/api/stalk/tiktok?username=${encodeURIComponent(username)}`,
+      ];
+      let user = null;
+      for (let i = 0; i < apis.length; i++) {
+        try {
+          const { data } = await axios.get(apis[i], { timeout: 10000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+          user = normalizeUser(data, i);
+          if (user) break;
+        } catch { continue; }
       }
-      if (!input) {
-        return await message.sendReply(
-          '⚠ _Lütfen bir TikTok @kullanıcı adı veya profil bağlantısı girin! (Gizli hesaplar hariç)_\n' +
-          '*Örnekler:*\n' +
-          '.ttara lades\n' +
-          '.ttara @lades\n' +
-          '.ttara https://www.tiktok.com/@lades'
-        );
-      }
-      const username = extractTikTokUsername(input);
-      if (!username) {
-        return await message.sendReply('❌ _Geçersiz TikTok kullanıcı adı!_');
-      }
-      const response = await axios.get(
-        `https://api.princetechn.com/api/stalk/tiktokstalk?apikey=prince&username=${encodeURIComponent(username)}`
-      );
-      const data = response.data;
-      if (!data || data.status !== 200 || !data.result) {
-        return await message.sendReply('⚠ _Kullanıcı bulunamadı!_');
-      }
-      const user = data.result;
-      let caption = `👤 Kullanıcı Adı: *@${user.username || 'Bilinmiyor'}*\n`;
-      caption += `🆔 Kullanıcı ID: *${user.id || 'Bilinmiyor'}*\n`;
-      caption += `📝 İsim: *${user.name || 'Bilinmiyor'}*\n`;
-      caption += `👥 Takipçi: *${user.followers}*\n`;
-      caption += `➕ Takip: *${user.following}*\n`;
-      caption += `❤️ Beğeni: *${user.likes}*\n\n`;
-      caption += 'ℹ️ BİYOGRAFİ\n';
-      caption += `*${user.bio || 'Biyografi yok'}*\n\n`;
-      if (user.verified) caption += '✅ *Doğrulanmış Hesap*\n';
-      if (user.private) caption += '🔒 *Gizli Hesap*\n';
-      if (user.verified || user.private) caption += '\n';
-      caption += `🔗 *Profil:* https://www.tiktok.com/@${user.username}`;
-      if (user.avatar) {
-        await message.sendMessage({ url: user.avatar }, 'image', { caption, quoted: message.data });
-      } else {
-        await message.sendReply(caption);
-      }
+      if (!user) return await message.sendReply('⚠️ _Kullanıcı bulunamadı veya tüm API\'ler şu an erişilemiyor. Lütfen daha sonra tekrar deneyin._');
+      let caption = `👤 *Kullanıcı Adı:* @${user.username}\n🆔 *Kullanıcı ID:* ${user.id}\n📝 *İsim:* ${user.name}\n👥 *Takipçi:* ${formatNumber(user.followers)}\n➕ *Takip:* ${formatNumber(user.following)}\n❤️ *Beğeni:* ${formatNumber(user.likes)}\nℹ️ *BİYOGRAFİ*\n_${user.bio || 'Biyografi yok'}_\n` + (user.verified ? '✅ *Doğrulanmış Hesap*\n' : '') + (user.private ? '🔒 *Gizli Hesap*\n' : '') + `\n🔗 *Profil:* https://www.tiktok.com/@${user.username}`;
+      if (user.avatar) await message.sendMessage({ url: user.avatar }, 'image', { caption, quoted: message.data });
+      else await message.sendReply(caption);
     } catch (error) {
-      console.error('TikTok Arama Hatası:', error);
-      return await message.sendReply('❌ _Bilgiler getirilirken bir hata oluştu!_');
+      console.error('[TikTok] Kritik Hata:', error);
+      return await message.sendReply('❌ _Bilgiler getirilirken bir hata oluştu. Lütfen daha sonra tekrar deneyin._');
     }
-  }
-);
-
+  });

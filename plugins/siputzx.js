@@ -102,49 +102,9 @@ Module({
 });
 
 // ══════════════════════════════════════════════════════
-// TikTok Profil Sorgulama
+// TikTok Profil Sorgulama (social.js'de mevcut)
 // ══════════════════════════════════════════════════════
-Module({
-  pattern: "ttara ?(.*)",
-  fromMe: false,
-  desc: "TikTok kullanıcı profilini sorgular.",
-  usage: ".ttara kullaniciadi",
-  use: "profil-inceleme",
-}, async (message, match) => {
-  const user = (match[1] || "").trim();
-  if (!user) return await message.sendReply("_Kullanıcı adı girin:_ `.ttara kullaniciadi`");
 
-  try {
-    const data = await siputGet("/api/stalk/tiktok", { user });
-    const r = data.data || data.result;
-    if (!r) return await message.sendReply("_Kullanıcı bulunamadı._");
-
-    const text = [
-      `*TikTok Profili*`,
-      `*Kullanıcı:* ${r.username || user}`,
-      `*Ad:* ${r.nickname || r.name || "?"}`,
-      r.bio ? `*Bio:* ${r.bio}` : null,
-      `*Takipçi:* ${r.followers ?? r.followerCount ?? "?"}`,
-      `*Takip:* ${r.following ?? r.followingCount ?? "?"}`,
-      `*Beğeni:* ${r.likes ?? r.heartCount ?? "?"}`,
-      `*Video:* ${r.videos ?? r.videoCount ?? "?"}`,
-    ].filter(Boolean).join("\n");
-
-    const avatar = r.avatar || r.avatarLarger || r.avatarMedium;
-    if (avatar) {
-      await message.client.sendMessage(message.jid, {
-        image: { url: avatar },
-        caption: text
-      }, { quoted: message.data });
-    } else {
-      await message.sendReply(text);
-    }
-  } catch (e) {
-    await message.sendReply(`_TikTok sorgusu başarısız:_ ${e.message}`);
-  }
-});
-
-// ══════════════════════════════════════════════════════
 // Instagram Profil Sorgulama
 // ══════════════════════════════════════════════════════
 Module({

@@ -149,7 +149,7 @@ Module({
       "🔎 .igara\nInstagram'dan kullanıcı bilgilerini getirir.\n\n" +
       "📘 .fb\nFacebook'tan gönderi/video indirir.\n\n" +
       "📌 .pinterest\nPinterest içeriği indirir.\n\n" +
-      "🎥 .tiktok\nTikTok'tan video indirir.\n\n" +
+      "🎥 .tiktok\nTikTok videolarını ve albümlerini (kaydırmalı fotoğrafları) filigransız indirir.\n\n" +
       "🔎 .ttara\nTikTok'tan kullanıcı bilgilerini getirir.\n\n" +
       "🎬 .capcut\nCapCut'tan video indirir.\n\n" +
       "🧵 .threads\nThreads'ten içerik indirir.\n\n" +

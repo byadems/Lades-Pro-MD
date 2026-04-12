@@ -205,12 +205,42 @@ function validateUrl(url, platform) {
 // ─────────────────────────────────────────────────────────
 function suppressLibsignalLogs() {
   const origWarn = console.warn.bind(console);
+  const origLog = console.log.bind(console);
+  const origInfo = console.info.bind(console);
+
+  const filter = (args) => {
+    try {
+      for (const arg of args) {
+        if (typeof arg === 'string' && (
+          arg.includes("signalstore") || 
+          arg.includes("libsignal") || 
+          arg.includes("Closing session:") || 
+          arg.includes("SessionEntry")
+        )) return true;
+        
+        // If it's an object, check its constructor name or a quick string check
+        if (arg && typeof arg === 'object' && arg.constructor?.name === 'SessionEntry') return true;
+      }
+      return false;
+    } catch { return false; }
+  };
+
   console.warn = (...args) => {
-    const msg = args.join(" ");
-    if (msg.includes("signalstore") || msg.includes("libsignal")) return;
+    if (filter(args)) return;
     origWarn(...args);
   };
+
+  console.log = (...args) => {
+    if (filter(args)) return;
+    origLog(...args);
+  };
+
+  console.info = (...args) => {
+    if (filter(args)) return;
+    origInfo(...args);
+  };
 }
+
 
 // ─────────────────────────────────────────────────────────
 //  Message utilities
