@@ -2,15 +2,7 @@ const { Module } = require('../main')
 
 let choices = ['⚖️ Doğruluk', '🙌🏻 Cesaret'];
 
-Module({
-    pattern: 'dc ?(.*)',
-    fromMe: false,
-    use: 'grup',
-    usage: '.dc',
-    desc: "Doğruluk mu Cesaret mi oyununu oynatır."
-  },
-  (async (message, match) => {
-  let truthQuestions = [
+let truthQuestions = [
     "📱 Telefonunda en son aradığın şey neydi?",
     "💔 Birisi kız arkadaşın veya erkek arkadaşından ayrılman için sana 1 milyon TL verseydi, yapar mıydın?",
     "❤️ Bu gruptaki en çok kimi seviyorsun ve neden?",
@@ -282,6 +274,14 @@ Module({
   ];
   dareTasks = dareTasks.map(task => `*${task}*`);
 
+Module({
+    pattern: 'dc ?(.*)',
+    fromMe: false,
+    use: 'grup',
+    usage: '.dc',
+    desc: "Doğruluk mu Cesaret mi oyununu oynatır."
+  },
+  (async (message, match) => {
   const choice = parseInt(match[1]);
   if (isNaN(choice) || choice < 1 || choice > 2) {
     return await message.sendReply(`_Hadi hemen birini seç!_ 🔻\n\n*.dc 1* ➡️ Doğruluk 😌\n*.dc 2* ➡️ Cesaret 😈\n\n_Seçimini yaz ve sorun gelsin._ 💣`);
@@ -297,4 +297,29 @@ Module({
     await message.sendReply(text);
   }
 }));
+
+Module({
+  on: 'text',
+  fromMe: false
+}, async (message) => {
+  if (!message.reply_message || !message.reply_message.fromMe) return;
+  
+  const repliedText = message.reply_message.text || "";
+  if (!repliedText) return;
+  
+  let choice = 0;
+  if (repliedText.includes("Doğruluk:")) {
+    choice = 1;
+  } else if (repliedText.includes("Cesaret:")) {
+    choice = 2;
+  }
+  
+  if (choice !== 0) {
+    const questions = choice === 1 ? truthQuestions : dareTasks;
+    const randomIndex = Math.floor(Math.random() * questions.length);
+    const text = `${choices[choice - 1]}:\n${questions[randomIndex]}`;
+    
+    await message.sendReply(text);
+  }
+});
 

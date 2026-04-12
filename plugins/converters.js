@@ -145,8 +145,8 @@ Module({
       try {
         const result = await attp(match[1].trim());
         const exif = {
+          packname: message.pushName || message.senderName || "Lades-Pro",
           author: STICKER_DATA.split(";")[1] || "Lades-Pro",
-          packname: message.pushName || (typeof message.senderName === 'string' ? message.senderName : "Lades-Sticker"),
           categories: STICKER_DATA.split(";")[2] || "😂",
           android: "",
           ios: "",
@@ -163,8 +163,8 @@ Module({
       return await message.send(Lang.STICKER_NEED_REPLY);
 
     const exif = {
+      packname: message.pushName || message.senderName || "Lades-Pro",
       author: STICKER_DATA.split(";")[1] || "Lades-Pro",
-      packname: message.pushName || (typeof message.senderName === 'string' ? message.senderName : "Lades-Sticker"),
       categories: STICKER_DATA.split(";")[2] || "😂",
       android: "",
       ios: "",
@@ -200,29 +200,14 @@ Module({
     }
 
     try {
-      var savedFile = await message.reply_message.download();
-      const { getTempPath } = require("../core/helpers");
-      const outWebp = getTempPath("out_sticker.webp");
+      const mediaBuf = await message.reply_message.download();
+      const isMediaVideo = message.reply_message.video ? true : false;
 
-      // Direct ffmpeg processing
-      await ffmpegLimit(() => new Promise((resolve, reject) => {
-        ffmpeg(savedFile)
-          .outputOptions([
-            "-vcodec", "libwebp",
-            "-vf", "scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000",
-            "-loop", "0",
-            "-qscale", "60",
-            "-an"
-          ])
-          .save(outWebp)
-          .on("end", resolve)
-          .on("error", reject);
-      }));
+      const rawSticker = await sticker(mediaBuf, isMediaVideo);
+      const stickerBuf = await addExif(rawSticker, exif);
 
-      const stickerBuf = await addExif(outWebp, exif);
       await message.sendMessage(stickerBuf, "sticker", { quoted: message.quoted });
 
-      // Clean up: delete original message if possible
       if (message.reply_message) {
         try {
           await message.client.sendMessage(message.jid, { delete: message.reply_message.key });
@@ -230,10 +215,23 @@ Module({
           console.error("Mesaj silinemedi:", e);
         }
       }
+
+      if (waitMsg && waitMsg.key) {
+        try {
+          await message.client.sendMessage(message.jid, { delete: waitMsg.key });
+        } catch (e) { }
+      }
+
+      try {
+        if (typeof mediaBuf === "string" && require("fs").existsSync(mediaBuf)) {
+          require("fs").unlinkSync(mediaBuf);
+        }
+      } catch (err) { }
+
       return;
     } catch (e) {
       console.error("Çıkartma hatası:", e);
-      return await message.sendReply(`_❌ Çıkartma oluşturulamadı. Hata: ${e.message}_`);
+      return await message.sendReply(`_❌ Çıkartma oluşturulamadı. Hata: ${e.message || e}_`);
     }
   }
 );

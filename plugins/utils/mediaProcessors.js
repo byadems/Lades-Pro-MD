@@ -149,11 +149,42 @@ async function attp(text) {
 
 /**
  * Converts image/video to sticker.
+ * Supports: sticker(buffer) / sticker(buffer, "image") / sticker(buffer, "video") / sticker(buffer, true/false)
  */
-async function sticker(buffer, isVideo = false) {
-  const input = getTempPath(isVideo ? ".mp4" : ".jpg");
-  const output = getTempPath(".webp");
+async function sticker(inputMedia, type = false) {
+  const isVideo = type === true || type === "video";
+  const isImage = !isVideo;
   const fsPromises = require("fs").promises;
+
+  let buffer;
+  if (Buffer.isBuffer(inputMedia)) {
+    buffer = inputMedia;
+  } else if (typeof inputMedia === "string" && fs.existsSync(inputMedia)) {
+    buffer = await fsPromises.readFile(inputMedia);
+  } else {
+    // Fallback if it's already a stream or something else
+    buffer = inputMedia;
+  }
+
+  // Handle static images with Sharp (faster & better transparency)
+  if (isImage) {
+    try {
+      return await sharp(buffer)
+        .resize(512, 512, {
+          fit: 'contain',
+          background: { r: 0, g: 0, b: 0, alpha: 0 }
+        })
+        .webp()
+        .toBuffer();
+    } catch (e) {
+      console.error("Sticker Sharp error, falling back to FFmpeg:", e);
+      // Fall through to FFmpeg if sharp fails
+    }
+  }
+
+  // Handle videos or sharp fallback with FFmpeg
+  const input = getTempPath(isVideo ? ".mp4" : ".png");
+  const output = getTempPath(".webp");
   await fsPromises.writeFile(input, buffer);
 
   return ffmpegLimit(() => new Promise((resolve, reject) => {
@@ -161,20 +192,20 @@ async function sticker(buffer, isVideo = false) {
     if (isVideo) {
       ff.addOptions([
         "-vcodec", "libwebp",
-        "-vf", "scale=512:512:force_original_aspect_ratio=decrease",
+        "-vf", "scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000,fps=10",
         "-loop", "0",
         "-ss", "00:00:00",
-        "-t", "00:00:05",
+        "-t", "00:00:06",
         "-preset", "default",
         "-an",
         "-vsync", "0",
-        "-q:v", "50",
+        "-q:v", "10",
         "-compression_level", "6"
       ]);
     } else {
       ff.addOptions([
         "-vcodec", "libwebp",
-        "-vf", "scale=512:512:force_original_aspect_ratio=decrease",
+        "-vf", "scale=512:512:flags=lanczos:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000",
         "-q:v", "75",
         "-compression_level", "6"
       ]);

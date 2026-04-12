@@ -4,6 +4,7 @@ const config = require("../config");
 const { CircuitBreaker } = require("./utils/resilience");
 const nexray = require("./utils/nexray");
 const { saveToDisk, getTempPath, cleanTempFile, isMediaImage } = require("../core/helpers");
+const { sticker, addExif } = require("./utils");
 
 const BASE = "https://api.nexray.web.id";
 const TIMEOUT = 30000;
@@ -99,7 +100,8 @@ Module({
     }
     try {
       const buf = await nexGet(`/tools/emojimix?emoji1=${encodeURIComponent(emojis[0])}&emoji2=${encodeURIComponent(emojis[1])}`, { buffer: true });
-      await message.client.sendMessage(message.jid, { sticker: buf }, { quoted: message.data });
+      const stickerBuf = await addExif(await sticker(buf, false), { packname: message.pushName || message.senderName || "Lades-Pro", author: config.STICKER_DATA.split(";")[1] || "Lades-Pro" });
+      await message.client.sendMessage(message.jid, { sticker: stickerBuf }, { quoted: message.data });
     } catch (e) {
       await message.sendReply(`❌ _Emoji birleştirilemedi:_ ${e.message}`);
     }
@@ -209,8 +211,9 @@ Module({
     const text = (match[1] || "").trim();
     if (!text) return await message.sendReply("💚 _Metin girin:_ `.brat lades bot`");
     try {
-const buf = await nexGet(`/maker/brat?text=${encodeURIComponent(text)}`, { buffer: true });
-      await message.client.sendMessage(message.jid, { sticker: buf }, { quoted: message.data });
+      const buf = await nexGet(`/maker/brat?text=${encodeURIComponent(text)}`, { buffer: true });
+      const stickerBuf = await addExif(await sticker(buf, false), { packname: message.pushName || message.senderName || "Lades-Pro", author: config.STICKER_DATA.split(";")[1] || "Lades-Pro" });
+      await message.client.sendMessage(message.jid, { sticker: stickerBuf }, { quoted: message.data });
     } catch (e) {
       await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
     }
@@ -399,7 +402,8 @@ Module({
         `/maker/qc?text=${encodeURIComponent(text)}&name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(ppUrl)}&color=putih`,
         { buffer: true }
       );
-      await message.client.sendMessage(message.jid, { sticker: buf }, { quoted: message.reply_message || message.data });
+      const stickerBuf = await addExif(await sticker(buf, false), { packname: message.pushName || message.senderName || "Lades-Pro", author: config.STICKER_DATA.split(";")[1] || "Lades-Pro" });
+      await message.client.sendMessage(message.jid, { sticker: stickerBuf }, { quoted: message.reply_message || message.data });
     } catch (e) {
       await message.sendReply(`❌ _Alıntı oluşturulamadı:_ ${e.message}`);
     }
