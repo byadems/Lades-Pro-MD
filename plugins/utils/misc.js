@@ -28,7 +28,8 @@ async function isAdmin(message, userJid = message.sender) {
 
   // Fallback: Fetch metadata if pre-calculated data is missing or checking another user
   try {
-    const metadata = await message.client.groupMetadata(message.jid).catch(() => null);
+    const { fetchGroupMeta } = require("../../core/store");
+    const metadata = await fetchGroupMeta(message.client, message.jid);
     if (!metadata) return false;
     const admins = getGroupAdmins(metadata);
     

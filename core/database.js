@@ -1,9 +1,56 @@
-"use strict";
-
 const fs = require("fs");
 const path = require("path");
-const { DataTypes, Op } = require("sequelize");
-const { sequelize, logger } = require("../config");
+const { Sequelize, DataTypes, Op } = require("sequelize");
+const { logger, ...config } = require("../config");
+
+// ─────────────────────────────────────────────────────────
+//  Database / Sequelize Initialization
+// ─────────────────────────────────────────────────────────
+const DATABASE_URL = config.DATABASE_URL;
+
+let sequelize;
+if (DATABASE_URL && DATABASE_URL.startsWith("postgres")) {
+  sequelize = new Sequelize(DATABASE_URL, {
+    dialect: "postgres",
+    logging: false,
+    pool: {
+      max: parseInt(process.env.DB_POOL_MAX || "20", 10),
+      min: parseInt(process.env.DB_POOL_MIN || "2", 10),
+      acquire: 60000,
+      idle: 30000,
+    },
+    dialectOptions: {
+      ssl: process.env.DB_SSL === "false" ? false : { require: true, rejectUnauthorized: false },
+    },
+    retry: {
+      max: 5,
+      match: [
+        Sequelize.ConnectionError,
+        Sequelize.ConnectionRefusedError,
+        Sequelize.ConnectionTimedOutError,
+      ],
+    },
+  });
+} else {
+  // Use local SQLite
+  sequelize = new Sequelize({
+    dialect: "sqlite",
+    storage: path.join(__dirname, "../database.sqlite"),
+    logging: false,
+    pool: {
+      max: 1,
+      min: 0,
+      acquire: 30000,
+      idle: 10000,
+    },
+    retry: {
+      max: 10,
+      match: [/SQLITE_BUSY/],
+    },
+  });
+}
+
+module.exports = { sequelize, Sequelize, Op, DataTypes };
 
 // ─────────────────────────────────────────────────────────
 //  Models
@@ -171,7 +218,11 @@ async function initializeDatabase() {
         await sequelize.query("PRAGMA journal_mode = WAL;");
         await sequelize.query("PRAGMA busy_timeout = 5000;");
         await sequelize.query("PRAGMA synchronous = NORMAL;");
-        logger.info("SQLite pragmaları ayarlandı (WAL, busy_timeout=5000ms).");
+        // Performance optimizations
+        await sequelize.query("PRAGMA cache_size = -64000;"); // 64MB cache
+        await sequelize.query("PRAGMA temp_store = MEMORY;"); // Temp tables in RAM
+        await sequelize.query("PRAGMA mmap_size = 268435456;"); // 256MB mmap
+        logger.info("SQLite pragmaları ayarlandı (WAL, cache=64MB, temp=MEMORY, mmap=256MB).");
       }
 
       break;
@@ -227,16 +278,7 @@ async function initializeDatabase() {
   for (const model of models) {
     try {
       if (model.sync) {
-        const isSqlite = sequelize.getDialect() === 'sqlite';
-        try {
-          await model.sync({ alter: true });
-        } catch (alterErr) {
-          if (alterErr.name === 'SequelizeValidationError' || alterErr.name === 'SequelizeUniqueConstraintError' || (alterErr.message && alterErr.message.includes('Validation error'))) {
-            await model.sync(); // Fallback to safe sync without altering if validation fails
-          } else {
-            throw alterErr;
-          }
-        }
+        await model.sync(); // Using basic sync; schema changes must be managed via migrations
       }
       logger.info(`Table synced: ${model.getTableName ? model.getTableName() : 'unknown'}`);
     } catch (e) {

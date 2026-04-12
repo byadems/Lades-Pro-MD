@@ -1,7 +1,7 @@
-const { DataTypes } = require("sequelize");
-const config = require("../../../config");
+const { DataTypes, sequelize } = require("../../../core/database");
+const { logger, ...config } = require("../../../config");
 
-const warnDB = config.sequelize.define("_warn", {
+const warnDB = sequelize.define("_warn", {
   chat: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -27,7 +27,7 @@ const warnDB = config.sequelize.define("_warn", {
   indexes: [{ fields: ['chat'] }, { fields: ['user'] }]
 });
 
-const FakeDB = config.sequelize.define("fake", {
+const FakeDB = sequelize.define("fake", {
   jid: {
     type: DataTypes.TEXT,
     allowNull: false,
@@ -39,7 +39,7 @@ const FakeDB = config.sequelize.define("fake", {
 }, { indexes: [{ fields: ['jid'] }] });
 
 // Advanced antilink system
-const AntilinkConfigDB = config.sequelize.define("antilink_config", {
+const AntilinkConfigDB = sequelize.define("antilink_config", {
   jid: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -85,71 +85,56 @@ const AntilinkConfigDB = config.sequelize.define("antilink_config", {
   },
 });
 
-const antiSpamDB = config.sequelize.define("antispam", {
+const antiSpamDB = sequelize.define("antispam", {
   jid: {
     type: DataTypes.TEXT,
     allowNull: false,
   },
 }, { indexes: [{ fields: ['jid'] }] });
 
-const PDMDB = config.sequelize.define("pdm", {
+const PDMDB = sequelize.define("pdm", {
   jid: {
     type: DataTypes.TEXT,
     allowNull: false,
   },
 }, { indexes: [{ fields: ['jid'] }] });
 
-const antiDemote = config.sequelize.define("antidemote", {
+const antiDemote = sequelize.define("antidemote", {
   jid: {
     type: DataTypes.TEXT,
     allowNull: false,
   },
 }, { indexes: [{ fields: ['jid'] }] });
 
-const antiPromote = config.sequelize.define("antipromote", {
+const antiPromote = sequelize.define("antipromote", {
   jid: {
     type: DataTypes.TEXT,
     allowNull: false,
   },
 }, { indexes: [{ fields: ['jid'] }] });
 
-const antiBotDB = config.sequelize.define("antibot", {
+const antiBotDB = sequelize.define("antibot", {
   jid: {
     type: DataTypes.TEXT,
     allowNull: false,
   },
 }, { indexes: [{ fields: ['jid'] }] });
 
-const antiWordDB = config.sequelize.define("antiword", {
+const antiWordDB = sequelize.define("antiword", {
   jid: {
     type: DataTypes.TEXT,
     allowNull: false,
   },
 }, { indexes: [{ fields: ['jid'] }] });
 
-const antiDeleteDB = config.sequelize.define("antidelete", {
+const antiDeleteDB = sequelize.define("antidelete", {
   jid: {
     type: DataTypes.TEXT,
     allowNull: false,
   },
 }, { indexes: [{ fields: ['jid'] }] });
 
-const WelcomeDB = config.sequelize.define("welcome", {
-  jid: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  message: {
-    type: DataTypes.TEXT,
-    allowNull: false,
-  },
-  enabled: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: true,
-  },
-}, { indexes: [{ fields: ['jid'] }] });
-
-const GoodbyeDB = config.sequelize.define("goodbye", {
+const WelcomeDB = sequelize.define("welcome", {
   jid: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -164,7 +149,22 @@ const GoodbyeDB = config.sequelize.define("goodbye", {
   },
 }, { indexes: [{ fields: ['jid'] }] });
 
-const FilterDB = config.sequelize.define("filter", {
+const GoodbyeDB = sequelize.define("goodbye", {
+  jid: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  message: {
+    type: DataTypes.TEXT,
+    allowNull: false,
+  },
+  enabled: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+  },
+}, { indexes: [{ fields: ['jid'] }] });
+
+const FilterDB = sequelize.define("filter", {
   trigger: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -200,7 +200,7 @@ const FilterDB = config.sequelize.define("filter", {
   },
 }, { indexes: [{ fields: ['jid'] }, { fields: ['trigger'] }] });
 
-const PluginDB = config.sequelize.define("Plugin", {
+const PluginDB = sequelize.define("Plugin", {
   name: {
     type: DataTypes.STRING,
     allowNull: false,

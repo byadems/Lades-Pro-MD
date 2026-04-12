@@ -9,6 +9,7 @@
 
 const { LRUCache } = require("lru-cache");
 const { logger } = require("../config");
+const runtime = require("./runtime");
 
 // Message store: jid → Map<msgId, msg>
 const messageStore = new LRUCache({
@@ -71,6 +72,29 @@ async function fetchGroupMeta(client, groupId) {
 
 function invalidateGroupMeta(groupId) {
   groupMetaCache.delete(groupId);
+}
+
+async function getAllGroups(sock) {
+  const now = Date.now();
+  if (runtime.metrics.allGroupsCache && (now - runtime.metrics.allGroupsLastFetch < 10 * 60 * 1000)) { // 10 min cache
+    return runtime.metrics.allGroupsCache;
+  }
+  
+  try {
+    const chats = await sock.groupFetchAllParticipating();
+    runtime.metrics.allGroupsCache = chats;
+    runtime.metrics.allGroupsLastFetch = now;
+    
+    // Also populate individual meta cache
+    for (const jid in chats) {
+      setGroupMeta(jid, chats[jid]);
+    }
+    
+    return chats;
+  } catch (err) {
+    logger.debug({ err: err.message }, "getAllGroups failed");
+    return runtime.metrics.allGroupsCache || {};
+  }
 }
 
 // ─────────────────────────────────────────────────────────
@@ -246,4 +270,5 @@ module.exports = {
   getTotalUserCount, getFullMessage, fetchRecentChats,
   fetchFromStore, getTopUsers, getGlobalTopUsers,
   incrementStats,
+  getAllGroups,
 };

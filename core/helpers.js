@@ -199,8 +199,10 @@ function suppressLibsignalLogs() {
 // ─────────────────────────────────────────────────────────
 //  Message utilities
 // ─────────────────────────────────────────────────────────
+let _baileysCache = null;
 async function loadBaileys() {
-  return await import("@whiskeysockets/baileys");
+  if (!_baileysCache) _baileysCache = await import("@whiskeysockets/baileys");
+  return _baileysCache;
 }
 
 function getMessageText(message) {

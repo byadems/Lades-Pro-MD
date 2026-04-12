@@ -1,5 +1,5 @@
-const config = require("../../../config");
-const { DataTypes, Op } = require("sequelize");
+const { DataTypes, Op, sequelize } = require("../../../core/database");
+const { logger, ...config } = require("../../../config");
 
 async function updateOrCreate(model, findCriteria, createData) {
   try {
@@ -17,7 +17,7 @@ async function updateOrCreate(model, findCriteria, createData) {
   return true;
 }
 
-const AutoMuteDB = config.sequelize.define("automute", {
+const AutoMuteDB = sequelize.define("automute", {
   chat: { type: DataTypes.STRING, allowNull: false },
   time: { type: DataTypes.STRING, allowNull: false },
 }, { 
@@ -44,7 +44,7 @@ const automute = {
   },
 };
 
-const AutoUnMuteDB = config.sequelize.define("autounmute", {
+const AutoUnMuteDB = sequelize.define("autounmute", {
   chat: { type: DataTypes.STRING, allowNull: false },
   time: { type: DataTypes.STRING, allowNull: false },
 }, { 
@@ -75,7 +75,7 @@ const autounmute = {
   },
 };
 
-const StickyCmdDB = config.sequelize.define("stickcmd", {
+const StickyCmdDB = sequelize.define("stickcmd", {
   command: { type: DataTypes.STRING(1000), allowNull: false },
   file: { type: DataTypes.STRING(1000), allowNull: false },
 }, { 
@@ -117,7 +117,7 @@ const stickcmd = {
   },
 };
 
-const ScheduledMessageDB = config.sequelize.define("scheduled_messages", {
+const ScheduledMessageDB = sequelize.define("scheduled_messages", {
   jid: { type: DataTypes.STRING, allowNull: false },
   message: { type: DataTypes.STRING(2048), allowNull: false },
   scheduleTime: { type: DataTypes.DATE, allowNull: false },

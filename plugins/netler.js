@@ -20,15 +20,25 @@ try {
   console.error('Netler veri dosyası yüklenemedi:', e.message);
 }
 
-// Register dynamic commands for each bolum
-for (const [key, data] of Object.entries(bolumler)) {
-  Module({
-      pattern: key + ' ?(.*)',
-      fromMe,
-      use: "araçlar",
-      dontAddCommandList: true,
-    },
-    async (m) => {
+// Map-based lookup for performance (O(1) instead of O(N) regex tests)
+const bolumKeys = Object.keys(bolumler);
+const bolumMap = new Map();
+bolumKeys.forEach(k => bolumMap.set(k.toLowerCase(), bolumler[k]));
+
+// Register a single handler for all bolum commands
+Module({
+    on: "text",
+    fromMe,
+    use: "araçlar",
+  },
+  async (m) => {
+    const text = m.text || "";
+    const firstWord = text.split(/\s+/)[0].toLowerCase();
+    
+    const data = bolumMap.get(firstWord);
+    if (!data) return; // Not a bolum command, ignore
+
+    // Command matched - process matching
     if (data.images.length > 1) {
       for (let i = 0; i < data.images.length - 1; i++) {
         await m.client.sendMessage(m.jid, { image: { url: data.images[i] } });
@@ -45,8 +55,8 @@ for (const [key, data] of Object.entries(bolumler)) {
     } else {
       await m.sendReply(data.caption.replace(/\\n/g, '\n'));
     }
-  });
-}
+  }
+);
 
 // Help / index command
 Module({

@@ -1,5 +1,3 @@
-const ytdl = require('@distube/ytdl-core');
-const yts = require('yt-search');
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const path = require('path');
@@ -37,6 +35,7 @@ async function convertM4aToMp3(inputPath) {
 }
 
 async function searchYoutube(query) {
+  const yts = require('yt-search');
   try {
     const r = await yts(query);
     const videos = r.videos.slice(0, 10);
@@ -55,6 +54,7 @@ async function searchYoutube(query) {
 }
 
 async function getVideoInfo(url) {
+  const ytdl = require('@distube/ytdl-core');
   return limit(async () => {
     try {
       const requestOptions = {
@@ -80,6 +80,7 @@ async function getVideoInfo(url) {
 }
 
 async function getVideoInfoFallback(url) {
+  const yts = require('yt-search');
   try {
     const search = await yts(url);
     if (search) {
@@ -104,6 +105,7 @@ async function getVideoInfoFallback(url) {
 }
 
 async function downloadVideo(url, quality) {
+  const ytdl = require('@distube/ytdl-core');
   return limit(async () => {
     try {
       const requestOptions = {
@@ -143,6 +145,7 @@ async function downloadVideo(url, quality) {
 }
 
 async function downloadAudio(url) {
+  const ytdl = require('@distube/ytdl-core');
   return limit(async () => {
     try {
       const requestOptions = {

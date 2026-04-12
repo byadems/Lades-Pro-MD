@@ -12,14 +12,16 @@ const { getString } = require("./utils/lang");
 const { avMix, circle, rotate, trim, uploadToImgbb, nx, nxTry, uploadToCatbox } = require("./utils");
 const nexray = require("./utils/nexray");
 const { censorBadWords } = require("./utils/censor");
-const acrcloud = require("acrcloud");
-const acr = new acrcloud({
-  host: "identify-eu-west-1.acrcloud.com",
-  access_key: config.ACR_A,
-  access_secret: config.ACR_S,
-});
 const handler = config.HANDLER_PREFIX;
+
 async function findMusic(file) {
+  const acrcloud = require("acrcloud");
+  const acr = new acrcloud({
+    host: "identify-eu-west-1.acrcloud.com",
+    access_key: config.ACR_A,
+    access_secret: config.ACR_S,
+  });
+
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("Müzik tanıma zaman aşımına uğradı")), 15000);
     acr.identify(file).then((result) => {

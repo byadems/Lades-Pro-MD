@@ -12,7 +12,15 @@ const { logger, ...config } = require("../config");
 const { getAuthState, displayQR } = require("./auth");
 const { bindToSocket, fetchGroupMeta } = require("./store");
 const { handleMessage, handleGroupUpdate, handleGroupParticipantsUpdate, loadPlugins } = require("./handler");
-const { getMessageText, startTempCleanup, stopTempCleanup, isGroup, loadBaileys } = require("./helpers");
+const { getNumericalId, getMessageText, isGroup, suppressLibsignalLogs, startTempCleanup } = require("./helpers");
+const runtime = require("./runtime");
+// Point 17: Standardizing on p-queue for all concurrency.
+let messageQueue = null;
+import('p-queue').then(({ default: PQueue }) => {
+  messageQueue = new PQueue({ concurrency: 5 });
+}).catch(err => {
+  logger.error(err, "PQueue failed to load in bot.js");
+});
 
 // ─────────────────────────────────────────────────────────
 //  Reconnect state constants
@@ -376,19 +384,26 @@ async function createBot(sessionId = "lades-session", options = {}) {
       const jid = msg.key.remoteJid;
       const fromMe = msg.key.fromMe;
       const text = getMessageText(msg.message);
-      // Her mesajı ayrı bir "non-blocking" işlem olarak ele alalım
-      (async () => {
-        try {
-          if (config.DEBUG) console.log(`[RAW UPSERT] JID: ${jid} | Text: "${text?.slice(0,20)}..."`);
-          let groupMeta = null;
-          if (isGroup(jid)) {
-            groupMeta = await fetchGroupMeta(sock, jid);
+      
+      // Use p-queue to prevent memory spikes in large groups (Point 5 & 17)
+      const q = messageQueue;
+      if (q) {
+        q.add(async () => {
+          try {
+            if (config.DEBUG) console.log(`[RAW UPSERT] JID: ${jid} | Text: "${text?.slice(0, 20)}..."`);
+            let groupMeta = null;
+            if (isGroup(jid)) {
+              groupMeta = await fetchGroupMeta(sock, jid);
+            }
+            await handleMessage(sock, msg, groupMeta);
+          } catch (err) {
+            logger.error({ err, jid }, "Mesaj işleme hatası (upsert)");
           }
-          await handleMessage(sock, msg, groupMeta);
-        } catch (err) {
-          logger.error({ err, jid }, "Mesaj işleme hatası (upsert)");
-        }
-      })();
+        });
+      } else {
+        // Fallback for extremely early messages if queue not yet ready
+        handleMessage(sock, msg).catch(() => {});
+      }
     }
   });
 

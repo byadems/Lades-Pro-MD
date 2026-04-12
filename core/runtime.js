@@ -1,0 +1,42 @@
+"use strict";
+
+/**
+ * core/runtime.js
+ * Centralized state management for the bot's runtime.
+ * Eliminates global namespace pollution.
+ */
+
+const { LRUCache } = require("lru-cache");
+
+const state = {
+  /** Bot start timestamp */
+  startTime: Date.now(),
+  
+  /** BotManager instance */
+  manager: null,
+  
+  /** Dashboard metrics */
+  metrics: {
+    messages: 0,
+    commands: 0,
+    users: new LRUCache({ max: 2000 }),
+    groups: new LRUCache({ max: 500 }),
+    /** Global group cache (Point 8) */
+    allGroupsCache: null,
+    allGroupsLastFetch: 0,
+  },
+  
+  /** Active session information */
+  activeSessions: new Set(),
+
+  /** Cached parsed SUDO_MAP (Set for O(1) matching) */
+  sudoSet: new Set(),
+
+  /** LRU cache for LID -> PN resolutions (Avoid redundant auth-state queries) */
+  lidCache: new LRUCache({ max: 5000, ttl: 1000 * 60 * 60 * 24 }), // 24h cache
+
+  /** Batch for command performance metrics (recordStat) - Point 14 */
+  commandStatsBatch: new LRUCache({ max: 500 }),
+};
+
+module.exports = state;

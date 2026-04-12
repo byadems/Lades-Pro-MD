@@ -28,7 +28,6 @@
     "acrcloud": "^1.4.0",
     "audio-decode": "^2.2.3",
     "axios": "^1.7.9",
-    "better-sqlite3": "^12.8.0",
     "browser-id3-writer": "^6.3.1",
     "chalk": "^4.1.2",
     "cheerio": "^1.0.0",

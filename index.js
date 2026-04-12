@@ -9,6 +9,7 @@ const path = require("path");
 const fs = require("fs");
 const http = require("http");
 const { fork } = require('child_process');
+const runtime = require("./core/runtime");
 
 const PID_FILE = path.join(__dirname, "bot.pid");
 
@@ -20,7 +21,19 @@ function checkSingleInstance() {
         try {
           process.kill(oldPid, 0);
           console.log(`[ANTI-DUBLE] Eski bot süreci (PID: ${oldPid}) tespit edildi. Sonlandırılıyor...`);
-          process.kill(oldPid, "SIGKILL");
+          
+          process.kill(oldPid, "SIGTERM");
+          
+          // Wait 2s for graceful exit
+          setTimeout(() => {
+            try {
+              process.kill(oldPid, 0);
+              console.log(`[ANTI-DUBLE] Eski süreç hala aktif, SIGKILL gönderiliyor.`);
+              process.kill(oldPid, "SIGKILL");
+            } catch {
+              // Successfully exited
+            }
+          }, 2000);
         } catch (e) {
           // PID not found or no permission
         }
@@ -48,24 +61,25 @@ if (fs.existsSync("./config.env")) require("dotenv").config({ path: "./config.en
 process.env.YTDL_NO_DEBUG_FILE = "1";
 const config = require("./config");
 const { logger } = config;
-const { initializeDatabase } = require("./core/database");
+const { initializeDatabase, WhatsappSession } = require("./core/database");
 const { BotManager } = require("./core/manager");
 const { suppressLibsignalLogs, startTempCleanup } = require("./core/helpers");
 const { applyDatabaseCaching, shutdownCache } = require("./core/db-cache");
+const { getAllGroups } = require("./core/store");
 
 suppressLibsignalLogs();
-startTempCleanup();
-global.botStartTime = Date.now();
+// startTempCleanup(); // Redundant, bot.js handles it
+runtime.startTime = Date.now();
 
 const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 450;
 let _memTimer = setInterval(() => {
-  const heap = process.memoryUsage();
-  const usedMb = Math.round(heap.heapUsed / 1024 / 1024);
-  if (usedMb > PM2_RESTART_MB) {
-    if (global.gc) global.gc();
-    if (usedMb > PM2_RESTART_MB + 20) process.exit(1);
+  const mem = process.memoryUsage();
+  if (mem.heapUsed > PM2_RESTART_MB * 1024 * 1024) {
+    logger.warn(`Bellek sınırı (${PM2_RESTART_MB}MB) aşıldı. Otomatik yeniden başlatılıyor...`);
+    process.exit(1);
   }
-}, 120000);
+  // STATUS IPC optimization: Unifying status reporting into statusTimer
+}, 10000); // Check memory every 10s
 
 function startKeepAlive() {
   const MIME_TYPES = {
@@ -87,7 +101,7 @@ function startKeepAlive() {
       const mem = process.memoryUsage();
       return res.end(JSON.stringify({
         status: "ok", bot: "Lades-Pro-MD",
-        uptime: Math.floor((Date.now() - global.botStartTime) / 1000),
+        uptime: Math.floor((Date.now() - runtime.startTime) / 1000),
         memory: Math.round(mem.heapUsed / 1024 / 1024) + "MB"
       }));
     }
@@ -122,10 +136,10 @@ async function shutdown(signal) {
   logger.info(`${signal} sinyali alındı. Kapatılıyor...`);
   if (_memTimer) clearInterval(_memTimer);
 
-  if (global.manager) {
+  if (runtime.manager) {
     // Wait for all sessions to close (max 10s)
     await Promise.race([
-      global.manager.stopAll(),
+      runtime.manager.stopAll(),
       new Promise(r => setTimeout(r, 10000))
     ]);
   }
@@ -154,24 +168,54 @@ process.on("unhandledRejection", (reason, promise) => {
   // process.exit() is intentionally omitted — bot should survive rejections
 });
 
+// ─────────────────────────────────────────────────────────
+//  Auth Session Cleanup (Point 15)
+// ─────────────────────────────────────────────────────────
+function startSessionCleanup() {
+  const dashAuthDir = path.join(__dirname, 'sessions', 'dashboard-auth');
+  if (!fs.existsSync(dashAuthDir)) return;
+
+  const cleanup = () => {
+    try {
+      const files = fs.readdirSync(dashAuthDir);
+      const now = Date.now();
+      let count = 0;
+      for (const f of files) {
+        const fp = path.join(dashAuthDir, f);
+        const stat = fs.statSync(fp);
+        if (now - stat.mtimeMs > 7 * 24 * 60 * 60 * 1000) { // 7 days
+          fs.unlinkSync(fp);
+          count++;
+        }
+      }
+      if (count > 0) logger.info(`[Cleanup] ${count} eski dashboard oturum dosyası silindi.`);
+    } catch (e) { }
+  };
+  cleanup(); // Run at startup
+  setInterval(cleanup, 24 * 60 * 60 * 1000); // 1x per day
+}
+
 (async () => {
   try {
     checkSingleInstance();
     await initializeDatabase();
     applyDatabaseCaching();
+    startSessionCleanup();
     // startKeepAlive(); // Disabled redundant server to let Dashboard take port 3000
 
     const manager = new BotManager();
+    runtime.manager = manager;
     const phoneNumber = process.env.PAIR_PHONE || null;
     await manager.addSession("lades-session", { phoneNumber });
 
     // Dashboard initialization
     const dashboardPath = path.join(__dirname, 'scripts', 'dashboard.js');
     if (fs.existsSync(dashboardPath)) {
-      const dashboard = fork(dashboardPath, [], {
+      global.dashboard = fork(dashboardPath, [], {
         stdio: ['inherit', 'pipe', 'pipe', 'ipc'],
         env: { ...process.env, NODE_ENV: 'production', PORT: process.env.PORT || 3000 }
       });
+      const dashboard = global.dashboard;
 
       // Forward QR and Status from BotManager to Dashboard
       manager.on('qr', (data) => {
@@ -210,7 +254,7 @@ process.on("unhandledRejection", (reason, promise) => {
           if (sock) {
             const { jid, message } = msg.data;
             if (jid === 'all') {
-              const chats = await sock.groupFetchAllParticipating();
+              const chats = await getAllGroups(sock);
               const groupJids = Object.keys(chats).slice(0, 300); // Limit to max 300 groups
 
               const { default: PQueue } = await import('p-queue');
@@ -237,7 +281,7 @@ process.on("unhandledRejection", (reason, promise) => {
           const sock = manager.getSession('lades-session');
           if (sock) {
             try {
-              const groups = await sock.groupFetchAllParticipating();
+              const groups = await getAllGroups(sock);
               const groupList = Object.values(groups).map(g => ({
                 jid: g.id,
                 subject: g.subject,
@@ -279,6 +323,7 @@ process.on("unhandledRejection", (reason, promise) => {
             if (dashboard.connected) dashboard.send({ type: 'send_result', success: false, error: 'Bot bağlı değil', requestId: msg.requestId });
           }
         } else if (msg.type === 'restart') {
+          const restartType = msg.restartType || (msg.data && msg.data.type) || 'session';
           if (restartType === 'system') {
             const child = fork(__filename, process.argv.slice(2), { detached: true, stdio: 'inherit' });
             child.unref();
@@ -294,15 +339,14 @@ process.on("unhandledRejection", (reason, promise) => {
           logger.info("Dashboard girişi tamamlandı. Oturum aktarılıyor...");
           try {
             const authDir = msg.authDir;
-            const credsFile = require('path').join(authDir, 'creds.json');
-            if (require('fs').existsSync(credsFile)) {
-              const { WhatsappSession } = require('./core/database');
-              const credsData = JSON.parse(require('fs').readFileSync(credsFile, 'utf-8'));
+            const credsFile = path.join(authDir, 'creds.json');
+            if (fs.existsSync(credsFile)) {
+              const credsData = JSON.parse(fs.readFileSync(credsFile, 'utf-8'));
               const keysData = {};
-              const keyFiles = require('fs').readdirSync(authDir).filter(f => f !== 'creds.json' && f.endsWith('.json'));
+              const keyFiles = fs.readdirSync(authDir).filter(f => f !== 'creds.json' && f.endsWith('.json'));
               for (const kf of keyFiles) {
                 try {
-                  const kd = JSON.parse(require('fs').readFileSync(require('path').join(authDir, kf), 'utf-8'));
+                  const kd = JSON.parse(fs.readFileSync(path.join(authDir, kf), 'utf-8'));
                   // Key files are named like: pre-key-123.json → type=pre-key, id=123
                   const baseName = kf.replace('.json', '');
                   const lastDash = baseName.lastIndexOf('-');
@@ -352,22 +396,27 @@ process.on("unhandledRejection", (reason, promise) => {
       });
 
       const statusTimer = setInterval(() => {
+        if (!dashboard || !dashboard.connected) {
+          clearInterval(statusTimer);
+          return;
+        }
         const isConnected = manager.isConnected('lades-session');
         const sock = manager.getSession('lades-session');
-        if (dashboard.connected) {
-          dashboard.send({
-            type: 'bot_status',
-            data: {
-              connected: isConnected,
-              phone: sock?.user?.id ? sock.user.id.split('@')[0].split(':')[0] : null
-            }
-          });
-        } else {
-          clearInterval(statusTimer);
-        }
+        dashboard.send({
+          type: 'bot_status',
+          data: {
+            connected: isConnected,
+            phone: sock?.user?.id ? sock.user.id.split('@')[0].split(':')[0] : null
+          }
+        });
       }, 5000);
 
-      dashboard.on('exit', () => clearInterval(statusTimer));
+      dashboard.on('exit', () => {
+        clearInterval(statusTimer);
+      });
+      dashboard.on('error', () => {
+        clearInterval(statusTimer);
+      });
     }
 
     logger.info("Lades-Pro-MD Aktif!");

@@ -25,54 +25,7 @@ const logger = pino({
     : { target: "pino-pretty", options: { colorize: true, translateTime: "SYS:HH:MM:ss", ignore: "pid,hostname" } },
 });
 
-// ─────────────────────────────────────────────────────────
-//  Database / Sequelize
-// ─────────────────────────────────────────────────────────
-const DATABASE_URL = process.env.DATABASE_URL || null;
-const MONGO_URL = process.env.MONGO_URL || "mongodb://localhost:27017";
-const DB_NAME = process.env.DB_NAME || "lades_pro_md";
-
-let sequelize;
-if (DATABASE_URL && DATABASE_URL.startsWith("postgres")) {
-  sequelize = new Sequelize(DATABASE_URL, {
-    dialect: "postgres",
-    logging: false,
-    pool: {
-      max: parseInt(process.env.DB_POOL_MAX || "20", 10),
-      min: parseInt(process.env.DB_POOL_MIN || "2", 10),
-      acquire: 60000,
-      idle: 30000,
-    },
-    dialectOptions: {
-      ssl: process.env.DB_SSL === "false" ? false : { require: true, rejectUnauthorized: false },
-    },
-    retry: {
-      max: 5,
-      match: [
-        Sequelize.ConnectionError,
-        Sequelize.ConnectionRefusedError,
-        Sequelize.ConnectionTimedOutError,
-      ],
-    },
-  });
-} else {
-  logger.info("[DB] DATABASE_URL bulunamadı veya geçersiz, yerel SQLite veritabanı kullanılıyor.");
-  sequelize = new Sequelize({
-    dialect: "sqlite",
-    storage: path.join(__dirname, "database.sqlite"),
-    logging: false,
-    pool: {
-      max: 1,       // SQLite tek yazıcı destekler, pool=1 kilitlemeyi önler
-      min: 0,
-      acquire: 30000,
-      idle: 10000,
-    },
-    retry: {
-      max: 10,
-      match: [/SQLITE_BUSY/],
-    },
-  });
-}
+// Sequelize initialization moved to core/database.js
 
 // ─────────────────────────────────────────────────────────
 //  Config exports
@@ -153,8 +106,7 @@ const config = {
   PLATFORM: process.env.PLATFORM || process.env.NODE_ENV || "local",
 
   // Database & logger instances (available to all modules)
-  DATABASE_URL,
-  sequelize,
+  DATABASE_URL: process.env.DATABASE_URL || null,
   logger,
 };
 

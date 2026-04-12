@@ -14,6 +14,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const envPath = path.join(__dirname, "../config.env");
 const { BotMetric, CommandStat, CommandRegistry, UserData, GroupSettings } = require('../core/database');
+const runtime = require('../core/runtime');
 
 // Prevent Baileys unhandled promise rejections / connection timeouts from crashing the Dashboard
 process.on('uncaughtException', err => {
@@ -99,7 +100,7 @@ process.on('message', (msg) => {
     const payload = `data: ${JSON.stringify({ isActivity: true, ...actData })}\n\n`;
     for (const client of logClients) client.res.write(payload);
   } else if (msg.type === 'test_progress') {
-    global.testProgress = msg.data;
+    runtime.testProgress = msg.data;
   } else if (msg.type === 'reset_uptime') {
     dashboardStartTime = Date.now();
   } else if (msg.type === 'bot_status') {
@@ -434,12 +435,7 @@ app.get('/api/commands', async (req, res) => {
 
 // ─── Test Progress ───────────────────────────────────────
 app.get('/api/test-progress', (req, res) => {
-  const progress = global.testProgress || {
-    currentCommand: null,
-    currentIndex: 0,
-    totalCommands: 0,
-    status: 'idle'
-  };
+  const progress = runtime.testProgress;
   res.json(progress);
 });
 

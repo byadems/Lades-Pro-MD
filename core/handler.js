@@ -9,21 +9,17 @@
 
 const path = require("path");
 const fs = require("fs");
-const config = require("../config");
-const { logger } = require("../config");
+const { logger, ...config } = require("../config");
+const runtime = require("./runtime");
 const { getGroupSettings } = require("./db-cache");
 const { isGroup, getGroupAdmins, getMessageText, getMentioned, getQuotedMsg, loadBaileys } = require("./helpers");
-const { getMessageByKey } = require("./store");
+const { getMessageByKey, fetchGroupMeta } = require("./store");
 const { LRUCache } = require("lru-cache");
 const { BotMetric, CommandStat, CommandRegistry, UserData, GroupSettings, MessageStats: MsgStats, Op, sequelize } = require("./database");
 const { antidelete } = require("../plugins/utils/db/functions");
+const { resolveLidToPn, isBotIdentifier } = require("./lid-helper"); // Moved to top-level
 
-let commandQueue = null;
-import('p-queue').then(({ default: PQueue }) => {
-  commandQueue = new PQueue({ concurrency: 5 });
-}).catch(err => {
-  logger.error(err, "PQueue yüklenemedi");
-});
+// Point 5 & 17: Redundant commandQueue removed. Concurrency is handled in bot.js.
 
 // ─────────────────────────────────────────────────────────
 //  Atomic Statistics Tracker (SQL Backed)
@@ -79,18 +75,37 @@ async function migrateJsonToSql() {
 // Run migration on load
 migrateJsonToSql();
 
-async function recordMessage(senderJid, isGroup, groupJid) {
+// ─────────────────────────────────────────────────────────
+//  Metrics Batching
+// ─────────────────────────────────────────────────────────
+const metricsBatch = { total_messages: 0, total_commands: 0 };
+
+setInterval(async () => {
+  if (metricsBatch.total_messages === 0 && metricsBatch.total_commands === 0) return;
+  const currentBatch = { ...metricsBatch };
+  metricsBatch.total_messages = 0;
+  metricsBatch.total_commands = 0;
+
   try {
-    const [metric] = await BotMetric.findOrCreate({ where: { key: 'total_messages' }, defaults: { value: 0 } });
-    await metric.increment('value');
-  } catch (e) { /* ignore */ }
+    if (currentBatch.total_messages > 0) {
+      const [metric] = await BotMetric.findOrCreate({ where: { key: 'total_messages' }, defaults: { value: 0 } });
+      await metric.increment('value', { by: currentBatch.total_messages });
+    }
+    if (currentBatch.total_commands > 0) {
+      const [metric] = await BotMetric.findOrCreate({ where: { key: 'total_commands' }, defaults: { value: 0 } });
+      await metric.increment('value', { by: currentBatch.total_commands });
+    }
+  } catch (e) {
+    logger.debug({ err: e.message }, "Metric batch flush failed");
+  }
+}, 30000);
+
+async function recordMessage(senderJid, isGroup, groupJid) {
+  metricsBatch.total_messages++;
 }
 
 async function recordCommand() {
-  try {
-    const [metric] = await BotMetric.findOrCreate({ where: { key: 'total_commands' }, defaults: { value: 0 } });
-    await metric.increment('value');
-  } catch (e) { /* ignore */ }
+  metricsBatch.total_commands++;
 }
 
 async function getRuntimeStats() {
@@ -114,48 +129,53 @@ async function getRuntimeStats() {
   }
 }
 
+/**
+ * Record command execution statistics (Batch optimized)
+ */
 async function recordStat(pattern, status, durationMs, error = null, isTest = false) {
   const key = String(pattern).replace(/^\(\?:\s*|\)$/g, '').split('|')[0].split('?')[0].split(' ')[0].replace(/[^\wçğıöşüÇĞİÖŞÜ]/gi, '');
   if (!key) return;
 
-  // Retry logic for SQLITE_BUSY
-  const MAX_RETRIES = 3;
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const [stat, created] = await CommandStat.findOrCreate({
-        where: { pattern: key },
-        defaults: {
-          status: status,
-          runs: 1,
-          avgMs: durationMs,
-          lastRun: new Date(),
-          lastError: error ? String(error).slice(0, 120) : null
-        }
-      });
-
-      if (!created) {
-        await stat.update({
-          status: status,
-          avgMs: durationMs,
-          lastRun: new Date(),
-          lastError: error ? String(error).slice(0, 120) : null
-        });
-        await stat.increment('runs');
-      }
-
-      if (!isTest) await recordCommand();
-      return; // Başarılı, çık
-    } catch (e) {
-      if (e.message.includes('SQLITE_BUSY') && attempt < MAX_RETRIES) {
-        await new Promise(r => setTimeout(r, 100 * attempt));
-        continue;
-      }
-      if (attempt === MAX_RETRIES) {
-        logger.error("Failed to record command stat: " + e.message);
-      }
-    }
+  const currentBatch = runtime.commandStatsBatch;
+  const entry = currentBatch.get(key) || { runs: 0, avgMs: 0, status: 'ok', lastError: null };
+  
+  entry.runs++;
+  // Moving average calculation
+  entry.avgMs = Math.round((entry.avgMs * (entry.runs - 1) + durationMs) / entry.runs);
+  if (status === 'error') {
+    entry.status = 'error';
+    if (error) entry.lastError = String(error).slice(0, 120);
   }
+  
+  currentBatch.set(key, entry);
+  if (!isTest) await recordCommand();
 }
+
+// ── Command metrics batch flush (30s) ───────────────────
+setInterval(async () => {
+  if (runtime.commandStatsBatch.size === 0) return;
+  const currentBatch = new Map();
+  runtime.commandStatsBatch.forEach((v, k) => currentBatch.set(k, v));
+  runtime.commandStatsBatch.clear();
+
+  try {
+    for (const [key, stat] of currentBatch.entries()) {
+      const [existing] = await CommandStat.findOrCreate({ where: { pattern: key }, defaults: { runs: 0, avgMs: 0 } });
+      const newRuns = (existing.runs || 0) + stat.runs;
+      const newAvgMs = Math.round(((existing.avgMs || 0) * (existing.runs || 0) + stat.avgMs * stat.runs) / newRuns);
+      
+      await existing.update({
+        runs: newRuns,
+        avgMs: newAvgMs,
+        status: stat.status,
+        lastRun: new Date(),
+        lastError: stat.lastError || existing.lastError
+      });
+    }
+  } catch (e) {
+    logger.debug({ err: e.message }, "Command metric batch flush failed");
+  }
+}, 30000);
 
 async function getStats() {
   const rows = await CommandStat.findAll();
@@ -710,21 +730,27 @@ function isOwner(senderJid, originalSenderJid, client = null) {
   }
 
   // ─────────────────────────────────────────────────────────
-  //  3. SUDO_MAP KONTROLÜ (Veritabanından)
+  //  3. SUDO_MAP KONTROLÜ (BELLEK CACHE KULLANILIR)
   // ─────────────────────────────────────────────────────────
   if (config.SUDO_MAP && typeof config.SUDO_MAP === "string") {
-    try {
-      const sudoMap = JSON.parse(config.SUDO_MAP);
-      if (Array.isArray(sudoMap)) {
-        if (senderJid && sudoMap.includes(senderJid)) return true;
-        if (originalSenderJid && sudoMap.includes(originalSenderJid)) return true;
-        // LID'in numerik kısmını kontrol et
-        for (const lid of sudoMap) {
-          const lidNum = getNumericalId(lid);
-          if (lidNum === sNum || lidNum === oNum) return true;
+    // Sync sudoSet once if empty
+    if (runtime.sudoSet.size === 0) {
+      try {
+        const sudoMap = JSON.parse(config.SUDO_MAP);
+        if (Array.isArray(sudoMap)) {
+          sudoMap.forEach(v => runtime.sudoSet.add(v));
         }
-      }
-    } catch (e) { }
+      } catch (e) { }
+    }
+
+    if (senderJid && runtime.sudoSet.has(senderJid)) return true;
+    if (originalSenderJid && runtime.sudoSet.has(originalSenderJid)) return true;
+
+    // Numerical check against all LID's numbers in sudoSet
+    for (const lid of runtime.sudoSet) {
+      const lidNum = getNumericalId(lid);
+      if (lidNum === sNum || lidNum === oNum) return true;
+    }
   }
 
   // ─────────────────────────────────────────────────────────
@@ -744,16 +770,19 @@ function isSudo(senderJid, originalSenderJid) {
   // Owner zaten sudo'dur
   if (isOwner(senderJid, originalSenderJid)) return true;
 
-  const sudos = config.SUDO ? config.SUDO.split(",").map(s => s.trim().replace(/[^0-9]/g, "")).filter(s => s) : [];
-
   const senderNum = getNumericalId(senderJid);
   const originalSenderNum = getNumericalId(originalSenderJid);
 
-  // 1. Numerical match
+  // 1. Check runtime.sudoSet (LID or PN) - Point 3 & 10
+  if (senderJid && runtime.sudoSet.has(senderJid)) return true;
+  if (originalSenderJid && runtime.sudoSet.has(originalSenderJid)) return true;
+
+  // 2. Numerical check against all SUDO entries
+  const sudos = config.SUDO ? config.SUDO.split(",").map(s => s.trim().replace(/[^0-9]/g, "")).filter(s => s) : [];
   if (sudos.some(s => s === senderNum || s === originalSenderNum)) return true;
 
-  // 2. SUDO_MAP (LID'ler)
-  if (config.SUDO_MAP && typeof config.SUDO_MAP === "string") {
+  // 3. Fallback to SUDO_MAP parsing only if sudoSet is empty (unlikely but safe)
+  if (runtime.sudoSet.size === 0 && config.SUDO_MAP && typeof config.SUDO_MAP === "string") {
     try {
       const sudoMap = JSON.parse(config.SUDO_MAP);
       if (Array.isArray(sudoMap)) {
@@ -763,9 +792,6 @@ function isSudo(senderJid, originalSenderJid) {
     } catch (e) { }
   }
 
-  // 3. Substring match for each sudo
-  if (sudos.some(s => senderJid.includes(s) || (originalSenderJid && originalSenderJid.includes(s)))) return true;
-
   return false;
 }
 
@@ -773,15 +799,8 @@ function isOwnerOrSudo(senderJid, originalSenderJid, client = null) {
   return isOwner(senderJid, originalSenderJid, client) || isSudo(senderJid, originalSenderJid);
 }
 
+// Main message handler
 // ─────────────────────────────────────────────────────────
-//  Main message handler
-// ─────────────────────────────────────────────────────────
-// Initialize globals for dashboard metrics
-global.metrics_messages = global.metrics_messages || 0;
-global.metrics_commands = global.metrics_commands || 0;
-global.metrics_users_set = global.metrics_users_set || new LRUCache({ max: 2000 });
-global.metrics_groups_set = global.metrics_groups_set || new LRUCache({ max: 500 });
-
 async function handleMessage(client, rawMsg, groupMetadata = null) {
   try {
     const message = new BaseMessage(client, rawMsg, groupMetadata);
@@ -832,16 +851,20 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
       isBotOwnerNumber = true;
     }
 
-    // KnightBot-Mini Yöntemi: LID -> PN Çevirisi (anlık auth state sorgusu)
-    // participantPn yoksa veya hala LID ise dene
+    // participantPn yoksa veya hala LID ise dene (LRU CACHE ENTEGRASYONU)
     if (resolvedSenderJid && resolvedSenderJid.includes('@lid')) {
-      try {
-        const { resolveLidToPn } = require("./lid-helper");
-        const pn = await resolveLidToPn(client, senderJid);
-        if (pn && pn !== senderJid) {
-          resolvedSenderJid = pn;
-        }
-      } catch (e) { }
+      const cachedPn = runtime.lidCache.get(senderJid);
+      if (cachedPn) {
+        resolvedSenderJid = cachedPn;
+      } else {
+        try {
+          const pn = await resolveLidToPn(client, senderJid);
+          if (pn && pn !== senderJid) {
+            resolvedSenderJid = pn;
+            runtime.lidCache.set(senderJid, pn);
+          }
+        } catch (e) { }
+      }
     }
 
     // --- DYNAMİC OWNER/SUDO LEARNING ---
@@ -850,16 +873,12 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     if (ownerNum && ownerNum !== "905XXXXXXXXX") {
       const senderNum = getNumericalId(resolvedSenderJid);
       if (senderNum === ownerNum && senderJid.includes("@lid")) {
-        let sudoMap = [];
-        try {
-          sudoMap = config.SUDO_MAP ? JSON.parse(config.SUDO_MAP) : [];
-          if (!sudoMap.includes(senderJid)) {
-            sudoMap.push(senderJid);
-            config.SUDO_MAP = JSON.stringify(sudoMap);
-            logger.info(`[Dynamic Auth] Sahip LID öğrenildi: ${senderJid}`);
-            // Opsiyonel: DB'ye kaydet
-          }
-        } catch (e) { }
+        if (!runtime.sudoSet.has(senderJid)) {
+          runtime.sudoSet.add(senderJid);
+          const sudoList = Array.from(runtime.sudoSet);
+          config.SUDO_MAP = JSON.stringify(sudoList);
+          logger.info(`[Dynamic Auth] Sahip LID öğrenildi: ${senderJid}`);
+        }
       }
     }
 
@@ -913,16 +932,16 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
       }
     }
 
-    // Metrics tracking with memory safety (capped size & auto-clear)
+    // Metrics tracking with memory safety
     if (!fromMe) {
-      if (global.metrics_messages > 1000000) global.metrics_messages = 0; // Prevent overflow
-      global.metrics_messages++;
+      // Point 16: Remove 1M reset, use safe increments
+      runtime.metrics.messages++;
 
       // Bellek güvenliği için otomatik budanan LRUCache kullanılır
-      global.metrics_users_set.set(resolvedSenderJid, true);
+      runtime.metrics.users.set(resolvedSenderJid, true);
 
       if (isGroup) {
-        global.metrics_groups_set.set(jid, true);
+        runtime.metrics.groups.set(jid, true);
       }
     }
 
@@ -935,9 +954,11 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           continue;
         }
         try {
-          if (h._disabled) continue; await h.run(message, [text]); h._errorCount = 0;
+          if (h._disabled) continue;
+          await h.run(message, [text]);
+          h._errorCount = 0;
         } catch (e) {
-          h._errorCount = (h._errorCount || 0) + 1; logger.warn({ err: e.message, pattern: h.on, count: h._errorCount }, "on-event handler error"); if (h._errorCount >= 3) { h._disabled = true; logger.error({ pattern: h.on }, "Handler devredışı bırakıldı (3 ardışık hata)"); const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, ""); if (ownerNum && message.client) { try { message.client.sendMessage(ownerNum + "@s.whatsapp.net", { text: "🚨 *Kritik Hata Uyarısı*\nBir `on:` event handler 3 ardışık hata nedeniyle devredışı bırakıldı.\n\n*Type:* " + (h.on || "Bilinmiyor") + "\n*Son Hata:* " + e.message }); } catch (_) { } } }
+          notifyHandlerError(h, e, message);
         }
       }
     }
@@ -984,10 +1005,9 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           try {
             // metadata yoksa çekmeye çalış
             if (!groupMetadata) {
-              groupMetadata = await client.groupMetadata(jid).catch(() => null);
+              groupMetadata = await fetchGroupMeta(client, jid);
             }
             if (groupMetadata) {
-              const { isBotIdentifier } = require("../plugins/utils/lid-helper");
               const admins = getGroupAdmins(groupMetadata);
               message.groupAdmins = admins; // Tüm liste (eklentiler için)
               isAdmin = admins.some(a => a.split("@")[0].split(":")[0] === senderJid.split("@")[0].split(":")[0] ||
@@ -1051,7 +1071,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
 
         // Execute command (Callback style: message, match)
         try {
-          if (!fromMe) global.metrics_commands++;
+          if (!fromMe) runtime.metrics.commands++;
 
           // Command Start Reaction (⏳ Processing)
           await message.react("⏳");
@@ -1066,14 +1086,8 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           // Performance measurement start
           const _t0 = Date.now();
 
-          // Komut çalıştırılırken (hata yakalama bloğu içindeyiz)
-          if (commandQueue) {
-            await commandQueue.add(async () => {
-              await cmd.run(message, match);
-            });
-          } else {
-            await cmd.run(message, match);
-          }
+          // Point 5: Removed commandQueue. pLimit(5) in bot.js is sufficient.
+          await cmd.run(message, match);
 
           const _dur = Date.now() - _t0;
           logger.debug({ cmd: cmd.pattern, jid, senderJid, ms: _dur }, "Command executed");
@@ -1167,6 +1181,30 @@ async function handleGroupParticipantsUpdate(client, update) {
       } catch (e) {
         logger.debug({ err: e.message, type: "groupParticipants" }, "on-groupParticipants handler error");
       }
+    }
+  }
+}
+
+/**
+ * Centrally handles event handler errors and notifies owner
+ * @param {object} h - The handler object
+ * @param {Error} e - Encountered error
+ * @param {object} message - Message context
+ */
+function notifyHandlerError(h, e, message) {
+  h._errorCount = (h._errorCount || 0) + 1;
+  logger.warn({ err: e.message, pattern: h.on, count: h._errorCount }, "on-event handler error");
+
+  if (h._errorCount >= 3) {
+    h._disabled = true;
+    logger.error({ pattern: h.on }, "Handler devredışı bırakıldı (3 ardışık hata)");
+    const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, "");
+    if (ownerNum && message.client) {
+      try {
+        message.client.sendMessage(ownerNum + "@s.whatsapp.net", {
+          text: `🚨 *Kritik Hata Uyarısı*\nBir \`on:\` event handler 3 ardışık hata nedeniyle devredışı bırakıldı.\n\n*Type:* ${h.on || "Bilinmiyor"}\n*Son Hata:* ${e.message}`
+        });
+      } catch (_) { }
     }
   }
 }
