@@ -224,24 +224,41 @@ setInterval(async () => {
   statsBatch.clear();
 
   try {
-    const { MessageStats, UserData } = require("./database");
+    const { sequelize } = require("./database");
     for (const [key, inc] of currentBatch.entries()) {
       const { jid, userJid, data } = inc;
-      await UserData.findOrCreate({ where: { jid: userJid } });
-      const [stats] = await MessageStats.findOrCreate({
-        where: { jid, userJid },
-        defaults: { totalMessages: 0, textMessages: 0, imageMessages: 0, videoMessages: 0, audioMessages: 0, stickerMessages: 0, otherMessages: 0 }
-      });
-      await stats.increment({
-        totalMessages: data.totalMessages,
-        textMessages: data.textMessages,
-        imageMessages: data.imageMessages,
-        videoMessages: data.videoMessages,
-        audioMessages: data.audioMessages,
-        stickerMessages: data.stickerMessages,
-        otherMessages: data.otherMessages
-      });
-      await stats.update({ lastMessageAt: new Date() });
+      
+      // Point 3: Optimized batch stats update using raw SQL
+      // 1. Ensure UserData exists (minimal O(1) impact)
+      await sequelize.query(
+        "INSERT OR IGNORE INTO user_data (jid, createdAt, updatedAt) VALUES (?, DATETIME('now'), DATETIME('now'))",
+        { replacements: [userJid], type: sequelize.QueryTypes.INSERT }
+      );
+
+      // 2. Atomic UPSERT for MessageStats
+      await sequelize.query(
+        "INSERT INTO message_stats (jid, userJid, totalMessages, textMessages, imageMessages, videoMessages, audioMessages, stickerMessages, otherMessages, lastMessageAt, createdAt, updatedAt) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now'), DATETIME('now'), DATETIME('now')) " +
+        "ON CONFLICT(jid, userJid) DO UPDATE SET " +
+        "totalMessages = totalMessages + excluded.totalMessages, " +
+        "textMessages = textMessages + excluded.textMessages, " +
+        "imageMessages = imageMessages + excluded.imageMessages, " +
+        "videoMessages = videoMessages + excluded.videoMessages, " +
+        "audioMessages = audioMessages + excluded.audioMessages, " +
+        "stickerMessages = stickerMessages + excluded.stickerMessages, " +
+        "otherMessages = otherMessages + excluded.otherMessages, " +
+        "lastMessageAt = DATETIME('now'), " +
+        "updatedAt = DATETIME('now')",
+        { 
+          replacements: [
+            jid, userJid, 
+            data.totalMessages, data.textMessages, data.imageMessages, 
+            data.videoMessages, data.audioMessages, data.stickerMessages, 
+            data.otherMessages
+          ],
+          type: sequelize.QueryTypes.INSERT 
+        }
+      );
     }
   } catch (e) {
     logger.debug({ err: e.message }, "Batch stats update failed");

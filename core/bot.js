@@ -12,15 +12,15 @@ const { logger, ...config } = require("../config");
 const { getAuthState, displayQR } = require("./auth");
 const { bindToSocket, fetchGroupMeta } = require("./store");
 const { handleMessage, handleGroupUpdate, handleGroupParticipantsUpdate, loadPlugins } = require("./handler");
-const { getNumericalId, getMessageText, isGroup, suppressLibsignalLogs, startTempCleanup } = require("./helpers");
+const { getNumericalId, getMessageText, isGroup, suppressLibsignalLogs, startTempCleanup, stopTempCleanup } = require("./helpers");
 const runtime = require("./runtime");
 // Point 17: Standardizing on p-queue for all concurrency.
-let messageQueue = null;
-import('p-queue').then(({ default: PQueue }) => {
-  messageQueue = new PQueue({ concurrency: 5 });
-}).catch(err => {
-  logger.error(err, "PQueue failed to load in bot.js");
-});
+// ESM-Bridging: PQueue load is async.
+let _pqPromise = import('p-queue').then(({ default: PQueue }) => new PQueue({ concurrency: 5 }));
+
+async function getMessageQueue() {
+  return await _pqPromise;
+}
 
 // ─────────────────────────────────────────────────────────
 //  Reconnect state constants
@@ -386,8 +386,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
       const text = getMessageText(msg.message);
       
       // Use p-queue to prevent memory spikes in large groups (Point 5 & 17)
-      const q = messageQueue;
-      if (q) {
+      try {
+        const q = await getMessageQueue();
         q.add(async () => {
           try {
             if (config.DEBUG) console.log(`[RAW UPSERT] JID: ${jid} | Text: "${text?.slice(0, 20)}..."`);
@@ -400,8 +400,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
             logger.error({ err, jid }, "Mesaj işleme hatası (upsert)");
           }
         });
-      } else {
-        // Fallback for extremely early messages if queue not yet ready
+      } catch (err) {
+        // Fallback or early error
         handleMessage(sock, msg).catch(() => {});
       }
     }

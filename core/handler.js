@@ -88,12 +88,19 @@ setInterval(async () => {
 
   try {
     if (currentBatch.total_messages > 0) {
-      const [metric] = await BotMetric.findOrCreate({ where: { key: 'total_messages' }, defaults: { value: 0 } });
-      await metric.increment('value', { by: currentBatch.total_messages });
+      // Point 3: Optimized single-query increment using raw SQL
+      await sequelize.query(
+        "INSERT INTO bot_metrics ([key], value, createdAt, updatedAt) VALUES ('total_messages', ?, DATETIME('now'), DATETIME('now')) " +
+        "ON CONFLICT([key]) DO UPDATE SET value = value + excluded.value, updatedAt = DATETIME('now')",
+        { replacements: [currentBatch.total_messages], type: sequelize.QueryTypes.INSERT }
+      );
     }
     if (currentBatch.total_commands > 0) {
-      const [metric] = await BotMetric.findOrCreate({ where: { key: 'total_commands' }, defaults: { value: 0 } });
-      await metric.increment('value', { by: currentBatch.total_commands });
+      await sequelize.query(
+        "INSERT INTO bot_metrics ([key], value, createdAt, updatedAt) VALUES ('total_commands', ?, DATETIME('now'), DATETIME('now')) " +
+        "ON CONFLICT([key]) DO UPDATE SET value = value + excluded.value, updatedAt = DATETIME('now')",
+        { replacements: [currentBatch.total_commands], type: sequelize.QueryTypes.INSERT }
+      );
     }
   } catch (e) {
     logger.debug({ err: e.message }, "Metric batch flush failed");
@@ -160,17 +167,19 @@ setInterval(async () => {
 
   try {
     for (const [key, stat] of currentBatch.entries()) {
-      const [existing] = await CommandStat.findOrCreate({ where: { pattern: key }, defaults: { runs: 0, avgMs: 0 } });
-      const newRuns = (existing.runs || 0) + stat.runs;
-      const newAvgMs = Math.round(((existing.avgMs || 0) * (existing.runs || 0) + stat.avgMs * stat.runs) / newRuns);
-      
-      await existing.update({
-        runs: newRuns,
-        avgMs: newAvgMs,
-        status: stat.status,
-        lastRun: new Date(),
-        lastError: stat.lastError || existing.lastError
-      });
+      // Point 3: Optimized CommandStat upsert with raw SQL moving average
+      await sequelize.query(
+        "INSERT INTO command_stats (pattern, runs, avgMs, status, lastRun, lastError, createdAt, updatedAt) " + 
+        "VALUES (?, ?, ?, ?, DATETIME('now'), ?, DATETIME('now'), DATETIME('now')) " +
+        "ON CONFLICT(pattern) DO UPDATE SET " +
+        "avgMs = CAST(ROUND(((avgMs * runs) + (excluded.avgMs * excluded.runs)) / (runs + excluded.runs)) AS INTEGER), " +
+        "runs = runs + excluded.runs, " +
+        "status = excluded.status, " +
+        "lastRun = DATETIME('now'), " +
+        "lastError = COALESCE(excluded.lastError, lastError), " +
+        "updatedAt = DATETIME('now')",
+        { replacements: [key, stat.runs, stat.avgMs, stat.status, stat.lastError], type: sequelize.QueryTypes.INSERT }
+      );
     }
   } catch (e) {
     logger.debug({ err: e.message }, "Command metric batch flush failed");
@@ -541,6 +550,7 @@ class BaseMessage {
 // ─────────────────────────────────────────────────────────
 //  Command registry
 const commands = [];
+const commandMap = new Map();
 const eventHandlers = new Map();
 // ── Command Matching Loop (Removed from global scope) ──────────────────
 // on: event handler'lar — text/message/group/groupParticipants tiplerine göre
@@ -567,6 +577,12 @@ function Module(options, callback) {
   // Pre-compile regex for performance
   if (cmd.pattern) {
     cmd._regex = new RegExp("^" + cmd.pattern, 'iu');
+    // Point 2: Optimization - Index by first word if it's a simple pattern
+    const firstWord = cmd.pattern.split(/\s|\\s|\[/)[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    if (firstWord) {
+      if (!commandMap.has(firstWord)) commandMap.set(firstWord, []);
+      commandMap.get(firstWord).push(cmd);
+    }
   }
 
   commands.push(cmd);
@@ -583,25 +599,40 @@ function addEventHandler(event, handler) {
 function getCommands() { return commands; }
 
 // ─────────────────────────────────────────────────────────
-//  Plugin loader
+//  Plugin loader (Optimized for Lifecycle)
 // ─────────────────────────────────────────────────────────
+let _pluginsLoaded = false;
+let _lastPluginHash = "";
+
 async function loadPlugins(pluginsDir) {
   const pluginFiles = [];
 
-  function scan(dir) {
+  // Point 4: Async FS scan for performance
+  async function scan(dir) {
     if (!fs.existsSync(dir)) return;
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
     for (const e of entries) {
       const fullPath = path.join(dir, e.name);
-      if (e.isDirectory()) scan(fullPath);
+      if (e.isDirectory()) await scan(fullPath);
       else if (e.name.endsWith(".js")) pluginFiles.push(fullPath);
     }
   }
 
-  scan(pluginsDir);
+  await scan(pluginsDir);
+
+  // Point 5: Hash-based cold-start optimization
+  // Only reload if file list changed OR first load
+  const currentHash = pluginFiles.sort().join("|");
+  if (_pluginsLoaded && currentHash === _lastPluginHash) {
+    logger.debug("Plugins already loaded and unchanged. Skipping reload.");
+    return;
+  }
+  _lastPluginHash = currentHash;
+  _pluginsLoaded = true;
 
   // Clear current commands to reload
   commands.length = 0;
+  commandMap.clear(); // Important for the O(1) optimization
   eventHandlers.clear();
   // on: handler'ları da temizle
   for (const key of Object.keys(onHandlers)) onHandlers[key] = [];
@@ -992,7 +1023,11 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     // Permission checks
     const ownerOrSudo = ownerCheck || sudoCheck;
 
-    for (const cmd of commands) {
+    // Point 2 & 10: O(1) Optimized Command Lookup
+    const firstWord = input.split(/\s/)[0].toLowerCase();
+    const candidateCommands = commandMap.get(firstWord) || commands; 
+
+    for (const cmd of candidateCommands) {
       // Use pre-compiled regex for maximum speed
       const match = cmd._regex ? input.match(cmd._regex) : null;
 
@@ -1074,7 +1109,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           if (!fromMe) runtime.metrics.commands++;
 
           // Command Start Reaction (⏳ Processing)
-          await message.react("⏳");
+          if (config.SEND_REACTIONS) await message.react("⏳");
 
           // Non-blocking Auto-Typing when command starts
           if (config.AUTO_TYPING && !fromMe) {
@@ -1094,7 +1129,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           recordStat(cmd.pattern, 'ok', _dur);
 
           // Success Reaction
-          await message.react("✅");
+          if (config.SEND_REACTIONS) await message.react("✅");
 
         } catch (err) {
           logger.error({ err, cmd: cmd.pattern }, "Command execution error");
@@ -1114,7 +1149,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           });
 
           // Error Reaction
-          await message.react("❌");
+          if (config.SEND_REACTIONS) await message.react("❌");
 
           if (config.DEBUG) {
             await message.reply(`❌ Hata: \`${err.message}\``);

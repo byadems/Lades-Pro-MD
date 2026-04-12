@@ -44,6 +44,8 @@ const config = {
   AUTO_RECORDING: process.env.AUTO_RECORDING === "true",
   ANTI_LINK: process.env.ANTI_LINK === "true",
   ANTI_SPAM: process.env.ANTI_SPAM === "true",
+  SEND_REACTIONS: process.env.SEND_REACTIONS !== "false", // Default true
+  REACTION_SAMPLING: parseInt(process.env.REACTION_SAMPLING || "100", 10), // Percentage
   ALLOWED: process.env.ALLOWED || "90", // İzin verilen numaralar (antinumara için)
 
   // Permissions
