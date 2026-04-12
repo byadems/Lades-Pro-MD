@@ -253,45 +253,42 @@ async function downloadInstagram(url, options = {}) {
 }
 
 /**
- * TikTok indirme - 5'li fallback sistemi (Nexray, Siputzx V2, Siputzx GET, TikWM, Nexray yedek)
+ * TikTok indirme - TikWM API (birincil) + Nexray (yedek)
  * @param {string} url - TikTok URL
  * @returns {Promise<{url?: string, video?: string}|null>} Video URL veya null
  */
 async function downloadTiktok(url, options = {}) {
   if (process.env.IS_SELF_TEST === 'true') return { url: "https://example.com/dummy.mp4", title: "Test TikTok" };
 
-  // 1. Siputzx TikTok V2 (GET) - En yeni, HD destekli
+  // 1. Siputzx TikTok V2 API (POST) - En yeni ve HD destekli
   try {
-    const res = await axios.get("https://api.siputzx.my.id/api/d/tiktok/v2", { 
-      params: { url }, 
-      timeout: TIMEOUT 
-    });
+    const res = await axios.post("https://api.siputzx.my.id/api/d/tiktok/v2", { url }, withSignal({
+      timeout: TIMEOUT,
+    }, options.signal));
+
     if (res.data?.status && res.data?.data) {
       const d = res.data.data;
-      
-      // Type 3: Photo slideshow (slides) - object format
-      if (d.slides && typeof d.slides === "object" && !Array.isArray(d.slides)) {
-        const imageUrls = Object.values(d.slides)
-          .filter(s => s && s.url)
-          .map(s => s.url);
-        if (imageUrls.length > 0) {
+      // Yeni format: media array [{ quality: "SD"/"HD", url: "...", type: "video"/"video_hd" }]
+      if (d.media && Array.isArray(d.media)) {
+        const hdItem = d.media.find(m => m.quality === "HD" && m.url);
+        const sdItem = d.media.find(m => m.quality === "SD" && m.url);
+        const videoUrl = hdItem?.url || sdItem?.url;
+        if (videoUrl) {
           return {
-            type: "album",
-            urls: imageUrls,
-            title: d.text || d.title || "TikTok Albümü",
-            thumbnail: d.cover_link,
-            author: d.author_nickname || d.author_unique_id,
-            count: imageUrls.length
+            url: videoUrl,
+            title: d.text || d.title || "TikTok Videosu",
+            thumbnail: d.cover_link || d.thumbnail,
+            author: d.author_nickname || d.author || d.author_unique_id,
+            music: d.music_link
           };
         }
       }
-      
-      // Video: HD varsa HD, yoksa normal no_watermark_link
+      // Eski format: no_watermark_link_hd / no_watermark_link
       const videoUrl = d.no_watermark_link_hd || d.no_watermark_link;
       if (videoUrl) {
         return {
           url: videoUrl,
-          title: d.text || d.title || "TikTok Videosu",
+          title: d.text || d.itemID || "TikTok Videosu",
           thumbnail: d.cover_link,
           author: d.author_nickname || d.author_unique_id,
           music: d.music_link
@@ -299,34 +296,15 @@ async function downloadTiktok(url, options = {}) {
       }
     }
   } catch (e) {
-    if (process.env.DEBUG) console.error("[Siputzx V2 GET]", e?.message);
+    if (process.env.DEBUG) console.error("[Siputzx V2 Error]", e?.message);
   }
 
-  // 2. Siputzx TikTok GET - Güvenilir kaynak
+  // 1b. Siputzx TikTok GET API (alternatif yeni format)
   try {
-    const res = await axios.get("https://api.siputzx.my.id/api/d/tiktok", { 
-      params: { url }, 
-      timeout: TIMEOUT 
-    });
+    const res = await axios.get("https://api.siputzx.my.id/api/d/tiktok", { params: { url }, timeout: TIMEOUT });
     if (res.data?.status && res.data?.data) {
       const d = res.data.data;
-      
-      // Slides format (type 3 - photo slideshow) - object format
-      if (d.slides && typeof d.slides === "object" && !Array.isArray(d.slides)) {
-        const imageUrls = Object.values(d.slides)
-          .filter(s => s && s.url)
-          .map(s => s.url);
-        if (imageUrls.length > 0) {
-          return {
-            type: "album",
-            urls: imageUrls,
-            title: d.title || "TikTok Albümü",
-            count: imageUrls.length
-          };
-        }
-      }
-      
-      // Yeni format: media array (opsiyonel)
+      // Yeni format: media array
       if (d.media && Array.isArray(d.media)) {
         const hdItem = d.media.find(m => m.quality === "HD" && m.url);
         const sdItem = d.media.find(m => m.quality === "SD" && m.url);
@@ -340,39 +318,14 @@ async function downloadTiktok(url, options = {}) {
           };
         }
       }
-      // Eski format: play / no_watermark_link
-      const videoUrl = d.play || d.no_watermark_link || d.no_watermark_link_hd;
-      if (videoUrl) return { url: videoUrl, title: d.title };
+      // Eski format
+      if (d.play) return { url: d.play, title: d.title };
     }
   } catch (e) {
     if (process.env.DEBUG) console.error("[Siputzx GET]", e?.message);
   }
 
-  // 3. Nexray API - Güvenilir kaynak
-  try {
-    const res = await axios.get(`${BASE}/downloader/tiktok`, withSignal({
-      params: { url },
-      timeout: TIMEOUT,
-    }, options.signal));
-    const data = res.data;
-    if (data?.status && data?.result) {
-      const r = data.result;
-      // result.data içinde direkt URL
-      const videoUrl = r.data || r.url || r.video || r.play?.url || r.download_url;
-      if (videoUrl && typeof videoUrl === "string" && videoUrl.startsWith("http")) {
-        return { 
-          url: videoUrl, 
-          title: r.title || r.desc || r.text,
-          thumbnail: r.cover || r.thumbnail,
-          author: r.author?.nickname || r.author
-        };
-      }
-    }
-  } catch (e) {
-    if (process.env.DEBUG) console.error("[Nexray tiktok]", e?.message);
-  }
-
-  // 4. TikWM API - Yedek kaynak
+  // 2. TikWM API (ikincil güvenilir kaynak)
   try {
     const res = await axios.post("https://www.tikwm.com/api/",
       `url=${encodeURIComponent(url)}&count=12&cursor=0&web=1&hd=1`,
@@ -392,40 +345,32 @@ async function downloadTiktok(url, options = {}) {
     if (process.env.DEBUG) console.error("[TikWM]", e?.message);
   }
 
-  // 5. Siputzx TikTok POST V2 - Son çare
+  // 3. Nexray API (yedek)
   try {
-    const res = await axios.post("https://api.siputzx.my.id/api/d/tiktok/v2", { url }, withSignal({
+    const res = await axios.get(`${BASE}/downloader/tiktok`, withSignal({
+      params: { url },
       timeout: TIMEOUT,
     }, options.signal));
-    if (res.data?.status && res.data?.data) {
-      const d = res.data.data;
-      // Slides (photo album) - object format
-      if (d.slides && typeof d.slides === "object" && !Array.isArray(d.slides)) {
-        const imageUrls = Object.values(d.slides)
-          .filter(s => s && s.url)
-          .map(s => s.url);
-        if (imageUrls.length > 0) {
-          return {
-            type: "album",
-            urls: imageUrls,
-            title: d.text || "TikTok Albümü",
-            count: imageUrls.length
-          };
-        }
-      }
-      const videoUrl = d.no_watermark_link_hd || d.no_watermark_link;
+    const data = res.data;
+    if (data?.status && data?.result) {
+      const r = data.result;
+      const videoUrl = r.data || r.url || r.video || r.play?.url || r.download_url;
       if (videoUrl) {
-        return {
-          url: videoUrl,
-          title: d.text || "TikTok Videosu",
-          thumbnail: d.cover_link,
-          author: d.author_nickname
-        };
+        return { url: videoUrl, title: r.title || r.desc };
       }
     }
   } catch (e) {
-    if (process.env.DEBUG) console.error("[Siputzx V2 POST]", e?.message);
+    if (process.env.DEBUG) console.error("[Nexray tiktok]", e?.message);
   }
+
+  // 4. Siputzx API (Tiktok v1 - Yedek)
+  try {
+    const res = await axios.get(`https://api.siputzx.my.id/api/d/tiktok`, { params: { url } });
+    if (res.data?.status && res.data?.data) {
+      const d = res.data.data;
+      if (d.play) return { url: d.play, title: d.title };
+    }
+  } catch (e) { }
 
   return null;
 }
