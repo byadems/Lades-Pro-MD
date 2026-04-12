@@ -1,54 +1,45 @@
+# Dependencies
 node_modules/
-sessions/
+
+# Environment & Secrets — ZORUNLU: asla commit'leme
 config.env
 .env
-*.log
-startup_error.txt
-*.txt
-*.webp
-*.png
-*.jpg
-.DS_Store
-node_modules/
+*.env
+*.env.*
+
+# Session & Auth — Güvenlik: kimlik bilgileri
 sessions/
-config.env
-.env
+auth_info_baileys/
+*.keys
+creds.json
+lades-session/
+
+# Database
+database.sqlite
+database.sqlite-shm
+database.sqlite-wal
+
+# Logs
 *.log
-startup_error.txt
-*.txt
-*.webp
-*.png
-*.jpg
-.DS_Store
-dist/
-build/
-.cache/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-lades-session/
-bot.pid
-database.sqlite
-*-player-script.js
+startup_error.txt
 
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
+# Media & temp
+*.webp
+*.png
+*.jpg
+
+# Build & Cache
+dist/
+build/
+.cache/
+
+# System
+.DS_Store
+bot.pid
+
+# Misc
+*-player-script.js

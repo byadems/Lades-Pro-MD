@@ -430,10 +430,7 @@ Module({
             // Photo album (slides)
             if (downloadResult?.type === "album" && downloadResult?.urls) {
               const imageUrls = downloadResult.urls;
-              if (imageUrls.length > 10) {
-                await message.react("⚠️");
-                return;
-              }
+              
               
               const tempFiles = [];
               for (const imgUrl of imageUrls) {

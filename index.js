@@ -138,9 +138,20 @@ async function shutdown(signal) {
 
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
+
+// ── Global hata yakalama — Bot çökmesini engeller ─────────────────────────
 process.on("uncaughtException", (err) => {
   if (err.code === "ERR_IPC_DISCONNECTED") return;
-  logger.error(err, "Beklenmedik Hata");
+  logger.error(err, "[KRİTİK] Beklenmedik İstisna (uncaughtException)");
+  // Kritik sistem hatası değilse devam et — process.exit() KULLANMA
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  // Yalnızca loglama yap — süreci öldürme
+  // Her komut handler try-catch ile sarıldığı için bu nadiren tetiklenir
+  if (reason?.code === "ERR_IPC_DISCONNECTED") return;
+  logger.error({ reason: String(reason), promise }, "[KRİTİK] Yakalanmamış Promise Rejection");
+  // process.exit() is intentionally omitted — bot should survive rejections
 });
 
 (async () => {

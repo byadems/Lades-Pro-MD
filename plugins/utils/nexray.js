@@ -325,7 +325,7 @@ async function downloadTiktok(url, options = {}) {
     if (process.env.DEBUG) console.error("[Siputzx GET]", e?.message);
   }
 
-  // 2. TikWM API (ikincil güvenilir kaynak)
+  // 2. TikWM API (ikincil güvenilir kaynak) - Albüm desteği
   try {
     const res = await axios.post("https://www.tikwm.com/api/",
       `url=${encodeURIComponent(url)}&count=12&cursor=0&web=1&hd=1`,
@@ -336,6 +336,9 @@ async function downloadTiktok(url, options = {}) {
     );
     const data = res.data?.data;
     if (data) {
+      if (data.images && Array.isArray(data.images) && data.images.length > 0) {
+        return { type: "album", urls: data.images, title: data.title, thumbnail: data.cover };
+      }
       const videoUrl = data.hdplay || data.play || data.wmplay;
       if (videoUrl) {
         return { url: videoUrl, title: data.title, thumbnail: data.cover };

@@ -1,170 +1,119 @@
 # Lades-Pro-MD 🤖
 
-> Ultra-stabil, ultra-hızlı, %100 açık kaynaklı WhatsApp bot altyapısı.
-> Lades-Pro-MD mimarisi temel alınarak sıfırdan yazılmıştır.
+> **Ultra-stabil, profesyonel ve %100 açık kaynaklı WhatsApp bot altyapısı.**  
+> Gelişmiş bellek yönetimi, dinamik komut üretimi ve entegre yönetim paneli ile güçlendirilmiştir.
 
 ---
 
-## ✨ Özellikler
+## ✨ Öne Çıkan Özellikler
 
-- ⚡ **Ultra-Kararlı** — Exponential backoff yeniden bağlanma, PM2 watchdog, bellek izleyici
-- 🗄️ **Güçlü Veritabanı** — PostgreSQL (Sequelize) + SQLite fallback + LRU cache katmanı
-- 🤖 **AI Komut Geliştirme** — `.aikomut` ile Gemini veya GPT kullanarak anında yeni komut üret
-- 📱 **QR + Pair Code** — `node scripts/pair.js` ile kolayca bağlan
-- 🔌 **35+ Komut** — Grup yönetimi, medya, YouTube, AFK, filtre, welcome, chatbot ve daha fazlası
-- 🔓 **Obfuscate-Sız** — %100 temiz ve açık kaynak
-- 🌍 **Türkçe odaklı** — Ezan vakitleri, Türkçe komut isimleri
+- ⚡ **Yüksek Performans** — Baileys tabanlı hafif mimari, PM2 entegrasyonu ve otomatik bellek optimizasyonu.
+- 🎨 **Dashboard** — Modern web arayüzü ile QR okutma, bot durumu izleme ve canlı log takibi.
+- 🗄️ **Gelişmiş Veritabanı** — PostgreSQL & SQLite desteği (Sequelize), WAL modu, LRU cache ve atomik istatistik takibi.
+- 🤖 **AI Komut Geliştirme** — `.aikomut` ile Gemini veya GPT kullanarak bot içerisinden anında yeni eklentiler üretin.
+- 🌍 **Türkçe Odaklı** — Tamamen yerelleştirilmiş sistem mesajları, ezan vakitleri ve profesyonel komut setleri.
+- 🔓 **Şeffaf & Güvenli** — Şifrelenmemiş (obfuscate edilmemiş) temiz kod yapısı.
 
 ---
 
-## 🚀 Kurulum
+## 🚀 Hızlı Kurulum
 
 ### 1. Bağımlılıkları Yükle
-
+Aşağıdaki komutları terminalinizde çalıştırarak gerekli paketleri kurun:
 ```bash
-cd lades-pro-md
+git clone https://github.com/byadems/Lades-Pro-MD
+cd Lades-Pro-MD
 npm install
 ```
 
 ### 2. Konfigürasyon
-
+Örnek dosyayı kopyalayın ve kendi bilgilerinize göre düzenleyin:
 ```bash
 cp config.env.example config.env
-# config.env dosyasını düzenle
 ```
 
-**En az şunları ayarlayın:**
+**Kritik Değişkenler:**
 | Değişken | Açıklama |
 |---|---|
-| `OWNER_NUMBER` | Bot sahibi telefon numarası (başında 90, + olmadan) |
-| `PREFIX` | Komut öneki (varsayılan: `.`) |
-| `DATABASE_URL` | PostgreSQL URL (boş bırakırsanız SQLite kullanır) |
-| `GEMINI_API_KEY` | AI özellikler için Google AI Studio anahtarı |
+| `OWNER_NUMBER` | Bot sahibi numarası (Örn: `905XXXXXXXXX`) |
+| `PREFIX` | Komut öneki (Varsayılan: `.`) |
+| `DATABASE_URL` | PostgreSQL bağlantısı (Boş bırakılırsa SQLite kullanılır) |
+| `GEMINI_API_KEY` | AI özellikleri için Google AI Studio anahtarı |
 
-### 3. Kimlik Doğrulama
+### 3. Kimlik Doğrulama (Login)
+Botu WhatsApp hesabınıza bağlamak için iki yöntem mevcuttur:
 
-**QR Kod ile:**
+**A. Dashboard (Önerilen):**
+Sistemi başlattığınızda `http://localhost:3000` adresinden QR kod okutabilirsiniz.
+
+**B. Pair Code (Terminal):**
 ```bash
-node scripts/pair.js
+npm run pair -- +905XXXXXXXXX
 ```
 
-**Pair Code ile (önerilir):**
+### 4. Çalıştırma
 ```bash
-node scripts/pair.js +905XXXXXXXXX
-```
+# Geliştirme modu (loglar temizlenmiş)
+npm start
 
-> Yeni: Otomatik oturum kapatma varsayılan olarak açık. Eğer bağlı cihazda "Çıkış işlemi bekleniyor" ve oturum kaybolması istemiyorsanız `config.env` veya `.env` içinde:
-> `PAIR_AUTO_LOGOUT=false`
-> olarak ayarlayın.
-
-Gösterilen session string'i `config.env` dosyasında `SESSION=` alanına yapıştırın.
-
-### 4. Başlat
-
-**Doğrudan:**
-```bash
-node index.js
-```
-
-**PM2 ile (önerilir):**
-```bash
-npm install -g pm2
-pm2 start ecosystem.config.js
-pm2 save
-pm2 startup
+# PM2 ile (Production önerisi)
+npm run pm2:start
 ```
 
 ---
 
-## 📋 Komutlar
+## 📋 Komut Kategorileri
 
-| Kategori | Komutlar |
+| Kategori | Örnek Komutlar |
 |---|---|
-| **Genel** | `.ping`, `.bilgi`, `.uptime`, `.hız`, `.owner`, `.komutlar` |
-| **Grup** | `.ekle`, `.kick`, `.promote`, `.demote`, `.mute`, `.unmute`, `.link`, `.revoke`, `.grupadi`, `.everyone`, `.grupbilgi`, `.çık` |
-| **Yönetim** | `.ban`, `.unban`, `.uyar`, `.warnlist`, `.setvar`, `.getvar`, `.broadcast`, `.restart`, `.mod` |
-| **Medya** | `.sticker`, `.toimg`, `.tomp3`, `.pp`, `.sil`, `.kaydet`, `.tepki` |
-| **YouTube** | `.yts`, `.ytmp3`, `.ytmp4` |
-| **Sistem** | `.welcome`, `.goodbye`, `.filtre`, `.antilink`, `.chatbot`, `.zamanla`, `.ezan`, `.afk` |
-| **AI** | `.ai`, `.aikomut`, `.ailistesi` |
-| **Metin** | `.koyuyazi`, `.italik`, `.mono`, `.take` |
+| **🏠 Genel** | `.ping`, `.bilgi`, `.uptime`, `.hız`, `.owner`, `.komutlar` |
+| **👥 Grup** | `.ekle`, `.kick`, `.promote`, `.demote`, `.mute`, `.link`, `.everyone`, `.tag` |
+| **🛡️ Yönetim** | `.ban`, `.unban`, `.uyar`, `.warnlist`, `.broadcast`, `.restart`, `.antinumara` |
+| **🖼️ Medya** | `.sticker`, `.toimg`, `.tomp3`, `.pp`, `.sil`, `.çevir`, `.instagram`, `.tiktok` |
+| **📺 YouTube** | `.yts`, `.ytmp3`, `.ytmp4`, `.play` |
+| **⚙️ Sistem** | `.welcome`, `.goodbye`, `.filtre`, `.antilink`, `.chatbot`, `.afk`, `.ezan` |
+| **🧠 Yapay Zeka** | `.ai`, `.aikomut`, `.gpt`, `.dalle`, `.imagine` |
 
 ---
 
 ## 🤖 AI Komut Geliştirme
-
+Botunuza yeni bir özellik eklemek mi istiyorsunuz? Kod yazmanıza gerek yok:
+```text
+.aikomut gruptaki kullanıcıların mesaj sayılarını listeleyen bir grafik komutu yaz
 ```
-.aikomut kullanıcıyı güzel Türkçe ile selamlayan bir komut yaz
-```
-
-Bot otomatik olarak:
-1. Mevcut bot yapısını analiz eder
-2. Gemini/GPT API'ye gönderir
-3. Üretilen kodu doğrular
-4. `plugins/ai-generated/` klasörüne kaydeder
-5. **Canlı olarak yükler** (yeniden başlatma gerekmez!)
+Bot, sistem mimarisini analiz eder, kodu üretir, `plugins/ai-generated/` içine kaydeder ve **anında aktif eder.**
 
 ---
 
-## 🗄️ Veritabanı Mimarisi
-
-```
-whatsapp_sessions   (oturum durumu)
-bot_config          (dinamik ayarlar)
-group_settings      (grup başına ayarlar)
-user_data           (kullanıcı verisi + uyarılar)
-warn_logs           (uyarı geçmişi)
-filters             (anahtar kelime filtreler)
-schedules           (zamanlanmış mesajlar)
-external_plugins    (harici eklentiler)
-ai_commands         (AI üretilen komutlar)
-```
+## 🗄️ Veritabanı Şeması
+Sistem verimlilik için 13+ tablo kullanır:
+- `whatsapp_sessions`: Oturum verileri ve anahtarlar.
+- `group_settings`: Gruba özel karşılama, anti-link vb. ayarlar.
+- `user_data`: Kullanıcı yetkileri, uyarılar ve AFK durumları.
+- `message_stats` & `bot_metrics`: Detaylı kullanım analizleri.
+- `command_registry`: Aktif komutların dinamik listesi.
 
 ---
 
-## 📁 Proje Yapısı
+## 📁 Proje Klasör Yapısı
 
-```
-lades-pro-md/
-├── index.js                # Giriş noktası (memory monitor, graceful shutdown)
-├── config.js               # Merkezi yapılandırma + logger
-├── config.env.example      # Örnek .env dosyası
-├── ecosystem.config.js     # PM2 yapılandırması
-├── core/
-│   ├── auth.js             # QR + Pair Code + DB/file session
-│   ├── bot.js              # Baileys bağlantısı + reconnect
-│   ├── handler.js          # Temiz mesaj yönlendirici (Lades-Pro stili)
-│   ├── database.js         # Sequelize ORM (9 tablo)
-│   ├── db-cache.js         # LRU cache katmanı
-│   ├── store.js            # Mesaj ve grup metadata store
-│   ├── manager.js          # Multi-session yöneticisi
-│   ├── schedulers.js       # node-cron zamanlamalar
-│   ├── helpers.js          # Ortak yardımcı fonksiyonlar
-│   └── constructors/       # Mesaj bağlam zenginleştirici
-├── plugins/
-│   ├── utility.js          # ping, bilgi, uptime...
-│   ├── group.js            # Grup yönetimi
-│   ├── manage.js           # Bot yönetimi
-│   ├── warn.js             # Uyarı sistemi
-│   ├── welcome.js          # Hoşgeldin/veda
-│   ├── filter.js           # Filtre + anti-link
-│   ├── afk.js              # AFK sistemi
-│   ├── chatbot.js          # AI sohbet botu
-│   ├── yapayzeka.js        # AI komut üretici ⭐
-│   ├── converters.js       # Sticker, MP3, dönüştürücüler
-│   ├── media.js            # Medya komutları
-│   ├── youtube.js          # YouTube indirici
-│   ├── schedule.js         # Zamanlanmış mesajlar
-│   ├── commands.js         # Komut listesi
-│   ├── fancy.js            # Süslü metin
-│   ├── ezan.js             # Ezan vakitleri (TR)
-│   └── ai-generated/       # AI'nın ürettiği komutlar
-└── scripts/
-    └── pair.js             # Kimlik doğrulama yardımcısı
+```text
+Lades-Pro-MD/
+├── core/                   # Çekirdek motor (Bağlantı, Handler, Database)
+├── plugins/                # Komutlar ve özellikler (Modüler yapı)
+├── scripts/                # Dashboard, Pair ve yardımcı araçlar
+├── sessions/               # Yerel oturum yedekleri (Opsiyonel)
+├── public/                 # Dashboard ön yüz dosyaları
+├── index.js                # Ana giriş noktası ve watchdog
+├── config.js               # Merkezi konfigürasyon yöneticisi
+└── ecosystem.config.js     # PM2 yapılandırması
 ```
 
 ---
 
 ## 📄 Lisans
+Bu proje **GPL-3.0** lisansı ile sunulmaktadır. Özgürce kullanabilir, geliştirebilir ve paylaşabilirsiniz.
 
-GPL-3.0 © Lades-Pro-MD Contributors
+**Geliştirici:** [@byadems](https://github.com/byadems)  
+**Topluluk:** [Telegram Kanalı](https://t.me/LadesProMD)
+
