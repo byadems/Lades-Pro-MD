@@ -161,15 +161,22 @@ async function sticker(buffer, isVideo = false) {
     if (isVideo) {
       ff.addOptions([
         "-vcodec", "libwebp",
-        "-vf", "scale='min(512,iw)':min'(512,ih)':force_original_aspect_ratio=decrease,fps=24, pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000,setsar=1",
-        "-loop", "0", "-ss", "00:00:00", "-t", "00:00:05", "-an", "-vsync", "0",
-        "-quality", "100"
+        "-vf", "scale=512:512:force_original_aspect_ratio=decrease",
+        "-loop", "0",
+        "-ss", "00:00:00",
+        "-t", "00:00:05",
+        "-preset", "default",
+        "-an",
+        "-vsync", "0",
+        "-q:v", "50",
+        "-compression_level", "6"
       ]);
     } else {
       ff.addOptions([
         "-vcodec", "libwebp",
-        "-vf", "scale='min(512,iw)':min'(512,ih)':force_original_aspect_ratio=decrease,fps=24, pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000,setsar=1",
-        "-quality", "100"
+        "-vf", "scale=512:512:force_original_aspect_ratio=decrease",
+        "-q:v", "75",
+        "-compression_level", "6"
       ]);
     }
     ff.on("end", async () => {
