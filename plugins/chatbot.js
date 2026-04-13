@@ -542,9 +542,7 @@ Module({
           const processingMsg = await message.sendReply("_🎨 Görsel oluşturuluyor..._");
           const resultBuffer = await nexray.deepImg(imagePrompt);
           if (resultBuffer && resultBuffer.length) {
-            await message.sendReply(resultBuffer, "image", {
-              caption: `_*${imagePrompt.slice(0, 80)}${imagePrompt.length > 80 ? "..." : ""}*_`,
-            });
+            await message.sendReply(resultBuffer, "image");
             await message.edit("_✅ Görsel oluşturuldu!_", message.jid, processingMsg.key);
           } else {
             await message.edit("_❌ Görsel oluşturulamadı. Farklı bir açıklama deneyin._", message.jid, processingMsg.key);

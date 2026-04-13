@@ -123,7 +123,7 @@ Module({
     if (!text) return await message.sendReply("✏️ _Metin girin:_ `.yazı LADES`");
     try {
       const buf = await nexGet(`/textpro/glitch?text=${encodeURIComponent(text)}`, { buffer: true });
-      await message.client.sendMessage(message.jid, { image: buf, caption: `✨ *${text}*` }, { quoted: message.data });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `✨` }, { quoted: message.data });
     } catch (e) {
       await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
     }
@@ -145,7 +145,7 @@ Module({
     if (!text) return await message.sendReply("🍥 _Metin girin:_ `.naruto LADES`");
     try {
       const buf = await nexGet(`/textpro/naruto?text=${encodeURIComponent(text)}`, { buffer: true });
-      await message.client.sendMessage(message.jid, { image: buf, caption: `🍥 *${text}*` }, { quoted: message.data });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `🍥` }, { quoted: message.data });
     } catch (e) {
       await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
     }
@@ -168,7 +168,7 @@ Module({
     if (words.length < 2) return await message.sendReply("🦸 _İki kelime girin:_ `.marvel LADES BOT`");
     try {
       const buf = await nexGet(`/textpro/marvel?text1=${encodeURIComponent(words[0])}&text2=${encodeURIComponent(words.slice(1).join(" "))}`, { buffer: true });
-      await message.client.sendMessage(message.jid, { image: buf, caption: `🦸 *${input}*` }, { quoted: message.data });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `🦸` }, { quoted: message.data });
     } catch (e) {
       await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
     }
@@ -190,7 +190,30 @@ Module({
     if (!text) return await message.sendReply("💗 _Metin girin:_ `.blackpink LADES`");
     try {
       const buf = await nexGet(`/textpro/blackpink?text=${encodeURIComponent(text)}`, { buffer: true });
-      await message.client.sendMessage(message.jid, { image: buf, caption: `💗 *${text}*` }, { quoted: message.data });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `💗` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// HUB — Pornhub stili logo (2 kelime)
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "hub ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni P*rnhub stili bir logoya dönüştürür. (2 kelime gerektirir)",
+  usage: ".hub LADES HUB",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const input = (match[1] || "").trim();
+    const words = input.split(/\s+/);
+    if (words.length < 2) return await message.sendReply("🔞 _İki kelime girin:_ `.hub Lades Hub`");
+    try {
+      const buf = await nexGet(`/textpro/pornhub?text1=${encodeURIComponent(words[0])}&text2=${encodeURIComponent(words.slice(1).join(" "))}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `🔞` }, { quoted: message.data });
     } catch (e) {
       await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
     }
@@ -312,7 +335,7 @@ Module({
       if (!imgUrl) throw new Error("Görsel URL bulunamadı");
       await message.client.sendMessage(message.jid, {
         image: { url: imgUrl },
-        caption: `🖼️ *${pick.description || pick.author || query}*`,
+        caption: `🖼️`,
       }, { quoted: message.data });
     } catch (e) {
       await message.sendReply(`❌ _Duvar kağıdı bulunamadı:_ ${e.message}`);
@@ -458,7 +481,7 @@ Module({
       await message.edit("✅ _Görsel oluşturuldu!_", message.jid, sent.key);
       await message.client.sendMessage(message.jid, {
         image: buf,
-        caption: `🎨 *AI Görsel*\n\n💭 _${prompt}_`,
+        caption: `🎨`,
       }, { quoted: message.data });
     } catch (e) {
       await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
@@ -637,6 +660,391 @@ Module({
       return await message.sendReply(`🌍 *Çeviri (${src} → ${dst})*\n\n${translated}`);
     } catch (err) {
       return await message.sendReply("❌ Hata oluştu.");
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// AVENGERS — Avengers stili logo (2 kelime)
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "avengers ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni Avengers stili bir logoya dönüştürür. (2 kelime gerektirir)",
+  usage: ".avengers LADES BOT",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const input = (match[1] || "").trim();
+    const words = input.split(/\s+/);
+    if (words.length < 2) return await message.sendReply("🦸 _İki kelime girin:_ `.avengers LADES BOT`");
+    try {
+      const buf = await nexGet(`/textpro/avengers?text1=${encodeURIComponent(words[0])}&text2=${encodeURIComponent(words.slice(1).join(" "))}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `🦸` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// BEAR — Ayı efekti
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "bear ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni ayı efektiyle görsele dönüştürür.",
+  usage: ".bear LADES",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const text = (match[1] || "").trim();
+    if (!text) return await message.sendReply("🐻 _Metin girin:_ `.bear LADES`");
+    try {
+      const buf = await nexGet(`/textpro/bear?text=${encodeURIComponent(text)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `🐻` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// CARTOON GRAFFITI — Cartoon graffiti efekti
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "cartoon ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni cartoon graffiti stili görsele dönüştürür.",
+  usage: ".cartoon LADES",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const text = (match[1] || "").trim();
+    if (!text) return await message.sendReply("🎨 _Metin girin:_ `.cartoon LADES`");
+    try {
+      const buf = await nexGet(`/textpro/cartoon-graffiti?text=${encodeURIComponent(text)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `🎨` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// COMIC — Comic stili metin
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "comic ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni comic stili görsele dönüştürür.",
+  usage: ".comic LADES",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const text = (match[1] || "").trim();
+    if (!text) return await message.sendReply("📖 _Metin girin:_ `.comic LADES`");
+    try {
+      const buf = await nexGet(`/textpro/comic?text=${encodeURIComponent(text)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `📖` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// DEVIL WINGS — Şeytan kanadı efekti
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "devil ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni şeytan kanadı stili görsele dönüştürür.",
+  usage: ".devil LADES",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const text = (match[1] || "").trim();
+    if (!text) return await message.sendReply("😈 _Metin girin:_ `.devil LADES`");
+    try {
+      const buf = await nexGet(`/textpro/devil-wings?text=${encodeURIComponent(text)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `😈` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// DRAGON BALL — Dragon Ball stili metin
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "dragonball ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni Dragon Ball stili görsele dönüştürür.",
+  usage: ".dragonball LADES",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const text = (match[1] || "").trim();
+    if (!text) return await message.sendReply("🐉 _Metin girin:_ `.dragonball LADES`");
+    try {
+      const buf = await nexGet(`/textpro/dragonball?text=${encodeURIComponent(text)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `🐉` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// FOGGY GLASS — Buğulu cam efekti
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "foggy ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni buğulu cam efektiyle görsele dönüştürür.",
+  usage: ".foggy LADES [background] | bear, cat, flower, heart, sad, smile",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const input = (match[1] || "").trim();
+    const parts = input.split(/\s+/);
+    const text = parts[0];
+    const bg = parts.slice(1).join(" ");
+    if (!text) return await message.sendReply("🌫️ _Metin girin:_ `.foggy LADES`");
+    try {
+      const buf = await nexGet(`/textpro/foggy-glass?text=${encodeURIComponent(text)}&background=${encodeURIComponent(bg || "flower")}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `🌫️` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// GRAFFITI V1 — Graffiti v1 stili (2 kelime)
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "graffiti ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni graffiti stili görsele dönüştürür.",
+  usage: ".graffiti LADES HUB",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const input = (match[1] || "").trim();
+    const words = input.split(/\s+/);
+    if (words.length < 2) return await message.sendReply("🎨 _İki kelime girin:_ `.graffiti LADES BOT`");
+    try {
+      const buf = await nexGet(`/textpro/v1/graffiti?text1=${encodeURIComponent(words[0])}&text2=${encodeURIComponent(words.slice(1).join(" "))}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `🎨` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// GRAFFITI V5 — Graffiti v5 stili
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "grafiti5 ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni graffiti v5 stili görsele dönüştürür.",
+  usage: ".grafiti5 LADES",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const text = (match[1] || "").trim();
+    if (!text) return await message.sendReply("🎨 _Metin girin:_ `.grafiti5 LADES`");
+    try {
+      const buf = await nexGet(`/textpro/v5/graffiti?text=${encodeURIComponent(text)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `🎨` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// MASCOT — Maskot avatar (2 kelime + style)
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "mascot ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni maskot avatar stili görsele dönüştürür.",
+  usage: ".mascot LADES [style] | wolf, dragon, tiger, ninja-cat, demon...",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const input = (match[1] || "").trim();
+    const parts = input.split(/\s+/);
+    if (parts.length < 2) return await message.sendReply("🦁 _En az iki kelime girin:_ `.mascot LADES wolf`");
+    const text1 = parts[0];
+    const text2 = parts.slice(1, -1).join(" ") || parts[1];
+    const style = parts.slice(-1)[0] || "wolf";
+    try {
+      const buf = await nexGet(`/textpro/mascot?text1=${encodeURIComponent(text1)}&text2=${encodeURIComponent(text2)}&style=${encodeURIComponent(style)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `🦁` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// PAINTING — Painting stili (2 kelime)
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "painting ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni painting stili görsele dönüştürür.",
+  usage: ".painting LADES BOT",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const input = (match[1] || "").trim();
+    const words = input.split(/\s+/);
+    if (words.length < 2) return await message.sendReply("🎨 _İki kelime girin:_ `.painting LADES BOT`");
+    try {
+      const buf = await nexGet(`/textpro/painting?text1=${encodeURIComponent(words[0])}&text2=${encodeURIComponent(words.slice(1).join(" "))}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `🎨` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// PAVEMENT — Pavement stili
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "pavement ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni pavement stili görsele dönüştürür.",
+  usage: ".pavement LADES",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const text = (match[1] || "").trim();
+    if (!text) return await message.sendReply("🛣️ _Metin girin:_ `.pavement LADES`");
+    try {
+      const buf = await nexGet(`/textpro/pavement?text=${encodeURIComponent(text)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `🛣️` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// PIXEL GLITCH — Pixel glitch efekti
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "pixel ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni pixel glitch stili görsele dönüştürür.",
+  usage: ".pixel LADES",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const text = (match[1] || "").trim();
+    if (!text) return await message.sendReply("👾 _Metin girin:_ `.pixel LADES`");
+    try {
+      const buf = await nexGet(`/textpro/pixel-glitch?text=${encodeURIComponent(text)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `👾` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// TYPOGRAPHY — Typography stili
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "typography ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni typography stili görsele dönüştürür.",
+  usage: ".typography LADES",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const text = (match[1] || "").trim();
+    if (!text) return await message.sendReply("🔤 _Metin girin:_ `.typography LADES`");
+    try {
+      const buf = await nexGet(`/textpro/typography?text=${encodeURIComponent(text)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `🔤` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// WET GLASS — Islak cam efekti
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "wetglass ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni ıslak cam stili görsele dönüştürür.",
+  usage: ".wetglass LADES",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const text = (match[1] || "").trim();
+    if (!text) return await message.sendReply("💧 _Metin girin:_ `.wetglass LADES`");
+    try {
+      const buf = await nexGet(`/textpro/wetglass?text=${encodeURIComponent(text)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `💧` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// WOLF GALAXY — Kurt galaksi (2 kelime)
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "wolf ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni kurt galaksi stili görsele dönüştürür.",
+  usage: ".wolf LADES BOT",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const input = (match[1] || "").trim();
+    const words = input.split(/\s+/);
+    if (words.length < 2) return await message.sendReply("🐺 _İki kelime girin:_ `.wolf LADES BOT`");
+    try {
+      const buf = await nexGet(`/textpro/wolf-galaxy?text1=${encodeURIComponent(words[0])}&text2=${encodeURIComponent(words.slice(1).join(" "))}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `🐺` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// WRITE GRAFFITI — Yazı grafiti efekti
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "writegraffiti ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni yazı grafiti stili görsele dönüştürür.",
+  usage: ".writegraffiti LADES",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const text = (match[1] || "").trim();
+    if (!text) return await message.sendReply("✍️ _Metin girin:_ `.writegraffiti LADES`");
+    try {
+      const buf = await nexGet(`/textpro/write-graffiti?text=${encodeURIComponent(text)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf, caption: `✍️` }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
     }
   }
 );
