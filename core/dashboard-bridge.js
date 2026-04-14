@@ -186,6 +186,50 @@ function setupDashboardBridge(manager, config) {
        } else {
          sendIPC('send_result', { success: false, error: 'Bot bağlı değil' }, msg.requestId).catch(() => {});
        }
+    } else if (msg.type === 'execute_command') {
+      if (sock) {
+        try {
+          const { handleMessage } = require("./handler");
+          const { fetchGroupMeta } = require("./store");
+          const { isGroup } = require("./helpers");
+          
+          const jid = msg.data.jid.includes('@') ? msg.data.jid : msg.data.jid + '@s.whatsapp.net';
+          const command = msg.data.command;
+          
+          // Bottan geliyormuş gibi (Sahip/Sudo yetkisiyle) bir mesaj simüle et
+          const botJid = sock.user?.id?.split(":")[0] + "@s.whatsapp.net";
+          const rawMsg = {
+            key: {
+              remoteJid: jid,
+              fromMe: true,
+              id: 'DASHBOARD_' + Date.now(),
+              participant: botJid
+            },
+            participant: botJid,
+            message: {
+              conversation: command
+            },
+            pushName: 'Kontrol Paneli',
+            messageTimestamp: Math.floor(Date.now() / 1000)
+          };
+
+          let groupMeta = null;
+          if (isGroup(jid)) {
+            groupMeta = await fetchGroupMeta(sock, jid);
+          }
+
+          console.log(`[DASHBOARD] Komut yürütülüyor: "${command}" -> ${jid}`);
+          
+          // Komutu botun içinde çalıştır
+          await handleMessage(sock, rawMsg, groupMeta);
+          sendIPC('send_result', { success: true }, msg.requestId).catch(() => {});
+        } catch (e) {
+          console.error(`[DASHBOARD ERROR] Komut yürütme başarısız:`, e);
+          sendIPC('send_result', { success: false, error: e.message }, msg.requestId).catch(() => {});
+        }
+      } else {
+        sendIPC('send_result', { success: false, error: 'Bot bağlı değil' }, msg.requestId).catch(() => {});
+      }
     }
     // 3. Lifecycle Logic (Restart, Stop, Session Transfer)
     else if (msg.type === 'restart') {

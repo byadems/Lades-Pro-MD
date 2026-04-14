@@ -74,7 +74,7 @@ async function applyEffect(message, route) {
 
   const imagePath = await message.reply_message.download();
   const upload = await uploadToImgbb(imagePath);
-  const link = upload?.url;
+  const link = upload?.url || upload?.display_url || (upload?.image && (upload.image.url || upload.image.display_url)) || (typeof upload === "string" ? upload : null);
 
   if (!link) {
     return await message.sendReply("❌ *Görsel yüklenemedi. Tekrar deneyin.*");
@@ -136,7 +136,7 @@ for (const effect of EFFECTS) {
 Module({
   pattern: "wasted ?(.*)",
   fromMe: false,
-  desc: "Fotoğrafa GTA tarzı öldün (wasted) efekti uygular.",
+  desc: "Fotoğrafa GTA tarzı öldün efekti uygular.",
   usage: ".wasted [yanıtla]",
   use: "düzenleme",
 },
@@ -147,10 +147,12 @@ Module({
     try {
       const wait = await message.send("🎨 _İşliyorum..._");
       const path = await message.reply_message.download();
-      const { url } = await uploadToCatbox(path);
+      const upload = await uploadToImgbb(path);
+      const url = upload?.url || upload?.display_url || (upload?.image && (upload.image.url || upload.image.display_url)) || (typeof upload === "string" ? upload : null);
       if (!url || url.includes("hata")) throw new Error("Görsel yüklenemedi");
 
-      const buf = await nx(`/editor/wasted?url=${encodeURIComponent(url)}`, { buffer: true });
+      const buf = await getBuffer(`https://api.some-random-api.com/canvas/overlay/wasted?avatar=${encodeURIComponent(url)}`);
+      if (!buf || buf.length < 1000) throw new Error("Görsel APİ'den alınamadı.");
       await message.edit("💀 *Hakkı Rahmetine Kavuştu!*", message.jid, wait.key);
       await message.client.sendMessage(message.jid, { image: buf }, { quoted: message.data });
     } catch (e) {
@@ -163,7 +165,7 @@ Module({
 Module({
   pattern: "wanted ?(.*)",
   fromMe: false,
-  desc: "Fotoğrafı profesyonel bir aranıyor (wasted) posterine dönüştürür.",
+  desc: "Fotoğrafa GTA tarzı aranıyor (wanted) poster efekti uygular.",
   usage: ".wanted [yanıtla]",
   use: "düzenleme",
 },
@@ -179,13 +181,15 @@ Module({
       if (!imgUrl && isImg) {
         const wait = await message.send("🎨 _İşliyorum..._");
         const path = await message.reply_message.download();
-        const { url } = await uploadToCatbox(path);
+        const upload = await uploadToImgbb(path);
+        const url = upload?.url || upload?.display_url || (upload?.image && (upload.image.url || upload.image.display_url)) || (typeof upload === "string" ? upload : null);
         imgUrl = url;
         await message.edit("✅ _Görsel hazır, poster basılıyor..._", message.jid, wait.key);
       }
       if (!imgUrl || imgUrl.includes("hata")) throw new Error("Görsel URL alınamadı");
 
-      const buf = await nx(`/editor/wanted?url=${encodeURIComponent(imgUrl)}`, { buffer: true });
+      const buf = await getBuffer(`https://api.popcat.xyz/wanted?image=${encodeURIComponent(imgUrl)}`);
+      if (!buf || buf.length < 1000) throw new Error("Wanted posteri basılamadı.");
       await message.client.sendMessage(message.jid, { image: buf, caption: "🔫 *ARANIYOR!*" }, { quoted: message.data });
     } catch (e) {
       await message.sendReply(`❌ _Wanted efektini uygulayamadım:_ ${e.message}`);
@@ -202,16 +206,19 @@ async function applyEphoto(message, endpoint, caption) {
   try {
     const wait = await message.send("⌛ _İşliyorum, lütfen bekleyin..._");
     const path = await message.reply_message.download();
-    const { url } = await uploadToCatbox(path);
+    const upload = await uploadToImgbb(path);
+    const url = upload?.url || upload?.display_url || (upload?.image && (upload.image.url || upload.image.display_url)) || (typeof upload === "string" ? upload : null);
     if (!url || url.includes("hata")) throw new Error("Görsel yüklenemedi");
 
     await message.edit("✅ _Efekti uyguluyorum..._", message.jid, wait.key);
-    const result = await nx(`${endpoint}?url=${encodeURIComponent(url)}`, { buffer: true, timeout: 90000 });
 
-    // Başarı mesajını görsel altına değil, önceki mesaja yazıyoruz (edit)
-    await message.edit(caption, message.jid, wait.key);
-    // Görseli tertemiz, captionsız gönderiyoruz
-    await message.client.sendMessage(message.jid, { image: result }, { quoted: message.data });
+    // Ephoto endpoint'leri Nexray tarafında kapalı veya arızalı olduğu için hata fırlatıyoruz 
+    // veya alternatif Popcat benzeri sistem kullanabiliriz. Şimdilik geçici iptal.
+    throw new Error("Ephoto sistemi geçici olarak çevrimdışıdır.");
+
+    // const result = await nx(`${endpoint}?url=${encodeURIComponent(url)}`, { buffer: true, timeout: 90000 });
+    // await message.edit(caption, message.jid, wait.key);
+    // await message.client.sendMessage(message.jid, { image: result }, { quoted: message.data });
   } catch (e) {
     await message.sendReply(`❌ _Tüh! Efekti uygulayamadım:_ ${e.message}`);
     throw e;

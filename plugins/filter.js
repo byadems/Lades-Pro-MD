@@ -7,7 +7,7 @@ const handler = HANDLER_PREFIX;
 Module({
   pattern: "filtre ?(.*)",
   fromMe: true,
-  desc: "Belirli kelimelere botun otomatik olarak vermesini istediğiniz yanıtları (filtreleri) oluşturur.",
+  desc: "Belirli kelimelere otomatik yanıt oluşturur.",
   usage: ".filtre merhaba | Merhaba! | sohbet\n.filtre yardım | Size yardım edebilirim | herkes\n.filtre güle | Güle güle! | grup | tam-eşleşme",
   use: "grup",
 },
@@ -25,8 +25,8 @@ Module({
         `• \`${handler}filtre tetikleyici | yanıt | sohbet | exact\` - Sadece tam eşleşme\n` +
         `• \`${handler}filtre tetikleyici | yanıt | sohbet | case\` - Büyük/küçük harf duyarlı\n` +
         `• \`${handler}filtreler\` - Tüm filtreleri listele\n` +
-        `• \`${handler}delfilter tetikleyici\` - Filtreyi sil\n` +
-        `• \`${handler}togglefilter tetikleyici\` - Filtreyi aç/kapat\n\n` +
+        `• \`${handler}filtresil tetikleyici\` - Filtreyi sil\n` +
+        `• \`${handler}filtredurum tetikleyici\` - Filtreyi aç/kapat\n\n` +
         `*Kapsamlar:*\n` +
         `• \`sohbet\` - Sadece mevcut sohbet (varsayılan)\n` +
         `• \`herkes\` - Tüm sohbetler\n` +

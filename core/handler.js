@@ -144,7 +144,7 @@ async function recordStat(pattern, status, durationMs, error = null, isTest = fa
 
   const currentBatch = runtime.commandStatsBatch;
   const entry = currentBatch.get(key) || { runs: 0, avgMs: 0, status: 'ok', lastError: null };
-  
+
   entry.runs++;
   // Moving average calculation
   entry.avgMs = Math.round((entry.avgMs * (entry.runs - 1) + durationMs) / entry.runs);
@@ -152,7 +152,7 @@ async function recordStat(pattern, status, durationMs, error = null, isTest = fa
     entry.status = 'error';
     if (error) entry.lastError = String(error).slice(0, 120);
   }
-  
+
   currentBatch.set(key, entry);
   if (!isTest) await recordCommand();
 }
@@ -168,7 +168,7 @@ scheduler.register('command_metrics_flush', async () => {
     for (const [key, stat] of currentBatch.entries()) {
       // Point 3: Optimized CommandStat upsert with raw SQL moving average
       await sequelize.query(
-        "INSERT INTO command_stats (pattern, runs, avgMs, status, lastRun, lastError, createdAt, updatedAt) " + 
+        "INSERT INTO command_stats (pattern, runs, avgMs, status, lastRun, lastError, createdAt, updatedAt) " +
         "VALUES (?, ?, ?, ?, DATETIME('now'), ?, DATETIME('now'), DATETIME('now')) " +
         "ON CONFLICT(pattern) DO UPDATE SET " +
         "avgMs = CAST(ROUND(((avgMs * runs) + (excluded.avgMs * excluded.runs)) / (runs + excluded.runs)) AS INTEGER), " +
@@ -1000,7 +1000,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
 
     // Point 2 & 10: O(1) Optimized Command Lookup
     const firstWord = input.split(/\s/)[0].toLowerCase();
-    const candidateCommands = commandMap.get(firstWord) || commands; 
+    const candidateCommands = commandMap.get(firstWord) || commands;
 
     for (const cmd of candidateCommands) {
       // Use pre-compiled regex for maximum speed
@@ -1226,5 +1226,5 @@ module.exports = {
   isOwner, isSudo, isOwnerOrSudo,
   getStats, recordStat, getRuntimeStats,
   onHandlers,
-  commands: (() => commands),
+  commands,
 };

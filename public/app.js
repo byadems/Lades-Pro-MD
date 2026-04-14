@@ -1183,7 +1183,7 @@ async function sendRemoteCommand() {
 
   const resultDiv = document.getElementById('remoteResult');
   try {
-    const res = await fetch('/api/remote-command', {
+    const res = await fetch('/api/execute-command', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ groupJid: jid, command: cmd })
@@ -1192,8 +1192,8 @@ async function sendRemoteCommand() {
     if (!res.ok) throw new Error(data.error || 'Hata');
     
     resultDiv.style.display = 'block';
-    resultDiv.innerHTML = `<span style="color:var(--green)">[OK]</span> ${esc(cmd)} -> Gönderildi.`;
-    toast('Komut yürütüldü.', 'success');
+    resultDiv.innerHTML = `<span style="color:var(--green)">[TAMAMLANDI]</span> ${esc(cmd)} -> Bot içinde yürütüldü.`;
+    toast('Komut başarıyla yürütüldü.', 'success');
   } catch (e) {
     resultDiv.style.display = 'block';
     resultDiv.innerHTML = `<span style="color:var(--red)">[HATA]</span> ${esc(e.message)}`;

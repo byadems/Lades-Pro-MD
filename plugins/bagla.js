@@ -10,11 +10,11 @@ function cleanPhoneNumber(phone) {
 }
 
 Module({
-    pattern: "bağla ?(.*)",
-    fromMe: true,
-    desc: "WhatsApp Web bağlantısı",
-    use: "sahip",
-  },
+  pattern: "bağla ?(.*)",
+  fromMe: true,
+  desc: "WhatsApp Web bağlantısı",
+  use: "sahip",
+},
   async (message, match) => {
     const chatJid = message.jid;
     const argRaw = match[1]?.trim();
@@ -71,7 +71,7 @@ Module({
             if (err.response?.status === 429) {
               await new Promise(r => setTimeout(r, 5000));
             }
-            if (err.response?.status && [400,401,403,404].includes(err.response.status)) {
+            if (err.response?.status && [400, 401, 403, 404].includes(err.response.status)) {
               console.log(`⛔ Kritik hata, bağlama atlanıyor: +${number}`);
               break;
             }

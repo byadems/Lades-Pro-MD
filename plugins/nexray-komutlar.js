@@ -5,6 +5,19 @@ const { CircuitBreaker } = require("./utils/resilience");
 const nexray = require("./utils/nexray");
 const { saveToDisk, getTempPath, cleanTempFile, isMediaImage } = require("../core/helpers");
 const { sticker, addExif } = require("./utils");
+const { uploadToImgbb, uploadToCatbox } = require("./utils/upload");
+
+async function uploadMedia(filePath, type = "image") {
+  if (type === "image") {
+    let res = await uploadToImgbb(filePath);
+    let url = res?.url || res?.display_url || (typeof res === "string" ? res : null);
+    if (!url && res?.image) url = res.image.url || res.image.display_url || (typeof res.image === "string" ? res.image : null);
+    if (url && typeof url === "string" && url.startsWith("http")) return url;
+  }
+  let catRes = await uploadToCatbox(filePath);
+  if (catRes && catRes.url && !catRes.url.includes("_Dosya")) return catRes.url;
+  throw new Error("Dosya internete yüklenirken hata oluştu.");
+}
 
 const BASE = "https://api.nexray.web.id";
 const TIMEOUT = 30000;
@@ -227,16 +240,68 @@ Module({
   pattern: "brat ?(.*)",
   fromMe: false,
   desc: "Yazdığınız metni Brat (Charli XCX) stili yeşil bir görsele dönüştürür.",
-  usage: ".brat Lades Bot",
+  usage: ".brat metin | .bratgif metin | .bratgif 500 metin",
   use: "düzenleme",
 },
   async (message, match) => {
-    const text = (match[1] || "").trim();
-    if (!text) return await message.sendReply("💚 _Metin girin:_ `.brat lades bot`");
+    const input = (match[1] || "").trim();
+    if (!input) return await message.sendReply(
+      "✍🏻 *Brat - Yazıdan Çıkartma Oluşturucu*\n\n" +
+      "📝 _Kullanım:_\n" +
+      "`.brat metin` - Standart çıkartma\n" +
+      "`.bratgif metin` - Animasyonlu çıkartma (varsayılan 300ms)\n" +
+      "`.bratgif 500 metin` - Animasyonlu çıkartma (500ms hızında)\n\n" +
+      "_Örnek:_\n" +
+      "`.brat Lades Bot`\n" +
+      "`.bratgif Lades Bot`\n" +
+      "`.bratgif 1000 Lades Bot`"
+    );
+
+    let text;
+    let delay = 300;
+    let isAnimated = false;
+
+    const parts = input.split(" ");
+
+    if (parts[0].toLowerCase() === "gif") {
+      isAnimated = true;
+      parts.shift();
+
+      const firstPart = parts[0] ?? "";
+      if (/^\d+$/.test(firstPart)) {
+        delay = parseInt(firstPart, 10);
+        if (delay < 50) delay = 50;
+        if (delay > 2000) delay = 2000;
+        parts.shift();
+      }
+    }
+
+    text = parts.join(" ").trim();
+
+    if (!text) return await message.sendReply("✍🏻 _Metin yazın:_ `.brat lades bot`");
+
+    const encodedText = text.replace(/ /g, "+");
+
     try {
-      const buf = await nexGet(`/maker/brat?text=${encodeURIComponent(text)}`, { buffer: true });
-      const stickerBuf = await addExif(await sticker(buf, false), { packname: message.pushName || message.senderName || "Lades-Pro", author: config.STICKER_DATA.split(";")[1] || "Lades-Pro" });
-      await message.client.sendMessage(message.jid, { sticker: stickerBuf }, { quoted: message.data });
+      const url = isAnimated
+        ? `https://api.siputzx.my.id/api/m/brat?text=${encodedText}&isAnimated=true&delay=${delay}`
+        : `https://api.nexray.web.id/maker/brat?text=${encodedText}`;
+
+      const buf = (await axios.get(url, { responseType: 'arraybuffer' })).data;
+
+      const stickerBuf = await addExif(
+        await sticker(buf, isAnimated),
+        {
+          packname: message.pushName || message.senderName || "Lades-Pro",
+          author: config.STICKER_DATA.split(";")[1] || "Lades-Pro"
+        }
+      );
+
+      await message.client.sendMessage(
+        message.jid,
+        { sticker: stickerBuf },
+        { quoted: message.data }
+      );
     } catch (e) {
       await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
     }
@@ -332,7 +397,7 @@ Module({
       if (!results?.length) throw new Error("Sonuç bulunamadı");
       const pick = results[Math.floor(Math.random() * Math.min(results.length, 10))];
       const imgUrl = pick.url || pick.image || pick.thumbnail;
-      if (!imgUrl) throw new Error("Görsel URL bulunamadı");
+      if (!imgUrl) throw new Error("Görsel bağlantısı bulunamadı");
       await message.client.sendMessage(message.jid, {
         image: { url: imgUrl },
         caption: `🖼️`,
@@ -506,7 +571,7 @@ Module({
       if (m) url = m[0];
     }
     if (!url || !/threads\.net/i.test(url)) {
-      return await message.sendReply("🧵 _Threads bağlantısı girin:_ `.threads <url>`");
+      return await message.sendReply("🧵 _Threads bağlantısı girin:_ `.threads <bağlantı>`");
     }
     const quotedMessage = message.reply_message ? message.quoted : message.data;
     try {
@@ -569,14 +634,14 @@ Module({
       if (m) url = m[0];
     }
     if (!url || !url.includes("soundcloud")) {
-      return await message.sendReply("🎧 _SoundCloud bağlantısı girin:_ `.soundcloud <url>`");
+      return await message.sendReply("🎧 _SoundCloud bağlantısı girin:_ `.soundcloud <bağlantı>`");
     }
     let statusMsg;
     try {
       statusMsg = await message.sendReply("_⬇️ SoundCloud'dan indiriliyor..._");
       // Yeni nexray modülü ile (Nexray + Siputzx + nxTry fallback zinciri)
       const result = await nexray.downloadSoundCloud(url);
-      if (!result?.url) throw new Error("Ses URL bulunamadı");
+      if (!result?.url) throw new Error("Ses bağlantısı bulunamadı");
 
       const title = result.title || "SoundCloud";
       const author = result.author || "";
@@ -1045,6 +1110,373 @@ Module({
       await message.client.sendMessage(message.jid, { image: buf, caption: `✍️` }, { quoted: message.data });
     } catch (e) {
       await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// BLUEFACE — Mavi plan tarzı görsel
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "maviyüz ?(.*)",
+  fromMe: false,
+  desc: "Verilen fotoğrafı mavi plan tarzında işler.",
+  usage: ".maviyüz [fotoğraf bağlantısı]",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    let url = (match[1] || "").trim();
+    if (!url && message.reply_message?.image) {
+      url = "reply";
+    }
+    if (!url && message.reply_message?.text) {
+      const m = message.reply_message.text.match(/https?:\/\/\S+/);
+      if (m) url = m[0];
+    }
+    if (!url) return await message.sendReply("🟦 _Fotoğraf bağlantısı girin veya bir fotoğrafı yanıtlayın:_ `.maviyüz <bağlantı>`");
+    if (!url) return await message.sendReply("🆙 _Fotoğraf bağlantısı girin veya bir fotoğrafı yanıtlayın:_ `.remini <bağlantı>`");
+    if (!url) return await message.sendReply("🎵 _Müzik bağlantısı girin veya bir ses dosyasını yanıtlayın:_ `.vokalsil <bağlantı>`");
+    if (!url) return await message.sendReply("📤 _Görsel bağlantısı girin veya bir fotoğrafı yanıtlayın:_ `.tgçıkartma <bağlantı>`");
+    if (!url) return await message.sendReply("🔍 _Fotoğraf bağlantısı girin veya bir fotoğrafı yanıtlayın:_ `.netleştir <bağlantı>`");
+    if (!url) return await message.sendReply("🎵 _Ses/video bağlantısı girin veya bir medyayı yanıtlayın:_ `.whatmusic <bağlantı>`");
+
+    try {
+      let mediaUrl = url;
+      let sentMsg;
+      if (url === "reply_audio" && message.reply_message?.audio) {
+        const media = await message.client.downloadMediaMessage(message.reply_message.message);
+        if (media) {
+          const tempPath = getTempPath(".mp3");
+          await saveToDisk(media, tempPath);
+          sentMsg = await message.sendReply("📤 _Ses dosyasını indiriyorum..._");
+          mediaUrl = await uploadMedia(tempPath, "audio");
+          cleanTempFile(tempPath);
+        }
+      } else if (url === "reply_video" && message.reply_message?.video) {
+        const media = await message.client.downloadMediaMessage(message.reply_message.message);
+        if (media) {
+          const tempPath = getTempPath(".mp4");
+          await saveToDisk(media, tempPath);
+          sentMsg = await message.sendReply("📤 _Video dosyasını indiriyorum..._");
+          mediaUrl = await uploadMedia(tempPath, "video");
+          cleanTempFile(tempPath);
+        }
+      }
+
+      if (!sentMsg) sentMsg = await message.sendReply("🎵 _Müziği tanıyorum..._");
+      else await message.edit("🎵 _Müziği dinliyorum..._", message.jid, sentMsg.key);
+      const result = await nexGet(`/tools/whatsmusic?url=${encodeURIComponent(mediaUrl)}`, { timeout: 60000 });
+      await message.edit("✅ _Müzik bulundu!_", message.jid, sentMsg.key);
+
+      if (result) {
+        const info = typeof result === "string" ? result :
+          `🎵 *Müzik Bilgisi*\n\n` +
+          (result.title ? `🎤 Şarkı: ${result.title}\n` : "") +
+          (result.artist ? `👤 Sanatçı: ${result.artist}\n` : "") +
+          (result.album ? `💿 Albüm: ${result.album}\n` : "") +
+          (result.year ? `📅 Yıl: ${result.year}\n` : "");
+        await message.sendReply(info);
+      } else {
+        await message.sendReply("❌ _Müzik bulunamadı_");
+      }
+    } catch (e) {
+      await message.sendReply(`❌ _Müzik tanınamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// YTTRANSCRIBE — YouTube video transkript
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "ytaltyazı ?(.*)",
+  fromMe: false,
+  desc: "YouTube videonun transkriptini getirir.",
+  usage: ".ytaltyazı [YouTube bağlantısı]",
+  use: "indirme",
+},
+  async (message, match) => {
+    let url = (match[1] || "").trim();
+    if (!url && message.reply_message?.text) {
+      const m = message.reply_message.text.match(/(youtube\.com|youtu\.be)\/\S+/);
+      if (m) url = m[0];
+    }
+    if (!url) return await message.sendReply("📝 _YouTube bağlantısı girin:_ `.ytt https://youtube.com/watch?v=...`");
+    if (!url.startsWith("http")) url = "https://" + url;
+
+    try {
+      const sent = await message.sendReply("📝 _Transkript alınıyor..._");
+      const result = await nexGet(`/tools/yt-transcribe?url=${encodeURIComponent(url)}`, { timeout: 90000 });
+      await message.edit("✅ _Transkript alındı!_", message.jid, sent.key);
+
+      if (result?.transcript) {
+        const transcript = result.transcript.length > 3000 ?
+          result.transcript.substring(0, 3000) + "\n..." :
+          result.transcript;
+        await message.sendReply(`📝 *Transkript*\n\n${transcript}`);
+      } else if (typeof result === "string") {
+        await message.sendReply(result);
+      } else {
+        await message.sendReply("❌ _Transkript bulunamadı_");
+      }
+    } catch (e) {
+      await message.sendReply(`❌ _Transkript alınamadı:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// FREEFIRE — Free Fire oyuncu sorgulama
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "freefire ?(.*)",
+  fromMe: false,
+  desc: "Free Fire oyuncusunun bilgilerini gösterir.",
+  usage: ".freefire [oyuncul numarası]",
+  use: "oyun",
+},
+  async (message, match) => {
+    const uid = (match[1] || "").trim();
+    if (!uid) return await message.sendReply("🎮 _Free Fire oyuncu numarası girin:_ `.freefire 1234567890`");
+
+    try {
+      const result = await nexGet(`/stalker/freefire?uid=${encodeURIComponent(uid)}`);
+      if (result) {
+        const info = typeof result === "string" ? result :
+          `🎮 *Free Fire Bilgileri*\n\n` +
+          (result.nickname ? `📛 Nick: ${result.nickname}\n` : "") +
+          (result.level ? `⭐ Seviye: ${result.level}\n` : "") +
+          (result.rank ? `🏆 Rank: ${result.rank}\n` : "") +
+          (result.clan ? `👥 Clan: ${result.clan}\n` : "") +
+          (result.uid ? `🆔 UID: ${result.uid}\n` : "");
+        await message.sendReply(info || JSON.stringify(result));
+      } else {
+        await message.sendReply("❌ _Oyuncu bulunamadı_");
+      }
+    } catch (e) {
+      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// GITHUB — GitHub kullanıcı sorgulama
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "github ?(.*)",
+  fromMe: false,
+  desc: "GitHub kullanıcısının profil bilgilerini gösterir.",
+  usage: ".github [kullanıcı adı]",
+  use: "araçlar",
+},
+  async (message, match) => {
+    const username = (match[1] || "").trim();
+    if (!username) return await message.sendReply("🐙 _GitHub kullanıcı adı girin:_ `.github mrbeast`");
+
+    try {
+      const result = await nexGet(`/stalker/github?username=${encodeURIComponent(username)}`);
+      if (result) {
+        const info = typeof result === "string" ? result :
+          `🐙 *GitHub Profili*\n\n` +
+          (result.login ? `👤 Kullanıcı: ${result.login}\n` : "") +
+          (result.name ? `📛 İsim: ${result.name}\n` : "") +
+          (result.bio ? `📝 Bio: ${result.bio}\n` : "") +
+          (result.public_repos ? `📚 Repolar: ${result.public_repos}\n` : "") +
+          (result.followers ? `👥 Takipçi: ${result.followers}\n` : "") +
+          (result.following ? `📥 Takip: ${result.following}\n` : "") +
+          (result.html_url ? `🔗 ${result.html_url}\n` : "");
+        await message.sendReply(info || JSON.stringify(result));
+      } else {
+        await message.sendReply("❌ _Kullanıcı bulunamadı_");
+      }
+    } catch (e) {
+      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// MLBB — Mobile Legends oyuncu sorgulama
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "mlbb ?(.*)",
+  fromMe: false,
+  desc: "Mobile Legends oyuncusunun bilgilerini gösterir.",
+  usage: ".mlbb [oyuncul ID] [zone ID]",
+  use: "oyun",
+},
+  async (message, match) => {
+    const input = (match[1] || "").trim();
+    const parts = input.split(/\s+/);
+    const id = parts[0];
+    const zone = parts[1] || "12230";
+
+    if (!id) return await message.sendReply("🎮 _Mobile Legends ID ve zone girin:_ `.mlbb 807663005 12230`");
+
+    try {
+      const result = await nexGet(`/stalker/mlbb?id=${encodeURIComponent(id)}&zone=${encodeURIComponent(zone)}`);
+      if (result) {
+        const info = typeof result === "string" ? result :
+          `🎮 *Mobile Legends Bilgileri*\n\n` +
+          (result.nickname ? `📛 Nick: ${result.nickname}\n` : "") +
+          (result.level ? `⭐ Seviye: ${result.level}\n` : "") +
+          (result.rank ? `🏆 Rank: ${result.rank}\n` : "") +
+          (result.hero ? `🦸 Ana Hero: ${result.hero}\n` : "") +
+          (result.id ? `🆔 ID: ${result.id}\n` : "");
+        await message.sendReply(info || JSON.stringify(result));
+      } else {
+        await message.sendReply("❌ _Oyuncu bulunamadı_");
+      }
+    } catch (e) {
+      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// PINTEREST — Pinterest kullanıcı sorgulama
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "pinterest ?(.*)",
+  fromMe: false,
+  desc: "Pinterest kullanıcısının profil bilgilerini gösterir.",
+  usage: ".pinterest [kullanıcı adı]",
+  use: "araçlar",
+},
+  async (message, match) => {
+    const username = (match[1] || "").trim();
+    if (!username) return await message.sendReply("📌 _Pinterest kullanıcı adı girin:_ `.pinterest veritasium`");
+
+    try {
+      const result = await nexGet(`/stalker/pinterest?username=${encodeURIComponent(username)}`);
+      if (result) {
+        const info = typeof result === "string" ? result :
+          `📌 *Pinterest Profili*\n\n` +
+          (result.username ? `👤 Kullanıcı: ${result.username}\n` : "") +
+          (result.name ? `📛 İsim: ${result.name}\n` : "") +
+          (result.bio ? `📝 Bio: ${result.bio}\n` : "") +
+          (result.followers ? `👥 Takipçi: ${result.followers}\n` : "") +
+          (result.following ? `📥 Takip: ${result.following}\n` : "") +
+          (result.pins ? `📌 Pin sayısı: ${result.pins}\n` : "") +
+          (result.profile_url ? `🔗 ${result.profile_url}\n` : "");
+        await message.sendReply(info || JSON.stringify(result));
+      } else {
+        await message.sendReply("❌ _Kullanıcı bulunamadı_");
+      }
+    } catch (e) {
+      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// ROBLOX — Roblox kullanıcı sorgulama
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "roblox ?(.*)",
+  fromMe: false,
+  desc: "Roblox kullanıcısının profil bilgilerini gösterir.",
+  usage: ".roblox [kullanıcı adı]",
+  use: "oyun",
+},
+  async (message, match) => {
+    const username = (match[1] || "").trim();
+    if (!username) return await message.sendReply("🧸 _Roblox kullanıcı adı girin:_ `.roblox Builderman`");
+
+    try {
+      const result = await nexGet(`/stalker/roblox?username=${encodeURIComponent(username)}`);
+      if (result) {
+        const info = typeof result === "string" ? result :
+          `🧸 *Roblox Profili*\n\n` +
+          (result.username ? `👤 Kullanıcı: ${result.username}\n` : "") +
+          (result.displayname ? `📛 Görünen İsim: ${result.displayname}\n` : "") +
+          (result.description ? `📝 Açıklama: ${result.description}\n` : "") +
+          (result.bio ? `📝 Bio: ${result.bio}\n` : "") +
+          (result.created ? `📅 Oluşturulma: ${result.created}\n` : "") +
+          (result.isBanned ? `⚠️ Banlı: ${result.isBanned}\n` : "") +
+          (result.followerCount ? `👥 Takipçi: ${result.followerCount}\n` : "") +
+          (result.followingCount ? `📥 Takip: ${result.followingCount}\n` : "") +
+          (result.profileUrl ? `🔗 ${result.profileUrl}\n` : "");
+        await message.sendReply(info || JSON.stringify(result));
+      } else {
+        await message.sendReply("❌ _Kullanıcı bulunamadı_");
+      }
+    } catch (e) {
+      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// THREADS — Threads kullanıcı sorgulama
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "thara ?(.*)",
+  fromMe: false,
+  desc: "Threads kullanıcısının profil bilgilerini gösterir.",
+  usage: ".thara [kullanıcı adı]",
+  use: "araçlar",
+},
+  async (message, match) => {
+    const username = (match[1] || "").trim();
+    if (!username) return await message.sendReply("🧵 _Threads kullanıcı adı girin:_ `.threadsuser zuck`");
+
+    try {
+      const result = await nexGet(`/stalker/threads?username=${encodeURIComponent(username)}`);
+      if (result) {
+        const info = typeof result === "string" ? result :
+          `🧵 *Threads Profili*\n\n` +
+          (result.username ? `👤 Kullanıcı: ${result.username}\n` : "") +
+          (result.name ? `📛 İsim: ${result.name}\n` : "") +
+          (result.bio ? `📝 Bio: ${result.bio}\n` : "") +
+          (result.followers ? `👥 Takipçi: ${result.followers}\n` : "") +
+          (result.following ? `📥 Takip: ${result.following}\n` : "") +
+          (result.posts ? `📝 Gönderi: ${result.posts}\n` : "") +
+          (result.profile_pic_url ? `🔗 [Profil Fotoğrafı](${result.profile_pic_url})\n` : "");
+        await message.sendReply(info || JSON.stringify(result));
+      } else {
+        await message.sendReply("❌ _Kullanıcı bulunamadı_");
+      }
+    } catch (e) {
+      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// YOUTUBE — YouTube kanal sorgulama
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: "ytkanal ?(.*)",
+  fromMe: false,
+  desc: "YouTube kanalının bilgilerini gösterir.",
+  usage: ".ytkanal [kanal adı veya kullanıcı adı]",
+  use: "araçlar",
+},
+  async (message, match) => {
+    const username = (match[1] || "").trim();
+    if (!username) return await message.sendReply("📺 _YouTube kanal adı girin:_ `.youtubekanal mrbeast`");
+
+    try {
+      const result = await nexGet(`/stalker/youtube?username=${encodeURIComponent(username)}`);
+      if (result) {
+        const info = typeof result === "string" ? result :
+          `📺 *YouTube Kanalı*\n\n` +
+          (result.title ? `📛 Kanal: ${result.title}\n` : "") +
+          (result.description ? `📝 Açıklama: ${result.description}\n` : "") +
+          (result.subscribers ? `👥 Abone: ${result.subscribers}\n` : "") +
+          (result.views ? `👁️ İzlenme: ${result.views}\n` : "") +
+          (result.videos ? `🎬 Video: ${result.videos}\n` : "") +
+          (result.country ? `🌍 Ülke: ${result.country}\n` : "") +
+          (result.channelId ? `🆔 ID: ${result.channelId}\n` : "") +
+          (result.customUrl ? `🔗 @${result.customUrl}\n` : "") +
+          (result.thumbnail ? `🖼️ [Banner](${result.thumbnail})\n` : "");
+        await message.sendReply(info || JSON.stringify(result));
+      } else {
+        await message.sendReply("❌ _Kanal bulunamadı_");
+      }
+    } catch (e) {
+      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
     }
   }
 );

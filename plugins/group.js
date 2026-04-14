@@ -486,10 +486,10 @@ Module({
   }
 );
 Module({
-  pattern: "quoted",
+  pattern: "msjgetir",
   fromMe: true,
-  desc: "Yanıtlanan mesajın asıl alıntıladığı mesajı bulur ve tekrar gönderir. Silinen mesajları görmek için idealdir.",
-  usage: ".quoted [yanıtla]",
+  desc: "Yanıtlanan mesajın asıl alıntılandığı mesajı bulur ve tekrar gönderir. Silinen mesajları görmek için idealdir.",
+  usage: ".msjgetir [yanıtla]",
   use: "grup",
 },
   async (message, match) => {
@@ -716,7 +716,7 @@ Module({
   pattern: "gayaryt ?(.*)",
   fromMe: false,
   use: "grup",
-  desc: "Grup ayarlarını sadece yöneticilerin düzenleyebileceği şekilde değiştirir!",
+  desc: "Grup ayarlarını kilitler (sadece yöneticiler değiştirebilir)!",
   usage: ".gayaryt (grup ayarlarını kilitler)",
 },
   async (message, match) => {
@@ -734,7 +734,7 @@ Module({
   pattern: "gayarherkes ?(.*)",
   fromMe: false,
   use: "grup",
-  desc: "Grup ayarlarını herkesin düzenleyebileceği şekilde değiştirir!",
+  desc: "Grup ayarlarının kilidini açar (herkes değiştirebilir)!",
   usage: ".gayarherkes (grup ayarlarının kilidini açar)",
 },
   async (message, match) => {

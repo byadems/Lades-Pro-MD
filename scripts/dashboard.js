@@ -120,10 +120,10 @@ process.on('message', (msg) => {
       if (msg.type === 'groups_result') {
         pending.resolve(msg.data || []);
       } else if (msg.type === 'group_pp_result') {
-        pending.resolve({ imgUrl: msg.imgUrl });
+        pending.resolve({ imgUrl: msg.data?.imgUrl || null });
       } else if (msg.type === 'send_result') {
-        if (msg.success) pending.resolve(true);
-        else pending.reject(new Error(msg.error || 'Gönderim hatası'));
+        if (msg.data && msg.data.success) pending.resolve(msg.data);
+        else pending.reject(new Error(msg.data?.error || 'Gönderim hatası'));
       }
     }
   }
@@ -787,6 +787,26 @@ app.get('/api/group-pp', async (req, res) => {
     const result = await requestFromParent('fetch_group_pp', { jid });
     res.json({ success: true, imgUrl: result.imgUrl });
   } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/execute-command', async (req, res) => {
+  const { groupJid, command } = req.body;
+  if (!groupJid || !command) return res.status(400).json({ error: "Grup JID ve komut gerekli" });
+
+  try {
+    console.log(`[Panel API] Komut talebi: "${command}" -> ${groupJid}`);
+    const result = await requestFromParent('execute_command', { jid: groupJid, command });
+    
+    if (result && result.success) {
+      res.json({ success: true, message: `"${command}" komutu bot içinde yürütüldü.` });
+    } else {
+      const errMsg = result ? (result.error || 'Bilinmeyen hata') : 'Bot cevap vermedi (IPC Zaman Aşımı)';
+      res.status(500).json({ error: errMsg });
+    }
+  } catch (e) {
+    console.error(`[Panel API Error] /api/execute-command:`, e.message);
     res.status(500).json({ error: e.message });
   }
 });

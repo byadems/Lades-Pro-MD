@@ -45,7 +45,7 @@
       "DEMOTE_DESC": "Belirtilen yöneticinin yetkisini düşürür.",
       "ALREADY_NOT_ADMIN": "🤦🏻 ```Zaten yönetici olmayan birisini nasıl yetkisini alayım?```",
       "DEMOTED": "⛔ ```, Yetkisi Düşürüldü!```",
-      "MUTE_DESC": "Grup sohbetini kapatır. Yalnızca adminler mesaj gönderebilir.\n⌨️ Örnek: .mute & .mute 5m vb.",
+      "MUTE_DESC": "Grup sohbetini kapatır. Yalnızca yöneticiler mesaj gönderebilir.\n⌨️ Örnek: .mute & .mute 5m vb.",
       "MUTED": "⚠️ ```Grup sohbeti kapatıldı!```",
       "UNMUTE_DESC": "Grup sohbetini açar. Herkes mesaj gönderebilir.",
       "UNMUTED": "📢 ```Grup sohbeti açıldı!```",
