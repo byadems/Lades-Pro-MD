@@ -29,6 +29,9 @@ let dashboardStartTime = Date.now();
 app.use(express.static(path.join(__dirname, "../public")));
 app.use(express.json());
 
+// Health check endpoint for Northflank/Docker
+app.get('/health', (req, res) => res.json({ status: "ok", uptime: (Date.now() - dashboardStartTime) / 1000 }));
+
 function normalizePhone(input) {
   const clean = String(input || '').replace(/[^0-9]/g, '');
   if (!clean || clean.length < 10 || clean.length > 15) return null;
