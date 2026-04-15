@@ -299,7 +299,7 @@ async function loadCommands() {
     const banner = document.getElementById('cmdTestBanner');
       if (banner) {
         // If test is currently running, show current command
-        if (progressData.status === 'testing' && progressData.currentCommand) {
+        if (progressData && progressData.status === 'testing' && progressData.currentCommand) {
           const current = progressData.currentIndex;
           const total = progressData.totalCommands;
           banner.innerHTML = `🧪 Test devam ediyor: <b>.${progressData.currentCommand}</b> (${current}/${total})`;
@@ -317,7 +317,7 @@ async function loadCommands() {
       setupCommandFilters();
 
     // If test is active, set up polling to update banner in real-time
-    if (progressData.status === 'testing') {
+    if (progressData && progressData.status === 'testing') {
       if (S.testProgressPoll) clearInterval(S.testProgressPoll);
       S.testProgressPoll = setInterval(updateTestProgressBanner, 200); // 200ms for real-time updates
     } else {
@@ -337,13 +337,13 @@ async function updateTestProgressBanner() {
 
     if (!banner) return;
 
-    if (progressData.status === 'testing' && progressData.currentCommand) {
+    if (progressData && progressData.status === 'testing' && progressData.currentCommand) {
       const current = progressData.currentIndex;
       const total = progressData.totalCommands;
       banner.innerHTML = `🧪 Test devam ediyor: <b>.${progressData.currentCommand}</b> (${current}/${total})`;
       banner.className = 'cmd-banner pending';
       banner.style.display = 'block';
-    } else if (progressData.status === 'completed') {
+    } else if (progressData && progressData.status === 'completed') {
       // Test completed, show final results
       if (S.testProgressPoll) {
         clearInterval(S.testProgressPoll);
@@ -933,7 +933,12 @@ function toast(msg, type = 'info') {
   t.className = `toast ${type}`;
   t.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
   box.appendChild(t);
-  setTimeout(() => t.remove(), 3200);
+  
+  // Slide out and remove
+  setTimeout(() => {
+    t.classList.add('removing');
+    setTimeout(() => t.remove(), 300);
+  }, 3200);
 }
 function showToast(msg, type = 'info') { toast(msg, type); }
 window.showToast = showToast;
@@ -1258,11 +1263,11 @@ function renderCmdLibrary(query = '') {
         <div class="op-cat-line"></div>
         <div class="op-cat-title">${esc(cat)} (${filtered.length})</div>
       </div>
-      <div class="cmd-grid" style="grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:8px;">
+      <div class="cmd-grid">
         ${filtered.map(c => `
-          <div class="cmd-item" style="padding:8px 12px; cursor:pointer; background:rgba(255,255,255,0.03);" onclick="setRemoteCmd('.${esc(c.command)}')">
-            <span style="font-weight:700; font-size:13px; color:var(--text);">.${esc(c.command)}</span>
-            <span style="font-size:10px; color:var(--text3); display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${esc(c.desc || '')}">${esc(c.desc || '')}</span>
+          <div class="cmd-item" onclick="setRemoteCmd('.${esc(c.command)}')">
+            <span class="cmd-item-name">.${esc(c.command)}</span>
+            <span class="cmd-item-desc" title="${esc(c.desc || '')}">${esc(c.desc || '')}</span>
           </div>
         `).join('')}
       </div>

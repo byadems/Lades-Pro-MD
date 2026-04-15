@@ -29,15 +29,10 @@ async function siputGetBuffer(path, params = {}) {
 }
 
 // ══════════════════════════════════════════════════════
-// Pinterest Arama
-// ══════════════════════════════════════════════════════
-// Pinterest komutu social.js'de mevcut, burada tekrar yok
-
-// ══════════════════════════════════════════════════════
 // Ekran Görüntüsü (Website Screenshot)
 // ══════════════════════════════════════════════════════
 Module({
-  pattern: "(?:ekranfoto|ss) ?(.*)",
+  pattern: "ekranfoto ?(.*)",
   fromMe: false,
   desc: "Bir web sitesinin ekran görüntüsünü alır.",
   usage: ".ss https://google.com",
@@ -59,96 +54,6 @@ Module({
 });
 
 // ══════════════════════════════════════════════════════
-// GitHub Profil Sorgulama
-// ══════════════════════════════════════════════════════
-Module({
-  pattern: "(?:ghstalker|github) ?(.*)",
-  fromMe: false,
-  desc: "GitHub kullanıcı profilini sorgular.",
-  usage: ".github octocat",
-  use: "profil-inceleme",
-}, async (message, match) => {
-  const user = (match[1] || "").trim();
-  if (!user) return await message.sendReply("_Kullanıcı adı girin:_ `.github octocat`");
-
-  try {
-    const data = await siputGet("/api/stalk/github", { user });
-    const r = data.data || data.result;
-    if (!r) return await message.sendReply("_Kullanıcı bulunamadı._");
-
-    const text = [
-      `*GitHub Profili*`,
-      `*Ad:* ${r.name || r.login || user}`,
-      r.bio ? `*Bio:* ${r.bio}` : null,
-      `*Repo:* ${r.public_repos ?? "?"}`,
-      `*Takipçi:* ${r.followers ?? "?"}`,
-      `*Takip:* ${r.following ?? "?"}`,
-      r.location ? `*Konum:* ${r.location}` : null,
-      r.blog ? `*Web:* ${r.blog}` : null,
-      `*Profil:* https://github.com/${r.login || user}`,
-    ].filter(Boolean).join("\n");
-
-    if (r.avatar_url) {
-      await message.client.sendMessage(message.jid, {
-        image: { url: r.avatar_url },
-        caption: text
-      }, { quoted: message.data });
-    } else {
-      await message.sendReply(text);
-    }
-  } catch (e) {
-    await message.sendReply(`_GitHub sorgusu başarısız:_ ${e.message}`);
-  }
-});
-
-// ══════════════════════════════════════════════════════
-// TikTok Profil Sorgulama (social.js'de mevcut)
-// ══════════════════════════════════════════════════════
-
-// Instagram Profil Sorgulama
-// ══════════════════════════════════════════════════════
-Module({
-  pattern: "igara ?(.*)",
-  fromMe: false,
-  desc: "Instagram kullanıcı profilini sorgular.",
-  usage: ".igara kullaniciadi",
-  use: "profil-inceleme",
-}, async (message, match) => {
-  const user = (match[1] || "").trim();
-  if (!user) return await message.sendReply("_Kullanıcı adı girin:_ `.igara kullaniciadi`");
-
-  try {
-    const data = await siputGet("/api/stalk/instagram", { user });
-    const r = data.data || data.result;
-    if (!r) return await message.sendReply("_Kullanıcı bulunamadı._");
-
-    const text = [
-      `*Instagram Profili*`,
-      `*Kullanıcı:* ${r.username || user}`,
-      `*Ad:* ${r.fullName || r.full_name || "?"}`,
-      r.biography || r.bio ? `*Bio:* ${r.biography || r.bio}` : null,
-      `*Gönderi:* ${r.posts ?? r.mediaCount ?? "?"}`,
-      `*Takipçi:* ${r.followers ?? r.followerCount ?? "?"}`,
-      `*Takip:* ${r.following ?? r.followingCount ?? "?"}`,
-      r.isPrivate ? `*Gizli Hesap:* Evet` : null,
-      r.isVerified ? `*Onaylı Hesap:* Evet` : null,
-    ].filter(Boolean).join("\n");
-
-    const avatar = r.profilePicUrl || r.profile_pic_url || r.avatar;
-    if (avatar) {
-      await message.client.sendMessage(message.jid, {
-        image: { url: avatar },
-        caption: text
-      }, { quoted: message.data });
-    } else {
-      await message.sendReply(text);
-    }
-  } catch (e) {
-    await message.sendReply(`_Instagram sorgusu başarısız:_ ${e.message}`);
-  }
-});
-
-// ══════════════════════════════════════════════════════
 // Twitter/X Profil Sorgulama
 // ══════════════════════════════════════════════════════
 Module({
@@ -166,17 +71,22 @@ Module({
     const r = data.data || data.result;
     if (!r) return await message.sendReply("_Kullanıcı bulunamadı._");
 
+    const stats = r.stats || {};
     const text = [
       `*Twitter/X Profili*`,
       `*Kullanıcı:* @${r.username || r.screen_name || user}`,
       `*Ad:* ${r.name || "?"}`,
-      r.bio || r.description ? `*Bio:* ${r.bio || r.description}` : null,
-      `*Takipçi:* ${r.followers ?? r.followers_count ?? "?"}`,
-      `*Takip:* ${r.following ?? r.friends_count ?? "?"}`,
-      `*Tweet:* ${r.tweets ?? r.statuses_count ?? "?"}`,
+      r.bio || r.description ? `*Bio:* ${r.description || r.bio}` : null,
+      `*Takipçi:* ${stats.followers ?? r.followers ?? r.followers_count ?? "?"}`,
+      `*Takip:* ${stats.following ?? r.following ?? r.friends_count ?? "?"}`,
+      `*Tweet:* ${stats.tweets ?? r.tweets ?? r.statuses_count ?? "?"}`,
+      `*Beğeni:* ${stats.likes ?? "?"}`,
+      `*Medya:* ${stats.media ?? "?"}`,
+      r.location ? `*Konum:* ${r.location}` : null,
+      r.created_at ? `*Katılma:* ${new Date(r.created_at).toLocaleDateString("tr-TR")}` : null,
     ].filter(Boolean).join("\n");
 
-    const avatar = r.profile_image || r.profile_image_url_https;
+    const avatar = r.profile?.image || r.profile?.avatar || r.profile_image || r.profile_image_url_https || r.profile_image_url || r.avatar || r.profile_pic_url || r.profile_pic || r.profilePic || r.image_url || r.image || r.thumbnail;
     if (avatar) {
       await message.client.sendMessage(message.jid, {
         image: { url: avatar },
@@ -191,45 +101,7 @@ Module({
 });
 
 // ══════════════════════════════════════════════════════
-// YouTube Profil Sorgulama
-// ══════════════════════════════════════════════════════
-Module({
-  pattern: "ytara ?(.*)",
-  fromMe: false,
-  desc: "YouTube kanal bilgilerini sorgular.",
-  usage: ".ytara kanaladi",
-  use: "profil-inceleme",
-}, async (message, match) => {
-  const user = (match[1] || "").trim();
-  if (!user) return await message.sendReply("_Kanal adı girin:_ `.ytara kanaladi`");
 
-  try {
-    const data = await siputGet("/api/stalk/youtube", { user });
-    const r = data.data || data.result;
-    if (!r) return await message.sendReply("_Kanal bulunamadı._");
-
-    const text = [
-      `*YouTube Kanalı*`,
-      `*Kanal:* ${r.name || r.title || user}`,
-      r.description ? `*Açıklama:* ${r.description.substring(0, 200)}` : null,
-      `*Abone:* ${r.subscribers ?? r.subscriberCount ?? "?"}`,
-      `*Video:* ${r.videos ?? r.videoCount ?? "?"}`,
-      `*Görüntülenme:* ${r.views ?? r.viewCount ?? "?"}`,
-    ].filter(Boolean).join("\n");
-
-    const avatar = r.avatar || r.thumbnail;
-    if (avatar) {
-      await message.client.sendMessage(message.jid, {
-        image: { url: avatar },
-        caption: text
-      }, { quoted: message.data });
-    } else {
-      await message.sendReply(text);
-    }
-  } catch (e) {
-    await message.sendReply(`_YouTube sorgusu başarısız:_ ${e.message}`);
-  }
-});
 
 // ══════════════════════════════════════════════════════
 // Google Görsel Arama
@@ -330,14 +202,14 @@ Module({
 // DuckDuckGo Arama
 // ══════════════════════════════════════════════════════
 Module({
-  pattern: "(?:ara|ddg) ?(.*)",
+  pattern: "ddg ?(.*)",
   fromMe: false,
   desc: "DuckDuckGo ile web araması yapar.",
-  usage: ".ara nodejs nedir",
+  usage: ".ddg yapay zeka nedir",
   use: "arama",
 }, async (message, match) => {
   const query = (match[1] || "").trim();
-  if (!query) return await message.sendReply("_Arama terimi girin:_ `.ara nodejs nedir`");
+  if (!query) return await message.sendReply("_Arama terimi girin:_ `.ddg yapay zeka nedir`" + (message.reply_message?.text ? `\n\n_Veya mesajı yanıtlayarak arayın._` : ""));
 
   try {
     const data = await siputGet("/api/s/duckduckgo", { query });

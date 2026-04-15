@@ -13,6 +13,8 @@ const {
   gis,
   aiTTS,
   getBuffer,
+  trToEn,
+  nx,
 } = require("./utils");
 const config = require("../config");
 const axios = require("axios");
@@ -71,16 +73,38 @@ Module({
   use: "arama",
 },
   async (message, match) => {
-    if (!match[1]) return await message.send("*_💬 Arama terimi gerekli!_*");
-    let splitInput = match[1].split(",");
-    let count = parseInt(splitInput[1] || 5);
+    if (!match[1]?.trim()) return await message.send("*_💬 Arama terimi gerekli!_*");
+    let splitInput = (match[1] || "").split(",");
+    let count = parseInt(splitInput[1]) || 5;
+    const searchTerm = splitInput[0].trim();
+
     await message.send(`*_🔍 ${count} görsel aranıyor..._*`);
 
-    const buffer = Math.ceil(count * 0.5);
-    let results = await gis(splitInput[0], count + buffer);
+    // Türkçe karakterleri en iyi sonuç için hem orijinal hem İngilizce'de dene
+    const enTerm = trToEn(searchTerm);
+    const buffer = Math.ceil(count * 0.6);
+
+    let results = await gis(searchTerm, count + buffer);
+
+    // Sonuç bulunamazsa İngilizce versiyonla dene
+    if (results.length < 1 && enTerm !== searchTerm) {
+      results = await gis(enTerm, count + buffer);
+    }
+
+    // GIS de başarısız olursa Nexray görsel API'si ile dene
+    if (results.length < 1) {
+      try {
+        const nexQuery = enTerm || searchTerm;
+        const nexRes = await nx(`/search/images?q=${encodeURIComponent(nexQuery)}`);
+        if (Array.isArray(nexRes) && nexRes.length > 0) {
+          results = nexRes.map(r => r.url || r.image || r.thumbnail).filter(Boolean);
+        }
+      } catch (_) { }
+    }
+
     if (results.length < 1) return await message.send("*_📭 Sonuç bulunamadı!_*");
 
-    // buffer and send with success tracking since many URLs have access issues
+    // Buffer al ve başarı sayısını takip et
     let successCount = 0;
     let i = 0;
     const imagesToSend = [];
@@ -88,18 +112,12 @@ Module({
     while (successCount < count && i < results.length) {
       try {
         const imageBuffer = await getBuffer(results[i]);
-        imagesToSend.push({ image: imageBuffer });
-        successCount++;
+        if (imageBuffer && imageBuffer.length > 100) {
+          imagesToSend.push({ image: imageBuffer });
+          successCount++;
+        }
       } catch (e) {
         console.log(`${i + 1}. görsel tampona alınamadı:`, e.message);
-        if (i === results.length - 1 && successCount < count) {
-          let moreResults = await gis(splitInput[0], buffer, {
-            page: Math.floor(i / 10) + 1,
-          });
-          if (moreResults.length > 0) {
-            results = results.concat(moreResults);
-          }
-        }
       }
       i++;
     }
@@ -127,38 +145,20 @@ Module({
 
     if (successCount < count) {
       await message.send(
-        `*_⚠️ Sadece ${successCount}/${count} görsel indirilebildi. Bazı URL'lerde erişim sorunu vardı._*`
+        `*_⚠️ Sadece ${successCount}/${count} görsel indirilebildi._*`
       );
     }
   }
 );
 
 Module({
-  pattern: "çıkartma ?(.*)",
+  pattern: "çıkartma",
   fromMe: false,
   desc: "Görsel, video veya GIF dosyalarını WhatsApp çıkartmasına (sticker) dönüştürür.",
-  usage: ".çıkartma | .çıkartma [metin]",
+  usage: ".çıkartma",
   use: "medya",
 },
   async (message, match) => {
-    if (match[1] && match[1].trim() !== "") {
-      try {
-        const result = await attp(match[1].trim());
-        const exif = {
-          packname: message.pushName || message.senderName || "Lades-Pro",
-          author: STICKER_DATA.split(";")[1] || "Lades-Pro",
-          categories: STICKER_DATA.split(";")[2] || "😂",
-          android: "",
-          ios: "",
-        };
-        const stickerBuf = await addExif(result, exif);
-        return await message.sendMessage(stickerBuf, "sticker");
-      } catch (e) {
-        console.error("Çıkartma (metin) hatası:", e);
-        return await message.sendReply("_❌ Çıkartma oluşturulamadı. Lütfen tekrar deneyin._");
-      }
-    }
-
     if (message.reply_message === false)
       return await message.send(Lang.STICKER_NEED_REPLY);
 
@@ -180,7 +180,7 @@ Module({
         ...videos.map(f => ({ file: f, isVideo: true }))
       ];
 
-      if (allFiles.length === 0) return await message.send("_💭 Albümde medya yok_");
+      if (allFiles.length === 0) return await message.send("_💭 Albümde medya yok!_");
 
       await message.send(`_⏳ ${allFiles.length} çıkartma dönüştürülüyor..._`);
       for (const item of allFiles) {
@@ -208,19 +208,8 @@ Module({
 
       await message.sendMessage(stickerBuf, "sticker", { quoted: message.quoted });
 
-      if (message.reply_message) {
-        try {
-          await message.client.sendMessage(message.jid, { delete: message.reply_message.key });
-        } catch (e) {
-          console.error("Mesaj silinemedi:", e);
-        }
-      }
-
-      if (waitMsg && waitMsg.key) {
-        try {
-          await message.client.sendMessage(message.jid, { delete: waitMsg.key });
-        } catch (e) { }
-      }
+      // Orijinal medyayı silme işlemi (opsiyonel, desteklenmeyebilir)
+      // Artık orijinal mesajı silmiyoruz.
 
       try {
         if (typeof mediaBuf === "string" && require("fs").existsSync(mediaBuf)) {
@@ -975,7 +964,7 @@ Module({
       );
     }
 
-    if (!match[1]) {
+    if (!match[1]?.trim()) {
       return await message.send(
         "_💬 En-boy oranı belirtin. Örnekler:_\n• `.boyut 16:9` - Geniş ekran\n• `.boyut 9:16` - Dikey/Hikaye\n• `.boyut 4:3` - Klasik\n• `.boyut 21:9` - Ultra geniş\n• `.boyut 1:1` - Kare"
       );
@@ -1107,7 +1096,7 @@ Module({
       );
     }
 
-    if (!match[1]) {
+    if (!match[1]?.trim()) {
       return await message.send(
         "_💬 Sıkıştırma yüzdesi belirtin. Örnekler:_\n• `.sıkıştır 50` - %50 sıkıştırma (orta)\n• `.sıkıştır 70` - %70 sıkıştırma (yüksek)\n• `.sıkıştır 80` - %80 sıkıştırma (çok yüksek)\n• `.sıkıştır 30` - %30 sıkıştırma (hafif)"
       );

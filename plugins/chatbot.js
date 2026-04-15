@@ -775,7 +775,7 @@ Module({
         }
 
         const args = input.split(" ");
-        const command = args[0].toLowerCase();
+        const command = args[0]?.toLowerCase();
         const target = args[1]?.toLowerCase();
 
         switch (command) {
@@ -816,7 +816,7 @@ Module({
               await enableChatbot(chatJid);
               return await message.sendReply(
                 `*_🤖 Yapay Zeka Aktif!_*\n\n` +
-                `📍 _Sohbet:_ \`${chatJid.includes("@g.us") ? "Group" : "DM"}\`\n` +
+                `📍 _Sohbet:_ \`${chatJid.includes("@g.us") ? "Grup" : "DM"}\`\n` +
                 `🤖 _Model:_ \`${models[0]}\`\n` +
                 `💭 _Sohbet Geçmişi:_ _Yeni Başlangıç_\n\n` +
                 `_Artık direkt mesajlara, bahsetmelere ve mesaj yanıtlarına cevap vereceğim!_`

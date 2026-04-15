@@ -4,7 +4,7 @@ const config = require("../config");
 const { CircuitBreaker } = require("./utils/resilience");
 const nexray = require("./utils/nexray");
 const { saveToDisk, getTempPath, cleanTempFile, isMediaImage } = require("../core/helpers");
-const { sticker, addExif } = require("./utils");
+const { sticker, addExif, trToEn } = require("./utils");
 const { uploadToImgbb, uploadToCatbox } = require("./utils/upload");
 
 async function uploadMedia(filePath, type = "image") {
@@ -411,18 +411,59 @@ Module({
   async (message, match) => {
     const query = (match[1] || "").trim();
     if (!query) return await message.sendReply("🖼️ _Konu girin:_ `.duvarkağıdı doğa`");
+
+    // Wallcraft & görsel API'leri Türkçe desteklemez — İngilizce'ye çevir
+    const enQuery = trToEn(query);
+
+    // Çoklu wallpaper API kaynağı dene
+    const wallpaperApis = [
+      async () => {
+        const results = await nexGet(`/search/wallcraft?q=${encodeURIComponent(enQuery)}`);
+        if (!results?.length) throw new Error("Sonuç bulunamadı");
+        const pick = results[Math.floor(Math.random() * Math.min(results.length, 10))];
+        return pick.url || pick.image || pick.thumbnail;
+      },
+      async () => {
+        // Nexray genel görsel arama yedek
+        const res = await axios.get(`${BASE}/search/images?q=${encodeURIComponent(enQuery + " wallpaper HD")}`, { timeout: TIMEOUT, validateStatus: () => true });
+        const results = res.data?.result || res.data?.data || res.data;
+        if (!Array.isArray(results) || !results.length) throw new Error("Sonuç bulunamadı");
+        const pick = results[Math.floor(Math.random() * Math.min(results.length, 10))];
+        return pick.url || pick.image || pick.thumbnail;
+      },
+      async () => {
+        // Siputzx wallpaper yedek
+        const res = await axios.get(`https://api.siputzx.my.id/api/s/wallpaper`, { params: { query: enQuery }, timeout: 15000, validateStatus: () => true });
+        const results = res.data?.data || res.data?.result;
+        if (!Array.isArray(results) || !results.length) throw new Error("Sonuç bulunamadı");
+        const pick = results[Math.floor(Math.random() * Math.min(results.length, 5))];
+        return pick.url || pick.image;
+      },
+    ];
+
+    let imgUrl = null;
+    let lastError = "Hiçbir kaynaktan sonuç alınamadı";
+
+    for (const apiFn of wallpaperApis) {
+      try {
+        imgUrl = await apiFn();
+        if (imgUrl) break;
+      } catch (e) {
+        lastError = e.message;
+      }
+    }
+
+    if (!imgUrl) {
+      return await message.sendReply(`❌ _Duvar kağıdı bulunamadı: ${lastError}_`);
+    }
+
     try {
-      const results = await nexGet(`/search/wallcraft?q=${encodeURIComponent(query)}`);
-      if (!results?.length) throw new Error("Sonuç bulunamadı");
-      const pick = results[Math.floor(Math.random() * Math.min(results.length, 10))];
-      const imgUrl = pick.url || pick.image || pick.thumbnail;
-      if (!imgUrl) throw new Error("Görsel bağlantısı bulunamadı");
       await message.client.sendMessage(message.jid, {
         image: { url: imgUrl },
         caption: `🖼️`,
       }, { quoted: message.data });
-    } catch (e) {
-      await message.sendReply(`❌ _Duvar kağıdı bulunamadı:_ ${e.message}`);
+    } catch (sendErr) {
+      await message.sendReply(`❌ _Görsel gönderilemedi: ${sendErr.message}_`);
     }
   }
 );
@@ -1244,259 +1285,15 @@ Module({
   }
 );
 
-// ══════════════════════════════════════════════════════════
-// FREEFIRE — Free Fire oyuncu sorgulama
-// ══════════════════════════════════════════════════════════
-Module({
-  pattern: "freefire ?(.*)",
-  fromMe: false,
-  desc: "Free Fire oyuncusunun bilgilerini gösterir.",
-  usage: ".freefire [oyuncul numarası]",
-  use: "oyun",
-},
-  async (message, match) => {
-    const uid = (match[1] || "").trim();
-    if (!uid) return await message.sendReply("🎮 _Free Fire oyuncu numarası girin:_ `.freefire 1234567890`");
 
-    try {
-      const result = await nexGet(`/stalker/freefire?uid=${encodeURIComponent(uid)}`);
-      if (result) {
-        const info = typeof result === "string" ? result :
-          `🎮 *Free Fire Bilgileri*\n\n` +
-          (result.nickname ? `📛 Nick: ${result.nickname}\n` : "") +
-          (result.level ? `⭐ Seviye: ${result.level}\n` : "") +
-          (result.rank ? `🏆 Rank: ${result.rank}\n` : "") +
-          (result.clan ? `👥 Clan: ${result.clan}\n` : "") +
-          (result.uid ? `🆔 UID: ${result.uid}\n` : "");
-        await message.sendReply(info || JSON.stringify(result));
-      } else {
-        await message.sendReply("❌ _Oyuncu bulunamadı_");
-      }
-    } catch (e) {
-      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
-    }
-  }
-);
 
-// ══════════════════════════════════════════════════════════
-// GITHUB — GitHub kullanıcı sorgulama
-// ══════════════════════════════════════════════════════════
-Module({
-  pattern: "github ?(.*)",
-  fromMe: false,
-  desc: "GitHub kullanıcısının profil bilgilerini gösterir.",
-  usage: ".github [kullanıcı adı]",
-  use: "araçlar",
-},
-  async (message, match) => {
-    const username = (match[1] || "").trim();
-    if (!username) return await message.sendReply("🐙 _GitHub kullanıcı adı girin:_ `.github mrbeast`");
 
-    try {
-      const result = await nexGet(`/stalker/github?username=${encodeURIComponent(username)}`);
-      if (result) {
-        const info = typeof result === "string" ? result :
-          `🐙 *GitHub Profili*\n\n` +
-          (result.login ? `👤 Kullanıcı: ${result.login}\n` : "") +
-          (result.name ? `📛 İsim: ${result.name}\n` : "") +
-          (result.bio ? `📝 Bio: ${result.bio}\n` : "") +
-          (result.public_repos ? `📚 Repolar: ${result.public_repos}\n` : "") +
-          (result.followers ? `👥 Takipçi: ${result.followers}\n` : "") +
-          (result.following ? `📥 Takip: ${result.following}\n` : "") +
-          (result.html_url ? `🔗 ${result.html_url}\n` : "");
-        await message.sendReply(info || JSON.stringify(result));
-      } else {
-        await message.sendReply("❌ _Kullanıcı bulunamadı_");
-      }
-    } catch (e) {
-      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
-    }
-  }
-);
 
-// ══════════════════════════════════════════════════════════
-// MLBB — Mobile Legends oyuncu sorgulama
-// ══════════════════════════════════════════════════════════
-Module({
-  pattern: "mlbb ?(.*)",
-  fromMe: false,
-  desc: "Mobile Legends oyuncusunun bilgilerini gösterir.",
-  usage: ".mlbb [oyuncul ID] [zone ID]",
-  use: "oyun",
-},
-  async (message, match) => {
-    const input = (match[1] || "").trim();
-    const parts = input.split(/\s+/);
-    const id = parts[0];
-    const zone = parts[1] || "12230";
 
-    if (!id) return await message.sendReply("🎮 _Mobile Legends ID ve zone girin:_ `.mlbb 807663005 12230`");
 
-    try {
-      const result = await nexGet(`/stalker/mlbb?id=${encodeURIComponent(id)}&zone=${encodeURIComponent(zone)}`);
-      if (result) {
-        const info = typeof result === "string" ? result :
-          `🎮 *Mobile Legends Bilgileri*\n\n` +
-          (result.nickname ? `📛 Nick: ${result.nickname}\n` : "") +
-          (result.level ? `⭐ Seviye: ${result.level}\n` : "") +
-          (result.rank ? `🏆 Rank: ${result.rank}\n` : "") +
-          (result.hero ? `🦸 Ana Hero: ${result.hero}\n` : "") +
-          (result.id ? `🆔 ID: ${result.id}\n` : "");
-        await message.sendReply(info || JSON.stringify(result));
-      } else {
-        await message.sendReply("❌ _Oyuncu bulunamadı_");
-      }
-    } catch (e) {
-      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
-    }
-  }
-);
 
-// ══════════════════════════════════════════════════════════
-// PINTEREST — Pinterest kullanıcı sorgulama
-// ══════════════════════════════════════════════════════════
-Module({
-  pattern: "pinterest ?(.*)",
-  fromMe: false,
-  desc: "Pinterest kullanıcısının profil bilgilerini gösterir.",
-  usage: ".pinterest [kullanıcı adı]",
-  use: "araçlar",
-},
-  async (message, match) => {
-    const username = (match[1] || "").trim();
-    if (!username) return await message.sendReply("📌 _Pinterest kullanıcı adı girin:_ `.pinterest veritasium`");
 
-    try {
-      const result = await nexGet(`/stalker/pinterest?username=${encodeURIComponent(username)}`);
-      if (result) {
-        const info = typeof result === "string" ? result :
-          `📌 *Pinterest Profili*\n\n` +
-          (result.username ? `👤 Kullanıcı: ${result.username}\n` : "") +
-          (result.name ? `📛 İsim: ${result.name}\n` : "") +
-          (result.bio ? `📝 Bio: ${result.bio}\n` : "") +
-          (result.followers ? `👥 Takipçi: ${result.followers}\n` : "") +
-          (result.following ? `📥 Takip: ${result.following}\n` : "") +
-          (result.pins ? `📌 Pin sayısı: ${result.pins}\n` : "") +
-          (result.profile_url ? `🔗 ${result.profile_url}\n` : "");
-        await message.sendReply(info || JSON.stringify(result));
-      } else {
-        await message.sendReply("❌ _Kullanıcı bulunamadı_");
-      }
-    } catch (e) {
-      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
-    }
-  }
-);
 
-// ══════════════════════════════════════════════════════════
-// ROBLOX — Roblox kullanıcı sorgulama
-// ══════════════════════════════════════════════════════════
-Module({
-  pattern: "roblox ?(.*)",
-  fromMe: false,
-  desc: "Roblox kullanıcısının profil bilgilerini gösterir.",
-  usage: ".roblox [kullanıcı adı]",
-  use: "oyun",
-},
-  async (message, match) => {
-    const username = (match[1] || "").trim();
-    if (!username) return await message.sendReply("🧸 _Roblox kullanıcı adı girin:_ `.roblox Builderman`");
 
-    try {
-      const result = await nexGet(`/stalker/roblox?username=${encodeURIComponent(username)}`);
-      if (result) {
-        const info = typeof result === "string" ? result :
-          `🧸 *Roblox Profili*\n\n` +
-          (result.username ? `👤 Kullanıcı: ${result.username}\n` : "") +
-          (result.displayname ? `📛 Görünen İsim: ${result.displayname}\n` : "") +
-          (result.description ? `📝 Açıklama: ${result.description}\n` : "") +
-          (result.bio ? `📝 Bio: ${result.bio}\n` : "") +
-          (result.created ? `📅 Oluşturulma: ${result.created}\n` : "") +
-          (result.isBanned ? `⚠️ Banlı: ${result.isBanned}\n` : "") +
-          (result.followerCount ? `👥 Takipçi: ${result.followerCount}\n` : "") +
-          (result.followingCount ? `📥 Takip: ${result.followingCount}\n` : "") +
-          (result.profileUrl ? `🔗 ${result.profileUrl}\n` : "");
-        await message.sendReply(info || JSON.stringify(result));
-      } else {
-        await message.sendReply("❌ _Kullanıcı bulunamadı_");
-      }
-    } catch (e) {
-      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
-    }
-  }
-);
 
-// ══════════════════════════════════════════════════════════
-// THREADS — Threads kullanıcı sorgulama
-// ══════════════════════════════════════════════════════════
-Module({
-  pattern: "thara ?(.*)",
-  fromMe: false,
-  desc: "Threads kullanıcısının profil bilgilerini gösterir.",
-  usage: ".thara [kullanıcı adı]",
-  use: "araçlar",
-},
-  async (message, match) => {
-    const username = (match[1] || "").trim();
-    if (!username) return await message.sendReply("🧵 _Threads kullanıcı adı girin:_ `.threadsuser zuck`");
-
-    try {
-      const result = await nexGet(`/stalker/threads?username=${encodeURIComponent(username)}`);
-      if (result) {
-        const info = typeof result === "string" ? result :
-          `🧵 *Threads Profili*\n\n` +
-          (result.username ? `👤 Kullanıcı: ${result.username}\n` : "") +
-          (result.name ? `📛 İsim: ${result.name}\n` : "") +
-          (result.bio ? `📝 Bio: ${result.bio}\n` : "") +
-          (result.followers ? `👥 Takipçi: ${result.followers}\n` : "") +
-          (result.following ? `📥 Takip: ${result.following}\n` : "") +
-          (result.posts ? `📝 Gönderi: ${result.posts}\n` : "") +
-          (result.profile_pic_url ? `🔗 [Profil Fotoğrafı](${result.profile_pic_url})\n` : "");
-        await message.sendReply(info || JSON.stringify(result));
-      } else {
-        await message.sendReply("❌ _Kullanıcı bulunamadı_");
-      }
-    } catch (e) {
-      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
-    }
-  }
-);
-
-// ══════════════════════════════════════════════════════════
-// YOUTUBE — YouTube kanal sorgulama
-// ══════════════════════════════════════════════════════════
-Module({
-  pattern: "ytkanal ?(.*)",
-  fromMe: false,
-  desc: "YouTube kanalının bilgilerini gösterir.",
-  usage: ".ytkanal [kanal adı veya kullanıcı adı]",
-  use: "araçlar",
-},
-  async (message, match) => {
-    const username = (match[1] || "").trim();
-    if (!username) return await message.sendReply("📺 _YouTube kanal adı girin:_ `.youtubekanal mrbeast`");
-
-    try {
-      const result = await nexGet(`/stalker/youtube?username=${encodeURIComponent(username)}`);
-      if (result) {
-        const info = typeof result === "string" ? result :
-          `📺 *YouTube Kanalı*\n\n` +
-          (result.title ? `📛 Kanal: ${result.title}\n` : "") +
-          (result.description ? `📝 Açıklama: ${result.description}\n` : "") +
-          (result.subscribers ? `👥 Abone: ${result.subscribers}\n` : "") +
-          (result.views ? `👁️ İzlenme: ${result.views}\n` : "") +
-          (result.videos ? `🎬 Video: ${result.videos}\n` : "") +
-          (result.country ? `🌍 Ülke: ${result.country}\n` : "") +
-          (result.channelId ? `🆔 ID: ${result.channelId}\n` : "") +
-          (result.customUrl ? `🔗 @${result.customUrl}\n` : "") +
-          (result.thumbnail ? `🖼️ [Banner](${result.thumbnail})\n` : "");
-        await message.sendReply(info || JSON.stringify(result));
-      } else {
-        await message.sendReply("❌ _Kanal bulunamadı_");
-      }
-    } catch (e) {
-      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
-    }
-  }
-);
 

@@ -435,31 +435,3 @@ Module({
     await message.sendReply(`_Profil kartı oluşturulamadı:_ ${e.message}`);
   }
 });
-
-// ══════════════════════════════════════════════════════
-// Oyunlar Listesi
-// ══════════════════════════════════════════════════════
-Module({
-  pattern: "oyunlar",
-  fromMe: false,
-  desc: "Mevcut tüm oyunları listeler.",
-  usage: ".oyunlar",
-  use: "oyun",
-}, async (message) => {
-  await message.sendReply(
-    `*Mevcut Oyunlar*\n\n` +
-    `*.bilgiyarismasi* - Bilgi yarışması (Family 100)\n` +
-    `*.matoyun* - Matematik sorusu\n` +
-    `*.gorseltahmin* - Görsel tahmin\n` +
-    `*.logotahmin* - Logo tahmin\n` +
-    `*.bayraktahmin* - Bayrak tahmin\n` +
-    `*.bulmaca* - Bulmaca/Teka-teki\n` +
-    `*.kelemediz* - Kelime dizme\n\n` +
-    `*Mevcut Oyunlar (Ana Bot)*\n` +
-    `*.bilmece* - Bilmece\n` +
-    `*.kimyasoru* - Kimya sorusu\n` +
-    `*.beyin* - Beyin oyunu\n` +
-    `*.aşkölç* - Aşk ölçer`
-  );
-});
-

@@ -88,16 +88,19 @@ Module({
 
     for (const category in categorizedCommands) {
       const catLabels = {
-        'system': '⚙️ Sistem & Sahip',
-        'group': '👥 Grup Yönetimi',
-        'ai': '🤖 Yapay Zeka',
-        'download': '⬇️ İndirme Merkezi',
-        'media': '🎨 Medya & Tasarım',
-        'tools': '🛠️ Araçlar & Bilgi',
-        'fun': '🎮 Oyun & Eğlence',
+        'sistem': '⚙️ Sistem & Sahip',
+        'sahip': '👑 Sahip',
+        'grup': '👥 Grup Yönetimi',
+        'yapay-zeka': '🤖 Yapay Zeka',
+        'indirme': '⬇️ İndirme Merkezi',
+        'medya': '🎨 Medya & Tasarım',
+        'araçlar': '🛠️ Araçlar & Bilgi',
+        'eğlence': '🎮 Oyun & Eğlence',
         'dini': '🕌 Dini Bilgiler',
-        'chat': '💬 Sohbet & Mesaj',
-        'genel': '📦 Genel Komutlar'
+        'sohbet': '💬 Sohbet & Mesaj',
+        'genel': '📦 Genel Komutlar',
+        'arama': '🔍 Arama',
+        'düzenleme': '🖌️ Düzenleme'
       };
       const catLabel = catLabels[category] || category.charAt(0).toUpperCase() + category.slice(1);
       responseMessage += `*───「 ${catLabel} 」───*\n\n`;
@@ -369,7 +372,7 @@ Module({
 ┃${star}│ _*\`Geliştiricim\`*_ : ${botOwner}
 ┃${star}│ _*\`Üye\`*_ : ${senderName}
 ┃${star}│ _*\`Mod\`*_ : ${MODE === "private" ? "Sadece Yönetici" : "Herkese Açık"}
-┃${star}│ _*\`Sunucu\`*_ : ${{"win32":"Windows","linux":"Linux","darwin":"MacOS","android":"Android"}[os.platform()] || os.platform()}
+┃${star}│ _*\`Sunucu\`*_ : ${{ "win32": "Windows", "linux": "Linux", "darwin": "MacOS", "android": "Android" }[os.platform()] || os.platform()}
 ┃${star}│ _*\`Kullanılabilir RAM\`*_ : ${used} / ${total}
 ┃${star}│ _*\`Toplam Kullanıcı\`*_ : ${totalUsers}
 ┃${star}│ _*\`Versiyon\`*_ : ${botVersion}
@@ -414,17 +417,21 @@ Module({
     }
     const handlerPrefix = HANDLERS.match(/\[(\W*)\]/)?.[1]?.[0] || ".";
     let response = `*🎮 ───「 Mevcut Oyunlar 」───*\n\n`;
-    gameCommands.forEach((cmd) => {
-      const name = extractCommandName(cmd.pattern);
-      if (name) {
-        response += `• *Komut:* \`${handlerPrefix}${name}\`\n`;
-        response += `• *Açıklama:* ${cmd.desc || "Yok"}\n`;
-        if (cmd.use) response += `• *Tür:* ${cmd.use}\n`;
-        if (cmd.usage) response += `• *Kullanım:* ${cmd.usage}\n`;
-        if (cmd.warn) response += `• *Uyarı:* ${cmd.warn}\n`;
-        response += "\n";
-      }
-    });
+    response += `*🤖 Bot Oyunları:*\n`;
+    response += `• \`${handlerPrefix}bilmece\` - Bilmece sorar\n`;
+    response += `• \`${handlerPrefix}kimyasoru\` - Kimya sorusu\n`;
+    response += `• \`${handlerPrefix}beyin\` - IQ/Beyin sorusu\n`;
+    response += `• \`${handlerPrefix}aşkölç\` - Aşk ölçer\n\n`;
+
+    response += `*🏰 Özel Oyunlar:*\n`;
+    response += `• \`${handlerPrefix}bilgiyarismasi\` - Family 100 tarzı yarışma\n`;
+    response += `• \`${handlerPrefix}matoyun\` - Matematik sorusu\n`;
+    response += `• \`${handlerPrefix}gorseltahmin\` - Görsel tahmin\n`;
+    response += `• \`${handlerPrefix}logotahmin\` - Logo tahmin\n`;
+    response += `• \`${handlerPrefix}bayraktahmin\` - Bayrak hangi ülkenin?\n`;
+    response += `• \`${handlerPrefix}bulmaca\` - Genel bulmaca\n`;
+    response += `• \`${handlerPrefix}kelemediz\` - Harf dizmece\n`;
+
     await message.sendReply(response);
   }
 );

@@ -177,7 +177,7 @@ Module({
       if (!admin) {
         return await message.sendReply(Lang.NEED_ADMIN);
       }
-      if (!match[1]) {
+      if (!match[1]?.trim()) {
         return await message.sendReply(
           "❗  *Lütfen şu şekillerde kullanınız:*\n" +
           ".üyetemizle 30 gün\n" +
@@ -187,7 +187,7 @@ Module({
           "🧹 _(Üyeleri çıkarmak için komut sonuna *çıkar* ekleyebilirsiniz.)_"
         );
       }
-      const args = match[1].trim().split(/\s+/);
+      const args = (match[1] || "").trim().split(/\s+/);
       const durationStr = args[0];
       const durationUnit = args[1]?.toLowerCase();
       const shouldKick = args.includes("çıkar");
@@ -306,7 +306,7 @@ Module({
       let isGlobal = false;
 
       if (match[1]) {
-        const args = match[1].trim().split(" ");
+        const args = (match[1] || "").trim().split(" ");
 
         if (args.includes("genel")) {
           isGlobal = true;

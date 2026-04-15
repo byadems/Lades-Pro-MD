@@ -270,7 +270,7 @@ async function runSelfTest(sock) {
   const ownJid = sock.user?.id;
   if (!ownJid || !handler.commands) return;
 
-  const allCmds = typeof handler.commands === "function" ? handler.commands() : [];
+  const allCmds = Array.isArray(handler.commands) ? handler.commands : (typeof handler.commands === "function" ? handler.commands() : []);
   if (!allCmds.length) return;
 
   const prefix = (process.env.HANDLERS || process.env.PREFIX || ".")[0];

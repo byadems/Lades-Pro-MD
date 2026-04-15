@@ -414,97 +414,9 @@ Module({
   }
 );
 
-Module({
-  pattern: "igara ?(.*)",
-  fromMe: false,
-  desc: "Bir Instagram kullanıcısının profil detaylarını ve istatistiklerini gösterir.",
-  usage: ".igara [kullanıcıadı]",
-  use: "araçlar",
-},
-  async (message, match) => {
-    const user = (match[1] || "").trim().replace(/^@/, "");
-    if (!user) return await message.sendReply("👤 _Kullanıcı adı girin:_ `.igara kullanıcıadı`");
-    try {
-      const r = await nxTry([
-        `/stalker/instagram?username=${encodeURIComponent(user)}`,
-      ]);
-      const full = r.full_name || r.fullname || r.name || user;
-      const bio = r.biography || r.bio || "-";
-      const followers = r.follower_count ?? r.followers ?? "-";
-      const following = r.following_count ?? r.following ?? "-";
-      const posts = r.media_count ?? r.posts ?? "-";
-      const priv = r.is_private ? "🔒 Gizli" : "✅ Açık";
-      const verified = r.is_verified ? "✅" : "❌";
-      const avatar = r.profile_pic_url || r.profile_pic || r.avatar || r.profile?.avatar;
 
-      const caption =
-        `📸 *Instagram Profili*\n\n` +
-        `📛 *Ad:* ${full}\n` +
-        `👤 *Kullanıcı:* @${user}\n` +
-        `📝 *Bio:* ${bio}\n` +
-        `👥 *Takipçi:* ${fmtCount(followers)}\n` +
-        `➕ *Takip:* ${fmtCount(following)}\n` +
-        `📤 *Gönderi:* ${posts}\n` +
-        `🔓 *Hesap:* ${priv}\n` +
-        `✅ *Doğrulanmış:* ${verified}`;
 
-      if (avatar) {
-        await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
-      } else {
-        await message.sendReply(caption);
-      }
-    } catch (e) {
-      const msg = e.message.includes("429") ? "⏰ _Instagram yoğunluk nedeniyle cevap vermiyor, lütfen biraz sonra tekrar deneyin._" : `⚠️ _Instagram profili alınamadı:_ ${e.message}`;
-      await message.sendReply(msg);
-    }
-  }
-);
 
-Module({
-  pattern: "twara ?(.*)",
-  fromMe: false,
-  desc: "Bir Twitter/X kullanıcısının profil detaylarını ve istatistiklerini gösterir.",
-  usage: ".twara [kullanıcıadı]",
-  use: "araçlar",
-},
-  async (message, match) => {
-    const user = (match[1] || "").trim().replace(/^@/, "");
-    if (!user) return await message.sendReply("👤 _Kullanıcı adı giriniz:_ `.twara kullanıcı adı`");
-    try {
-      const r = await nxTry([
-        `/stalker/twitter?username=${encodeURIComponent(user)}`,
-      ]);
-      const name = r.name || user;
-      const bio = r.description || r.bio || r.signature || "-";
-      const stats = r.stats || {};
-      const followers = stats.followers ?? r.followers_count ?? r.followers ?? "-";
-      const following = stats.following ?? r.friends_count ?? r.following ?? "-";
-      const tweets = stats.tweets ?? r.statuses_count ?? r.tweets ?? "-";
-      const likes = stats.favourites_count ?? "-";
-      const verified = r.verified ? "✅" : "❌";
-      const avatar = r.profile?.avatar || r.avatar || r.profile_image_url;
-
-      const caption =
-        `𝕏 *X/Twitter Profili*\n\n` +
-        `📛 *Ad:* ${name}\n` +
-        `👤 *Kullanıcı:* @${user}\n` +
-        `📝 *Biyografi:* ${bio}\n` +
-        `👥 *Takipçi:* ${fmtCount(followers)}\n` +
-        `➕ *Takip:* ${fmtCount(following)}\n` +
-        `📤 *Tweet:* ${fmtCount(tweets)}\n` +
-        `❤️ *Beğeni:* ${fmtCount(likes)}\n` +
-        `✅ *Doğrulanmış mı?:* ${verified}`;
-
-      if (avatar) {
-        await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
-      } else {
-        await message.sendReply(caption);
-      }
-    } catch (e) {
-      await message.sendReply(`⚠️ _X profiline ulaşamadım:_ ${e.message}`);
-    }
-  }
-);
 
 Module({
   pattern: "hikaye ?(.*)",
@@ -577,24 +489,23 @@ Module({
 Module({
   pattern: "pinterest ?(.*)",
   fromMe: false,
-  desc: "Pinterest üzerindeki resim veya videoları arar ve indirir.",
-  usage: ".pinterest [sorgu/bağlantı]",
-  use: "indirme",
+  desc: "Pinterest üzerindeki resim/videoları indirir veya kullanıcı profili sorgular.",
+  usage: ".pinterest [sorgu/bağlantı/kullanıcı]",
+  use: "araçlar",
 },
   async (message, match) => {
-    let userQuery = (match[1] || message.reply_message?.text || "").trim();
-    if (userQuery === "g") return;
-    if (!userQuery)
-      return await message.sendReply("_⚠️ Arama terimi veya video bağlantısı gerekli_");
+    let input = (match[1] || message.reply_message?.text || "").trim();
+    if (!input || input === "g") return await message.sendReply("📌 _Arama terimi, bağlantı veya kullanıcı adı girin:_ `.pinterest manzara` veya `.pinterest @kullanici` veya `.pinterest link` ");
 
-    const urls = extractUrls(userQuery);
+    // 1. Durum: Bağlantı (İndirme)
+    const urls = extractUrls(input);
     if (urls.length > 0) {
-      userQuery = urls[0];
+      const pinUrl = urls[0];
       try {
-        const url = await nexray.downloadPinterest(userQuery);
+        const url = await nexray.downloadPinterest(pinUrl);
         if (!url) {
           try {
-            const fallback = await siputGet("/api/d/pinterest", { url: userQuery });
+            const fallback = await siputGet("/api/d/pinterest", { url: pinUrl });
             const r = fallback.data || fallback.result;
             if (r?.url || r?.image || r?.video) {
               const mediaUrl = r.url || r.image || r.video;
@@ -609,66 +520,85 @@ Module({
               return;
             }
           } catch (_) { }
-          return await message.sendReply("_⚠️ Bu bağlantı için indirilebilir medya bulunamadı veya sunucu cevap vermiyor_");
+          return await message.sendReply("❌ _İndirilebilir medya bulunamadı veya sunucu hatası._");
         }
 
         const isImage = isMediaImage(url);
-
-        const quotedMessage = message.reply_message ? message.quoted : message.data;
         const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
-
         try {
           await saveToDisk(url, tempPath);
-          const sendContent = { [isImage ? "image" : "video"]: { url: tempPath } };
-          if (!isImage) {
-            const dims = readMp4Dimensions(tempPath);
-            if (dims) Object.assign(sendContent, dims);
-          }
-          await message.sendReply(
-            sendContent,
-            { quoted: quotedMessage }
-          );
+          await message.sendReply({ [isImage ? "image" : "video"]: { url: tempPath } });
         } finally {
           cleanTempFile(tempPath);
         }
       } catch (e) {
-        console.error("Pinterest İşlem Hatası:", e.message);
-        await message.sendReply(`_⚠️ Pinterest medyası işlenirken bir hata oluştu._\n_Hata: ${e.message}_`);
+        await message.sendReply(`❌ _Pinterest medyası işlenemedi:_ ${e.message}`);
       }
-    } else {
-      let desiredCount = parseInt(userQuery.split(",")[1]) || 5;
-      let searchQuery = userQuery.split(",")[0] || userQuery;
-      let searchResults;
+      return;
+    }
+
+    // 2. Durum: Kullanıcı Sorgulama (Stalker)
+    // Eğer girdi @ ile başlıyorsa veya link değilse ve tek kelimeyse (opsiyonel)
+    if (input.startsWith("@") || (!input.includes(" ") && input.length < 32)) {
+      const username = input.replace(/^@/, "");
       try {
-        const res = await pinterestSearch(searchQuery, desiredCount);
-        if (!res || !res.status || !Array.isArray(res.result)) {
-          return await message.sendReply("_⚠️ Bu sorgu için sonuç bulunamadı_");
+        const result = await nexGet(`/stalker/pinterest?username=${encodeURIComponent(username)}`);
+        if (result && (result.username || result.id)) {
+          const caption = `📌 *Pinterest Profili*\n\n` +
+            `📛 *İsim:* ${result.full_name || result.name || "-"}\n` +
+            `👤 *Kullanıcı:* @${result.username || username}\n` +
+            `📝 *Bio:* ${result.bio || "-"}\n` +
+            `👥 *Takipçi:* ${result.stats?.followers || result.followers || "0"}\n` +
+            `📥 *Takip:* ${result.stats?.following || result.following || "0"}\n` +
+            `📌 *Pin Sayısı:* ${result.stats?.pins || result.pins || "0"}\n` +
+            `✅ *Onaylı:* ${result.is_verified ? "✅" : "❌"}\n` +
+            `🔗 *Profil:* https://pinterest.com/${result.username || username}`;
+
+          const avatar = result.profile_pic_url || result.avatar || result.profile_image_url || result.image || result.thumbnail;
+          if (avatar) {
+            return await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
+          } else {
+            return await message.sendReply(caption);
+          }
         }
-        searchResults = res.result;
-      } catch (err) {
-        console.error("Pinterest arama hatası:", err?.message || err);
-        return await message.sendReply("_⚠️ Pinterest'te arama yaparken sunucu hatası_"
-        );
+      } catch (e) {
+        // Hata durumunda veya kullanıcı bulunamazsa Arama (3. durum) kısmına geçmesi için sessiz kalabiliriz
+        // Ama kullanıcı @ kullandıysa profil arıyordur:
+        if (input.startsWith("@")) return await message.sendReply("❌ _Kullanıcı bulunamadı veya API hatası._");
+      }
+    }
+
+    // 3. Durum: Arama (Search)
+    let desiredCount = 5;
+    let searchQuery = input;
+    if (input.includes(",")) {
+      const parts = input.split(",");
+      searchQuery = parts[0].trim();
+      desiredCount = parseInt(parts[1]) || 5;
+    }
+
+    try {
+      const res = await pinterestSearch(searchQuery, desiredCount);
+      if (!res || !res.status || !Array.isArray(res.result)) {
+        return await message.sendReply("❌ _Arama sonucu bulunamadı._");
       }
 
+      const searchResults = res.result;
       const toDownload = Math.min(desiredCount, searchResults.length);
-      await message.sendReply(
-        `_Pinterest'ten ${searchQuery} için ${toDownload} sonuç indiriliyor_`
-      );
+      await message.sendReply(`🔍 _Pinterest'te "${searchQuery}" için ${toDownload} sonuç indiriliyor..._`);
 
-      const toDownloadUrls = searchResults.slice(0, toDownload);
-      for (const url of toDownloadUrls) {
+      for (const url of searchResults.slice(0, toDownload)) {
         const tempPath = getTempPath(".jpg");
         try {
           await saveToDisk(url, tempPath);
           await message.sendReply({ image: { url: tempPath } });
           await new Promise(r => setTimeout(r, 1000));
-        } catch (error) {
-          console.error("Pinterest resmi indirilemedi:", error?.message || error);
-        } finally {
+        } catch (_) { } finally {
           cleanTempFile(tempPath);
         }
       }
+    } catch (err) {
+      await message.sendReply(`❌ _Pinterest'te arama yaparken hata oluştu:_ ${err.message}`);
     }
   }
 );
@@ -877,109 +807,6 @@ Module({
         }
       } catch (_) { }
       await message.sendReply(`🎬 _CapCut videosu indirilemedi:_ ${e.message}`);
-    }
-  }
-);
-
-Module({
-  pattern: 'igara ?(.*)',
-  fromMe: false,
-  desc: 'Instagram kullanıcı bilgilerini getirir.',
-  usage: '.igara [kullanıcıadı]',
-  use: "search",
-},
-  async (message, match) => {
-    const user = (match[1] || '').trim().replace(/^@/, '');
-    if (!user) return await message.sendReply('👤 _Kullanıcı adı girin:_ `.igara kullanıcıadı`');
-    try {
-      const r = await nxTry([`/stalker/instagram?username=${encodeURIComponent(user)}`]);
-      const full = r.full_name || r.fullname || r.name || user;
-      const bio = r.biography || r.bio || '-';
-      const followers = r.follower_count ?? r.followers ?? '-';
-      const following = r.following_count ?? r.following ?? '-';
-      const posts = r.media_count ?? r.posts ?? '-';
-      const priv = r.is_private ? '🔒 Gizli' : '✅ Açık';
-      const verified = r.is_verified ? '✅' : '❌';
-      const avatar = r.profile_pic_url || r.profile_pic || r.avatar || r.profile?.avatar;
-
-      const caption = `📸 *Instagram Profili*\n\n📛 *Ad:* ${full}\n👤 *Kullanıcı:* @${user}\n📝 *Bio:* ${bio}\n👥 *Takipçi:* ${fmtCount(followers)}\n➕ *Takip:* ${fmtCount(following)}\n📤 *Gönderi:* ${posts}\n🔓 *Hesap:* ${priv}\n✅ *Doğrulanmış:* ${verified}`;
-
-      if (avatar) {
-        await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
-      } else {
-        await message.sendReply(caption);
-      }
-    } catch (e) {
-      const msg = e.message.includes('429') ? '⏰ _Instagram yoğunluk nedeniyle cevap vermiyor, lütfen biraz sonra tekrar deneyin._' : `⚠️ _Instagram profili alınamadı:_ ${e.message}`;
-      await message.sendReply(msg);
-    }
-  }
-);
-
-Module({
-  pattern: 'twara ?(.*)',
-  fromMe: false,
-  desc: 'Twitter/X kullanıcı bilgilerini getirir.',
-  usage: '.twara [kullanıcıadı]',
-  use: "search",
-},
-  async (message, match) => {
-    const user = (match[1] || '').trim().replace(/^@/, '');
-    if (!user) return await message.sendReply('👤 _Kullanıcı adı giriniz:_ `.twara kullanıcı adı`');
-    try {
-      const r = await nxTry([`/stalker/twitter?username=${encodeURIComponent(user)}`]);
-      const name = r.name || user;
-      const bio = r.description || r.bio || r.signature || '-';
-      const stats = r.stats || {};
-      const followers = stats.followers ?? r.followers_count ?? r.followers ?? '-';
-      const following = stats.following ?? r.friends_count ?? r.following ?? '-';
-      const tweets = stats.tweets ?? r.statuses_count ?? r.tweets ?? '-';
-      const verified = r.verified ? '✅' : '❌';
-      const avatar = r.profile?.avatar || r.avatar || r.profile_image_url;
-
-      const caption = `𝕏 *X/Twitter Profili*\n\n📛 *Ad:* ${name}\n👤 *Kullanıcı:* @${user}\n📝 *Biyografi:* ${bio}\n👥 *Takipçi:* ${fmtCount(followers)}\n➕ *Takip:* ${fmtCount(following)}\n📤 *Tweet:* ${fmtCount(tweets)}\n✅ *Doğrulanmış mı?:* ${verified}`;
-
-      if (avatar) {
-        await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
-      } else {
-        await message.sendReply(caption);
-      }
-    } catch (e) {
-      await message.sendReply(`⚠️ _X profiline ulaşamadım:_ ${e.message}`);
-    }
-  }
-);
-
-Module({
-  pattern: ' Threads ?(.*)',
-  fromMe: false,
-  desc: 'Threads kullanıcı bilgilerini getirir.',
-  usage: '.threads [kullanıcıadı]',
-  use: "search",
-},
-  async (message, match) => {
-    const user = (match[1] || '').trim().replace(/^@/, '');
-    if (!user) return await message.sendReply('🧵 _Kullanıcı adı girin:_ `.threads kullanıcıadı`');
-    try {
-      const r = await nxTry([`/stalker/threads?username=${encodeURIComponent(user)}`]);
-      if (!r || !r.id) return await message.sendReply('⚠️ _Kullanıcı bulunamadı!_');
-
-      const name = r.name || r.username || user;
-      const bio = r.bio || '-';
-      const followers = r.followers_count ?? r.followers ?? '-';
-      const following = r.following_count ?? r.following ?? '-';
-      const posts = r.threads_count ?? r.posts ?? '-';
-      const avatar = r.profile_pic_url || r.avatar || r.profile?.avatar;
-
-      const caption = `🧵 *Threads Profili*\n\n📛 *Ad:* ${name}\n👤 *Kullanıcı:* @${user}\n📝 *Bio:* ${bio}\n👥 *Takipçi:* ${fmtCount(followers)}\n➕ *Takip:* ${fmtCount(following)}\n📤 *Gönderi:* ${fmtCount(posts)}\n🔗 *Profil:* https://threads.net/@${user}`;
-
-      if (avatar) {
-        await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
-      } else {
-        await message.sendReply(caption);
-      }
-    } catch (e) {
-      await message.sendReply(`⚠️ _Threads profiline ulaşamadım:_ ${e.message}`);
     }
   }
 );

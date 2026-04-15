@@ -171,7 +171,7 @@ Module({
       );
     }
 
-    if (!match[1]) {
+if (!match[1]?.trim()) {
       return await m.sendReply(
         "⚠️ _Lütfen üye etiketleyip zaman belirtiniz._\n\n*💡 Örnek:*\n• `.planla @üye 2 saat`\n• `.planla dm @üye 30 dakika`"
       );
@@ -309,7 +309,7 @@ Module({
     usage: ".plansil <id>",
   },
   async (m, match) => {
-    if (!match[1]) {
+if (!match[1]?.trim()) {
       return await m.sendReply(
         "⚠️ _Lütfen iptal edilecek mesajın ID'sini girin._\n\n*💡 Kullanım:* `.plansil <id>`\n\n_Planlanan mesajları görmek için `.plandurum` yazınız._"
       );

@@ -129,13 +129,13 @@ Module({
     }
     let user = message.mention?.[0] || message.reply_message?.jid;
     if (!user) return await message.sendReply(Lang.NEED_USER);
-    
+
     if (user.includes("@lid")) {
       try {
         const { resolveLidToPn } = require("../core/lid-helper");
         const pn = await resolveLidToPn(message.client, user);
         if (pn && pn !== user) user = pn;
-      } catch (e) {}
+      } catch (e) { }
     }
 
     if (isBotIdentifier(user, message.client)) {
@@ -203,7 +203,7 @@ Module({
           if (pn && pn !== usersToKick[i]) usersToKick[i] = pn;
         }
       }
-    } catch(e) {}
+    } catch (e) { }
 
     let canKickAnyone = false;
     let adminUsers = [];
@@ -321,13 +321,13 @@ Module({
 
     let user = message.mention?.[0] || message.reply_message?.jid;
     if (!user) return await message.sendReply(Lang.NEED_USER);
-    
+
     if (user.includes("@lid")) {
       try {
         const { resolveLidToPn } = require("../core/lid-helper");
         const pn = await resolveLidToPn(message.client, user);
         if (pn && pn !== user) user = pn;
-      } catch (e) {}
+      } catch (e) { }
     }
 
     await message.client.sendMessage(message.jid, {
@@ -361,70 +361,70 @@ Module({
     );
     if (!approvalList.length)
       return await message.sendReply("_📭 Bekleyen katılma isteği yok!_");
-    
+
     // MIGRATION: LID Çevirisi - Baileys'in döndürdüğü listedeki JID'leri normalize et
     const { resolveLidToPn } = require("../core/lid-helper");
     for (let i = 0; i < approvalList.length; i++) {
       if (approvalList[i].jid && approvalList[i].jid.includes("@lid")) {
         try {
-           const pn = await resolveLidToPn(message.client, approvalList[i].jid);
-           if (pn && pn !== approvalList[i].jid) approvalList[i].resolvedJid = pn;
-        } catch(e) {}
+          const pn = await resolveLidToPn(message.client, approvalList[i].jid);
+          if (pn && pn !== approvalList[i].jid) approvalList[i].resolvedJid = pn;
+        } catch (e) { }
       } else {
         approvalList[i].resolvedJid = approvalList[i].jid;
       }
     }
 
     let approvalJids = approvalList.map((x) => x.jid); // Asıl işlem için orijinal LID/JID gerekli
-    
+
     if (match[1]) {
-      const args = match[1].toLowerCase().trim().split(" ");
+      const args = (match[1] || "").toLowerCase().trim().split(" ");
       const action = args[0]; // "onayla", "reddet", "hepsini"
       const target = args[1] || ""; // "hepsi", "90532..." vb.
 
       if (action === "hepsini" && target === "onayla") {
-          // Eski kullanıma (hepsini onayla) destek
-          await message.sendReply(`_✅ ${approvalJids.length} katılımcı onaylandı._`);
-          for (let x of approvalJids) {
-            await message.client.groupRequestParticipantsUpdate(message.jid, [x], "approve");
-            await delay(900);
-          }
-          return;
+        // Eski kullanıma (hepsini onayla) destek
+        await message.sendReply(`_✅ ${approvalJids.length} katılımcı onaylandı._`);
+        for (let x of approvalJids) {
+          await message.client.groupRequestParticipantsUpdate(message.jid, [x], "approve");
+          await delay(900);
+        }
+        return;
       }
       if (action === "hepsini" && target === "reddet") {
-          // Eski kullanıma (hepsini reddet) destek
-          await message.sendReply(`_❌ ${approvalJids.length} katılımcı reddedildi._`);
-          for (let x of approvalJids) {
-            await message.client.groupRequestParticipantsUpdate(message.jid, [x], "reject");
-            await delay(900);
-          }
-          return;
+        // Eski kullanıma (hepsini reddet) destek
+        await message.sendReply(`_❌ ${approvalJids.length} katılımcı reddedildi._`);
+        for (let x of approvalJids) {
+          await message.client.groupRequestParticipantsUpdate(message.jid, [x], "reject");
+          await delay(900);
+        }
+        return;
       }
 
       if (action === "onayla" || action === "reddet") {
-         const baileysAction = action === "onayla" ? "approve" : "reject";
-         
-         if (target === "hepsi" || target === "all") {
-            await message.sendReply(`_${action === "onayla" ? "✅" : "❌"} Toplam ${approvalJids.length} istek ${action === "onayla" ? "onaylandı" : "reddedildi"}._`);
-            for (let x of approvalJids) {
-              await message.client.groupRequestParticipantsUpdate(message.jid, [x], baileysAction);
-              await delay(900);
-            }
-            return;
-         }
+        const baileysAction = action === "onayla" ? "approve" : "reject";
 
-         // Belirli bir numara girildiyse:
-         if (target.length > 5) {
-            const cleanTarget = target.replace(/[^0-9]/g, "");
-            const targetUser = approvalList.find(x => (x.resolvedJid || x.jid).startsWith(cleanTarget));
-            
-            if (targetUser) {
-               await message.client.groupRequestParticipantsUpdate(message.jid, [targetUser.jid], baileysAction);
-               return await message.sendReply(`_${action === "onayla" ? "✅" : "❌"} @${(targetUser.resolvedJid || targetUser.jid).split("@")[0]} isteği ${action === "onayla" ? "onaylandı" : "reddedildi"}._`, { mentions: [targetUser.resolvedJid || targetUser.jid] });
-            } else {
-               return await message.sendReply(`_❌ Bekleyen istekler arasında \`${cleanTarget}\` numarası bulunamadı._`);
-            }
-         }
+        if (target === "hepsi") {
+          await message.sendReply(`_${action === "onayla" ? "✅" : "❌"} Toplam ${approvalJids.length} istek ${action === "onayla" ? "onaylandı" : "reddedildi"}._`);
+          for (let x of approvalJids) {
+            await message.client.groupRequestParticipantsUpdate(message.jid, [x], baileysAction);
+            await delay(900);
+          }
+          return;
+        }
+
+        // Belirli bir numara girildiyse:
+        if (target.length > 5) {
+          const cleanTarget = target.replace(/[^0-9]/g, "");
+          const targetUser = approvalList.find(x => (x.resolvedJid || x.jid).startsWith(cleanTarget));
+
+          if (targetUser) {
+            await message.client.groupRequestParticipantsUpdate(message.jid, [targetUser.jid], baileysAction);
+            return await message.sendReply(`_${action === "onayla" ? "✅" : "❌"} @${(targetUser.resolvedJid || targetUser.jid).split("@")[0]} isteği ${action === "onayla" ? "onaylandı" : "reddedildi"}._`, { mentions: [targetUser.resolvedJid || targetUser.jid] });
+          } else {
+            return await message.sendReply(`_❌ Bekleyen istekler arasında \`${cleanTarget}\` numarası bulunamadı._`);
+          }
+        }
       }
 
       return await message.sendReply(
@@ -436,7 +436,7 @@ Module({
         `• \`.istekler reddet 905xxx\``
       );
     }
-    
+
     let msg = "📋 *Bekleyen Katılma İstekleri*\n\n💬 _Hızlı işlem için \`.istekler onayla hepsi\` yazabilirsiniz._\n\n";
     const requestType = (type_, requestor) => {
       switch (type_) {
@@ -450,19 +450,19 @@ Module({
           return "bilinmiyor";
       }
     };
-    
+
     let mentions = [];
     for (let x in approvalList) {
       const u = approvalList[x];
       const displayJid = u.resolvedJid || u.jid;
       msg += `*${parseInt(x) + 1}.* 👤 @${displayJid.split("@")[0]}\n` +
-             `   🔗 _Yöntem: ${requestType(u.request_method, u.requestor)}_\n` +
-             `   🕒 _Tarih: ${new Date(parseInt(u.request_time) * 1000).toLocaleString("tr-TR")}_\n\n`;
+        `   🔗 _Yöntem: ${requestType(u.request_method, u.requestor)}_\n` +
+        `   🕒 _Tarih: ${new Date(parseInt(u.request_time) * 1000).toLocaleString("tr-TR")}_\n\n`;
       mentions.push(displayJid);
     }
-    
+
     msg += `ℹ️ _Belirli bir kişiyi onaylamak için: \`.istekler onayla numara\`_`;
-    
+
     return await message.client.sendMessage(
       message.jid,
       { text: msg, mentions: mentions },
@@ -575,7 +575,7 @@ Module({
         const { resolveLidToPn } = require("../core/lid-helper");
         const pn = await resolveLidToPn(message.client, user);
         if (pn && pn !== user) user = pn;
-      } catch (e) {}
+      } catch (e) { }
     }
 
     await message.client.sendMessage(message.jid, {
@@ -1186,14 +1186,14 @@ Module({
   async (message, match) => {
     const args = match[1]?.trim().split(" ") || [];
     const command = args[0]?.toLowerCase();
-    if (!command || (command !== "all" && command !== "recent")) {
+    if (!command || (command !== "hepsi" && command !== "son")) {
       return await message.sendReply("*Kullanım:*\n" +
         "• `.tümjid hepsi` - Tüm grup JID'lerini göster\n" +
         "• `.tümjid son` - Son sohbet JID'lerini göster (varsayılan 10)\n" +
         "• `.tümjid son 15` - Son 15 sohbet JID'sini göster"
       );
     }
-    if (command === "all") {
+    if (command === "hepsi") {
       const allGroups = await message.client.groupFetchAllParticipating();
       const gruplar = Object.keys(allGroups);
       const recentChats = await fetchRecentChats(100);
@@ -1238,7 +1238,7 @@ Module({
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
-    } else if (command === "recent") {
+    } else if (command === "son") {
       const limit = parseInt(args[1]) || 10;
       if (limit > 50) {
         return await message.sendReply("_*✨ Maksimum sınır 50 sohbettir!*_");

@@ -132,31 +132,6 @@ Module({
 });
 
 // ══════════════════════════════════════════════════════
-// Anonim Mesaj
-// ══════════════════════════════════════════════════════
-Module({
-  pattern: "anonim ?(.*)",
-  fromMe: true,
-  desc: "Anonim mesaj gönderir (gönderen bilgisi olmadan).",
-  usage: ".anonim [numara] [mesaj]",
-  use: "araçlar",
-}, async (message, match) => {
-  const args = (match[1] || "").trim().split(" ");
-  if (args.length < 2) return await message.sendReply("_Kullanım:_ `.anonim 905xxxxxxxxx Merhaba`");
-
-  const number = args[0];
-  const text = args.slice(1).join(" ");
-  const jid = number.includes("@") ? number : number + "@s.whatsapp.net";
-
-  try {
-    await message.client.sendMessage(jid, { text: `*Anonim Mesaj*\n\n${text}` });
-    await message.sendReply("_Anonim mesaj gönderildi._");
-  } catch (e) {
-    await message.sendReply(`_Mesaj gönderilemedi:_ ${e.message}`);
-  }
-});
-
-// ══════════════════════════════════════════════════════
 // Çevrimiçi Durum Değiştirme
 // ══════════════════════════════════════════════════════
 Module({

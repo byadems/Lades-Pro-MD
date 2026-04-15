@@ -16,7 +16,7 @@ let lastEarthquake = {};
     const data = await fs.readFile(LAST_EARTHQUAKE_FILE_PATH, "utf-8");
     if (data) lastEarthquake = JSON.parse(data);
   } catch {
-    console.log("No previous earthquake data found, starting fresh.");
+    console.log("Önceki deprem verisi bulunamadı, yeniden başlatılıyor.");
   }
 })();
 

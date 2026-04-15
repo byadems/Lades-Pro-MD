@@ -282,16 +282,13 @@ Module({
 Module({
   pattern: "dil ?(.*)",
   fromMe: true,
-  desc: "Botun belirli komutlarda kullandığı varsayılan dil seçeneğini (TR/EN) anlık olarak değiştirir.",
-  usage: ".dil [turkish/english]",
+  desc: "Botun belirli komutlarda kullandığı varsayılan dil seçeneğini değiştirir.",
+  usage: ".dil [tr]",
   use: "sistem",
 },
   async (message, match) => {
-    if (
-      !match[1] ||
-      !["english", "manglish", "turkish"].includes(match[1].toLowerCase())
-    )
-      return await message.sendReply("_❌ Geçersiz dil! Mevcut diller: Türkçe, İngilizce, Manglish"
+    if (!match[1]?.trim() || !["türkçe", "tr"].includes(match[1].toLowerCase()))
+      return await message.sendReply("_❌ Geçersiz dil! Mevcut diller: Türkçe, TR"
       );
     return await setVar("LANGUAGE", match[1].toLowerCase(), message);
   }
@@ -341,9 +338,9 @@ Module({
 },
   async (message, match) => {
     const input = match[1]?.toLowerCase();
-    if (input === "public" || input === "genel") {
+    if (input === "genel") {
       return await setVar("MODE", "public", message);
-    } else if (input === "private" || input === "özel") {
+    } else if (input === "özel") {
       return await setVar("MODE", "private", message);
     } else {
       const mode = config.MODE === "public" ? "Genel" : "Özel";
@@ -825,7 +822,7 @@ Module({
 
     const input = match[1] ? match[1].toLowerCase().trim() : "";
     const args = input.split(" ");
-    const command = args[0];
+    const command = args[0] || "";
     const value = args.slice(1).join(" ");
 
     let config = await antilinkConfig.get(message.jid);
@@ -1157,7 +1154,7 @@ Module({
     const [action, ...restParts] = input.split(" ");
     const rest = restParts.join(" ");
 
-    switch (action.toLowerCase()) {
+    switch (action?.toLowerCase()) {
       case "aç":
         await setVar("REJECT_CALLS", "true", false);
         await message.sendReply("*✅ Arama reddetme etkin*\n\nBeyaz listedekiler dışındaki tüm gelen aramalar reddedilecektir."

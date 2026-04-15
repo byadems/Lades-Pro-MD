@@ -563,8 +563,8 @@ function Module(options, callback) {
   // Pre-compile regex for performance
   if (cmd.pattern) {
     cmd._regex = new RegExp("^" + cmd.pattern, 'iu');
-    // Point 2: Optimization - Index by first word if it's a simple pattern
-    const firstWord = cmd.pattern.split(/\s|\\s|\[/)[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    // O(1) index — Türkçe dahil Unicode harfleri koru
+    const firstWord = cmd.pattern.split(/\s|\\s|\[/)[0].replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
     if (firstWord) {
       if (!commandMap.has(firstWord)) commandMap.set(firstWord, []);
       commandMap.get(firstWord).push(cmd);

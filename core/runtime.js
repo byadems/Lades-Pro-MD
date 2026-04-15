@@ -40,7 +40,7 @@ const state = {
   commandStatsBatch: new Map(),
 
   /** Self-test progress (moved from global namespace) */
-  testProgress: null,
+  testProgress: { status: 'idle', currentIndex: 0, totalCommands: 0, currentCommand: '' },
 };
 
 module.exports = state;
