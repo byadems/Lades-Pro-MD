@@ -1,50 +1,45 @@
-# node:20-bookworm-slim uses Debian Bookworm (glibc 2.36+)
-# This fixes both sqlite3 (GLIBC_2.38 mismatch) and sharp (glib-object.h) issues.
+# Debian Bookworm (glibc 2.36) — enough for most prebuilt binaries.
+# sqlite3 v6 prebuilt needs GLIBC_2.38 so we rebuild it from source.
+# sharp uses its own bundled libvips via SHARP_IGNORE_GLOBAL_LIBVIPS=1.
 FROM node:20-bookworm-slim
 
 LABEL maintainer="Lades-Pro-MD"
 LABEL description="Lades-Pro-MD WhatsApp Bot - Ultra Premium"
 
-# System deps
-# libglib2.0-dev  → required by sharp (provides glib-object.h)
-# libvips-dev     → required by sharp (image processing)
-# curl            → required by HEALTHCHECK
+# Build tools + runtime deps
+# NOTE: No libvips-dev needed — sharp will use its own bundled libvips.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 make g++ git ffmpeg webp \
     libgbm1 libnss3 libatk-bridge2.0-0 \
     libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 \
-    libcups2 libasound2 ca-certificates \
-    libvips-dev libglib2.0-dev curl && \
+    libcups2 libasound2 ca-certificates curl && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Work directory
 WORKDIR /app
 
-# Copy package files first for layer caching
 COPY package.json package-lock.json* ./
 
-# Install dependencies using prebuilt binaries (no source compilation needed —
-# Bookworm's glibc is new enough for all prebuilt binaries in this project)
+# Step 1: Install all packages using prebuilt binaries.
+# Step 2: Rebuild ONLY sqlite3 from source so it links against
+#         this container's glibc (solves GLIBC_2.38 mismatch).
+# SHARP_IGNORE_GLOBAL_LIBVIPS=1 tells sharp to use its own bundled
+# libvips instead of the system one — avoids all glib/vips header errors.
+ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
 RUN npm install --production && \
+    npm rebuild sqlite3 --build-from-source && \
     npm cache clean --force
 
-# Copy source files
 COPY . .
 
-# Create required directories
 RUN mkdir -p sessions temp plugins/utils
 
-# Environment defaults (override via platform env vars)
 ENV PORT=3000 \
     NODE_ENV=production \
     DASHBOARD_PORT=3001
 
-# Expose ports
 EXPOSE 3000 3001
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
-# Start command
 CMD ["node", "--no-warnings", "index.js"]
