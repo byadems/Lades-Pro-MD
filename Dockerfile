@@ -7,7 +7,7 @@ LABEL description="Lades-Pro-MD WhatsApp Bot - Ultra Premium"
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 make g++ git ffmpeg webp libgbm1 libnss3 libatk-bridge2.0-0 \
     libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 \
-    libcups2 libasound2 ca-certificates && \
+    libcups2 libasound2 ca-certificates libvips-dev curl && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Work directory
@@ -16,8 +16,8 @@ WORKDIR /app
 # Copy package files first for caching
 COPY package.json package-lock.json* ./
 
-# Install dependencies
-RUN npm install --production --build-from-source && \
+# Install dependencies (Removed --build-from-source for stability)
+RUN npm install --production && \
     npm cache clean --force
 
 # Copy source files

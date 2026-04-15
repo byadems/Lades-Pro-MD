@@ -244,7 +244,27 @@ Module({
   use: "düzenleme",
 },
   async (message, match) => {
-    const input = (match[1] || "").trim();
+    let input = (match[1] || "").trim();
+    let isAnimated = false;
+    let delay = 300;
+
+    // Yanıtlanan mesajdan metin al
+    if (message.reply_message?.text) {
+      const replyText = message.reply_message.text.trim();
+      // Eğer sadece .brat yazıldıysa ve yanıtlanan mesaj varsa
+      if (!input) {
+        input = replyText;
+      } else if (input.toLowerCase() === "gif") {
+        // .brat gif yazılıp mesaj yanıtlandıysa
+        input = replyText;
+        isAnimated = true;
+      } else if (input.toLowerCase().startsWith("gif ")) {
+        // .brat gif metin yazıldı + yanıtlanan mesaj varsa
+        input = input.replace(/^gif\s*/i, "") + " " + replyText;
+        isAnimated = true;
+      }
+    }
+
     if (!input) return await message.sendReply(
       "✍🏻 *Brat - Yazıdan Çıkartma Oluşturucu*\n\n" +
       "📝 _Kullanım:_\n" +
@@ -258,8 +278,7 @@ Module({
     );
 
     let text;
-    let delay = 300;
-    let isAnimated = false;
+    // Not: isAnimated ve delay yukarıda tanımlandı
 
     const parts = input.split(" ");
 
@@ -278,7 +297,7 @@ Module({
 
     text = parts.join(" ").trim();
 
-    if (!text) return await message.sendReply("✍🏻 _Metin yazın:_ `.brat lades bot`");
+    if (!text) return await message.sendReply("✍🏻 _Metin yazın:_\n`.brat Lades Bot`\n`.bratgif Lades Bot`");
 
     const encodedText = text.replace(/ /g, "+");
 

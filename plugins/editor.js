@@ -136,7 +136,7 @@ for (const effect of EFFECTS) {
 Module({
   pattern: "wasted ?(.*)",
   fromMe: false,
-  desc: "Fotoğrafa GTA tarzı öldün efekti uygular.",
+  desc: "Fotoğrafa GTA tarzı öldün (wasted) efekti uygular.",
   usage: ".wasted [yanıtla]",
   use: "düzenleme",
 },
@@ -165,7 +165,7 @@ Module({
 Module({
   pattern: "wanted ?(.*)",
   fromMe: false,
-  desc: "Fotoğrafa GTA tarzı aranıyor (wanted) poster efekti uygular.",
+  desc: "Fotoğrafa aranıyor (wanted) poster efekti uygular.",
   usage: ".wanted [yanıtla]",
   use: "düzenleme",
 },

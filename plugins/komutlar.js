@@ -126,7 +126,6 @@ Module({
         "🕒 .otosohbetkapat\nOtomatik sohbet kapatma ayarlar.\n\n" +
         "📅 .otosohbetaç\nOtomatik sohbet açma ayarlar.\n\n" +
         "🔇 .otosohbet\nOtomatik sohbet ayarları.\n\n" +
-        "🚫 .antinumara\nNumara engelleme ayarları.\n\n" +
         "⚠️ .uyar\nÜyeyi uyarır.\n\n" +
         "📊 .kaçuyarı\nUyarı sayısını gösterir.\n\n" +
         "➖ .uyarısil\nUyarı siler.\n\n" +
@@ -202,9 +201,8 @@ Module({
         "💻 .platform\nPlatform bilgisini gösterir.\n\n" +
         "🌍 .dil\nDil ayarları.\n\n" +
         "⚙️ .ayarlar\nBot ayarlarını gösterir.\n\n" +
+        "🛡️ *KORUMA & GÜVENLİK*\n" +
         "️ .antisilme\nAnti-silme özelliği.\n\n" +
-        "👑 .sudolar\nSudo kullanıcılarını listeler.\n\n" +
-        "🔄 .toggle\nÖzellik aç/kapar.\n\n" +
         "🤖 .antibot\nBot koruması.\n\n" +
         "🚫 .antispam\nSpam koruması.\n\n" +
         "📵 .pdm\nPDM (Private Message) koruması.\n\n" +
@@ -212,11 +210,14 @@ Module({
         "📈 .antiyetkiverme\nAnti-yetki verme.\n\n" +
         "🔗 .antibağlantı\nBağlantı engelleme.\n\n" +
         "🚫 .antikelime\nKelime engelleme.\n\n" +
+        "🚫 .antinumara\nNumara engelleme ayarları.\n\n" +
         "🔍 .aramaengel\nArama engelleme.\n\n" +
+        "👑 .sudolar\nSudo kullanıcılarını listeler.\n\n" +
+        "🔄 .toggle\nÖzellik aç/kapar.\n\n" +
         "🎨 *GÖRSEL DÜZENLEME KOMUTLARI*\n" +
         "🖌️ .editör\nFotoğraf düzenleme komutlarını listeler.\n\n" +
-        "🎮 .wasted\nFotoğrafa GTA tarzı öldün efekti uygular.\n\n" +
-        "🕵️ .wanted\nFotoğrafa GTA tarzı aranıyor (wanted) poster efekti uygular.\n\n" +
+        "🎮 .wasted\nFotoğrafa GTA tarzı öldün (wasted) efekti uygular.\n\n" +
+        "🕵️ .wanted\nFotoğrafa aranıyor (wanted) poster efekti uygular.\n\n" +
         "🌸 .anime\nAnime efekti uygular.\n\n" +
         "🎨 .ghiblistil\nGhibli stili efekti uygular.\n\n" +
         "👶 .chibi\nChibi efekti uygular.\n\n" +
@@ -271,18 +272,6 @@ Module({
         "🎨 .renklendir\nMedyayı renklendirir.\n\n" +
         "💻 .kodgörsel\nKoddan görsel oluşturur.\n\n" +
         "😂 .meme\nMeme oluşturur.\n\n" +
-        "👑 *DİĞER YÖNETİM KOMUTLARI*\n" +
-        "🔧 .değişkenler\nDeğişkenleri yönetir.\n\n" +
-        "👑 .sudolar\nSudo kullanıcılarını yönetir.\n\n" +
-        "🔄 .toggle\nÖzellikleri yönetir.\n\n" +
-        "🛡️ .antibot\nBot korumasını ayarlar.\n\n" +
-        "🚫 .antispam\nSpam korumasını ayarlar.\n\n" +
-        "📵 .pdm\nPDM ayarları.\n\n" +
-        "📉 .antiyetkidüşürme\nAnti-yetki düşürme ayarları.\n\n" +
-        "📈 .antiyetkiverme\nAnti-yetki verme ayarları.\n\n" +
-        "🔗 .antibağlantı\nBağlantı engelleme ayarları.\n\n" +
-        "🚫 .antikelime\nKelime engelleme ayarları.\n\n" +
-        "🔍 .aramaengel\nArama engelleme ayarları.\n\n" +
         "🤖 *YAPAY ZEKA KOMUTLARI*\n" +
         "🤖 .yz\nGemini AI'ya soru sor.\n\n" +
         "🎨 .yzgörsel\nMetni görsele çevirir.\n\n" +
