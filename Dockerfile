@@ -16,8 +16,8 @@ WORKDIR /app
 # Copy package files first for caching
 COPY package.json package-lock.json* ./
 
-# Install dependencies (Removed --build-from-source for stability)
-RUN npm install --production && \
+# Install dependencies (Building from source to ensure GLIBC compatibility)
+RUN npm install --production --build-from-source && \
     npm cache clean --force
 
 # Copy source files
