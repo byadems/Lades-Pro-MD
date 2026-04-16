@@ -323,9 +323,11 @@ class BaseMessage {
     this.id = rawMsg.key.id;
     this.fromMe = rawMsg.key.fromMe;
     this.isGroup = this.jid.endsWith("@g.us");
+    this.isChannel = this.jid.endsWith("@newsletter");
+    this.isDashboard = this.id && this.id.startsWith("DASHBOARD_");
 
-    if (this.isGroup) {
-      this.sender = rawMsg.key.participant || rawMsg.participant || "";
+    if (this.isGroup || this.isChannel) {
+      this.sender = rawMsg.key.participant || rawMsg.participant || (this.isChannel ? this.jid : "");
     } else {
       // 100% Robust Numerical fromMe detection
       // Comparing strictly by numerical ID part to bypass @lid vs @s.whatsapp.net mismatch
@@ -402,11 +404,12 @@ class BaseMessage {
   }
 
   /**
-   * Reply to the current message (quotes the sender's message)
+   * Reply to the current message (quotes the sender's message if not in a channel)
    */
   async reply(text, options = {}) {
     const content = typeof text === "string" ? { text } : text;
-    return this.client.sendMessage(this.jid, { ...content, ...options }, { quoted: this.data });
+    const sendOpts = (this.isChannel || this.isDashboard) ? {} : { quoted: this.data };
+    return this.client.sendMessage(this.jid, { ...content, ...options }, sendOpts);
   }
 
   /**
@@ -430,7 +433,9 @@ class BaseMessage {
     const mentionsArr = options.mentions || content.mentions || [];
     const finalContent = { ...content };
     if (mentionsArr.length) finalContent.mentions = mentionsArr;
-    return this.client.sendMessage(this.jid, finalContent, { quoted: this.data });
+    
+    const sendOpts = (this.isChannel || this.isDashboard) ? {} : { quoted: this.data };
+    return this.client.sendMessage(this.jid, finalContent, sendOpts);
   }
 
   /**
@@ -821,7 +826,7 @@ function isOwnerOrSudo(senderJid, originalSenderJid, client = null) {
 async function handleMessage(client, rawMsg, groupMetadata = null) {
   try {
     const message = new BaseMessage(client, rawMsg, groupMetadata);
-    const { jid, text, isGroup, fromMe } = message;
+    const { jid, text, isGroup, isChannel, fromMe } = message;
 
     // ── ANTISILME (ANTI-DELETE) LOGIC ──
     if (isGroup && rawMsg.message?.protocolMessage?.type === 0) {
@@ -1011,7 +1016,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
         let isAdmin = false;
         let isBotAdmin = false;
 
-        if (isGroup) {
+          if (isGroup) {
           try {
             // metadata yoksa çekmeye çalış
             if (!groupMetadata) {
@@ -1027,6 +1032,10 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           } catch (e) {
             logger.debug({ err: e.message }, "Admin check error");
           }
+        } else if (isChannel) {
+          message.groupAdmins = [senderJid, resolvedSenderJid];
+          isAdmin = true; // In channels, whoever can send messages IS an admin.
+          isBotAdmin = true; 
         } else {
           message.groupAdmins = [];
         }
@@ -1053,7 +1062,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           await message.reply("❌ Bu komut yalnızca yetkililere aittir.");
           return;
         }
-        if (cmd.onlyGroup && !isGroup) {
+        if (cmd.onlyGroup && !isGroup && !isChannel) {
           await message.reply("❌ Bu komut yalnızca gruplarda kullanılabilir.");
           return;
         }
@@ -1064,7 +1073,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
 
         // Group Admin check
         if (cmd.onlyAdmin) {
-          if (!isGroup) {
+          if (!isGroup && !isChannel) {
             await message.reply("❌ Bu komut grup içinde kullanılabilir.");
             return;
           }
