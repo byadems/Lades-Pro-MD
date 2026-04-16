@@ -971,9 +971,12 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     const textHandlers = [...(onHandlers.text || []), ...(onHandlers.message || [])];
     if (textHandlers.length > 0) {
       for (const h of textHandlers) {
-        // fromMe filtresi - sessizce atla
+        // fromMe filtresi: sadece bot sahibi/sudo değilse VE admin erişimi kapalıysa atla
         if (h.fromMe && !fromMe && !isOwnerOrSudo(resolvedSenderJid, senderJid)) {
-          continue;
+          // ADMIN_ACCESS açıksa ve grup admini ise geç
+          if (!(config.ADMIN_ACCESS && message.isAdmin)) {
+            continue;
+          }
         }
         try {
           if (h._disabled) continue;
@@ -1083,9 +1086,9 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           }
         }
 
-        // Public Mode check
+        // Public Mode check — private modda yalnızca owner/sudo/admin geçer
         if (config.isPrivate) {
-          if (!ownerOrSudo) return;
+          if (!ownerOrSudo && !(config.ADMIN_ACCESS && isAdmin)) return;
         }
 
         // Execute command (Callback style: message, match)
