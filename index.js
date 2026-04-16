@@ -329,7 +329,7 @@ async function startSessionCleanup() {
     await initializeDatabase();
     logger.info("Bot is initializing...");
     await startSessionCleanup();
-    startKeepAlive(); // Still disabled to avoid port conflict, but optimized for when needed
+    // startKeepAlive(); // Disabled again! This steals PORT 3000 from the dashboard server!
 
     const manager = new BotManager();
     runtime.manager = manager;
