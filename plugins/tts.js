@@ -8,7 +8,6 @@ const { Module } = require("../main");
 const googleTTS = require("google-tts-api");
 const fs = require("fs");
 const path = require("path");
-const { toOpus } = require("./utils");
 
 async function convertTextToSpeech(text, lang = "tr") {
   const options = {
@@ -45,10 +44,9 @@ Module({
 
   try {
     const audioBuffer = await convertTextToSpeech(text, lang);
-    const opusBuffer = await toOpus(audioBuffer);
     await message.client.sendMessage(message.jid, {
-      audio: opusBuffer,
-      mimetype: "audio/ogg; codecs=opus",
+      audio: audioBuffer,
+      mimetype: "audio/mpeg",
       ptt: true,
     }, { quoted: message.data });
   } catch (e) {
@@ -68,10 +66,9 @@ Module({
 
   try {
     const audioBuffer = await convertTextToSpeech(text, "tr");
-    const opusBuffer = await toOpus(audioBuffer);
     await message.client.sendMessage(message.jid, {
-      audio: opusBuffer,
-      mimetype: "audio/ogg; codecs=opus",
+      audio: audioBuffer,
+      mimetype: "audio/mpeg",
       ptt: true,
     }, { quoted: message.data });
   } catch (e) {

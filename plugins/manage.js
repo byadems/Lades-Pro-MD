@@ -130,10 +130,9 @@ Module({
 
     try {
       await setVar(key.trim(), value, message);
-      await message.sendReply(`✅ *${key.trim()}* _başarıyla_ *'${value}'* _olarak ayarlandı!_ 🚀`);
     } catch (error) {
       await message.sendReply(
-        `❌ _'${key.trim()}' değişkeni ayarlanamadı._\n*Hata:* _${error.message}_`
+        `_'${key.trim()}' değişkeni ayarlanamadı. Hata: ${error.message}_`
       );
     }
   }
@@ -155,9 +154,9 @@ Module({
 
     const variable = config[key];
     if (variable) {
-      await message.sendReply(`🔍 *${key}*: \`${variable}\``);
+      await message.sendReply(`_Değişken '${key}': ${variable}_`);
     } else {
-      await message.sendReply(`❓ _Değişken_ *'${key}'* _bulunamadı._`);
+      await message.sendReply(`_Değişken '${key}' bulunamadı._`);
     }
   }
 );

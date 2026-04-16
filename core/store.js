@@ -13,16 +13,6 @@ const runtime = require("./runtime");
 const { WhatsappSession, BotMetric, MessageStats, UserData, sequelize } = require("./database");
 const scheduler = require("./scheduler");
 
-// Dialect-aware SQL helper
-const getDialectHelpers = () => {
-  const dialect = (() => { try { return sequelize.getDialect(); } catch { return 'sqlite'; } })();
-  const isPostgres = dialect === 'postgres';
-  return {
-    NOW: isPostgres ? 'NOW()' : "DATETIME('now')",
-    ON_CONFLICT_JID_USER: isPostgres ? 'ON CONFLICT(jid, "userJid")' : 'ON CONFLICT(jid, userJid)',
-  };
-};
-
 // Message store: jid → Map<msgId, msg>
 const messageStore = new LRUCache({
   max: 50,   // max 50 active groups/chats in memory
@@ -169,48 +159,9 @@ async function getFullMessage(msgId) {
   }
 }
 
-/**
- * fetchRecentChats — Son aktif sohbetleri döndürür.
- * group.js'in beklediği formatta: { jid, type, name, lastMessageTime }
- * @param {number} limit - Maksimum sohbet sayısı
- */
-async function fetchRecentChats(limit = 10) {
-  try {
-    // Bellekteki tüm JID'leri al (en son aktif olanlar sonda)
-    const allKeys = Array.from(messageStore.keys());
-    // Son `limit` kadar al (en yeni mesajlar)
-    const recentKeys = allKeys.slice(-Math.min(limit, allKeys.length));
-    
-    return recentKeys.map(jid => {
-      const bucket = messageStore.get(jid);
-      let lastTs = 0;
-      let lastPushName = null;
-      
-      // Bucket'taki en son mesajı bul
-      if (bucket && bucket.size > 0) {
-        for (const [, msg] of bucket) {
-          const ts = Number(msg?.messageTimestamp || 0);
-          if (ts > lastTs) {
-            lastTs = ts;
-            lastPushName = msg?.pushName || null;
-          }
-        }
-      }
-      
-      const isGroupJid = jid.endsWith('@g.us');
-      const isChannelJid = jid.endsWith('@newsletter');
-      
-      return {
-        jid,
-        type: isGroupJid ? 'group' : isChannelJid ? 'channel' : 'private',
-        name: lastPushName || null,
-        lastMessageTime: lastTs > 0 ? lastTs * 1000 : Date.now(), // ms cinsinden
-      };
-    }).reverse(); // En yeni önce
-  } catch (err) {
-    logger.debug({ err: err.message }, 'fetchRecentChats error');
-    return [];
-  }
+async function fetchRecentChats() {
+  // Mock recent chats from in-memory store
+  return Array.from(messageStore.keys()).map(jid => ({ id: jid }));
 }
 
 async function getTotalUserCount() {
@@ -285,24 +236,23 @@ scheduler.register('message_stats_flush', async () => {
   statsBatch.clear();
 
   try {
-    const { NOW, ON_CONFLICT_JID_USER } = getDialectHelpers();
     for (const [key, inc] of currentBatch) {
       const { jid, userJid, data } = inc;
 
-      // Atomic UPSERT for MessageStats — dialect-aware (SQLite & PostgreSQL)
+      // Atomic UPSERT for MessageStats
       await sequelize.query(
-        `INSERT INTO message_stats (jid, "userJid", "totalMessages", "textMessages", "imageMessages", "videoMessages", "audioMessages", "stickerMessages", "otherMessages", "lastMessageAt", "createdAt", "updatedAt") ` +
-        `VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ${NOW}, ${NOW}, ${NOW}) ` +
-        `${ON_CONFLICT_JID_USER} DO UPDATE SET ` +
-        `"totalMessages" = "message_stats"."totalMessages" + excluded."totalMessages", ` +
-        `"textMessages" = "message_stats"."textMessages" + excluded."textMessages", ` +
-        `"imageMessages" = "message_stats"."imageMessages" + excluded."imageMessages", ` +
-        `"videoMessages" = "message_stats"."videoMessages" + excluded."videoMessages", ` +
-        `"audioMessages" = "message_stats"."audioMessages" + excluded."audioMessages", ` +
-        `"stickerMessages" = "message_stats"."stickerMessages" + excluded."stickerMessages", ` +
-        `"otherMessages" = "message_stats"."otherMessages" + excluded."otherMessages", ` +
-        `"lastMessageAt" = ${NOW}, ` +
-        `"updatedAt" = ${NOW}`,
+        "INSERT INTO message_stats (jid, userJid, totalMessages, textMessages, imageMessages, videoMessages, audioMessages, stickerMessages, otherMessages, lastMessageAt, createdAt, updatedAt) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now'), DATETIME('now'), DATETIME('now')) " +
+        "ON CONFLICT(jid, userJid) DO UPDATE SET " +
+        "totalMessages = totalMessages + excluded.totalMessages, " +
+        "textMessages = textMessages + excluded.textMessages, " +
+        "imageMessages = imageMessages + excluded.imageMessages, " +
+        "videoMessages = videoMessages + excluded.videoMessages, " +
+        "audioMessages = audioMessages + excluded.audioMessages, " +
+        "stickerMessages = stickerMessages + excluded.stickerMessages, " +
+        "otherMessages = otherMessages + excluded.otherMessages, " +
+        "lastMessageAt = DATETIME('now'), " +
+        "updatedAt = DATETIME('now')",
         {
           replacements: [
             jid, userJid,

@@ -1,8 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { Sequelize, DataTypes, Op } = require("sequelize");
-const config = require("../config");
-const { logger } = config;
+const { logger, ...config } = require("../config");
 
 // ─────────────────────────────────────────────────────────
 //  Database / Sequelize Initialization
@@ -10,45 +9,18 @@ const { logger } = config;
 const DATABASE_URL = config.DATABASE_URL;
 
 let sequelize;
-
-// MongoDB URL kontrolü — Bu bot Sequelize (SQL) kullanır, MongoDB desteklenmez!
-if (DATABASE_URL && (DATABASE_URL.startsWith("mongodb://") || DATABASE_URL.startsWith("mongodb+srv://"))) {
-  logger.warn("╔════════════════════════════════════════════════════════╗");
-  logger.warn("║  ⚠️  MONGODB URL ALGILANDI — DESTEKLENMİYOR!           ║");
-  logger.warn("║  Bu bot Sequelize (SQL ORM) kullanmaktadır.            ║");
-  logger.warn("║  Lütfen PostgreSQL URL'si kullanın:                    ║");
-  logger.warn("║  • Supabase  → https://supabase.com (ücretsiz plan)    ║");
-  logger.warn("║  • Neon      → https://neon.tech (ücretsiz plan)       ║");
-  logger.warn("║  • Render    → https://render.com/docs/databases       ║");
-  logger.warn("║  SQLite (yerel) fallback kullanılıyor...               ║");
-  logger.warn("╚════════════════════════════════════════════════════════╝");
-  sequelize = new Sequelize({
-    dialect: "sqlite",
-    storage: path.join(__dirname, "../database.sqlite"),
-    logging: false,
-    pool: { max: 1, min: 0, acquire: 30000, idle: 10000 },
-    retry: { max: 10, match: [/SQLITE_BUSY/, /SQLITE_LOCKED/] },
-  });
-} else if (DATABASE_URL && (DATABASE_URL.startsWith("postgres") || DATABASE_URL.startsWith("postgresql"))) {
+if (DATABASE_URL && DATABASE_URL.startsWith("postgres")) {
   sequelize = new Sequelize(DATABASE_URL, {
     dialect: "postgres",
     logging: false,
     pool: {
-      // Supabase/Neon/Render ücretsiz plan için optimize — max bağlantı sınırlı
-      max: parseInt(process.env.DB_POOL_MAX || "10", 10),
-      min: parseInt(process.env.DB_POOL_MIN || "1", 10),
+      max: parseInt(process.env.DB_POOL_MAX || "20", 10),
+      min: parseInt(process.env.DB_POOL_MIN || "2", 10),
       acquire: 60000,
-      idle: 20000,
-      evict: 10000,
+      idle: 30000,
     },
     dialectOptions: {
-      ssl: process.env.DB_SSL === "false" ? false : {
-        require: true,
-        rejectUnauthorized: false, // Supabase/Neon self-signed cert desteği
-      },
-      statement_timeout: parseInt(process.env.DB_STATEMENT_TIMEOUT || "30000", 10),
-      idle_in_transaction_session_timeout: 30000,
-      connectTimeout: 30000,
+      ssl: process.env.DB_SSL === "false" ? false : { require: true, rejectUnauthorized: false },
     },
     retry: {
       max: 5,
@@ -56,27 +28,24 @@ if (DATABASE_URL && (DATABASE_URL.startsWith("mongodb://") || DATABASE_URL.start
         Sequelize.ConnectionError,
         Sequelize.ConnectionRefusedError,
         Sequelize.ConnectionTimedOutError,
-        /ECONNRESET/,
-        /ECONNABORTED/,
-        /ETIMEDOUT/,
       ],
     },
   });
 } else {
-  // SQLite (varsayılan — yerel geliştirme ve basit kullanım için)
+  // Use local SQLite
   sequelize = new Sequelize({
     dialect: "sqlite",
     storage: path.join(__dirname, "../database.sqlite"),
     logging: false,
     pool: {
-      max: 1,    // SQLite tek-yazıcı modeli — birden fazla bağlantı deadlock yaratır
+      max: 1,
       min: 0,
       acquire: 30000,
       idle: 10000,
     },
     retry: {
       max: 10,
-      match: [/SQLITE_BUSY/, /SQLITE_LOCKED/],
+      match: [/SQLITE_BUSY/],
     },
   });
 }
@@ -334,28 +303,6 @@ const BotVariable = {
   findByPk: async (key) => BotConfig.findByPk(key),
 };
 
-/**
- * Loads all key-value pairs from the BotConfig table into the global config object.
- * This ensures that settings changed via commands (like .setvar) persist across restarts.
- */
-async function loadConfigFromDb() {
-  try {
-    const vars = await BotConfig.findAll();
-    vars.forEach((v) => {
-      let value = v.value;
-      // Convert basic types if possible
-      if (value === "true") value = true;
-      else if (value === "false") value = false;
-      else if (!isNaN(value) && value.trim() !== "") value = Number(value);
-
-      config[v.key] = value;
-    });
-    logger.info(`[Config] Veritabanından ${vars.length} yapılandırma değişkeni yüklendi.`);
-  } catch (err) {
-    logger.error({ err: err.message }, "[Config] Veritabanı yapılandırması yüklenirken hata");
-  }
-}
-
 module.exports = {
   sequelize,
   WhatsappSession,
@@ -373,7 +320,6 @@ module.exports = {
   CommandStat,
   CommandRegistry,
   initializeDatabase,
-  loadConfigFromDb, // Export the new loader
   Op,
   DataTypes,
   Sequelize,

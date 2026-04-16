@@ -658,12 +658,6 @@ Module({
   usage: ".jid (mevcut sohbet kimliğini alır)\n.jid (kullanıcı kimliğini almak için yanıtla)",
 },
   async (message) => {
-    // WhatsApp Kanalları için — doğrudan kanal JID'ini döndür
-    if (message.isChannel) {
-      return await message.sendReply(
-        `📡 *Kanal JID:*\n\`${message.jid}\``
-      );
-    }
     const isAdminUser = await isAdmin(message);
     if (message.isGroup) {
       if (message.fromOwner || isAdminUser) {
@@ -1579,28 +1573,6 @@ Module({
       return await message.sendReply("_❌ Bu komut sadece gruplarda kullanılabilir._");
     }
 
-    const input = match[1] ? match[1].trim().toLowerCase() : "";
-
-    if (input === "sil" || input === "kaldır" || input === "iptal") {
-      try {
-        await message.client.sendMessage(message.jid, {
-          pin: {
-            remoteJid: message.jid,
-            fromMe:
-              message.reply_message?.jid?.split("@")[0] ===
-              message.client.user?.id?.split(":")[0],
-            id: message.reply_message?.id || message.data.key.id,
-            participant: message.reply_message?.jid || message.sender,
-          },
-          type: 2,
-        });
-        return await message.sendReply("_✅ Sabitlenmiş mesaj başarıyla kaldırıldı!_");
-      } catch (error) {
-        console.error("Sabitle sil hatası:", error);
-        return await message.sendReply("_❌ Mesaj sabitlemesi kaldırılamadı!_");
-      }
-    }
-
     if (!message.reply_message) {
       return await message.sendReply(
         "_❌ Lütfen sabitlemek istediğiniz mesaja yanıtlayarak yazın!_\n\n" +
@@ -1608,9 +1580,26 @@ Module({
         "_.sabitle 24s_ → 24 saat\n" +
         "_.sabitle 7g_ → 7 gün\n" +
         "_.sabitle 30g_ → 30 gün\n" +
-        "_.sabitle sil_ → Sabitlemeyi kaldırır"
+        "_.sabitle_ → varsayılan 7 gün"
       );
     }
+
+    await baileysPromise;
+    if (!generateWAMessageFromContent || !proto) {
+      return await message.sendReply(
+        "_❌ Bot bileşenleri henüz yüklenmedi, lütfen biraz bekleyip tekrar deneyin._"
+      );
+    }
+
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) {
+      return await message.sendReply(
+        "_❌ Bu grupta yönetici değilim!_"
+      );
+    }
+
+    const input = match[1] ? match[1].trim().toLowerCase() : "";
     let durationSeconds;
     let durationText;
 
@@ -1817,17 +1806,17 @@ Module({
     const target = message.jid;
     const group = await message.client.groupMetadata(target);
     const allMembers = group.participants.map(participant => participant.id);
-
+    
     let baseText = match && match[1] ? match[1].trim() : (message.reply_message?.text ? message.reply_message.text : "");
     let text = baseText ? baseText + "\n\n" : "✅ *Herkes başarıyla etiketlendi!*\n\n";
-
+    
     allMembers.forEach((jid, index) => {
       text += `${index + 1}. @${jid.split('@')[0]}\n`;
     });
-
+    
     // Baileys 'quoted' sorununu by-pass etmek için manuel gönderim veya sendOpts boş gönderimi:
     const sendOpts = message.isChannel ? {} : ((message.data?.key?.id || '').includes('DASHBOARD_') ? {} : { quoted: message.data });
-
+    
     await message.client.sendMessage(target, {
       text: text,
       contextInfo: { mentionedJid: allMembers }

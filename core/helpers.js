@@ -255,14 +255,11 @@ function getMessageText(message) {
   if (!message) return "";
   
   let msg = message;
-  // Unwrap wrapper message types
   if (msg.ephemeralMessage) msg = msg.ephemeralMessage.message;
   if (msg.viewOnceMessage) msg = msg.viewOnceMessage.message;
   if (msg.viewOnceMessageV2) msg = msg.viewOnceMessageV2.message;
   if (msg.documentWithCaptionMessage) msg = msg.documentWithCaptionMessage.message;
   if (msg.deviceSentMessage) msg = msg.deviceSentMessage.message;
-  // WhatsApp Newsletter / Channel message wrapper
-  if (msg.newsletterMessage) msg = msg.newsletterMessage.message || msg;
   
   if (!msg) return "";
 
@@ -272,17 +269,6 @@ function getMessageText(message) {
     msg.imageMessage?.caption ||
     msg.videoMessage?.caption ||
     msg.documentMessage?.caption ||
-    msg.audioMessage?.caption ||
-    msg.stickerMessage?.caption ||
-    // WhatsApp Channel / Newsletter specific
-    msg.channelMessage?.text ||
-    msg.listMessage?.description ||
-    msg.listMessage?.title ||
-    msg.buttonReplyMessage?.selectedDisplayText ||
-    msg.templateButtonReplyMessage?.selectedDisplayText ||
-    msg.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson ||
-    // Kanal içerik mesajları için fallback
-    (typeof msg === "string" ? msg : "") ||
     ""
   );
 }

@@ -4,7 +4,7 @@ const config = require("../config");
 const { CircuitBreaker } = require("./utils/resilience");
 const nexray = require("./utils/nexray");
 const { saveToDisk, getTempPath, cleanTempFile, isMediaImage } = require("../core/helpers");
-const { sticker, addExif, trToEn, httpStatusTR } = require("./utils");
+const { sticker, addExif, trToEn } = require("./utils");
 const { uploadToImgbb, uploadToCatbox } = require("./utils/upload");
 
 async function uploadMedia(filePath, type = "image") {
@@ -84,7 +84,7 @@ async function nexGet(path, opts = {}) {
       payload?.error ||
       payload?.message ||
       payload?.result?.message ||
-      httpStatusTR(res.status);
+      `HTTP ${res.status}`;
 
     throw new Error(errorMsg);
   } catch (e) {
@@ -512,7 +512,7 @@ Module({
     const query = (match[1] || "").trim();
     if (!query) return await message.sendReply("📚 _Konu girin:_ `.vikipedi İstanbul`");
     try {
-      const results = await nexGet(`/search/wikipedia?q=${encodeURIComponent(query)}&lang=tr`);
+      const results = await nexGet(`/search/wikipedia?q=${encodeURIComponent(query)}`);
       if (!results?.length) throw new Error("Sonuç bulunamadı");
       const article = results[0];
       const snippet = article.snippet?.replace(/<[^>]*>/g, "") || "";

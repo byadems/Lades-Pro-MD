@@ -15,7 +15,6 @@ const {
   getBuffer,
   trToEn,
   nx,
-  toOpus,
 } = require("./utils");
 const config = require("../config");
 const axios = require("axios");
@@ -658,14 +657,9 @@ Module({
         audio = await gtts(ttsMessage, LANG);
       }
 
-      if (audio.url) {
-        audio = await getBuffer(audio.url);
-      }
-      const opusBuffer = await toOpus(audio);
-
       await message.client.sendMessage(message.jid, {
-        audio: opusBuffer,
-        mimetype: "audio/ogg; codecs=opus",
+        audio,
+        mimetype: "audio/mpeg",
         ptt: true,
       });
     } catch (error) {

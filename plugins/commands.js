@@ -86,77 +86,29 @@ Module({
     const safeHandlers = typeof HANDLERS === 'string' ? HANDLERS : String(HANDLERS);
     const handlerPrefix = safeHandlers.match(/\[(\W*)\]/)?.[1]?.[0] || ".";
 
-    const categoryOrder = [
-      "sahip", "owner",
-      "sistem", "system",
-      "grup", "group",
-      "yapay zeka", "ai", "yapay-zeka",
-      "indirme", "download",
-      "arama", "search",
-      "araçlar", "tools",
-      "medya", "media", "edit",
-      "eğlence", "fun", "game",
-      "dini",
-      "sohbet", "chat",
-      "genel"
-    ];
-
-    const processedCategories = new Set();
-    const sortedCategories = [];
-
-    // Order existing categories based on categoryOrder
-    categoryOrder.forEach(orderKey => {
-      for (const cat in categorizedCommands) {
-        if (cat.toLowerCase() === orderKey.toLowerCase() && !processedCategories.has(cat)) {
-          sortedCategories.push(cat);
-          processedCategories.add(cat);
-        }
-      }
-    });
-
-    // Add any remaining categories
-    for (const cat in categorizedCommands) {
-      if (!processedCategories.has(cat)) {
-        sortedCategories.push(cat);
-      }
-    }
-
-    const emojiMap = {
-      'sahip': '👑', 'owner': '👑',
-      'sistem': '⚙️', 'system': '⚙️',
-      'grup': '👥', 'group': '👥',
-      'yapay-zeka': '🤖', 'ai': '🤖', 'yapay zeka': '🤖',
-      'indirme': '⬇️', 'download': '⬇️',
-      'medya': '🎬', 'media': '🎬', 'edit': '🎨',
-      'araçlar': '🛠️', 'tools': '🛠️', 'search': '🔍', 'arama': '🔍',
-      'eğlence': '🎉', 'fun': '🎉', 'game': '🎮',
-      'dini': '🕌',
-      'sohbet': '💬', 'chat': '💬',
-      'genel': '📦'
-    };
-
-    const labelMap = {
-      'sahip': 'Kurucu & Geliştirici', 'owner': 'Kurucu & Geliştirici',
-      'sistem': 'Sistem & Durum', 'system': 'Sistem & Durum',
-      'grup': 'Grup Yönetimi', 'group': 'Grup Yönetimi',
-      'yapay-zeka': 'Yapay Zeka', 'ai': 'Yapay Zeka', 'yapay zeka': 'Yapay Zeka',
-      'indirme': 'İndirme Merkezi', 'download': 'İndirme Merkezi',
-      'medya': 'Medya İşlemleri', 'media': 'Medya İşlemleri', 'edit': 'Görsel Düzenleme',
-      'araçlar': 'Araçlar & Çeviri', 'tools': 'Araçlar & Çeviri', 'search': 'Arama & Bilgi', 'arama': 'Arama & Bilgi',
-      'eğlence': 'Eğlence & Oyunlar', 'fun': 'Eğlence', 'game': 'Oyunlar',
-      'dini': 'Dini Bilgiler',
-      'sohbet': 'Sohbet & Mesaj', 'chat': 'Sohbet',
-      'genel': 'Genel Komutlar'
-    };
-
-    sortedCategories.forEach((category) => {
-      const lowerCat = category.toLowerCase();
-      const emoji = emojiMap[lowerCat] || "📌";
-      const label = labelMap[lowerCat] || category.charAt(0).toUpperCase() + category.slice(1);
-      
-      responseMessage += `${emoji} *${label.toUpperCase()}*\n`;
+    for (const category in categorizedCommands) {
+      const catLabels = {
+        'sistem': '⚙️ Sistem & Sahip',
+        'sahip': '👑 Sahip',
+        'grup': '👥 Grup Yönetimi',
+        'yapay-zeka': '🤖 Yapay Zeka',
+        'indirme': '⬇️ İndirme Merkezi',
+        'medya': '🎨 Medya & Tasarım',
+        'araçlar': '🛠️ Araçlar & Bilgi',
+        'eğlence': '🎮 Oyun & Eğlence',
+        'dini': '🕌 Dini Bilgiler',
+        'sohbet': '💬 Sohbet & Mesaj',
+        'genel': '📦 Genel Komutlar',
+        'arama': '🔍 Arama',
+        'düzenleme': '🖌️ Düzenleme'
+      };
+      const catLabel = catLabels[category] || category.charAt(0).toUpperCase() + category.slice(1);
+      responseMessage += `*───「 ${catLabel} 」───*\n\n`;
       categorizedCommands[category].forEach((cmd) => {
         responseMessage += `• \`${handlerPrefix}${cmd.name}\`\n`;
+        if (cmd.desc) responseMessage += `  _Açıklama:_ ${cmd.desc}\n`;
+        if (cmd.usage) responseMessage += `  _Kullanım:_ ${cmd.usage}\n`;
+        if (cmd.warn) responseMessage += `  _Uyarı:_ ${cmd.warn}\n`;
         responseMessage += "\n";
       });
     }

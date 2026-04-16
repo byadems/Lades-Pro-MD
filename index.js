@@ -17,7 +17,7 @@ const scheduler = require("./core/scheduler");
 const PID_FILE = path.join(__dirname, "bot.pid");
 const config = require("./config");
 const { logger } = config;
-const { initializeDatabase, loadConfigFromDb, WhatsappSession } = require("./core/database");
+const { initializeDatabase, WhatsappSession } = require("./core/database");
 const { BotManager } = require("./core/manager");
 const { suppressLibsignalLogs, startTempCleanup } = require("./core/helpers");
 const { shutdownCache } = require("./core/db-cache");
@@ -70,7 +70,7 @@ scheduler.register('memory_check', () => {
     logger.warn(`Bellek sınırı (${PM2_RESTART_MB}MB) aşıldı. Otomatik yeniden başlatılıyor...`);
     process.exit(1);
   }
-}, 30000); // 30sn — 10sn'de bir kontrol gereksiz CPU yükü yaratıyordu
+}, 10000);
 
 function startKeepAlive() {
   const app = express();
@@ -78,74 +78,15 @@ function startKeepAlive() {
 
   app.use(compression());
   
-  // Ultra-detaylı health check endpoint
-  app.get('/health', async (req, res) => {
-    try {
-      const mem = process.memoryUsage();
-      const uptime = Math.floor((Date.now() - runtime.startTime) / 1000);
-      
-      // Veritabanı sağlık kontrolü
-      let dbStatus = { connected: false, dialect: 'sqlite', latencyMs: null };
-      try {
-        const { sequelize: db } = require('./core/database');
-        const t0 = Date.now();
-        await db.authenticate();
-        dbStatus = {
-          connected: true,
-          dialect: db.getDialect(),
-          latencyMs: Date.now() - t0,
-        };
-      } catch (dbErr) {
-        dbStatus.error = dbErr.message.slice(0, 80);
-      }
-      
-      // Aktif session bilgisi
-      let sessions = [];
-      if (runtime.manager) {
-        try {
-          sessions = Array.from(runtime.manager.sessions?.entries?.() || []).map(([id, sock]) => ({
-            id,
-            connected: !!(sock?.user?.id),
-            jid: sock?.user?.id || null,
-          }));
-        } catch (_) {}
-      }
-      
-      // Komut sayısı
-      let commandCount = 0;
-      try {
-        const { commands } = require('./main');
-        commandCount = commands.length;
-      } catch (_) {}
-      
-      res.json({
-        status: "ok",
-        bot: "Lades-Pro-MD",
-        version: config.VERSION || "1.0.0",
-        uptime,
-        memory: {
-          heap: Math.round(mem.heapUsed / 1024 / 1024) + "MB",
-          rss: Math.round(mem.rss / 1024 / 1024) + "MB",
-          external: Math.round(mem.external / 1024 / 1024) + "MB",
-          heapTotal: Math.round(mem.heapTotal / 1024 / 1024) + "MB",
-        },
-        database: dbStatus,
-        sessions,
-        commands: commandCount,
-        metrics: {
-          messages: runtime.metrics?.messages || 0,
-          commands: runtime.metrics?.commands || 0,
-          errors: runtime.metrics?.errors || 0,
-          activeUsers: runtime.metrics?.users?.size || 0,
-          activeGroups: runtime.metrics?.groups?.size || 0,
-        },
-        platform: config.PLATFORM || process.platform,
-        nodeVersion: process.version,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (err) {
-      res.status(500).json({ status: "error", error: err.message });
-    }
+  // Health check endpoint
+  app.get('/health', (req, res) => {
+    const mem = process.memoryUsage();
+    res.json({
+      status: "ok", 
+      bot: "Lades-Pro-MD",
+      uptime: Math.floor((Date.now() - runtime.startTime) / 1000),
+      memory: Math.round(mem.heapUsed / 1024 / 1024) + "MB"
+    });
   });
 
   // Serve static files with caching
@@ -253,7 +194,6 @@ async function startSessionCleanup() {
   try {
     await checkSingleInstance();
     await initializeDatabase();
-    await loadConfigFromDb(); // Load settings from DB (MODE, PREFIX, etc.)
     logger.info("Bot is initializing...");
     await startSessionCleanup();
     // startKeepAlive(); // Still disabled to avoid port conflict, but optimized for when needed
