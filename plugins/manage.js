@@ -29,8 +29,6 @@ function checkLinks(links, allowedWords) {
   }
   return testArray.includes(false);
 }
-const { getString } = require("./utils/lang");
-const Lang = getString("group");
 const { Module } = require("../main");
 const {
   antilinkConfig,
@@ -636,7 +634,7 @@ Module({
       });
       if (match[1] === "aç") {
         if (!message.isBotAdmin)
-          return await message.sendReply(Lang.NEED_ADMIN);
+          return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
         await antibot.set(message.jid);
       }
       if (match[1] === "kapat") {
@@ -676,7 +674,7 @@ Module({
       });
       if (match[1] === "aç") {
         if (!message.isBotAdmin)
-          return await message.sendReply(Lang.NEED_ADMIN);
+          return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
         await antispam.set(message.jid);
       }
       if (match[1] === "kapat") {
@@ -831,7 +829,7 @@ Module({
       switch (command) {
         case "aç":
           if (!message.isBotAdmin) {
-            return await message.sendReply(Lang.NEED_ADMIN);
+            return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
           }
 
           if (!config) {
@@ -873,7 +871,7 @@ Module({
           }
 
           if (!message.isBotAdmin) {
-            return await message.sendReply(Lang.NEED_ADMIN);
+            return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
           }
 
           if (!config) {
@@ -1077,7 +1075,7 @@ Module({
       if (match[1].includes("warn")) {
         if (match[1].endsWith("aç")) {
           if (!(await isAdmin(message)))
-            return await message.sendReply(Lang.NEED_ADMIN);
+            return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
           if (!antiwordWarn.includes(message.jid)) {
             antiwordWarn.push(message.jid);
             await setVar("ANTIWORD_WARN", antiwordWarn.join(","), false);
@@ -1087,7 +1085,7 @@ Module({
         }
         if (match[1].endsWith("kapat")) {
           if (!(await isAdmin(message)))
-            return await message.sendReply(Lang.NEED_ADMIN);
+            return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
           if (antiwordWarn.includes(message.jid)) {
             await message.sendReply(`_❌ Kelime uyarı sistemi kapatıldı!_`);
             return await setVar(
@@ -1100,7 +1098,7 @@ Module({
       }
       if (match[1] === "aç") {
         if (!await isAdmin(message))
-          return await message.sendReply(Lang.NEED_ADMIN);
+          return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
         await antiword.set(message.jid);
       }
       if (match[1] === "kapat") {
@@ -1852,7 +1850,7 @@ Module({
       if (!message.isGroup) return await message.sendReply("⚠️ _*Bu komut sadece gruplarda kullanılabilir!*_");
 
       const adminCheck = await isAdmin(message);
-      if (!adminCheck) return await message.sendReply(Lang.NEED_ADMIN);
+      if (!adminCheck) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
 
       const input = match[1] ? match[1].toLowerCase().trim() : "";
 

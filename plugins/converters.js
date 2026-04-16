@@ -62,9 +62,6 @@ const getFileType = async (buffer) => {
 };
 let MODE = config.MODE,
   STICKER_DATA = config.STICKER_DATA;
-const { getString } = require("./utils/lang");
-const Lang = getString("converters");
-
 Module({
   pattern: "görselara ?(.*)",
   fromMe: false,
@@ -160,7 +157,7 @@ Module({
 },
   async (message, match) => {
     if (message.reply_message === false)
-      return await message.send(Lang.STICKER_NEED_REPLY);
+      return await message.send("❗️ *Bir fotoğraf veya videoya yanıt veriniz!*");
 
     const exif = {
       packname: message.pushName || message.senderName || "Lades-Pro",
@@ -240,7 +237,7 @@ Module({
         !message.reply_message.document &&
         !message.reply_message.album)
     )
-      return await message.sendReply(Lang.MP3_NEED_REPLY);
+      return await message.sendReply("❗️ *Bir videoya veya şarkıya yanıt vermelisiniz!*");
 
     // handle album
     if (message.reply_message.album) {
@@ -303,7 +300,7 @@ Module({
 },
   async (message, match) => {
     if (message.reply_message === false)
-      return await message.sendReply(Lang.MP3_NEED_REPLY);
+      return await message.sendReply("❗️ *Bir videoya veya şarkıya yanıt vermelisiniz!*");
 
     // handle album
     if (message.reply_message.album) {
@@ -378,7 +375,7 @@ Module({
 },
   async (message, match) => {
     if (message.reply_message === false)
-      return await message.sendReply(Lang.MP3_NEED_REPLY);
+      return await message.sendReply("❗️ *Bir videoya veya şarkıya yanıt vermelisiniz!*");
 
     // handle album
     if (message.reply_message.album) {
@@ -453,7 +450,7 @@ Module({
 },
   async (message, match) => {
     if (message.reply_message === false)
-      return await message.sendReply(Lang.BASS_NEED_REPLY);
+      return await message.sendReply("❗️ *Bir ses dosyasına yanıtlayarak yazınız!*");
 
     // handle album
     if (message.reply_message.album) {
@@ -501,7 +498,7 @@ Module({
 },
   async (message, match) => {
     if (message.reply_message === false)
-      return await message.send(Lang.PHOTO_NEED_REPLY);
+      return await message.send("❗️ *Bir Çıkartmaya yanıt vermelisiniz!*");
 
     try {
       const savedFile = await message.reply_message.download();
@@ -555,7 +552,7 @@ Module({
   use: "medya",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
 
     const query = match[1] || message.reply_message?.text;
     if (!query) {
@@ -664,7 +661,7 @@ Module({
       });
     } catch (error) {
       console.error("TTS Hatası:", error);
-      await message.sendReply("_" + Lang.TTS_ERROR + "_");
+      await message.sendReply("_" + "⚠️ ```Hata! Yazdığınız cümlenin konuşma sentezi yapılamadı!```" + "_");
     }
   }
 );

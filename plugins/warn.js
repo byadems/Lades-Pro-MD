@@ -1,6 +1,4 @@
 const { Module } = require("../main");
-const { getString } = require("./utils/lang");
-const Lang = getString("group");
 const config = require("../config");
 const { ADMIN_ACCESS, HANDLER_PREFIX, WARN, SUDO } = config;
 const {
@@ -50,7 +48,7 @@ Module({
 
     const userIsAdmin = await isAdmin(message);
     if (!userIsAdmin)
-      return await message.sendReply(Lang.NEED_ADMIN);
+      return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
 
     const botIsAdmin = await isAdmin(message);
     if (!botIsAdmin) {
@@ -250,7 +248,7 @@ Module({
 
     const userIsAdmin = await isAdmin(message);
     if (!userIsAdmin)
-      return await message.sendReply(Lang.NEED_ADMIN);
+      return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
 
     let targetUser = message.mention?.[0] || message.reply_message?.jid || message.sender;
 

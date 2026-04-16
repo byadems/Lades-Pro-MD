@@ -35,11 +35,11 @@ Module({
   pattern: "ekranfoto ?(.*)",
   fromMe: false,
   desc: "Bir web sitesinin ekran görüntüsünü alır.",
-  usage: ".ss https://google.com",
+  usage: ".ekranfoto https://google.com",
   use: "araçlar",
 }, async (message, match) => {
   let url = (match[1] || "").trim();
-  if (!url) return await message.sendReply("_URL girin:_ `.ss https://google.com`");
+  if (!url) return await message.sendReply("_URL girin:_ `.ekranfoto https://google.com`");
   if (!url.startsWith("http")) url = "https://" + url;
 
   try {
@@ -101,72 +101,6 @@ Module({
 });
 
 // ══════════════════════════════════════════════════════
-
-
-// ══════════════════════════════════════════════════════
-// Google Görsel Arama
-// ══════════════════════════════════════════════════════
-Module({
-  pattern: "(?:googlegorsel|gimg) ?(.*)",
-  fromMe: false,
-  desc: "Google'da görsel arar.",
-  usage: ".gimg manzara",
-  use: "arama",
-}, async (message, match) => {
-  const query = (match[1] || "").trim();
-  if (!query) return await message.sendReply("_Arama terimi girin:_ `.gimg manzara`");
-
-  try {
-    const data = await siputGet("/api/s/googleimg", { query });
-    const results = data.data || [];
-    if (results.length === 0) return await message.sendReply("_Sonuç bulunamadı._");
-
-    const pick = results[Math.floor(Math.random() * Math.min(results.length, 10))];
-    const imgUrl = pick.url || pick.image || pick;
-    if (typeof imgUrl === "string") {
-      await message.client.sendMessage(message.jid, {
-        image: { url: imgUrl },
-        caption: `*Google Görseller* | ${query}`
-      }, { quoted: message.data });
-    } else {
-      await message.sendReply("_Görsel alınamadı._");
-    }
-  } catch (e) {
-    await message.sendReply(`_Google görsel araması başarısız:_ ${e.message}`);
-  }
-});
-
-// ══════════════════════════════════════════════════════
-// Spotify Arama
-// ══════════════════════════════════════════════════════
-Module({
-  pattern: "(?:spotifyara|sarama) ?(.*)",
-  fromMe: false,
-  desc: "Spotify'da şarkı arar.",
-  usage: ".spotifyara tarkan",
-  use: "arama",
-}, async (message, match) => {
-  const query = (match[1] || "").trim();
-  if (!query) return await message.sendReply("_Arama terimi girin:_ `.spotifyara tarkan`");
-
-  try {
-    const data = await siputGet("/api/s/spotify", { query });
-    const results = data.data || [];
-    if (results.length === 0) return await message.sendReply("_Sonuç bulunamadı._");
-
-    let text = `*Spotify Arama* | ${query}\n\n`;
-    results.slice(0, 10).forEach((r, i) => {
-      text += `*${i + 1}.* ${r.title || r.name || "?"}\n`;
-      if (r.artist || r.artists) text += `   Sanatçı: ${r.artist || r.artists}\n`;
-      if (r.url || r.link) text += `   ${r.url || r.link}\n`;
-      text += "\n";
-    });
-    await message.sendReply(text.trim());
-  } catch (e) {
-    await message.sendReply(`_Spotify araması başarısız:_ ${e.message}`);
-  }
-});
-
 // ══════════════════════════════════════════════════════
 // SoundCloud Arama
 // ══════════════════════════════════════════════════════
@@ -277,14 +211,14 @@ Module({
 // Çeviri
 // ══════════════════════════════════════════════════════
 Module({
-  pattern: "(?:cevir|tercume) ?(.*)",
+  pattern: "çevir ?(.*)",
   fromMe: false,
   desc: "Metni belirtilen dile çevirir.",
-  usage: ".cevir tr Hello World | .cevir en Merhaba Dünya",
+  usage: ".çevir tr Hello World | .çevir en Merhaba Dünya",
   use: "araçlar",
 }, async (message, match) => {
   const input = (match[1] || "").trim();
-  if (!input) return await message.sendReply("_Kullanım:_ `.cevir tr Hello World`");
+  if (!input) return await message.sendReply("_Kullanım:_ `.çevir tr Hello World`");
 
   const parts = input.split(" ");
   const targetLang = parts[0];

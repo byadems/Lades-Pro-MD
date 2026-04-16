@@ -3,11 +3,7 @@ const moment = require('moment-timezone');
 
 moment.locale('tr');
 
-const yks = 'YKS (TYT/AYT/YDT) sınavlarına kalan süreyi veya tercih tarihlerini gösterir.';
-const msu = 'MSÜ sınavına kalan süreyi gösterir.';
-const kpss = 'KPSS (Lisans/Önlisans/Ortaöğretim/E-KPSS) sınavlarına kalan süreyi gösterir.';
-const okul = 'Okulların kapanmasına, ara tatillere veya yeni döneme kalan süreyi gösterir.';
-const oruc = 'Ramazan ayının başlangıcına veya bitişine kalan süreyi gösterir.';
+
 
 function calculateTime(futureTime) {
   const future = moment(futureTime, 'YYYY-MM-DD HH:mm:ss');
@@ -47,7 +43,7 @@ function findClosestDate(dates) {
 Module({
   pattern: 'ykssayaç',
   fromMe: false,
-  desc: yks,
+  desc: 'YKS (TYT/AYT/YDT) sınavlarına kalan süreyi veya tercih tarihlerini gösterir.',
   usage: '.ykssayaç',
   use: 'araçlar',
 },
@@ -94,7 +90,7 @@ Module({
 Module({
   pattern: 'kpsssayaç',
   fromMe: false,
-  desc: kpss,
+  desc: 'KPSS (Lisans/Önlisans/Ortaöğretim/E-KPSS) sınavlarına kalan süreyi gösterir.',
   usage: '.kpsssayaç',
   use: 'araçlar',
 },
@@ -112,7 +108,7 @@ Module({
 Module({
   pattern: 'msüsayaç',
   fromMe: false,
-  desc: msu,
+  desc: 'MSÜ sınavına kalan süreyi gösterir.',
   usage: '.msüsayaç',
   use: 'araçlar',
 },
@@ -136,7 +132,7 @@ Module({
 Module({
   pattern: 'okulsayaç',
   fromMe: false,
-  desc: okul,
+  desc: 'Okulların kapanmasına, ara tatillere veya yeni döneme kalan süreyi gösterir.',
   usage: '.okulsayaç',
   use: 'araçlar',
 },
@@ -170,7 +166,7 @@ Module({
 Module({
   pattern: 'ramazansayaç',
   fromMe: false,
-  desc: oruc,
+  desc: 'Ramazan ayının başlangıcına veya bitişine kalan süreyi gösterir.',
   usage: '.ramazansayaç',
   use: 'araçlar',
 },

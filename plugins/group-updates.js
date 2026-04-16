@@ -8,8 +8,6 @@ const {
   goodbye,
   isAdmin,
 } = require("./utils");
-const { getString } = require("./utils/lang");
-const Lang = getString("group");
 const { automute, autounmute, stickcmd } = require("./utils/db/schedulers");
 const {
   parseWelcomeMessage,
@@ -158,7 +156,7 @@ Module({
         return await message.sendReply("*_⚠️ Yanlış format!_\n_.otosohbetkapat 22 00 (Saat 22:00 için)_\n_.otosohbetkapat 06 00 (Saat 06:00 için)_*"
         );
       const admin = await isAdmin(message);
-      if (!admin) return await message.sendReply(Lang.NEED_ADMIN);
+      if (!admin) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
       await automute.set(message.jid, match.match(/(\d+)/g)?.join(" "));
       await message.sendReply(
         `*_⏰ Grup ${tConvert(

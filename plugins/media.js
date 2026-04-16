@@ -8,7 +8,6 @@ const { getTempPath, getTempSubdir } = require("../core/helpers");
 
 const config = require("../config"),
   MODE = config.MODE;
-const { getString } = require("./utils/lang");
 const { avMix, circle, rotate, trim, uploadToImgbb, nx, nxTry, uploadToCatbox } = require("./utils");
 const nexray = require("./utils/nexray");
 const { censorBadWords } = require("./utils/censor");
@@ -33,8 +32,6 @@ async function findMusic(file) {
     });
   });
 }
-const Lang = getString("media");
-
 function safeParseErrorBody(data) {
   if (!data) return null;
   if (typeof data === "object") return data;
@@ -247,10 +244,10 @@ Module({
       !message.reply_message ||
       (!message.reply_message.video && !message.reply_message.audio)
     )
-      return await message.sendReply(Lang.TRIM_NEED_REPLY);
+      return await message.sendReply("❗️ *Geçersiz format!:*.\n*.trim 10,30*"_REPLY);
     if (!match[1] || !match[1].includes(","))
       return await message.sendReply(
-        message.reply_message.audio ? Lang.TRIM_NEED : Lang.TRIM_VIDEO_NEED
+        message.reply_message.audio ? "❗️ *Geçersiz format!:*.\n*.trim 10,30*" : "❗️ *Geçersiz format!*\n*.trim 5,10*\n*.trim 1:05,1:20*"
       );
     const parts = match[1].split(",");
     const start = parts[0]?.trim();
@@ -377,14 +374,14 @@ Module({
         !message.reply_message.audio &&
         !message.reply_message.video)
     )
-      return await message.send(Lang.AVMIX_NEED_FILES);
+      return await message.send("❗️ *Birleştirebilmek için bir sese ve videoya yanıt verin!*");
     if (message.reply_message.audio) {
       const savedFile = await message.reply_message.download();
       await fs.promises.writeFile(
         getTempPath("avmix/audio.mp3"),
         await fs.promises.readFile(savedFile)
       );
-      return await message.sendReply(Lang.AVMIX_AUDIO_ADDED);
+      return await message.sendReply("✅ *Birleştirilecek ses başarıyla veritabanına eklendi.*");
     }
     if (message.reply_message.video) {
       const savedFile = await message.reply_message.download();
@@ -392,7 +389,7 @@ Module({
         getTempPath("avmix/video.mp4"),
         await fs.promises.readFile(savedFile)
       );
-      return await message.sendReply(Lang.AVMIX_VIDEO_ADDED);
+      return await message.sendReply("✅ *Birleştirilecek video başarıyla veritabanına eklendi.*");
     }
     if (files.length >= 2 || !message.reply_message) {
       let video = await avMix(

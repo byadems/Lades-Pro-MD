@@ -1,6 +1,4 @@
 const { Module } = require("../main");
-const { getString } = require("./utils/lang");
-const Lang = getString("group");
 const config = require("../config");
 const { welcome, goodbye, censorBadWords, isAdmin } = require("./utils");
 const {
@@ -18,7 +16,7 @@ Module({
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
 
     const input = match[1]?.toLowerCase();
     if (!input) {
@@ -109,7 +107,7 @@ Module({
   async (message, match) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
 
     const input = match[1]?.toLowerCase();
     if (!input) {
@@ -158,7 +156,7 @@ Module({
   async (message) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
 
     const welcomeData = await welcome.get(message.jid);
     if (!welcomeData || !welcomeData.enabled) return await message.sendReply("_❌ Karşılama kapalı veya ayarlanmamış!_");
@@ -181,7 +179,7 @@ Module({
   async (message) => {
     if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
 
     const goodbyeData = await goodbye.get(message.jid);
     if (!goodbyeData || !goodbyeData.enabled) return await message.sendReply("_❌ Veda kapalı veya ayarlanmamış!_");

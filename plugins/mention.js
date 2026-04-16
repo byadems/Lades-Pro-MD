@@ -54,19 +54,19 @@ function isSudoUser(jid) {
 }
 
 Module({
-    pattern: "bahsetme ?(.*)",
-    fromMe: false,
-    desc: "Biri sizi etiketlediğinde botun vereceği otomatik yanıtı ayarlamanıza, görüntülemenize veya silmenize olanak tanır.",
-    use: "araçlar",
-    usage: ".bahsetme [mesaj/getir/sil/yardım]",
-  },
+  pattern: "bahsetme ?(.*)",
+  fromMe: false,
+  desc: "Biri sizi etiketlediğinde botun vereceği otomatik yanıtı ayarlamanıza, görüntülemenize veya silmenize olanak tanır.",
+  use: "araçlar",
+  usage: ".bahsetme [mesaj/getir/sil/yardım]",
+},
   async (message, match) => {
     const args = match[1]?.trim().split(" ");
     const subcommand = args?.[0]?.toLowerCase();
     const input = args?.slice(1).join(" ");
 
     if (!subcommand) {
-      return await message.sendReply(`Lütfen bir alt komut belirtin!\n\n*Mevcut komutlar:*\n• \`${handler}mention set\` - Etiket yanıtını ayarla (mesajı yanıtla veya metin ekle)\n• \`${handler}mention get\` - Mevcut etiket yanıtını görüntüle\n• \`${handler}mention del\` - Etiket yanıtını sil\n• \`${handler}mention help\` - Ayrıntılı yardımı göster`
+      return await message.sendReply(`Lütfen bir alt komut belirtin!\n\n*Mevcut komutlar:*\n• \`${handler}bahsetme mesaj\` - Etiket yanıtını ayarla (mesajı yanıtla veya metin ekle)\n• \`${handler}bahsetme getir\` - Mevcut etiket yanıtını görüntüle\n• \`${handler}bahsetme sil\` - Etiket yanıtını sil\n• \`${handler}bahsetme yardım\` - Ayrıntılı yardımı göster`
       );
     }
 
@@ -220,16 +220,16 @@ _ℹ️ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
         return await message.sendReply(helpText);
 
       default:
-        return await message.sendReply(`✨ Bilinmeyen alt komut: \`${subcommand}\`\n\n*Mevcut komutlar:*\n• \`${handler}bahsetme mesaj\` - Etiket yanıtını ayarla\n• \`${handler}bahsetme getir\` - Mevcut etiket yanıtını görüntüle\n• \`${handler}bahsetme sil\` - Etiket yanıtını sil\n• \`${handler}bahsetme yardım\` - Yardımı göster`
+        return await message.sendReply(`❌ Bilinmeyen alt komut: \`${subcommand}\`\n\n*Mevcut komutlar:*\n• \`${handler}bahsetme mesaj\` - Etiket yanıtını ayarla\n• \`${handler}bahsetme getir\` - Mevcut etiket yanıtını görüntüle\n• \`${handler}bahsetme sil\` - Etiket yanıtını sil\n• \`${handler}bahsetme yardım\` - Yardımı göster`
         );
     }
   }
 );
 
 Module({
-    on: "text",
-    fromMe: false,
-  },
+  on: "text",
+  fromMe: false,
+},
   async (message) => {
     try {
       if (

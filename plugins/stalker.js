@@ -203,7 +203,7 @@ Module({
   pattern: "freefire ?(.*)",
   fromMe: false,
   desc: "Free Fire oyuncusunun bilgilerini gösterir.",
-  usage: ".freefire [oyuncul numarası]",
+  usage: ".freefire [oyuncu numarası]",
   use: "oyun",
 },
   async (message, match) => {
@@ -305,7 +305,7 @@ Module({
   pattern: "mlbb ?(.*)",
   fromMe: false,
   desc: "Mobile Legends oyuncusunun bilgilerini gösterir.",
-  usage: ".mlbb [oyuncul ID] [zone ID]",
+  usage: ".mlbb [oyuncu ID] [zone ID]",
   use: "oyun",
 },
   async (message, match) => {

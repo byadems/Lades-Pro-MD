@@ -1,18 +1,15 @@
 const { Module } = require("../main");
 const { mentionjid, nx, trToEn, uploadToCatbox } = require("./utils");
-const { getString } = require("./utils/lang");
 const config = require("../config");
-
-const Lang = getString("group");
 
 const getTargetUser = (message) => message.mention?.[0] || message.reply_message?.jid;
 const randomPercent = () => Math.floor(Math.random() * 100) + 1;
 
 async function runSingleRateCommand(message, { introText, resultText }) {
-  if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+  if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
 
   const user = getTargetUser(message);
-  if (!user) return await message.sendReply(Lang.NEED_USER);
+  if (!user) return await message.sendReply("❗️ *Bana bir kullanıcı verin!*");
 
   await message.client.sendMessage(message.jid, {
     text: `${mentionjid(user)} ${introText}`,
@@ -105,7 +102,7 @@ Module({
   use: "oyun",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
 
     const percentage = Math.floor(Math.random() * 101);
     const mentioned = message.mention || [];

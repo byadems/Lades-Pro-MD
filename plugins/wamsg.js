@@ -1,6 +1,4 @@
 const { Module } = require("../main");
-const { getString } = require("./utils/lang");
-const Lang = getString("group");
 const { censorBadWords, isAdmin } = require("./utils");
 const { ADMIN_ACCESS, MODE } = require("../config");
 Module({
@@ -216,12 +214,12 @@ Module({
       }
       if (!m.quoted.key.fromMe) {
         var admin = await isAdmin(m);
-        if (!admin) return await m.sendReply(Lang.NEED_ADMIN);
+        if (!admin) return await m.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
         await m.client.sendMessage(m.jid, { delete: m.quoted.key });
         return await m.sendReply("_✅ Mesaj yönetici yetkisiyle silindi!_");
       }
     } else {
-      await m.sendReply(Lang.NEED_ADMIN);
+      await m.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     }
   }
 );

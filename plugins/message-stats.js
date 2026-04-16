@@ -1,6 +1,4 @@
 const { mentionjid, isAdmin } = require("./utils");
-const { getString } = require("./utils/lang");
-const Lang = getString("group");
 const { ADMIN_ACCESS } = require("../config");
 const { Module } = require("../main");
 const {
@@ -175,7 +173,7 @@ Module({
       }
       const admin = await isAdmin(message);
       if (!admin) {
-        return await message.sendReply(Lang.NEED_ADMIN);
+        return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
       }
       if (!match[1]?.trim()) {
         return await message.sendReply(

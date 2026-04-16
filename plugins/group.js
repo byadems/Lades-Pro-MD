@@ -1,5 +1,3 @@
-const { getString } = require("./utils/lang");
-const Lang = getString("group");
 const { loadBaileys } = require("../core/helpers");
 let delay, generateWAMessageFromContent, proto;
 
@@ -75,15 +73,15 @@ Module({
 Module({
   pattern: "ban ?(.*)",
   fromMe: false,
-  desc: Lang.KICK_DESC,
+  desc: "Gruptan kişi banlar. Yanıt verin ya da komutu yazdıktan sonra kişiyi etiketleyin.",
   use: "grup",
   usage:
     ".ban @etiket veya yanıtla\n.ban herkes (herkesi at)\n.ban 90 (90 ile başlayan numaraları atar)",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     const botId = message.client.user.id.split(":")[0] + "@s.whatsapp.net";
     const botIsAdmin = await isAdmin(message, botId);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
@@ -128,7 +126,7 @@ Module({
       }
     }
     let user = message.mention?.[0] || message.reply_message?.jid;
-    if (!user) return await message.sendReply(Lang.NEED_USER);
+    if (!user) return await message.sendReply("❗️ *Bana bir kullanıcı verin!*");
 
     if (user.includes("@lid")) {
       try {
@@ -142,7 +140,7 @@ Module({
       return await message.sendReply("❌ _Üzgünüm, daha kendimi çıkaracak kadar delirmedim. 😉_");
     }
     await message.client.sendMessage(message.jid, {
-      text: mentionjid(user) + Lang.KICKED,
+      text: mentionjid(user) + "*başarıyla çıkarıldı!* ✅",
       mentions: [user],
     });
     await message.client.groupParticipantsUpdate(
@@ -156,18 +154,18 @@ Module({
 Module({
   pattern: "at ?(.*)",
   fromMe: false,
-  desc: Lang.KICK_DESC,
+  desc: "Gruptan kişi banlar. Yanıt verin ya da komutu yazdıktan sonra kişiyi etiketleyin.",
   usage: ".at [@etiket/yanıtla]",
   use: "grup",
 },
   async (message, match) => {
     if (!message.isGroup) {
-      return await message.sendReply(Lang.GROUP_COMMAND);
+      return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     }
 
     const userIsAdmin = await isAdmin(message);
     if (!userIsAdmin) {
-      return await message.sendReply(Lang.NEED_ADMIN);
+      return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     }
 
     const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
@@ -252,7 +250,7 @@ Module({
         }
 
         await message.client.sendMessage(message.jid, {
-          text: mentionjid(user) + Lang.KICKED,
+          text: mentionjid(user) + "*başarıyla çıkarıldı!* ✅",
           mentions: [user],
         });
         await message.client.groupParticipantsUpdate(message.jid, [user], "remove");
@@ -274,21 +272,21 @@ Module({
 /*Module({
     pattern: "ekle ?(.*)",
     fromMe: true,
-    desc: Lang.ADD_DESC,
+    desc: "Gruba kişi ekler.",
     warn: "Numaranız banlanabilir, dikkatli kullanın",
     use: "grup",
     usage: ".ekle 90532xxxxxxx",
   },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
     const botIsAdmin = await isAdmin(message, botId);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
     
     var init = match[1] || message.reply_message?.jid.split("@")[0];
-    if (!init) return await message.sendReply(Lang.NEED_USER);
+    if (!init) return await message.sendReply("❗️ *Bana bir kullanıcı verin!*");
     var initt = init.split(" ").join("");
     var user = initt
       .replace(/\+/g, "")
@@ -307,20 +305,20 @@ Module({
 Module({
   pattern: "yetkiver ?(.*)",
   fromMe: false,
-  desc: Lang.PROMOTE_DESC,
+  desc: "Belirtilen kişiyi yönetici yapar.",
   use: "grup",
   usage: ".yetkiver [@etiket/yanıtla]",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
     const botIsAdmin = await isAdmin(message, botId);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
     let user = message.mention?.[0] || message.reply_message?.jid;
-    if (!user) return await message.sendReply(Lang.NEED_USER);
+    if (!user) return await message.sendReply("❗️ *Bana bir kullanıcı verin!*");
 
     if (user.includes("@lid")) {
       try {
@@ -331,7 +329,7 @@ Module({
     }
 
     await message.client.sendMessage(message.jid, {
-      text: mentionjid(user) + Lang.PROMOTED,
+      text: mentionjid(user) + "✅ ```, Yönetici yapıldı!```",
       mentions: [user],
     });
     await message.client.groupParticipantsUpdate(
@@ -349,9 +347,9 @@ Module({
   usage: ".istekler (bekleyenleri gör)\n.istekler onayla hepsi (tüm istekleri onayla)\n.istekler reddet hepsi (tüm istekleri reddet)\n.istekler onayla 905xxx (belirli bir numarayı onayla)",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
     const botIsAdmin = await isAdmin(message, botId);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
@@ -473,7 +471,7 @@ Module({
 Module({
   pattern: "ayrıl",
   fromMe: true,
-  desc: Lang.LEAVE_DESC,
+  desc: "Gruptan çıkmayı sağlar.",
   usage: ".ayrıl (mevcut gruptan çıkar)",
   use: "grup",
 },
@@ -555,20 +553,20 @@ Module({
 Module({
   pattern: "yetkial ?(.*)",
   fromMe: false,
-  desc: Lang.DEMOTE_DESC,
+  desc: "Belirtilen yöneticinin yetkisini düşürür.",
   use: "grup",
   usage: ".yetkial [@etiket/yanıtla]",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
     const botIsAdmin = await isAdmin(message, botId);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
     let user = message.mention?.[0] || message.reply_message?.jid;
-    if (!user) return await message.sendReply(Lang.NEED_USER);
+    if (!user) return await message.sendReply("❗️ *Bana bir kullanıcı verin!*");
 
     if (user.includes("@lid")) {
       try {
@@ -579,7 +577,7 @@ Module({
     }
 
     await message.client.sendMessage(message.jid, {
-      text: mentionjid(user) + Lang.DEMOTED,
+      text: mentionjid(user) + "⛔ ```, Yetkisi Düşürüldü!```",
       mentions: [user],
     });
     await message.client.groupParticipantsUpdate(
@@ -592,15 +590,15 @@ Module({
 Module({
   pattern: "sohbetkapat ?(.*)",
   fromMe: false,
-  desc: Lang.MUTE_DESC,
+  desc: "Grup sohbetini kapatır. Yalnızca yöneticiler mesaj gönderebilir.",
   use: "grup",
   usage:
     ".sohbetkapat (grubu süresiz olarak sessize alır)\n.sohbetkapat 1s (1 saat sessize alır)\n.sohbetkapat 5d (5 dakika sessize alır)",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
     const botIsAdmin = await isAdmin(message, botId);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
@@ -625,35 +623,35 @@ Module({
         message.jid,
         "not_announcement"
       );
-      await message.send(Lang.UNMUTED);
+      await message.send("📢 ```Grup sohbeti açıldı!```");
     }
     await message.client.groupSettingUpdate(message.jid, "announcement");
-    await message.send(Lang.MUTED);
+    await message.send("⚠️ ```Grup sohbeti kapatıldı!```");
   }
 );
 Module({
   pattern: "sohbetaç",
   fromMe: false,
-  desc: Lang.UNMUTE_DESC,
+  desc: "Grup sohbetini açar. Herkes mesaj gönderebilir.",
   use: "grup",
   usage: ".sohbetaç",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
     const botIsAdmin = await isAdmin(message, botId);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
     await message.client.groupSettingUpdate(message.jid, "not_announcement");
-    await message.send(Lang.UNMUTED);
+    await message.send("📢 ```Grup sohbeti açıldı!```");
   }
 );
 Module({
   pattern: "jid",
   fromMe: false,
-  desc: Lang.JID_DESC,
+  desc: "Belirtilen kişinin veya sohbetin JID adres bilgisini verir.",
   use: "grup",
   usage: ".jid (mevcut sohbet kimliğini alır)\n.jid (kullanıcı kimliğini almak için yanıtla)",
 },
@@ -664,7 +662,7 @@ Module({
         const jid = message.reply_message?.jid || message.jid;
         await message.sendReply(jid);
       } else {
-        await message.sendReply(Lang.NEED_ADMIN);
+        await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
       }
     } else if (message.isChannel) {
       // Kanal bağlamı: kanal JID'ini doğrudan döndür (Admin gönderdiği için yetki kontrolü atlanır)
@@ -679,13 +677,13 @@ Module({
   pattern: 'davet',
   fromMe: true,
   use: 'grup',
-  desc: Lang.INVITE_DESC,
+  desc: "Grubun davet linkini getirir.",
   usage: ".davet"
 },
   (async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND)
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*")
     const userIsAdmin = await isAdmin(message, message.sender);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
     const botIsAdmin = await isAdmin(message, botId);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
@@ -700,19 +698,19 @@ Module({
   pattern: "davetyenile",
   fromMe: false,
   use: "grup",
-  desc: Lang.REVOKE_DESC,
+  desc: "Grubun davet linkini sıfırlar.",
   usage: ".davetyenile",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
     const botIsAdmin = await isAdmin(message, botId);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
 
     await message.client.groupRevokeInvite(message.jid);
-    await message.send(Lang.REVOKED);
+    await message.send("♻ ```Grup davet linki başarıyla sıfırlandı!```");
   }
 );
 Module({
@@ -723,9 +721,9 @@ Module({
   usage: ".gayaryt (grup ayarlarını kilitler)",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
     const botIsAdmin = await isAdmin(message, botId);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
@@ -741,9 +739,9 @@ Module({
   usage: ".gayarherkes (grup ayarlarının kilidini açar)",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
     const botIsAdmin = await isAdmin(message, botId);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
@@ -759,9 +757,9 @@ Module({
   usage: ".gadı [yeni_isim]",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
     const botIsAdmin = await isAdmin(message, botId);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
@@ -792,9 +790,9 @@ Module({
   usage: ".gaçıklama [yeni_açıklama]",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
     const botIsAdmin = await isAdmin(message, botId);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
@@ -823,9 +821,9 @@ Module({
   usage: ".common [jid1,jid2] | .common çıkar [jid]",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
     const botIsAdmin = await isAdmin(message, botId);
     if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
@@ -893,9 +891,9 @@ Module({
   usage: ".diff [jid1,jid2]",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
 
     if (!match[1])
       return await message.sendReply("_*⚠️ Jid'ler gerekli*_\n_*.diff jid1,jid2*_");
@@ -916,13 +914,13 @@ Module({
 Module({
   pattern: "tag ?(.*)",
   fromMe: false,
-  desc: Lang.TAGALL_DESC,
+  desc: "Gruptaki herkesi etiketler. Mesaja gömülü etiket atmak için mesajı yanıtlayın ya da kelime girin.",
   use: "grup",
   usage:
     ".tag metin\n.tag (mesaja yanıtla)\n.tagherkes (herkesi etiketle)\n.tagyt (sadece yöneticileri etiketle)\n.tag 120363355307899193@g.us (belirli grupta etiketle)",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const userIsAdmin = await isAdmin(message);
     if (!userIsAdmin && !message.fromOwner) return;
 
@@ -1678,9 +1676,9 @@ Module({
   usage: ".gfoto [görsel/yanıtla]",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
     const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
     const botIsAdmin = await isAdmin(message, botId);
     if (!botIsAdmin) return await message.sendReply("❌ _Bu işlemi yapabilmem için yönetici olmam gerekiyor!_");
@@ -1803,8 +1801,8 @@ Module({
 },
   async (message, match) => {
     const userIsAdmin = await isAdmin(message, message.sender);
-    if (!userIsAdmin && !message.fromOwner) return await message.sendReply(Lang.NEED_ADMIN);
-    if (!message.isGroup) return await message.sendReply(Lang.GROUP_COMMAND);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
     const target = message.jid;
     const group = await message.client.groupMetadata(target);
     const allMembers = group.participants.map(participant => participant.id);

@@ -4,16 +4,16 @@ const path = require("path");
 const { logger } = require("../config");
 
 Module({
-  pattern: "yapayzeka ?(.*)",
+  pattern: "yzkodla ?(.*)",
   fromMe: true,
   desc: "Yapay zeka ile yeni bot komutları üretir ve kaydeder.",
-  usage: ".yapayzeka [komut_adı] | [kod]",
+  usage: ".yzkodla [komut_adı] | [kod]",
   use: "yönetim",
 },
 async (message, match) => {
   const input = match[1];
   if (!input || !input.includes("|")) {
-    return await message.sendReply("_⚠️ Lütfen formatı takip edin: .yapayzeka komut_adı | kod_");
+    return await message.sendReply("_⚠️ Lütfen formatı takip edin: .yzkodla komut_adı | kod_");
   }
 
   const [name, ...codeParts] = input.split("|");
