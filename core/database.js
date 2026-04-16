@@ -8,8 +8,23 @@ const { logger, ...config } = require("../config");
 // ─────────────────────────────────────────────────────────
 const DATABASE_URL = config.DATABASE_URL;
 
+// ─────────────────────────────────────────────────────────
+//  Veritabanı Platform Tespiti
+// ─────────────────────────────────────────────────────────
+const isMongoDB = DATABASE_URL && (DATABASE_URL.startsWith('mongodb://') || DATABASE_URL.startsWith('mongodb+srv://'));
+const isPostgres = DATABASE_URL && (DATABASE_URL.startsWith('postgres://') || DATABASE_URL.startsWith('postgresql://'));
+
+if (isMongoDB) {
+  logger.warn("[DB] MongoDB URL tespit edildi. Sequelize ORM MongoDB'yi desteklemez.");
+  logger.warn("[DB] MongoDB için: 'npm install mongoose' çalıştırın ve DATABASE_URL='mongodb+srv://...' ayarlayın.");
+  logger.warn("[DB] Önerilen alternatif: Neon/Supabase/Render üzerinde ÜCRETSİZ PostgreSQL kullanın.");
+  logger.warn("[DB] PostgreSQL URL formatı: postgresql://kullanici:sifre@host:5432/db");
+  logger.warn("[DB] SQLite'a geri dönülüyor (yerel geliştirme modu)...");
+}
+
 let sequelize;
-if (DATABASE_URL && DATABASE_URL.startsWith("postgres")) {
+if (isPostgres && !isMongoDB) {
+  // PostgreSQL: Neon, Supabase, Render Database, standart PostgreSQL
   sequelize = new Sequelize(DATABASE_URL, {
     dialect: "postgres",
     logging: false,
@@ -21,6 +36,7 @@ if (DATABASE_URL && DATABASE_URL.startsWith("postgres")) {
     },
     dialectOptions: {
       ssl: process.env.DB_SSL === "false" ? false : { require: true, rejectUnauthorized: false },
+      connectTimeout: 60000,
     },
     retry: {
       max: 5,
@@ -31,8 +47,9 @@ if (DATABASE_URL && DATABASE_URL.startsWith("postgres")) {
       ],
     },
   });
+  logger.info(`[DB] PostgreSQL bağlantısı hazırlanıyor (${DATABASE_URL.split('@')[1] || 'host gizli'})`);
 } else {
-  // Use local SQLite
+  // SQLite (varsayılan — yerel geliştirme ve MongoDB URL fallback)
   sequelize = new Sequelize({
     dialect: "sqlite",
     storage: path.join(__dirname, "../database.sqlite"),
@@ -48,6 +65,7 @@ if (DATABASE_URL && DATABASE_URL.startsWith("postgres")) {
       match: [/SQLITE_BUSY/],
     },
   });
+  if (!isMongoDB) logger.info("[DB] SQLite veritabanı kullanılıyor (database.sqlite)");
 }
 
 // ─────────────────────────────────────────────────────────
@@ -58,7 +76,8 @@ if (DATABASE_URL && DATABASE_URL.startsWith("postgres")) {
 const WhatsappSession = sequelize.define("WhatsappSession", {
   sessionId: { type: DataTypes.STRING(256), primaryKey: true, allowNull: false },
   sessionData: {
-    type: DataTypes.TEXT("long"),
+    // TEXT('long') MySQL'e özgü. PostgreSQL ve SQLite için düz TEXT kullan.
+    type: DataTypes.TEXT,
     allowNull: true,
   },
 }, { tableName: "whatsapp_sessions", timestamps: true });
@@ -130,7 +149,8 @@ const ExternalPlugin = sequelize.define("ExternalPlugin", {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   name: { type: DataTypes.STRING(128), allowNull: false, unique: true },
   url: { type: DataTypes.TEXT, allowNull: true },
-  code: { type: DataTypes.TEXT("long"), allowNull: true },
+  // TEXT('long') MySQL'e özgü. PostgreSQL ve SQLite için düz TEXT kullan.
+  code: { type: DataTypes.TEXT, allowNull: true },
   active: { type: DataTypes.BOOLEAN, defaultValue: true },
 }, { tableName: "external_plugins", timestamps: true });
 
@@ -139,7 +159,8 @@ const AiCommand = sequelize.define("AiCommand", {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   commandName: { type: DataTypes.STRING(64), allowNull: false },
   description: { type: DataTypes.TEXT, allowNull: true },
-  code: { type: DataTypes.TEXT("long"), allowNull: false },
+  // TEXT('long') MySQL'e özgü. PostgreSQL ve SQLite için düz TEXT kullan.
+  code: { type: DataTypes.TEXT, allowNull: false },
   active: { type: DataTypes.BOOLEAN, defaultValue: true },
   createdBy: { type: DataTypes.STRING(64), allowNull: true },
 }, { tableName: "ai_commands", timestamps: true });
@@ -305,6 +326,8 @@ const BotVariable = {
 
 module.exports = {
   sequelize,
+  isMongoDB,
+  isPostgres,
   WhatsappSession,
   BotConfig,
   BotVariable,

@@ -86,20 +86,14 @@ scheduler.register('metrics_batch_flush', async () => {
   metricsBatch.total_commands = 0;
 
   try {
+    // Dialect-agnostic ORM approach (works with SQLite, PostgreSQL, Neon, Supabase, Render)
     if (currentBatch.total_messages > 0) {
-      // Point 3: Optimized single-query increment using raw SQL
-      await sequelize.query(
-        "INSERT INTO bot_metrics ([key], value, createdAt, updatedAt) VALUES ('total_messages', ?, DATETIME('now'), DATETIME('now')) " +
-        "ON CONFLICT([key]) DO UPDATE SET value = value + excluded.value, updatedAt = DATETIME('now')",
-        { replacements: [currentBatch.total_messages], type: sequelize.QueryTypes.INSERT }
-      );
+      await BotMetric.findOrCreate({ where: { key: 'total_messages' }, defaults: { value: 0 } });
+      await BotMetric.increment('value', { by: currentBatch.total_messages, where: { key: 'total_messages' } });
     }
     if (currentBatch.total_commands > 0) {
-      await sequelize.query(
-        "INSERT INTO bot_metrics ([key], value, createdAt, updatedAt) VALUES ('total_commands', ?, DATETIME('now'), DATETIME('now')) " +
-        "ON CONFLICT([key]) DO UPDATE SET value = value + excluded.value, updatedAt = DATETIME('now')",
-        { replacements: [currentBatch.total_commands], type: sequelize.QueryTypes.INSERT }
-      );
+      await BotMetric.findOrCreate({ where: { key: 'total_commands' }, defaults: { value: 0 } });
+      await BotMetric.increment('value', { by: currentBatch.total_commands, where: { key: 'total_commands' } });
     }
   } catch (e) {
     logger.debug({ err: e.message }, "Metric batch flush failed");
@@ -165,20 +159,31 @@ scheduler.register('command_metrics_flush', async () => {
   runtime.commandStatsBatch.clear();
 
   try {
+    // Dialect-agnostic ORM approach (works with SQLite, PostgreSQL, Neon, Supabase, Render)
     for (const [key, stat] of currentBatch.entries()) {
-      // Point 3: Optimized CommandStat upsert with raw SQL moving average
-      await sequelize.query(
-        "INSERT INTO command_stats (pattern, runs, avgMs, status, lastRun, lastError, createdAt, updatedAt) " +
-        "VALUES (?, ?, ?, ?, DATETIME('now'), ?, DATETIME('now'), DATETIME('now')) " +
-        "ON CONFLICT(pattern) DO UPDATE SET " +
-        "avgMs = CAST(ROUND(((avgMs * runs) + (excluded.avgMs * excluded.runs)) / (runs + excluded.runs)) AS INTEGER), " +
-        "runs = runs + excluded.runs, " +
-        "status = excluded.status, " +
-        "lastRun = DATETIME('now'), " +
-        "lastError = COALESCE(excluded.lastError, lastError), " +
-        "updatedAt = DATETIME('now')",
-        { replacements: [key, stat.runs, stat.avgMs, stat.status, stat.lastError], type: sequelize.QueryTypes.INSERT }
-      );
+      const [record, created] = await CommandStat.findOrCreate({
+        where: { pattern: key },
+        defaults: {
+          runs: stat.runs,
+          avgMs: stat.avgMs,
+          status: stat.status,
+          lastError: stat.lastError,
+          lastRun: new Date()
+        }
+      });
+      if (!created) {
+        const newRuns = record.runs + stat.runs;
+        const newAvgMs = newRuns > 0
+          ? Math.round((record.avgMs * record.runs + stat.avgMs * stat.runs) / newRuns)
+          : 0;
+        await record.update({
+          runs: newRuns,
+          avgMs: newAvgMs,
+          status: stat.status || record.status,
+          lastRun: new Date(),
+          lastError: stat.lastError || record.lastError
+        });
+      }
     }
   } catch (e) {
     logger.debug({ err: e.message }, "Command metric batch flush failed");
@@ -326,8 +331,26 @@ class BaseMessage {
     this.isChannel = this.jid.endsWith("@newsletter");
     this.isDashboard = this.id && this.id.startsWith("DASHBOARD_");
 
-    if (this.isGroup || this.isChannel) {
-      this.sender = rawMsg.key.participant || rawMsg.participant || (this.isChannel ? this.jid : "");
+    if (this.isGroup) {
+      // Grup: participant bilgisini kullan
+      this.sender = rawMsg.key.participant || rawMsg.participant || "";
+    } else if (this.isChannel) {
+      // ─────────────────────────────────────────────────────────
+      //  KANAL (WhatsApp Newsletter) DESTEĞI
+      //  Kanalda yalnızca admin mesaj gönderebilir.
+      //  key.participant = gerçek gönderen (diğer yönetici) VEYA undefined (bot kendi yayınladı)
+      //  Her iki durum da bot sahibi/admin → fromMe = true olarak işle
+      // ─────────────────────────────────────────────────────────
+      const channelPoster = rawMsg.key.participant || rawMsg.participant;
+      if (channelPoster && !channelPoster.endsWith('@newsletter')) {
+        // Belirli bir gönderen var (örn. başka bir kanal yöneticisi)
+        this.sender = channelPoster;
+      } else {
+        // Bot kendi kanalına post attı veya gönderen bilinmiyor
+        // Her durumda kanal adminiyiz → bot sahibi olarak işle
+        this.sender = client.user?.id || this.jid;
+        this.fromMe = true; // Kanal postları bot/admin tarafından → fromMe
+      }
     } else {
       // 100% Robust Numerical fromMe detection
       // Comparing strictly by numerical ID part to bypass @lid vs @s.whatsapp.net mismatch
@@ -905,15 +928,21 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     }
 
     // Rate limit kontrolü (Grup için sender+jid, DM için jid)
+    // Kanallar (isChannel) için rate limit atla — kanal adminleri engellenemez
     const rateLimitKey = isGroup ? `${jid}:${resolvedSenderJid}` : jid;
-    if (!fromMe && !isOwnerOrSudo(resolvedSenderJid, senderJid, client) && !checkRateLimit(rateLimitKey)) {
+    if (!isChannel && !fromMe && !isOwnerOrSudo(resolvedSenderJid, senderJid, client) && !checkRateLimit(rateLimitKey)) {
       return; // Limite takıldı, sessizce dur
     }
 
     // Runtime stats için mesajı kaydet
     recordMessage(resolvedSenderJid, isGroup, jid);
 
-    if (!text) return;
+    if (!text) {
+      // Kanal mesajlarında metin olmayabilir (görsel/video post) → sessizce atla
+      // Grup/DM mesajlarında ise metin yoksa tamamen atla
+      return;
+    }
+
 
     // ─────────────────────────────────────────────────────────
     //  OWNER/SUDO CHECK - Client ile birlikte kontrol et

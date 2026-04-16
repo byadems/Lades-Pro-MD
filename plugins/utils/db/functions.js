@@ -1,7 +1,9 @@
 const {
   WarnLog,
   Filter,
+  GroupSettings,
 } = require("../../../core/database");
+
 const { 
   getGroupSettings, 
   updateGroupSettings, 

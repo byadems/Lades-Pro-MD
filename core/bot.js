@@ -395,16 +395,21 @@ async function createBot(sessionId = "lades-session", options = {}) {
     for (const msg of messages) {
       if (!msg.message) continue;
       const jid = msg.key.remoteJid;
+      if (!jid) continue;
+
       const fromMe = msg.key.fromMe;
       const text = getMessageText(msg.message);
-      
+      const isChannelJid = jid.endsWith('@newsletter');
+
       // Use p-queue to prevent memory spikes in large groups (Point 5 & 17)
       try {
         const q = await getMessageQueue();
         q.add(async () => {
           try {
-            if (config.DEBUG) console.log(`[RAW UPSERT] JID: ${jid} | Text: "${text?.slice(0, 20)}..."`);
+            if (config.DEBUG) console.log(`[RAW UPSERT] JID: ${jid} | Channel: ${isChannelJid} | Text: "${text?.slice(0, 30)}..."`);
             let groupMeta = null;
+            // Grup metadatası yalnızca @g.us grupları için çekilir
+            // Kanallar (@newsletter) için null kalır — handler.js bunu zaten destekliyor
             if (isGroup(jid)) {
               groupMeta = await fetchGroupMeta(sock, jid);
             }
@@ -419,6 +424,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
       }
     }
   });
+
 
   // ── Group events ─────────────────────────────────────
   sock.ev.on("groups.update", async (updates) => {

@@ -666,6 +666,9 @@ Module({
       } else {
         await message.sendReply(Lang.NEED_ADMIN);
       }
+    } else if (message.isChannel) {
+      // Kanal bağlamı: kanal JID'ini doğrudan döndür (Admin gönderdiği için yetki kontrolü atlanır)
+      await message.sendReply(message.jid);
     } else {
       if (MODE !== "public" && !message.fromOwner) return;
       await message.sendReply(message.jid);
