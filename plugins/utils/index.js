@@ -40,6 +40,7 @@ const {
   webp2mp4,
   addID3,
   trim,
+  toOpus,
 } = mediaProcessing;
 
 // Utility functions
@@ -84,6 +85,8 @@ const { censorBadWords, badWords } = require("./censor");
 
 const { nx, nxTry, fmtCount, trToEn } = require("./nexray");
 
+const { httpStatusTR, safeExecute } = require("./api-helper");
+
 module.exports = {
   // Database Operations
   syncWarnsSequence,
@@ -119,6 +122,7 @@ module.exports = {
   webp2mp4,
   addID3,
   trim,
+  toOpus,
 
   // Utilities
   parseUptime,
@@ -167,4 +171,6 @@ module.exports = {
   nxTry,
   fmtCount,
   trToEn,
+  httpStatusTR,
+  safeExecute,
 };

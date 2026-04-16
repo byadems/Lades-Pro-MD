@@ -111,16 +111,6 @@ async function saveSystemPrompt(prompt) {
 }
 
 async function imageToGenerativePart(imageBuffer) {
-  try {
-    const data = imageBuffer.toString("base64");
-
-    return {
-      inlineData: {
-        mimeType: "image/jpeg",
-        data: data,
-      },
-    };
-  } catch (error) {
     console.error("Görsel işlenirken hata oluştu:", error.message);
     return null;
   }
@@ -202,7 +192,7 @@ async function postWithRetry(url, payload, opts = {}) {
   throw e;
 }
 
-async function getAIResponse(message, chatJid, imageBuffer = null, retryCount = 0) {
+async function getAIResponse(message, chatJid, imageBuffer = null, audioBuffer = null, retryCount = 0) {
 
   const apiKey = config.GEMINI_API_KEY;
   if (!apiKey) {
@@ -242,6 +232,13 @@ async function getAIResponse(message, chatJid, imageBuffer = null, retryCount = 
     const imagePart = await imageToGenerativePart(imageBuffer);
     if (imagePart) {
       parts.push(imagePart);
+    }
+  }
+
+  if (audioBuffer) {
+    const audioPart = await audioToGenerativePart(audioBuffer);
+    if (audioPart) {
+      parts.push(audioPart);
     }
   }
 
@@ -424,6 +421,29 @@ if (_chatbotCleanupTimer.unref) _chatbotCleanupTimer.unref();
 
 initChatbotData();
 logValidGeminiModels();
+
+Module({
+    on: "audio",
+    fromMe: false,
+  },
+  async (message) => {
+    try {
+      const chatJid = message.jid;
+      if (!isChatbotEnabled(chatJid)) return;
+      if (!config.GEMINI_API_KEY) return;
+
+      const audioBuffer = await message.download("buffer");
+      if (!audioBuffer) return;
+
+      const aiResponse = await getAIResponse("Sesli mesajı analiz et ve yanıtla.", chatJid, null, audioBuffer);
+      if (aiResponse) {
+        await message.sendReply(aiResponse);
+      }
+    } catch (error) {
+      console.error("Sesli mesaj chatbot hatası:", error);
+    }
+  }
+);
 
 Module({
     on: "text",
