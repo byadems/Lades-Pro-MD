@@ -352,7 +352,7 @@ Module({
     const imagePart = infoParts.find((p) => (p || "").trim().startsWith("http"));
     const botImageUrl = (imagePart || "").trim();
     const imagesDir = path.join(__dirname, "utils", "images");
-    const localCandidates = ["varsayılan.jpg", "varsayılan.png"];
+    const localCandidates = ["logo.jpg", "logo.png"];
     let imagePayload;
     if (botImageUrl && botImageUrl.startsWith("http")) {
       imagePayload = { url: botImageUrl };

@@ -109,14 +109,18 @@ Module({
     const input = (match[1] || "").trim();
     const emojis = [...input].filter((c) => /\p{Emoji}/u.test(c));
     if (emojis.length < 2) {
-      return await message.sendReply("😀🔥 _İki emoji girin:_ `.emojimix 😀 🔥`");
+      return await message.sendReply("❗️ _İki farklı emoji girin:_ `.emojimix 😀 🔥`");
     }
     try {
       const buf = await nexGet(`/tools/emojimix?emoji1=${encodeURIComponent(emojis[0])}&emoji2=${encodeURIComponent(emojis[1])}`, { buffer: true });
       const stickerBuf = await addExif(await sticker(buf, false), { packname: message.pushName || message.senderName || "Lades-Pro", author: config.STICKER_DATA.split(";")[1] || "Lades-Pro" });
       await message.client.sendMessage(message.jid, { sticker: stickerBuf }, { quoted: message.data });
     } catch (e) {
-      await message.sendReply(`❌ _Emoji birleştirilemedi:_ ${e.message}`);
+      let emsg = e.message;
+      if (emsg === "No emoji mix result found from Tenor API") {
+        emsg = "*Bu iki emoji birleştirilemez. Farklı emojiler deneyebilirsin.*";
+      }
+      await message.sendReply(`❌ _Emoji birleştirilemedi:_ ${emsg}`);
     }
   }
 );
