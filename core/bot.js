@@ -8,6 +8,7 @@
 
 const path = require("path");
 const fs = require("fs");
+const https = require("https");
 const fsp = fs.promises;
 const { logger, ...config } = require("../config");
 const { getAuthState, displayQR } = require("./auth");
@@ -26,6 +27,53 @@ async function getMessageQueue() {
     _queue = new PQueue({ concurrency: 5 });
   }
   return _queue;
+}
+
+// ─────────────────────────────────────────────────────────
+//  NTP Zaman Senkronizasyon Kontrolü
+//  WhatsApp multi-device protokolü kriptografik zaman
+//  damgaları kullandığından sistem saati kayması
+//  "Cihazlar senkronize edilemedi" hatasına yol açar.
+// ─────────────────────────────────────────────────────────
+
+/** Sistem saatini worldtimeapi.org üzerinden kontrol eder.
+ *  Drift > eşik değerini aşarsa true döner. */
+async function checkTimeDrift(thresholdMs = 5000) {
+  return new Promise((resolve) => {
+    const t0 = Date.now();
+    const req = https.get(
+      "https://worldtimeapi.org/api/ip",
+      { timeout: 5000 },
+      (res) => {
+        let raw = "";
+        res.on("data", (d) => (raw += d));
+        res.on("end", () => {
+          try {
+            const rtt = Date.now() - t0;
+            const serverMs = new Date(
+              JSON.parse(raw).datetime
+            ).getTime();
+            const localMs = t0 + rtt / 2; // Ağ gecikmesini çıkar
+            const driftMs = Math.abs(serverMs - localMs);
+            if (driftMs > thresholdMs) {
+              logger.warn(
+                `[NTP] Sistem saati kayması tespit edildi: ${driftMs}ms` +
+                ` (eşik: ${thresholdMs}ms). Yeniden bağlanma tetikleniyor.`
+              );
+              resolve(true);
+            } else {
+              logger.debug(`[NTP] Saat senkronizasyonu normal: ${driftMs}ms`);
+              resolve(false);
+            }
+          } catch {
+            resolve(false); // Parse hatası → güvenli geç
+          }
+        });
+      }
+    );
+    req.on("error", () => resolve(false)); // Ağ hatası → güvenli geç
+    req.on("timeout", () => { req.destroy(); resolve(false); });
+  });
 }
 
 // ─────────────────────────────────────────────────────────
@@ -143,7 +191,9 @@ async function createBot(sessionId = "lades-session", options = {}) {
     markOnlineOnConnect: !options.markOffline,
     defaultQueryTimeoutMs: 60000,
     connectTimeoutMs: 60000,
-    keepAliveIntervalMs: 25000,
+    // Keepalive aralığı: 15sn — 25sn'den kısa tutarak WA sunucusu
+    // bağlantıyı stale (bayat) saymadan önce ping göndermesini sağlar.
+    keepAliveIntervalMs: 15000,
     retryRequestDelayMs: 500,
     maxMsgRetryCount: 5,
   });
@@ -308,6 +358,63 @@ async function createBot(sessionId = "lades-session", options = {}) {
           }
         }, 3000);
       }
+
+      // ── SAAT KAYMA ENGELLEYİCİ ───────────────────────────
+      // 1) Periyodik presence güncellemesi (her 4 dakikada bir)
+      //    WA sunucusunun bağlantıyı stale (bayat) saymasını önler.
+      const PRESENCE_INTERVAL_MS = 4 * 60 * 1000; // 4 dakika
+      const _presenceTimer = setInterval(async () => {
+        if (!sock.user) return; // Bağlantı kopmuşsa geç
+        try {
+          await sock.sendPresenceUpdate('available');
+          logger.debug('[Keepalive] Presence güncellendi.');
+        } catch {
+          // Bağlantı kopuksa sessizce geç — reconnect mekanizması zaten devrede
+        }
+      }, PRESENCE_INTERVAL_MS);
+
+      // 2) Saat kayması izleyicisi + 6 saatlik proaktif yeniden bağlanma
+      //    WhatsApp multi-device protokolü kriptografik zaman damgaları kullandığından
+      //    sistem saati kayması "Cihazlar senkronize edilemedi" hatasına yol açar.
+      const NTP_CHECK_INTERVAL_MS  = 30 * 60 * 1000;  // 30 dakikada bir NTP kontrolü
+      const PROACTIVE_RECONNECT_MS =  6 * 60 * 60 * 1000; // 6 saatte bir zorla yeniden bağlan
+
+      const _ntpTimer = setInterval(async () => {
+        if (!sock.user) return;
+        try {
+          const hasDrift = await checkTimeDrift(5000); // 5sn eşik
+          if (hasDrift) {
+            logger.warn('[NTP] Saat kayması kritik seviyede. Bağlantı yenileniyor...');
+            clearInterval(_presenceTimer);
+            clearInterval(_ntpTimer);
+            clearInterval(_proactiveTimer);
+            // Mevcut soketi kapat — connection.update 'close' tetikleyecek
+            // ve reconnect mantığı devreye girecek
+            sock.ws?.close();
+          }
+        } catch {
+          // Güvenli geç
+        }
+      }, NTP_CHECK_INTERVAL_MS);
+
+      const _proactiveTimer = setInterval(async () => {
+        if (!sock.user) return;
+        logger.info('[Proaktif] 6 saatlik oturum yenileme tetiklendi. Saat kaymalarını önlemek için yeniden bağlanılıyor...');
+        clearInterval(_presenceTimer);
+        clearInterval(_ntpTimer);
+        clearInterval(_proactiveTimer);
+        sock.ws?.close();
+      }, PROACTIVE_RECONNECT_MS);
+
+      // Bağlantı kesilince tüm timer'ları temizle
+      sock.ev.once('connection.update', ({ connection: c }) => {
+        if (c === 'close') {
+          clearInterval(_presenceTimer);
+          clearInterval(_ntpTimer);
+          clearInterval(_proactiveTimer);
+        }
+      });
+      // ── SAAT KAYMA ENGELLEYİCİ SONU ────────────────────
     }
 
     if (connection === "close") {

@@ -5,6 +5,9 @@
  * Stabilized and clean version.
  */
 
+// Global saat dilimi ayarı: Tüm bot işleyişi varsayılan olarak Türkiye (Avrupa/İstanbul) saatine sabitlenir.
+process.env.TZ = process.env.TIMEZONE || "Europe/Istanbul";
+
 const path = require("path");
 const fs = require("fs");
 const fsp = fs.promises;

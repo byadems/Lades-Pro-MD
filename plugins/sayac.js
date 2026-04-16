@@ -1,7 +1,6 @@
 const { Module } = require('../main');
 const moment = require('moment-timezone');
 
-moment.tz.setDefault('Europe/Istanbul');
 moment.locale('tr');
 
 const yks = 'YKS (TYT/AYT/YDT) sınavlarına kalan süreyi veya tercih tarihlerini gösterir.';

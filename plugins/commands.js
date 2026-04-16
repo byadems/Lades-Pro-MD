@@ -606,7 +606,6 @@ Module({
     const { emoji, label } = KATEGORILER[kategoriKey];
     const gonderenJid = message.sender || message.jid;
     const tarih = new Date().toLocaleString("tr-TR", {
-      timeZone: "Europe/Istanbul",
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -707,7 +706,7 @@ function normalizeTurkishCharacters(text) {
 }
 
 function getTimeBasedEmoji(temp) {
-  const turkeyTime = new Date().toLocaleString("en-US", { timeZone: "Europe/Istanbul" });
+  const turkeyTime = new Date().toLocaleString("en-US");
   const turkeyDate = new Date(turkeyTime);
   const hour = turkeyDate.getHours();
 

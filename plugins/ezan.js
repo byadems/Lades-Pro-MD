@@ -1,7 +1,6 @@
 const { Module } = require('../main');
 const axios = require('axios');
 const moment = require('moment-timezone');
-moment.tz.setDefault('Europe/Istanbul');
 
 const cache = {
   data: {},

@@ -1772,7 +1772,6 @@ Module({
       addBlock("Tam Altın", "🏅", tam);
 
       const now = new Date().toLocaleString("tr-TR", {
-        timeZone: "Europe/Istanbul",
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
