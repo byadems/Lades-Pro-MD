@@ -234,14 +234,16 @@ async function initializeDatabase() {
 
       // SQLite pragmaları: WAL modu ve busy_timeout
       if (sequelize.getDialect() === 'sqlite') {
-        await sequelize.query("PRAGMA journal_mode = WAL;");
-        await sequelize.query("PRAGMA busy_timeout = 5000;");
-        await sequelize.query("PRAGMA synchronous = NORMAL;");
-        // Performance optimizations
-        await sequelize.query("PRAGMA cache_size = -64000;"); // 64MB cache
-        await sequelize.query("PRAGMA temp_store = MEMORY;"); // Temp tables in RAM
-        await sequelize.query("PRAGMA mmap_size = 268435456;"); // 256MB mmap
-        logger.info("SQLite pragmaları ayarlandı (WAL, cache=64MB, temp=MEMORY, mmap=256MB).");
+        await sequelize.query("PRAGMA journal_mode = WAL;");         // Concurrent reads
+        await sequelize.query("PRAGMA busy_timeout = 5000;");         // Retry on lock
+        await sequelize.query("PRAGMA synchronous = NORMAL;");        // Safe + fast
+        await sequelize.query("PRAGMA cache_size = -16000;");         // 16MB page cache (disk I/O azalt)
+        await sequelize.query("PRAGMA temp_store = FILE;");           // Temp tablolar diske (RAM koruma!)
+        await sequelize.query("PRAGMA mmap_size = 33554432;");        // 32MB mmap (256MB → 32MB)
+        await sequelize.query("PRAGMA wal_autocheckpoint = 500;");    // WAL dosyasını kontrol altında tut
+        await sequelize.query("PRAGMA optimize;");                    // Sorgu planlamasını optimize et
+        await sequelize.query("PRAGMA foreign_keys = OFF;");          // FK kontrolü gereksiz overhead
+        logger.info("SQLite pragmaları ayarlandı (WAL, cache=16MB, temp=FILE, mmap=32MB, checkpoint=500).");
       }
 
       break;
@@ -294,13 +296,15 @@ async function initializeDatabase() {
     logger.warn(`Migration error: ${e.message}`);
   }
 
-  // Sync schema in parallel for faster startup
+  // Sync schema in parallel for faster startup (logging suppressed to reduce I/O noise)
   try {
-    await Promise.allSettled(
-      models.filter(m => m && m.sync).map(model => 
-        model.sync().then(() => logger.info(`Table synced: ${model.getTableName ? model.getTableName() : 'unknown'}`))
-      )
+    const syncResults = await Promise.allSettled(
+      models.filter(m => m && m.sync).map(model => model.sync())
     );
+    const failed = syncResults.filter(r => r.status === 'rejected');
+    if (failed.length > 0) {
+      logger.warn(`${failed.length} tablo senkronizasyonunda hata oluştu.`);
+    }
   } catch (e) {
     logger.warn(`Tablo senkronizasyonunda hata oluştu: ${e.message}`);
   }

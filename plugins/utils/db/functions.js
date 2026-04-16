@@ -487,7 +487,8 @@ async function getFiltersByScope(scope, jid = null) {
   return await FilterDB.findAll({ where: whereCondition });
 }
 
-// Regex cache for filters
+// Regex cache for filters (size-capped to prevent memory leak)
+const FILTER_REGEX_CACHE_MAX = 500;
 const filterRegexCache = new Map();
 
 async function checkFilterMatch(text, jid) {
@@ -505,6 +506,10 @@ async function checkFilterMatch(text, jid) {
       const escaped = filter.trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const pattern = isExact ? `^${escaped}$` : escaped;
       regex = new RegExp(pattern, isCase ? "" : "i");
+      // Size cap: en eski entry'i sil (LRU-lite davranışı)
+      if (filterRegexCache.size >= FILTER_REGEX_CACHE_MAX) {
+        filterRegexCache.delete(filterRegexCache.keys().next().value);
+      }
       filterRegexCache.set(cacheKey, regex);
     }
 

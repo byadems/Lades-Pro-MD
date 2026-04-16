@@ -19,12 +19,25 @@ const { BotMetric, CommandStat, CommandRegistry, UserData, GroupSettings, Messag
 const { antidelete } = require("../plugins/utils/db/functions");
 const { resolveLidToPn, isBotIdentifier } = require("./lid-helper"); // Moved to top-level
 
+// ─────────────────────────────────────────────────────────
+//  Antidelete JID Cache — DB'yi her silmede çarpmamak için
+//  60 saniyede bir yenilenen in-memory Set
+// ─────────────────────────────────────────────────────────
+const _antideleteCache = new Set();
+async function _refreshAntideleteCache() {
+  try {
+    const rows = await antidelete.get();
+    _antideleteCache.clear();
+    if (Array.isArray(rows)) rows.forEach(r => r.jid && _antideleteCache.add(r.jid));
+  } catch (e) { /* DB henüz hazır değil, sessizce atla */ }
+}
+
 // Point 5 & 17: Redundant commandQueue removed. Concurrency is handled in bot.js.
+
 
 // ─────────────────────────────────────────────────────────
 //  Atomic Statistics Tracker (SQL Backed)
 // ─────────────────────────────────────────────────────────
-let _runtimeStartTime = Date.now();
 
 /**
  * One-time migration from JSON stats to SQL
@@ -79,6 +92,9 @@ const metricsBatch = { total_messages: 0, total_commands: 0 };
 
 const scheduler = require("./scheduler");
 
+// Antidelete cache: başlangıçta ve 60s'de bir yenile
+scheduler.register('antidelete_cache_refresh', _refreshAntideleteCache, 60000, { runImmediately: true });
+
 scheduler.register('metrics_batch_flush', async () => {
   if (metricsBatch.total_messages === 0 && metricsBatch.total_commands === 0) return;
   const currentBatch = { ...metricsBatch };
@@ -100,15 +116,25 @@ scheduler.register('metrics_batch_flush', async () => {
   }
 }, 30000);
 
-async function recordMessage(senderJid, isGroup, groupJid) {
+// Sync: sadece sayaç arttırıyor, async overhead gereksizdi
+function recordMessage() {
   metricsBatch.total_messages++;
 }
 
-async function recordCommand() {
+function recordCommand() {
   metricsBatch.total_commands++;
 }
 
+// getRuntimeStats — 15 saniye cache (dashboard her yüklemesinde 4 DB sorgusu atmayı önler)
+let _runtimeStatsCache = null;
+let _runtimeStatsCacheAt = 0;
+const RUNTIME_STATS_CACHE_MS = 15000;
+
 async function getRuntimeStats() {
+  const now = Date.now();
+  if (_runtimeStatsCache && (now - _runtimeStatsCacheAt) < RUNTIME_STATS_CACHE_MS) {
+    return _runtimeStatsCache;
+  }
   try {
     const [msgMetric, cmdMetric, userCount, groupCount] = await Promise.all([
       BotMetric.findByPk('total_messages'),
@@ -117,13 +143,15 @@ async function getRuntimeStats() {
       GroupSettings.count()
     ]);
 
-    return {
+    _runtimeStatsCache = {
       totalMessages: msgMetric ? parseInt(msgMetric.value) : 0,
       totalCommands: cmdMetric ? parseInt(cmdMetric.value) : 0,
       activeUsers: userCount,
       modules: commands.length,
       uptime: Math.floor((Date.now() - runtime.startTime) / 1000)
     };
+    _runtimeStatsCacheAt = now;
+    return _runtimeStatsCache;
   } catch (e) {
     return { totalMessages: 0, totalCommands: 0, activeUsers: 0, managedGroups: 0, uptime: 0 };
   }
@@ -148,7 +176,12 @@ async function recordStat(pattern, status, durationMs, error = null, isTest = fa
   }
 
   currentBatch.set(key, entry);
-  if (!isTest) await recordCommand();
+  // commandStatsBatch sınırsız büyümeyi önle (max 2000 komut)
+  if (runtime.commandStatsBatch.size > 2000) {
+    const firstKey = runtime.commandStatsBatch.keys().next().value;
+    runtime.commandStatsBatch.delete(firstKey);
+  }
+  if (!isTest) recordCommand();
 }
 
 // ── Command metrics batch flush (30s) ───────────────────
@@ -456,7 +489,7 @@ class BaseMessage {
     const mentionsArr = options.mentions || content.mentions || [];
     const finalContent = { ...content };
     if (mentionsArr.length) finalContent.mentions = mentionsArr;
-    
+
     const sendOpts = (this.isChannel || this.isDashboard) ? {} : { quoted: this.data };
     return this.client.sendMessage(this.jid, finalContent, sendOpts);
   }
@@ -570,6 +603,35 @@ const eventHandlers = new Map();
 // on: event handler'lar — text/message/group/groupParticipants tiplerine göre
 const onHandlers = { text: [], message: [], group: [], groupParticipants: [] };
 
+// ─────────────────────────────────────────────────────────
+//  PERFORMANS: textHandlers cache — her mesajda yeni dizi
+//  oluşturulmaması için plugin reload'da yenilenir.
+// ─────────────────────────────────────────────────────────
+let _cachedTextHandlers = null;
+function getTextHandlers() {
+  if (!_cachedTextHandlers) {
+    _cachedTextHandlers = [...(onHandlers.text || []), ...(onHandlers.message || [])];
+  }
+  return _cachedTextHandlers;
+}
+
+// ─────────────────────────────────────────────────────────
+//  PERFORMANS: SUDO nums cache — config.SUDO string her
+//  komut çağrısında parse edilmemesi için bir kez cache'lenir.
+// ─────────────────────────────────────────────────────────
+let _sudoNumsCache = null;
+let _sudoNums_configSnapshot = null;
+function getCachedSudoNums() {
+  const currentSudo = config.SUDO || '';
+  if (_sudoNums_configSnapshot !== currentSudo) {
+    _sudoNums_configSnapshot = currentSudo;
+    _sudoNumsCache = new Set(
+      currentSudo.split(',').map(s => s.trim().replace(/[^0-9]/g, '')).filter(Boolean)
+    );
+  }
+  return _sudoNumsCache;
+}
+
 /**
  * Module (Lades-Pro standard registration)
  * Pattern ve on: alanlarını destekler.
@@ -650,6 +712,8 @@ async function loadPlugins(pluginsDir) {
   eventHandlers.clear();
   // on: handler'ları da temizle
   for (const key of Object.keys(onHandlers)) onHandlers[key] = [];
+  // textHandlers cache'i geçersiz kıl (plugin reload sonrası yeniden oluşturulacak)
+  _cachedTextHandlers = null;
 
   let loaded = 0, failed = 0;
   for (const file of pluginFiles) {
@@ -822,9 +886,9 @@ function isSudo(senderJid, originalSenderJid) {
   if (senderJid && runtime.sudoSet.has(senderJid)) return true;
   if (originalSenderJid && runtime.sudoSet.has(originalSenderJid)) return true;
 
-  // 2. Numerical check against all SUDO entries
-  const sudos = config.SUDO ? config.SUDO.split(",").map(s => s.trim().replace(/[^0-9]/g, "")).filter(s => s) : [];
-  if (sudos.some(s => s === senderNum || s === originalSenderNum)) return true;
+  // 2. Numerical check against all SUDO entries (cached Set — string parse sadece 1x yapılır)
+  const sudoNums = getCachedSudoNums();
+  if (sudoNums.has(senderNum) || sudoNums.has(originalSenderNum)) return true;
 
   // 3. Fallback to SUDO_MAP parsing only if sudoSet is empty (unlikely but safe)
   if (runtime.sudoSet.size === 0 && config.SUDO_MAP && typeof config.SUDO_MAP === "string") {
@@ -852,10 +916,10 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     const { jid, text, isGroup, isChannel, fromMe } = message;
 
     // ── ANTISILME (ANTI-DELETE) LOGIC ──
+    // antidelete.get() her silmede DB çarpmayı önlemek için in-memory Set cache kullanılır
     if (isGroup && rawMsg.message?.protocolMessage?.type === 0) {
       const deletedKey = rawMsg.message.protocolMessage.key;
-      const db = await antidelete.get();
-      if (db.some(d => d.jid === jid)) {
+      if (_antideleteCache.has(jid)) {
         const originalMsg = getMessageByKey(deletedKey);
         if (originalMsg) {
           const participant = deletedKey.participant || deletedKey.remoteJid;
@@ -865,7 +929,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
             mentions: [participant]
           });
           await client.sendMessage(jid, { forward: originalMsg }, { quoted: originalMsg });
-          return; // Silme işlemi işlendi, devam etmeye gerek yok
+          return;
         }
       }
     }
@@ -934,8 +998,8 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
       return; // Limite takıldı, sessizce dur
     }
 
-    // Runtime stats için mesajı kaydet
-    recordMessage(resolvedSenderJid, isGroup, jid);
+    // Runtime stats için mesajı kaydet (sync)
+    recordMessage();
 
     if (!text) {
       // Kanal mesajlarında metin olmayabilir (görsel/video post) → sessizce atla
@@ -997,7 +1061,8 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     }
 
     // ── on:"text" / on:"message" event handler'ları — prefix gerekmez ──────
-    const textHandlers = [...(onHandlers.text || []), ...(onHandlers.message || [])];
+    // Cache kullan: her mesajda spread/concat yapma (O(1) lookup)
+    const textHandlers = getTextHandlers();
     if (textHandlers.length > 0) {
       for (const h of textHandlers) {
         // fromMe filtresi: sadece bot sahibi/sudo değilse VE admin erişimi kapalıysa atla
@@ -1048,7 +1113,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
         let isAdmin = false;
         let isBotAdmin = false;
 
-          if (isGroup) {
+        if (isGroup) {
           try {
             // metadata yoksa çekmeye çalış
             if (!groupMetadata) {
@@ -1067,7 +1132,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
         } else if (isChannel) {
           message.groupAdmins = [senderJid, resolvedSenderJid];
           isAdmin = true; // In channels, whoever can send messages IS an admin.
-          isBotAdmin = true; 
+          isBotAdmin = true;
         } else {
           message.groupAdmins = [];
         }

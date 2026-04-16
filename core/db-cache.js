@@ -117,10 +117,11 @@ function invalidateAdmins(groupId) {
 // ─────────────────────────────────────────────────────────
 function getCacheStats() {
   return {
-    groups: { size: groupCache.size, max: groupCache.max },
-    users: { size: userCache.size, max: userCache.max },
-    config: { size: configCache.size, max: configCache.max },
+    groups:  { size: groupCache.size,  max: groupCache.max  },
+    users:   { size: userCache.size,   max: userCache.max   },
+    config:  { size: configCache.size, max: configCache.max },
     filters: { size: filterCache.size, max: filterCache.max },
+    admins:  { size: adminCache.size,  max: adminCache.max  },
   };
 }
 
@@ -132,6 +133,7 @@ function shutdownCache() {
   userCache.clear();
   configCache.clear();
   filterCache.clear();
+  adminCache.clear(); // Memory leak fix: admin cache de temizleniyor
   logger.info("DB cache cleared.");
 }
 

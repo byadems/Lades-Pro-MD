@@ -77,16 +77,146 @@ function startKeepAlive() {
   const publicDir = path.join(__dirname, 'public');
 
   app.use(compression());
-  
-  // Health check endpoint
-  app.get('/health', (req, res) => {
-    const mem = process.memoryUsage();
-    res.json({
-      status: "ok", 
-      bot: "Lades-Pro-MD",
-      uptime: Math.floor((Date.now() - runtime.startTime) / 1000),
-      memory: Math.round(mem.heapUsed / 1024 / 1024) + "MB"
-    });
+
+  // ─────────────────────────────────────────────────────────
+  //  Ultra Health Check Endpoint
+  // ─────────────────────────────────────────────────────────
+  let _healthCache = null;
+  let _healthCacheAt = 0;
+  const HEALTH_CACHE_MS = 10000; // 10 saniye cache — dashboard her refresh DB'yi çarpmıyor
+
+  app.get('/health', async (req, res) => {
+    const now = Date.now();
+    // Fast path: cache geçerliyse direkt dön
+    if (_healthCache && (now - _healthCacheAt) < HEALTH_CACHE_MS) {
+      return res.json(_healthCache);
+    }
+
+    try {
+      const mem = process.memoryUsage();
+      const uptime = Math.floor((now - runtime.startTime) / 1000);
+
+      // CPU kullanımı (basit yaklaşım)
+      const cpuUsage = process.cpuUsage();
+      const cpuPercent = Math.round((cpuUsage.user + cpuUsage.system) / 1e6 / process.uptime() * 100) / 100;
+
+      // DB sağlık kontrolü
+      let dbStatus = 'unknown';
+      let dbMs = -1;
+      try {
+        const { sequelize } = require('./core/database');
+        const dbT0 = Date.now();
+        await sequelize.query('SELECT 1');
+        dbMs = Date.now() - dbT0;
+        dbStatus = dbMs < 200 ? 'healthy' : dbMs < 1000 ? 'slow' : 'degraded';
+      } catch (e) {
+        dbStatus = 'error';
+      }
+
+      // Cache istatistikleri
+      let cacheStats = {};
+      try {
+        const { getCacheStats } = require('./core/db-cache');
+        cacheStats = getCacheStats();
+      } catch (e) { }
+
+      // Mesaj store boyutu
+      let storeStats = {};
+      try {
+        const { getStoreStats } = require('./core/store');
+        storeStats = getStoreStats();
+      } catch (e) { }
+
+      // Bot bağlantı durumu
+      let botConnected = false;
+      let botPhone = null;
+      let activeSessions = 0;
+      try {
+        const mgr = runtime.manager;
+        if (mgr && mgr.bots instanceof Map) {
+          activeSessions = mgr.bots.size;
+          for (const [sid, sock] of mgr.bots) {
+            if (sock && sock.user) {
+              botConnected = true;
+              botPhone = sock.user.id;
+              break;
+            }
+          }
+        }
+      } catch (e) { }
+
+      // Komut sayısı & self-test durumu
+      let commandCount = 0;
+      let selfTestStatus = 'idle';
+      try {
+        const handler = require('./core/handler');
+        commandCount = handler.commands ? handler.commands.length : 0;
+        selfTestStatus = runtime.testProgress ? runtime.testProgress.status : 'idle';
+      } catch (e) { }
+
+      // RAW memory bytes MB'ye çevir
+      const toMB = (b) => Math.round(b / 1024 / 1024 * 10) / 10;
+
+      // Hata oranı
+      const totalErr = runtime.metrics ? (runtime.metrics.errors || 0) : 0;
+      const totalMsg = runtime.metrics ? (runtime.metrics.messages || 0) : 0;
+      const errorRate = totalMsg > 0 ? Math.round((totalErr / totalMsg) * 10000) / 100 : 0;
+
+      _healthCache = {
+        status: dbStatus === 'error' ? 'degraded' : 'ok',
+        bot: 'Lades-Pro-MD',
+        timestamp: new Date().toISOString(),
+        uptime: {
+          seconds: uptime,
+          human: `${Math.floor(uptime/3600)}s ${Math.floor((uptime%3600)/60)}d ${uptime%60}sn`
+        },
+        memory: {
+          heapUsed:  `${toMB(mem.heapUsed)} MB`,
+          heapTotal: `${toMB(mem.heapTotal)} MB`,
+          rss:       `${toMB(mem.rss)} MB`,
+          external:  `${toMB(mem.external)} MB`,
+          heapPct:   `${Math.round(mem.heapUsed / mem.heapTotal * 100)}%`
+        },
+        cpu: {
+          usagePercent: cpuPercent,
+          processUptime: Math.floor(process.uptime())
+        },
+        database: {
+          status: dbStatus,
+          pingMs: dbMs,
+          dialect: (() => { try { return require('./core/database').sequelize.getDialect(); } catch { return 'unknown'; } })()
+        },
+        connection: {
+          botConnected,
+          botPhone: botPhone ? botPhone.split(':')[0] + '@s.whatsapp.net' : null,
+          activeSessions
+        },
+        commands: {
+          count: commandCount,
+          selfTest: selfTestStatus,
+          selfTestProgress: runtime.testProgress || null
+        },
+        cache: cacheStats,
+        messageStore: storeStats,
+        metrics: {
+          totalMessages: (runtime.metrics && runtime.metrics.messages) || 0,
+          totalCommands: (runtime.metrics && runtime.metrics.commands) || 0,
+          totalErrors:   totalErr,
+          errorRate:     `${errorRate}%`,
+          activeUsers:   runtime.metrics && runtime.metrics.users ? runtime.metrics.users.size : 0,
+          activeGroups:  runtime.metrics && runtime.metrics.groups ? runtime.metrics.groups.size : 0
+        }
+      };
+      _healthCacheAt = now;
+      res.json(_healthCache);
+    } catch (e) {
+      res.status(500).json({ status: 'error', error: e.message });
+    }
+  });
+
+  // Lightweight ping (no DB check, no cache needed)
+  app.get('/ping', (req, res) => {
+    res.json({ ok: true, t: Date.now() });
   });
 
   // Serve static files with caching

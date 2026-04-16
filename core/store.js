@@ -28,6 +28,7 @@ const messageStore = new LRUCache({
 // Reverse index: msgId → jid (O(1) lookup for getFullMessage)
 const msgIdIndex = new Map();
 const MAX_MSGS_PER_JID = 100;
+const MAX_MSGID_INDEX = 50000; // Memory leak koruğucu: global index sınırı
 
 function storeMessage(jid, message) {
   if (!jid || !message || !message.key) return;
@@ -36,6 +37,11 @@ function storeMessage(jid, message) {
   const msgId = message.key.id;
   bucket.set(msgId, message);
   msgIdIndex.set(msgId, jid); // O(1) reverse index
+  // msgIdIndex sınırsız büyümeyi önle
+  if (msgIdIndex.size > MAX_MSGID_INDEX) {
+    const firstKey = msgIdIndex.keys().next().value;
+    msgIdIndex.delete(firstKey);
+  }
   if (bucket.size > MAX_MSGS_PER_JID) {
     const firstKey = bucket.keys().next().value;
     bucket.delete(firstKey);
@@ -224,15 +230,13 @@ async function getGlobalTopUsers(limit = 10) {
  * @param {string} userJid - The user JID
  * @param {string} type - Message type (text, image, video, audio, sticker, other)
  */
-const statsBatch = new LRUCache({ max: 1000, ttl: 120_000 }); // Auto-cleanup after 2min
+// stats batch: plain Map (LRUCache'den daha hafif; TTL auto-expiry gereksiz — flush zaten 60s'de yapılıyor)
+const statsBatch = new Map();
 
 scheduler.register('message_stats_flush', async () => {
   if (statsBatch.size === 0) return;
   // Copy current entries for processing
-  const currentBatch = [];
-  for (const [key, val] of statsBatch.entries()) {
-    currentBatch.push([key, val]);
-  }
+  const currentBatch = Array.from(statsBatch.entries());
   statsBatch.clear();
 
   try {
