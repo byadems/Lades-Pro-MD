@@ -159,10 +159,17 @@ body {
 
 .brand-name {
   font-weight: 900; font-size: 22px; line-height: 1.1; margin-bottom: 2px;
+  display: inline-block;
   background: linear-gradient(135deg, var(--green) 0%, var(--blue) 50%, var(--purple) 100%);
-  -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; 
-  display: inline-block; filter: drop-shadow(0 4px 10px rgba(0,255,163,0.2));
+  -webkit-background-clip: text;
+  -moz-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
   letter-spacing: -0.5px;
+  -webkit-transform: translateZ(0); /* Force GPU layer — prevents cache-hit rendering skip */
+  transform: translateZ(0);
+  will-change: background;
 }
 .brand-version { font-size: 12px; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; }
 

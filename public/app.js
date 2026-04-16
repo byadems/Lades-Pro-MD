@@ -1448,5 +1448,19 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === overlay) overlay.classList.remove('active');
     });
   }
+
+  // ── Gradient text rendering fix (WebKit cache bug) ──────────────────────
+  // When the page loads from cache, -webkit-background-clip:text elements
+  // sometimes render as invisible/black. Forcing a repaint fixes this permanently.
+  function fixGradientText() {
+    document.querySelectorAll('.brand-name').forEach(el => {
+      el.style.display = 'none';
+      void el.offsetHeight; // Force reflow
+      el.style.display = '';
+    });
+  }
+  // Run immediately and also after first paint to cover all load paths
+  fixGradientText();
+  requestAnimationFrame(() => { requestAnimationFrame(fixGradientText); });
 });
 
