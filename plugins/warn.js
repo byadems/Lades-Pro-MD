@@ -23,12 +23,7 @@ async function sendBanAudio(message) {
   const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
   try {
     if (!fs.existsSync(audioPath)) return;
-    const stream = fs.createReadStream(audioPath);
-    try {
-      await message.send({ stream }, "audio");
-    } finally {
-      stream.destroy();
-    }
+    await message.sendMessage(fs.readFileSync(audioPath), "audio", { ptt: true });
   } catch (err) { }
 }
 

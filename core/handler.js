@@ -452,11 +452,11 @@ class BaseMessage {
    * Send a text message to the current chat (without force-quoting self)
    */
   async send(text, options = {}) {
-    if (typeof text === "string") {
+    if (typeof text === "string" && (!options || !options.edit)) {
       return this.client.sendMessage(this.jid, { text, ...options });
     }
-    // sendMessage(content_obj, type, opts) signature
-    return this.client.sendMessage(this.jid, text, options);
+    // Route to sendMessage to handle (content, type, options) signature
+    return this.sendMessage(text, options);
   }
 
   /**

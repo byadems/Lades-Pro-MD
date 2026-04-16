@@ -29,17 +29,10 @@ async function sendBanAudio(message) {
   const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
 
   try {
-    if (!fs.existsSync(audioPath)) {
-      console.error("Ban sesi dosyası bulunamadı:", audioPath);
-      return; // Do not send error to user, just skip audio
-    }
+    if (!fs.existsSync(audioPath)) return;
 
-    const stream = fs.createReadStream(audioPath);
-    try {
-      await message.send({ stream }, "audio");
-    } finally {
-      stream.destroy();
-    }
+    // Send as voice note (PTT) for a more premium experience
+    await message.sendMessage(fs.readFileSync(audioPath), "audio", { ptt: true });
   } catch (err) {
     console.error("Ban sesini gönderirken hata:", err);
   }
