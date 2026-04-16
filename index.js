@@ -41,8 +41,8 @@ async function checkSingleInstance() {
           try {
             process.kill(oldPid, 0);
             process.kill(oldPid, "SIGKILL");
-          } catch {}
-        } catch (e) {}
+          } catch { }
+        } catch (e) { }
       }
     }
     await fsp.writeFile(PID_FILE, process.pid.toString());
@@ -171,14 +171,14 @@ function startKeepAlive() {
         timestamp: new Date().toISOString(),
         uptime: {
           seconds: uptime,
-          human: `${Math.floor(uptime/3600)}s ${Math.floor((uptime%3600)/60)}d ${uptime%60}sn`
+          human: `${Math.floor(uptime / 3600)}s ${Math.floor((uptime % 3600) / 60)}d ${uptime % 60}sn`
         },
         memory: {
-          heapUsed:  `${toMB(mem.heapUsed)} MB`,
+          heapUsed: `${toMB(mem.heapUsed)} MB`,
           heapTotal: `${toMB(mem.heapTotal)} MB`,
-          rss:       `${toMB(mem.rss)} MB`,
-          external:  `${toMB(mem.external)} MB`,
-          heapPct:   `${Math.round(mem.heapUsed / mem.heapTotal * 100)}%`
+          rss: `${toMB(mem.rss)} MB`,
+          external: `${toMB(mem.external)} MB`,
+          heapPct: `${Math.round(mem.heapUsed / mem.heapTotal * 100)}%`
         },
         cpu: {
           usagePercent: cpuPercent,
@@ -204,10 +204,10 @@ function startKeepAlive() {
         metrics: {
           totalMessages: (runtime.metrics && runtime.metrics.messages) || 0,
           totalCommands: (runtime.metrics && runtime.metrics.commands) || 0,
-          totalErrors:   totalErr,
-          errorRate:     `${errorRate}%`,
-          activeUsers:   runtime.metrics && runtime.metrics.users ? runtime.metrics.users.size : 0,
-          activeGroups:  runtime.metrics && runtime.metrics.groups ? runtime.metrics.groups.size : 0
+          totalErrors: totalErr,
+          errorRate: `${errorRate}%`,
+          activeUsers: runtime.metrics && runtime.metrics.users ? runtime.metrics.users.size : 0,
+          activeGroups: runtime.metrics && runtime.metrics.groups ? runtime.metrics.groups.size : 0
         }
       };
       _healthCacheAt = now;
@@ -236,7 +236,7 @@ function startKeepAlive() {
   const port = process.env.PORT || 3000;
   app.listen(port, () => {
     logger.info(`Keep-alive sunucusu aktif (Port: ${port})`);
-  }).on('error', () => {});
+  }).on('error', () => { });
 }
 
 async function shutdown(signal) {
@@ -254,7 +254,7 @@ async function shutdown(signal) {
   shutdownCache();
   try {
     const exists = await fsp.access(PID_FILE).then(() => true).catch(() => false);
-    if (exists) await fsp.unlink(PID_FILE); 
+    if (exists) await fsp.unlink(PID_FILE);
   } catch { }
   logger.info("Sistem temiz bir şekilde kapatıldı.");
   process.exit(0);
@@ -268,7 +268,7 @@ const FATAL_ERRORS = ["ERR_OUT_OF_MEMORY", "ENOMEM", "SQLITE_CORRUPT"];
 
 process.on("uncaughtException", (err) => {
   if (err.code === "ERR_IPC_DISCONNECTED") return;
-  
+
   logger.error(err, "[KRİTİK] Uncaught Exception");
   runtime.metrics.errors++;
 
@@ -281,13 +281,13 @@ process.on("uncaughtException", (err) => {
 
 process.on("unhandledRejection", (reason, promise) => {
   if (reason?.code === "ERR_IPC_DISCONNECTED") return;
-  
-  logger.error({ 
-    reason: String(reason), 
+
+  logger.error({
+    reason: String(reason),
     stack: reason?.stack,
-    promise 
+    promise
   }, "[KRİTİK] Unhandled Rejection");
-  
+
   runtime.metrics.errors++;
 
   if (config.DEBUG) {
@@ -329,7 +329,7 @@ async function startSessionCleanup() {
     await initializeDatabase();
     logger.info("Bot is initializing...");
     await startSessionCleanup();
-    // startKeepAlive(); // Still disabled to avoid port conflict, but optimized for when needed
+    startKeepAlive(); // Still disabled to avoid port conflict, but optimized for when needed
 
     const manager = new BotManager();
     runtime.manager = manager;

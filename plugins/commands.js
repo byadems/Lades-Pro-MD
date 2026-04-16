@@ -133,7 +133,7 @@ function shuffleArray(array) {
 
 async function parseAlive(message, aliveMessage) {
   if (!aliveMessage) {
-    const defaultAliveMessage = "🟢 Çevrimiçiyim!";
+    const defaultAliveMessage = "🤭 Hey pampa! Korkma, ben aktifim.";
     return await message.sendReply(defaultAliveMessage);
   }
 
