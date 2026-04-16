@@ -71,7 +71,7 @@ const config = {
 
   // ─── Plugin uyumluluk alanları (pluginler tarafından doğrudan kullanılır) ─
   // Bot modu: "public" veya "private"
-  MODE: process.env.MODE || (process.env.PUBLIC_MODE === "true" ? "public" : "private"),
+  MODE: process.env.MODE || process.env.WORKTYPE || (process.env.PUBLIC_MODE === "false" ? "private" : "public"),
 
   // Komut handler prefix string (tam string, ör: ".")
   HANDLERS: process.env.HANDLERS || process.env.PREFIX || ".",
