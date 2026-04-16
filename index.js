@@ -17,7 +17,7 @@ const scheduler = require("./core/scheduler");
 const PID_FILE = path.join(__dirname, "bot.pid");
 const config = require("./config");
 const { logger } = config;
-const { initializeDatabase, WhatsappSession } = require("./core/database");
+const { initializeDatabase, loadConfigFromDb, WhatsappSession } = require("./core/database");
 const { BotManager } = require("./core/manager");
 const { suppressLibsignalLogs, startTempCleanup } = require("./core/helpers");
 const { shutdownCache } = require("./core/db-cache");
@@ -253,6 +253,7 @@ async function startSessionCleanup() {
   try {
     await checkSingleInstance();
     await initializeDatabase();
+    await loadConfigFromDb(); // Load settings from DB (MODE, PREFIX, etc.)
     logger.info("Bot is initializing...");
     await startSessionCleanup();
     // startKeepAlive(); // Still disabled to avoid port conflict, but optimized for when needed

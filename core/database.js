@@ -1,7 +1,8 @@
 const fs = require("fs");
 const path = require("path");
 const { Sequelize, DataTypes, Op } = require("sequelize");
-const { logger, ...config } = require("../config");
+const config = require("../config");
+const { logger } = config;
 
 // ─────────────────────────────────────────────────────────
 //  Database / Sequelize Initialization
@@ -333,6 +334,28 @@ const BotVariable = {
   findByPk: async (key) => BotConfig.findByPk(key),
 };
 
+/**
+ * Loads all key-value pairs from the BotConfig table into the global config object.
+ * This ensures that settings changed via commands (like .setvar) persist across restarts.
+ */
+async function loadConfigFromDb() {
+  try {
+    const vars = await BotConfig.findAll();
+    vars.forEach((v) => {
+      let value = v.value;
+      // Convert basic types if possible
+      if (value === "true") value = true;
+      else if (value === "false") value = false;
+      else if (!isNaN(value) && value.trim() !== "") value = Number(value);
+
+      config[v.key] = value;
+    });
+    logger.info(`[Config] Veritabanından ${vars.length} yapılandırma değişkeni yüklendi.`);
+  } catch (err) {
+    logger.error({ err: err.message }, "[Config] Veritabanı yapılandırması yüklenirken hata");
+  }
+}
+
 module.exports = {
   sequelize,
   WhatsappSession,
@@ -350,6 +373,7 @@ module.exports = {
   CommandStat,
   CommandRegistry,
   initializeDatabase,
+  loadConfigFromDb, // Export the new loader
   Op,
   DataTypes,
   Sequelize,
