@@ -19,6 +19,17 @@ const { BotMetric, CommandStat, CommandRegistry, UserData, GroupSettings, Messag
 const { antidelete } = require("../plugins/utils/db/functions");
 const { resolveLidToPn, isBotIdentifier } = require("./lid-helper"); // Moved to top-level
 
+// Dialect-aware SQL helpers
+const getDialectHelpers = () => {
+  const dialect = (() => { try { return sequelize.getDialect(); } catch { return 'sqlite'; } })();
+  const isPostgres = dialect === 'postgres';
+  return {
+    NOW: isPostgres ? 'NOW()' : "DATETIME('now')",
+    CONFLICT_KEY: isPostgres ? 'ON CONFLICT(key)' : 'ON CONFLICT([key])',
+    CONFLICT_PATTERN: isPostgres ? 'ON CONFLICT(pattern)' : 'ON CONFLICT(pattern)',
+  };
+};
+
 // Point 5 & 17: Redundant commandQueue removed. Concurrency is handled in bot.js.
 
 // ─────────────────────────────────────────────────────────
@@ -85,19 +96,19 @@ scheduler.register('metrics_batch_flush', async () => {
   metricsBatch.total_messages = 0;
   metricsBatch.total_commands = 0;
 
+  const { NOW, CONFLICT_KEY } = getDialectHelpers();
   try {
     if (currentBatch.total_messages > 0) {
-      // Point 3: Optimized single-query increment using raw SQL
       await sequelize.query(
-        "INSERT INTO bot_metrics ([key], value, createdAt, updatedAt) VALUES ('total_messages', ?, DATETIME('now'), DATETIME('now')) " +
-        "ON CONFLICT([key]) DO UPDATE SET value = value + excluded.value, updatedAt = DATETIME('now')",
+        `INSERT INTO bot_metrics (key, value, "createdAt", "updatedAt") VALUES ('total_messages', ?, ${NOW}, ${NOW}) ` +
+        `${CONFLICT_KEY} DO UPDATE SET value = bot_metrics.value + excluded.value, "updatedAt" = ${NOW}`,
         { replacements: [currentBatch.total_messages], type: sequelize.QueryTypes.INSERT }
       );
     }
     if (currentBatch.total_commands > 0) {
       await sequelize.query(
-        "INSERT INTO bot_metrics ([key], value, createdAt, updatedAt) VALUES ('total_commands', ?, DATETIME('now'), DATETIME('now')) " +
-        "ON CONFLICT([key]) DO UPDATE SET value = value + excluded.value, updatedAt = DATETIME('now')",
+        `INSERT INTO bot_metrics (key, value, "createdAt", "updatedAt") VALUES ('total_commands', ?, ${NOW}, ${NOW}) ` +
+        `${CONFLICT_KEY} DO UPDATE SET value = bot_metrics.value + excluded.value, "updatedAt" = ${NOW}`,
         { replacements: [currentBatch.total_commands], type: sequelize.QueryTypes.INSERT }
       );
     }
@@ -164,19 +175,19 @@ scheduler.register('command_metrics_flush', async () => {
   runtime.commandStatsBatch.forEach((v, k) => currentBatch.set(k, v));
   runtime.commandStatsBatch.clear();
 
+  const { NOW, CONFLICT_PATTERN } = getDialectHelpers();
   try {
     for (const [key, stat] of currentBatch.entries()) {
-      // Point 3: Optimized CommandStat upsert with raw SQL moving average
       await sequelize.query(
-        "INSERT INTO command_stats (pattern, runs, avgMs, status, lastRun, lastError, createdAt, updatedAt) " +
-        "VALUES (?, ?, ?, ?, DATETIME('now'), ?, DATETIME('now'), DATETIME('now')) " +
-        "ON CONFLICT(pattern) DO UPDATE SET " +
-        "avgMs = CAST(ROUND(((avgMs * runs) + (excluded.avgMs * excluded.runs)) / (runs + excluded.runs)) AS INTEGER), " +
-        "runs = runs + excluded.runs, " +
-        "status = excluded.status, " +
-        "lastRun = DATETIME('now'), " +
-        "lastError = COALESCE(excluded.lastError, lastError), " +
-        "updatedAt = DATETIME('now')",
+        `INSERT INTO command_stats (pattern, runs, "avgMs", status, "lastRun", "lastError", "createdAt", "updatedAt") ` +
+        `VALUES (?, ?, ?, ?, ${NOW}, ?, ${NOW}, ${NOW}) ` +
+        `${CONFLICT_PATTERN} DO UPDATE SET ` +
+        `"avgMs" = CAST(ROUND((command_stats."avgMs" * command_stats.runs + excluded."avgMs" * excluded.runs) / NULLIF(command_stats.runs + excluded.runs, 0)) AS INTEGER), ` +
+        `runs = command_stats.runs + excluded.runs, ` +
+        `status = excluded.status, ` +
+        `"lastRun" = ${NOW}, ` +
+        `"lastError" = COALESCE(excluded."lastError", command_stats."lastError"), ` +
+        `"updatedAt" = ${NOW}`,
         { replacements: [key, stat.runs, stat.avgMs, stat.status, stat.lastError], type: sequelize.QueryTypes.INSERT }
       );
     }

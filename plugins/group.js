@@ -658,6 +658,12 @@ Module({
   usage: ".jid (mevcut sohbet kimliğini alır)\n.jid (kullanıcı kimliğini almak için yanıtla)",
 },
   async (message) => {
+    // WhatsApp Kanalları için — doğrudan kanal JID'ini döndür
+    if (message.isChannel) {
+      return await message.sendReply(
+        `📡 *Kanal JID:*\n\`${message.jid}\``
+      );
+    }
     const isAdminUser = await isAdmin(message);
     if (message.isGroup) {
       if (message.fromOwner || isAdminUser) {

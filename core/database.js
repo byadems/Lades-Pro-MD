@@ -9,18 +9,45 @@ const { logger, ...config } = require("../config");
 const DATABASE_URL = config.DATABASE_URL;
 
 let sequelize;
-if (DATABASE_URL && DATABASE_URL.startsWith("postgres")) {
+
+// MongoDB URL kontrolü — Bu bot Sequelize (SQL) kullanır, MongoDB desteklenmez!
+if (DATABASE_URL && (DATABASE_URL.startsWith("mongodb://") || DATABASE_URL.startsWith("mongodb+srv://"))) {
+  logger.warn("╔════════════════════════════════════════════════════════╗");
+  logger.warn("║  ⚠️  MONGODB URL ALGILANDI — DESTEKLENMİYOR!           ║");
+  logger.warn("║  Bu bot Sequelize (SQL ORM) kullanmaktadır.            ║");
+  logger.warn("║  Lütfen PostgreSQL URL'si kullanın:                    ║");
+  logger.warn("║  • Supabase  → https://supabase.com (ücretsiz plan)    ║");
+  logger.warn("║  • Neon      → https://neon.tech (ücretsiz plan)       ║");
+  logger.warn("║  • Render    → https://render.com/docs/databases       ║");
+  logger.warn("║  SQLite (yerel) fallback kullanılıyor...               ║");
+  logger.warn("╚════════════════════════════════════════════════════════╝");
+  sequelize = new Sequelize({
+    dialect: "sqlite",
+    storage: path.join(__dirname, "../database.sqlite"),
+    logging: false,
+    pool: { max: 1, min: 0, acquire: 30000, idle: 10000 },
+    retry: { max: 10, match: [/SQLITE_BUSY/, /SQLITE_LOCKED/] },
+  });
+} else if (DATABASE_URL && (DATABASE_URL.startsWith("postgres") || DATABASE_URL.startsWith("postgresql"))) {
   sequelize = new Sequelize(DATABASE_URL, {
     dialect: "postgres",
     logging: false,
     pool: {
-      max: parseInt(process.env.DB_POOL_MAX || "20", 10),
-      min: parseInt(process.env.DB_POOL_MIN || "2", 10),
+      // Supabase/Neon/Render ücretsiz plan için optimize — max bağlantı sınırlı
+      max: parseInt(process.env.DB_POOL_MAX || "10", 10),
+      min: parseInt(process.env.DB_POOL_MIN || "1", 10),
       acquire: 60000,
-      idle: 30000,
+      idle: 20000,
+      evict: 10000,
     },
     dialectOptions: {
-      ssl: process.env.DB_SSL === "false" ? false : { require: true, rejectUnauthorized: false },
+      ssl: process.env.DB_SSL === "false" ? false : {
+        require: true,
+        rejectUnauthorized: false, // Supabase/Neon self-signed cert desteği
+      },
+      statement_timeout: parseInt(process.env.DB_STATEMENT_TIMEOUT || "30000", 10),
+      idle_in_transaction_session_timeout: 30000,
+      connectTimeout: 30000,
     },
     retry: {
       max: 5,
@@ -28,24 +55,27 @@ if (DATABASE_URL && DATABASE_URL.startsWith("postgres")) {
         Sequelize.ConnectionError,
         Sequelize.ConnectionRefusedError,
         Sequelize.ConnectionTimedOutError,
+        /ECONNRESET/,
+        /ECONNABORTED/,
+        /ETIMEDOUT/,
       ],
     },
   });
 } else {
-  // Use local SQLite
+  // SQLite (varsayılan — yerel geliştirme ve basit kullanım için)
   sequelize = new Sequelize({
     dialect: "sqlite",
     storage: path.join(__dirname, "../database.sqlite"),
     logging: false,
     pool: {
-      max: 1,
+      max: 1,    // SQLite tek-yazıcı modeli — birden fazla bağlantı deadlock yaratır
       min: 0,
       acquire: 30000,
       idle: 10000,
     },
     retry: {
       max: 10,
-      match: [/SQLITE_BUSY/],
+      match: [/SQLITE_BUSY/, /SQLITE_LOCKED/],
     },
   });
 }
