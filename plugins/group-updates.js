@@ -370,15 +370,13 @@ Module({
         } catch (e) { }
       }
 
-      // ALTERNATİF: LID çözülemediyse ve yönetici bypassından geçtiysek bu kişi kendi kendine linkle girmiştir.
-      // O halde 'message.from' (hareketi yapan) alanındaki veri kişinin gerçek telefon numarasıdır!
-      if (isLid && message.from && message.from.includes("@s.whatsapp.net")) {
-        participantId = message.from;
+      // KÖKTEN ÇÖZÜM: LID çözülemediği durumlarda (+90 numaralı biri bile olsa WhatsApp
+      // gizlilik ayarlarından dolayı numarası gizlenmiş olabilir), rastgele LID numarasını
+      // yabancı numara sanıp atmaması için işlemi güvenli bir şekilde pas geçiyoruz.
+      if (participantId.includes("@lid")) {
+        console.log(`[Anti-Numara] ${participantId} telefon numarasına (PN) çevrilemedi. Gerçek numara gizli olduğu için es geçildi.`);
+        return;
       }
-
-      // KÖKTEN ÇÖZÜM: 'if (isLid) return;' kapatıldı. Artık LID numarasıyla katılıp
-      // numarası tespit edilemeyen kişiler de "güvenlik ihlali / yabancı numara" sayılarak
-      // taviz verilmeden gruptan atılacaktır. Sistem %100 herkezi tarayacaktır.
 
       // KÖKTEN ÇÖZÜM: LID ve PN her koşulda inceleniyor
       const participantNumber = participantId.split("@")[0];
