@@ -197,11 +197,11 @@ scheduler.register('command_metrics_flush', async () => {
 
   try {
     const records = Array.from(currentBatch.entries()).map(([key, stat]) => ({
-      pattern:   key,
-      runs:      stat.runs,
-      avgMs:     stat.avgMs,
-      status:    stat.status || 'ok',
-      lastRun:   new Date(),
+      pattern: key,
+      runs: stat.runs,
+      avgMs: stat.avgMs,
+      status: stat.status || 'ok',
+      lastRun: new Date(),
       lastError: stat.lastError || null,
     }));
     await CommandStat.bulkCreate(records, {
@@ -951,12 +951,12 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
         if (originalMsg) {
           const participant = deletedKey.participant || deletedKey.remoteJid;
           const senderName = participant.split("@")[0];
-          
+
           let targetJid = jid;
           try {
             const { BotVariable } = require("./database");
             const mode = await BotVariable.get(`ANTI_DELETE_MODE_${jid}`, "chat");
-            
+
             if (mode === "sudo") {
               const sudoKey = (config.SUDO || config.OWNER_NUMBER || "").split(",")[0].replace(/[^0-9]/g, "");
               if (sudoKey) targetJid = `${sudoKey}@s.whatsapp.net`;
@@ -1081,7 +1081,9 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
 
     // Auto-read / Auto-typing
     if (!fromMe) {
-      if (config.AUTO_READ) {
+      // Global AUTO_READ config VEYA grup bazlı .otogörüldü komutuyla açılmışsa işaretle
+      const groupAutoRead = global._autoReadGroups?.has(jid);
+      if (config.AUTO_READ || groupAutoRead) {
         setTimeout(() => client.readMessages([rawMsg.key]).catch(() => { }), 50);
       }
     }
@@ -1097,6 +1099,14 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
       if (isGroup) {
         runtime.metrics.groups.set(jid, true);
       }
+    }
+
+    // ── OTO-TEPKİ (AUTO-REACT) — Grup bazlı izolasyon ──────────────────────
+    // .ototepki ac/kapat komutuyla açılmış gruplarda tepki ver
+    if (!fromMe && global._autoReactGroups?.has(jid)) {
+      const emojis = ["👍", "❤️", "😂", "🔥", "🎉", "✅", "💯", "👏"];
+      const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+      client.sendMessage(jid, { react: { text: emoji, key: rawMsg.key } }).catch(() => { });
     }
 
     // ── on:"text" / on:"message" event handler'ları — prefix gerekmez ──────

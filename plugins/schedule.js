@@ -159,11 +159,11 @@ async function createMessageObject(
 }
 
 Module({
-    pattern: "planla ?(.*)",
-    fromMe: false,
-    desc: "⏰ Mesaj planla - Gruba veya özele zamanlanmış mesaj gönder",
-    use: "araçlar",
-  },
+  pattern: "planla ?(.*)",
+  fromMe: false,
+  desc: "⏰ Mesaj planla - Gruba veya özele zamanlanmış mesaj gönder",
+  use: "araçlar",
+},
   async (m, match) => {
     if (!m.reply_message) {
       return await m.sendReply(
@@ -171,7 +171,7 @@ Module({
       );
     }
 
-if (!match[1]?.trim()) {
+    if (!match[1]?.trim()) {
       return await m.sendReply(
         "⚠️ _Lütfen üye etiketleyip zaman belirtiniz._\n\n*💡 Örnek:*\n• `.planla @üye 2 saat`\n• `.planla dm @üye 30 dakika`"
       );
@@ -241,7 +241,7 @@ if (!match[1]?.trim()) {
         .add(1, "minute")
         .format("DD.MM.YYYY HH:mm");
 
-      const targetInfo = isDM ? "📩 özelden" : "💬 gruba (⏰ etiketli)";
+      const targetInfo = isDM ? "📩 Özelden İletilecek (DM)" : "💬 Gruba İletilecek (Etiket ile)";
 
       await m.sendReply(
         `✅ *Mesaj başarıyla planlandı!*\n\n📅 *Tarih:* ${formattedTime}\n⏰ *Kalan süre:* ${timeFromNow}\n📱 *Hedef:* ${targetInfo}\n👤 *Üye:* @${targetJid.split("@")[0]}`,
@@ -255,12 +255,12 @@ if (!match[1]?.trim()) {
 );
 
 Module({
-    pattern: "plandurum ?(.*)",
-    fromMe: false,
-    desc: "📋 Planlanan tüm mesajları listeler",
-    use: "araçlar",
-    usage: ".plandurum",
-  },
+  pattern: "plandurum ?(.*)",
+  fromMe: false,
+  desc: "📋 Planlanan tüm mesajları listeler",
+  use: "araçlar",
+  usage: ".plandurum",
+},
   async (m, match) => {
     try {
       const pending = await scheduledMessages.getAllPending();
@@ -302,14 +302,14 @@ Module({
 );
 
 Module({
-    pattern: "plansil ?(.*)",
-    fromMe: false,
-    desc: "🗑️ Planlanan mesajı ID ile iptal eder",
-    use: "araçlar",
-    usage: ".plansil <id>",
-  },
+  pattern: "plansil ?(.*)",
+  fromMe: false,
+  desc: "🗑️ Planlanan mesajı ID ile iptal eder",
+  use: "araçlar",
+  usage: ".plansil <id>",
+},
   async (m, match) => {
-if (!match[1]?.trim()) {
+    if (!match[1]?.trim()) {
       return await m.sendReply(
         "⚠️ _Lütfen iptal edilecek mesajın ID'sini girin._\n\n*💡 Kullanım:* `.plansil <id>`\n\n_Planlanan mesajları görmek için `.plandurum` yazınız._"
       );

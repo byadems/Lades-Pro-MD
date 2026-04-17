@@ -703,6 +703,7 @@ Module({
         try {
           const filePath = allFiles[i];
           const stream = fs.createReadStream(filePath);
+          stream.on("error", () => {}); // Prevent stream crash
           const randomHash = Math.random().toString(36).substring(2, 8);
           let fileName = match[1] || `album_${i}_${randomHash}`;
           const mimetype = "application/octet-stream";
@@ -754,6 +755,7 @@ Module({
       }
 
       const stream = fs.createReadStream(filePath);
+      stream.on("error", () => {}); // Prevent Uncaught Exception
       await message.sendMessage({ stream: stream }, "document", {
         quoted: message.quoted,
         fileName: fileName,

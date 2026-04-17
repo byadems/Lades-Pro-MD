@@ -710,12 +710,12 @@ Module({
       const limit = parseInt(match[1]);
       if (isNaN(limit) || limit < 5 || limit > 50) {
         const { BotVariable } = require("../core/database");
-        const currentLimit = await BotVariable.get(`SPAMLIMIT_${message.jid}`, "10");
+        const existingVar = await BotVariable.findOne({ where: { key: `SPAMLIMIT_${message.jid}` } });
+        const currentLimit = existingVar ? existingVar.value : "10";
         return await message.sendReply(`⚠ *Geçersiz Spam Limiti!*\n\n- Lütfen 5 ile 50 arasında bir miktar girin.\n- Mevcut limit: \`${currentLimit} mesaj / 10 saniye\`\n\n💬 *Kullanım:* \`.antispamlimit 15\``);
       }
-      const { setVar } = require("./utils");
       await setVar(`SPAMLIMIT_${message.jid}`, limit.toString());
-      await message.sendReply(`✅ *Spam Limiti Güncellendi!*\n\n- Yeni limit: \`${limit} mesaj / 10 saniye\`\n\nℹ _Üyeler 10 saniye içinde ${limit} mesaj atarsa gruptan atılacak._`);
+      await message.sendReply(`✅ *Spam Limiti Güncellendi!*\n\n- Yeni limit: \`${limit} mesaj / 10 saniye\`\n\nℹ _Üyeler 10 saniye içinde ${limit} mesaj atarsa otomatikman gruptan atılacak._`);
     }
   }
 );
@@ -766,6 +766,9 @@ Module({
   use: "grup",
 },
   async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
+    let adminAccesValidated = await isAdmin(message);
+    if (!message.fromOwner && !adminAccesValidated) return;
     match[1] = match[1] ? match[1].toLowerCase() : "";
     const db = await antidemote.get();
     const jids = [];
@@ -801,6 +804,9 @@ Module({
   use: "grup",
 },
   async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
+    let adminAccesValidated = await isAdmin(message);
+    if (!message.fromOwner && !adminAccesValidated) return;
     match[1] = match[1] ? match[1].toLowerCase() : "";
     const db = await antipromote.get();
     const jids = [];
@@ -1908,8 +1914,7 @@ Module({
     if (message.fromOwner || adminAccesValidated) {
       if (!message.isGroup) return await message.sendReply("⚠️ _*Bu komut sadece gruplarda kullanılabilir!*_");
 
-      const adminCheck = await isAdmin(message);
-      if (!adminCheck) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+      if (!adminAccesValidated) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısın._");
 
       const input = match[1] ? match[1].toLowerCase().trim() : "";
 

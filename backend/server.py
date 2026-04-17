@@ -27,7 +27,7 @@ app.add_middleware(
 )
 
 DASHBOARD_URL: str = "http://localhost:3001"
-EMERGENT_LLM_KEY: str = os.environ.get("EMERGENT_LLM_KEY", "")
+GEMINI_API_KEY: str = os.environ.get("GEMINI_API_KEY", "")
 
 _client: Optional[httpx.AsyncClient] = None
 
@@ -35,7 +35,7 @@ _client: Optional[httpx.AsyncClient] = None
 def get_client() -> httpx.AsyncClient:
     global _client
     if _client is None or _client.is_closed:
-        _client = httpx.AsyncClient(timeout=30.0)
+        _client = httpx.AsyncClient(timeout=60.0)
     return _client
 
 
@@ -82,11 +82,6 @@ message nesnesi şu metodlara sahip:
 - message.isGroup - Grup mu?
 
 Kullanabilirsin: axios, fs, path, os, Buffer
-Ücretsiz API: https://api.siputzx.my.id (anahtar gerektirmez)
-Siputzx AI: /api/ai/duckai?message=... | /api/ai/deepseekr1?prompt=...
-Siputzx Arama: /api/s/pinterest?query=... | /api/s/googleimg?query=...
-Siputzx İndirme: /api/d/tiktok?url=... | /api/d/facebook?url=...
-Siputzx Araçlar: /api/tools/translate?text=...&to=tr | /api/tools/ssweb?url=...
 
 SADECE çalışan, hatasız JavaScript kodu üret. Açıklama yazma, yorum ekleme, sadece kodu ver."""
 
@@ -101,29 +96,46 @@ async def ai_generate_command(req: AIGenerateRequest) -> dict:
     if not req.description.strip():
         return {"error": "Komut açıklaması gerekli"}
 
-    if not EMERGENT_LLM_KEY:
-        return {"error": "EMERGENT_LLM_KEY yapılandırılmamış."}
+    if not GEMINI_API_KEY:
+        return {"error": "GEMINI_API_KEY yapılandırılmamış!"}
 
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{req.model}:generateContent?key={GEMINI_API_KEY}"
+        
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": f"System: {SYSTEM_PROMPT}"}]
+                },
+                {
+                    "role": "user",
+                    "parts": [{"text": f"Şu işlevi yapan bir bot komutu oluştur: {req.description}"}]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.2,
+                "topP": 0.8,
+                "topK": 40,
+                "maxOutputTokens": 2048,
+            }
+        }
 
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"ai-cmd-{uuid.uuid4().hex[:8]}",
-            system_message=SYSTEM_PROMPT,
-        ).with_model("gemini", "gemini-3-flash-preview")
+        client = get_client()
+        res = await client.post(url, json=payload, timeout=60.0)
+        
+        if res.status_code != 200:
+            return {"error": f"Gemini API Hatası ({res.status_code}): {res.text}"}
+            
+        data = res.json()
+        
+        if "candidates" not in data or not data["candidates"]:
+            return {"error": "Gemini uygun bir yanıt üretmedi."}
+            
+        response_text = data["candidates"][0]["content"]["parts"][0]["text"]
 
-        user_msg = UserMessage(
-            text=f"Şu işlevi yapan bir bot komutu oluştur: {req.description}"
-        )
-
-        response = await chat.send_message(user_msg)
-
-        if not response:
-            return {"error": "Gemini yanıt vermedi."}
-
-        code_match = re.search(r"```(?:javascript|js)?\n?([\s\S]*?)```", response)
-        code = code_match.group(1).strip() if code_match else response.strip()
+        code_match = re.search(r"```(?:javascript|js)?\n?([\s\S]*?)```", response_text)
+        code = code_match.group(1).strip() if code_match else response_text.strip()
 
         return {"success": True, "code": code, "model": "gemini-3-flash"}
 

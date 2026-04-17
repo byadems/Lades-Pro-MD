@@ -640,8 +640,21 @@ async function createBot(sessionId = "lades-session", options = {}) {
   // ── Call events (reject if needed) ───────────────────
   sock.ev.on("call", async (calls) => {
     for (const call of calls) {
-      if (call.status === "offer" && process.env.REJECT_CALLS === "true") {
+      if (call.status === "offer" && config.REJECT_CALLS === "true") {
+        const callerNumber = call.from.split("@")[0];
+        const allowedNumbers = config.ALLOWED_CALLS ? config.ALLOWED_CALLS.split(",").map(n => n.trim()) : [];
+        
+        // Eğer arayan beyaz listedeyse reddetme
+        if (allowedNumbers.includes(callerNumber)) continue;
+
         await sock.rejectCall(call.id, call.from).catch(() => {});
+        
+        // Eğer bir reddetme mesajı belirlenmişse arayana gönder
+        if (config.CALL_REJECT_MESSAGE && config.CALL_REJECT_MESSAGE.trim() !== "") {
+          await sock.sendMessage(call.from, { 
+            text: config.CALL_REJECT_MESSAGE.trim() 
+          }).catch(() => {});
+        }
       }
     }
   });

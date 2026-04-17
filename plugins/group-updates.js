@@ -130,8 +130,7 @@ Module({
 
 Module({
   pattern: "otosohbetkapat ?(.*)",
-  fromMe: true,
-  onlyAdmin: true,
+  fromMe: false,
   desc: "Grup sohbetinin otomatik kapanma özelliğini aktif eder.",
   warn: "Sunucu saatine göre çalışır",
   use: "grup",
@@ -152,26 +151,26 @@ Module({
         );
       }
       const mregex = /[0-2][0-9] [0-5][0-9]/;
-      if (mregex.test(match?.match(/(\d+)/g)?.join(" ")) === false)
-        return await message.sendReply("*_⚠️ Yanlış format!_\n_.otosohbetkapat 22 00 (Saat 22:00 için)_\n_.otosohbetkapat 06 00 (Saat 06:00 için)_*"
-        );
-      const admin = await isAdmin(message);
-      if (!admin) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+      if (!mregex.test(match?.match(/(\d+)/g)?.join(" "))) {
+        return await message.sendReply("*_⚠️ Yanlış format!_\n_.otosohbetkapat 22 00 (Saat 22:00 için)_\n_.otosohbetkapat 06 00 (Saat 06:00 için)_*");
+      }
+
+      // Çift isAdmin() kontrolüne gerek yok, zaten en başta adminAccesValidated ile kontrol ettik
+      if (!message.isBotAdmin) {
+        return await message.sendReply("*❌ İşlemi yapabilmem için lütfen benim grubunuzda _yönetici_ olduğuma emin olun!*");
+      }
+
       await automute.set(message.jid, match.match(/(\d+)/g)?.join(" "));
       await message.sendReply(
-        `*_⏰ Grup ${tConvert(
-          match.match(/(\d+)/g).join(" ")
-        )} saatinde otomatik susturulacak, sistemi yeniden başlatıyorum..._*`
+        `*_⏰ Grup ${tConvert(match.match(/(\d+)/g).join(" "))} saatinde otomatik susturulacak._*`
       );
-      process.exit(0);
     }
   }
 );
 
 Module({
   pattern: "otosohbetaç ?(.*)",
-  fromMe: true,
-  onlyAdmin: true,
+  fromMe: false,
   desc: "Grup sohbetinin otomatik açılma özelliğini aktif eder.",
   warn: "Sunucu saatine göre çalışır",
   use: "grup",
@@ -180,16 +179,15 @@ Module({
     let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
       match = match[1]?.toLowerCase();
-      if (!match)
-        return await message.sendReply("*_⚠️ Yanlış format!_*\n*_.otosohbetaç 22 00 (Saat 22:00 için)_*\n*_.otosohbetaç 06 00 (Saat 06:00 için)_*\n*_.otosohbetaç kapat_*"
-        );
-      if (match.includes("am") || match.includes("pm"))
-        return await message.sendReply("_⏰ Zaman SS DD (24 saat) formatında olmalıdır (Örn: 08 00)_"
-        );
+      if (!match) {
+        return await message.sendReply("*_⚠️ Yanlış format!_*\n*_.otosohbetaç 22 00 (Saat 22:00 için)_*\n*_.otosohbetaç 06 00 (Saat 06:00 için)_*\n*_.otosohbetaç kapat_*");
+      }
+      if (match.includes("am") || match.includes("pm")) {
+        return await message.sendReply("_⏰ Zaman SS DD (24 saat) formatında olmalıdır (Örn: 08 00)_");
+      }
       if (match === "kapat") {
         await autounmute.delete(message.jid);
-        return await message.sendReply("*📴 _Otomatik sohbet açma devre dışı bırakıldı ❗_*"
-        );
+        return await message.sendReply("*❌ _Otomatik sohbet açma devre dışı bırakıldı!_*");
       }
       const mregex2 = /[0-2][0-9] [0-5][0-9]/;
       if (mregex2.test(match?.match(/(\d+)/g)?.join(" ")) === false)
@@ -282,9 +280,9 @@ Module({
       notifyJids.push(targetUser);
 
       await message.client.sendMessage(message.jid, {
-        text: `_*[${message.action == "promote" ? "🔔 Yetki verme algılandı" : "🔔 Yetki alma algılandı"
-          }]*_\n\n@${message.from.split("@")[0]} @${targetUser.split("@")[0]
-          } kişisini ${message.action == "promote" ? "yükseltti" : "düşürdü"}`,
+        text: `_*${message.action == "promote" ? "🔔 (Yetki verme algılandı!)" : "🔔 (Yetki alma algılandı!)"
+          }*_\n\n_Yönetici @${message.from.split("@")[0]},\n @${targetUser.split("@")[0]
+          } üyesini ${message.action == "promote" ? "yönetici yaptı._" : "yöneticilikten aldı._"}`,
         mentions: [...new Set(notifyJids)],
       });
     }

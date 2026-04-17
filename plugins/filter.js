@@ -46,15 +46,19 @@ Module({
 
     const trigger = parts[0];
     const response = parts[1];
-    const scope = parts[2] || "chat";
+    const scopeRaw = (parts[2] || "sohbet").toLowerCase().trim();
     const options = parts[3] || "";
+
+    // Türkçe kapsam adlarını DB ile uyumlu İngilizce'ye çevir
+    const scopeMap = { sohbet: "chat", herkes: "global", grup: "group", dm: "dm" };
+    const scope = scopeMap[scopeRaw];
 
     if (!trigger || !response) {
       return await message.sendReply("_⚠️ Hem tetikleyici hem de yanıt gereklidir!_"
       );
     }
 
-    if (!["sohbet", "herkes", "grup", "dm"].includes(scope)) {
+    if (!scope) {
       return await message.sendReply("_❌ Geçersiz kapsam! Şunları kullanın: sohbet, herkes, grup veya dm_"
       );
     }
@@ -75,11 +79,11 @@ Module({
       );
 
       const scopeText =
-        scope === "sohbet"
+        scope === "chat"
           ? "bu sohbet"
-          : scope === "herkes"
+          : scope === "global"
             ? "tüm sohbetler"
-            : scope === "grup"
+            : scope === "group"
               ? "tüm gruplar"
               : "tüm DM'ler";
       const optionsText = [];
@@ -112,11 +116,13 @@ Module({
     let adminAccess = await isAdmin(message);
     if (!message.fromOwner && !adminAccess) return;
 
-    const scope = match[1]?.trim().toLowerCase();
+    const scopeRaw = match[1]?.trim().toLowerCase();
+    const scopeMap = { herkes: "global", grup: "group", dm: "dm" };
+    const scope = scopeRaw ? (scopeMap[scopeRaw] || scopeRaw) : null;
     let filters;
 
     try {
-      if (scope && ["herkes", "grup", "dm"].includes(scope)) {
+      if (scope && ["global", "group", "dm"].includes(scope)) {
         filters = await filter.getByScope(scope);
       } else {
         filters = await filter.get(message.jid);
@@ -175,9 +181,10 @@ Module({
 
     const parts = input.split(" ");
     const trigger = parts[0];
-    const scope = parts[1] || "sohbet";
-
-    if (!["sohbet", "herkes", "grup", "dm"].includes(scope)) {
+    const scopeRaw = (parts[1] || "sohbet").toLowerCase();
+    const scopeMap = { sohbet: "chat", herkes: "global", grup: "group", dm: "dm" };
+    const scope = scopeMap[scopeRaw] || "chat";
+    if (parts[1] && !scopeMap[scopeRaw]) {
       return await message.sendReply("_❌ Geçersiz kapsam! Şunları kullanın: sohbet, herkes, grup veya dm_"
       );
     }
@@ -218,9 +225,10 @@ Module({
 
     const parts = input.split(" ");
     const trigger = parts[0];
-    const scope = parts[1] || "sohbet";
-
-    if (!["sohbet", "herkes", "grup", "dm"].includes(scope)) {
+    const scopeRaw = (parts[1] || "sohbet").toLowerCase();
+    const scopeMap = { sohbet: "chat", herkes: "global", grup: "group", dm: "dm" };
+    const scope = scopeMap[scopeRaw] || "chat";
+    if (parts[1] && !scopeMap[scopeRaw]) {
       return await message.sendReply("_❌ Geçersiz kapsam! Şunları kullanın: sohbet, herkes, grup veya dm_"
       );
     }

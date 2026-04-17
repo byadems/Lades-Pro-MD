@@ -23,7 +23,8 @@ const {
   FakeDB,
   FilterDB,
   WelcomeDB,
-  GoodbyeDB
+  GoodbyeDB,
+  AntilinkConfigDB
 } = require("./models");
 const config = require("../../../config");
 
@@ -247,20 +248,19 @@ const antilinkConfig = {
   checkAllowed: checkAllowed
 };
 
-// antiSpam mapped to GroupSettings
+// antiSpam — antiSpamDB tablosunu kullanır (GroupSettings ile uyumsuzluk giderildi)
 async function getAntiSpam() {
-  const all = await GroupSettings.findAll({ where: { antiSpam: true } });
-  return all.map(s => ({ jid: s.groupId }));
+  return await antiSpamDB.findAll();
 }
 
 async function setAntiSpam(jid) {
-  await updateGroupSettings(jid, { antiSpam: true });
-  return true;
+  const existing = await antiSpamDB.findOne({ where: { jid } });
+  if (existing) return existing;
+  return await antiSpamDB.create({ jid });
 }
 
 async function delAntiSpam(jid) {
-  await updateGroupSettings(jid, { antiSpam: false });
-  return true;
+  return await antiSpamDB.destroy({ where: { jid } });
 }
 
 async function resetAntiSpam() {

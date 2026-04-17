@@ -46,7 +46,14 @@ Module({
     if (!userIsAdmin)
       return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
 
-    const botIsAdmin = await isAdmin(message);
+    // Bot'un kendisinin admin olup olmadığını kontrol et (mesajı gönderenden bağımsız)
+    const botIsAdmin = message.isBotAdmin ?? (() => {
+      try {
+        if (!message.groupAdmins) return false;
+        const { isBotIdentifier } = require("./utils/lid-helper");
+        return message.groupAdmins.some(a => isBotIdentifier(a, message.client));
+      } catch { return false; }
+    })();
     if (!botIsAdmin) {
       return await message.sendReply("❌ _İşlem yapabilmem için öncelikle yönetici olmam gerekiyor!_");
     }

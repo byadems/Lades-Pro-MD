@@ -40,9 +40,9 @@ Module({
 // ══════════════════════════════════════════════════════
 Module({
   pattern: "ototepki ?(.*)",
-  fromMe: true,
+  fromMe: false,
   desc: "Gelen mesajlara otomatik emoji tepkisi verir (aç/kapat).",
-  usage: ".ototepki ac | .ototepki kapat",
+  usage: ".ototepki aç | .ototepki kapat",
   use: "ayarlar",
 }, async (message, match) => {
   const arg = (match[1] || "").trim().toLowerCase();
@@ -64,7 +64,7 @@ Module({
 // Sistem Bilgisi
 // ══════════════════════════════════════════════════════
 Module({
-  pattern: "(?:sistembilgi|sysinfo)",
+  pattern: "sistembilgi",
   fromMe: false,
   desc: "Sistem donanım ve yazılım bilgilerini gösterir.",
   usage: ".sistembilgi",
@@ -103,35 +103,6 @@ Module({
 });
 
 // ══════════════════════════════════════════════════════
-// Herkes Etiketleme (Tag All)
-// ══════════════════════════════════════════════════════
-Module({
-  pattern: "herkese ?(.*)",
-  fromMe: true,
-  desc: "Gruptaki herkesi etiketler.",
-  usage: ".herkese [mesaj]",
-  use: "grup",
-}, async (message, match) => {
-  if (!message.jid.endsWith("@g.us")) return await message.sendReply("_Bu komut sadece gruplarda çalışır._");
-
-  try {
-    const metadata = await message.client.groupMetadata(message.jid);
-    const participants = metadata.participants.map(p => p.id);
-    const text = (match[1] || "Herkes!").trim();
-
-    const mentions = participants;
-    const mentionText = participants.map(p => `@${p.split("@")[0]}`).join(" ");
-
-    await message.client.sendMessage(message.jid, {
-      text: `${text}\n\n${mentionText}`,
-      mentions
-    }, { quoted: message.data });
-  } catch (e) {
-    await message.sendReply(`_Etiketleme başarısız:_ ${e.message}`);
-  }
-});
-
-// ══════════════════════════════════════════════════════
 // Çevrimiçi Durum Değiştirme
 // ══════════════════════════════════════════════════════
 Module({
@@ -153,24 +124,26 @@ Module({
 });
 
 // ══════════════════════════════════════════════════════
-// Okundu/Okunmadı İşareti
+// Okundu/Okunmadı İşareti (Grup bazlı izolasyon)
 // ══════════════════════════════════════════════════════
 Module({
-  pattern: "okundu ?(.*)",
-  fromMe: true,
-  desc: "Otomatik okundu işaretini aç/kapat.",
-  usage: ".okundu ac | .okundu kapat",
+  pattern: "otogörüldü ?(.*)",
+  fromMe: false,
+  desc: "Otomatik okundu bilgisini sadece bu grup için açıp/kapatır.",
+  usage: ".otogörüldü aç | .otogörüldü kapat",
   use: "ayarlar",
 }, async (message, match) => {
   const arg = (match[1] || "").trim().toLowerCase();
+  if (!global._autoReadGroups) global._autoReadGroups = new Set();
+
   if (arg === "ac" || arg === "aç") {
-    global._autoRead = true;
-    await message.sendReply("_Otomatik okundu işareti açıldı._");
+    global._autoReadGroups.add(message.jid);
+    await message.sendReply("✅ _Otomatik görüldü bilgisi bu sohbet için açıldı._");
   } else if (arg === "kapat") {
-    global._autoRead = false;
-    await message.sendReply("_Otomatik okundu işareti kapatıldı._");
+    global._autoReadGroups.delete(message.jid);
+    await message.sendReply("❌ _Otomatik görüldü bilgisi bu sohbet için kapatıldı._");
   } else {
-    const status = global._autoRead ? "Açık" : "Kapalı";
-    await message.sendReply(`*Otomatik Okundu:* ${status}\n\n_.okundu ac_ - Açmak için\n_.okundu kapat_ - Kapatmak için`);
+    const status = global._autoReadGroups?.has(message.jid) ? "Açık" : "Kapalı";
+    await message.sendReply(`👀 *Otomatik Görüldü Bilgisi:* ${status}\n\n_.otogörüldü aç_ - Açmak için\n_.otogörüldü kapat_ - Kapatmak için`);
   }
 });
