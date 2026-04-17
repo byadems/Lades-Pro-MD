@@ -201,6 +201,27 @@ async function createBot(sessionId = "lades-session", options = {}) {
   // Store events
   bindToSocket(sock);
 
+  // --- AUDIO MESSAGE PLAYBACK FIX (SES DOSYASI YÜRÜTME SORUNU) ---
+  // WhatsApp'ın son güncellemeleri audio/mpeg veya hatalı gönderilmiş ptt: true mesajlarını çökertmektedir.
+  // Bu yüzden tüm ses mesajlarını global olarak araya girip onarıyoruz.
+  const originalSendMessage = sock.sendMessage;
+  sock.sendMessage = async (jid, content, options) => {
+    if (content && content.audio) {
+      if (content.mimetype === "audio/mpeg") {
+        content.mimetype = "audio/mp4"; // iOS ve modern WA Web MP4 mimetipi (M4A) istiyor
+      }
+      if (!content.mimetype) {
+        content.mimetype = "audio/mp4";
+      }
+      // OGG OPUS codec ile encode edilmemiş PTT'ler yeni WA sürümlerinde çalışmaz
+      // Normal ses dosyası (oynatma çubuğu olan) formatına çeviriyoruz
+      if (content.ptt && (!content.mimetype.includes("ogg") && !content.mimetype.includes("opus"))) {
+        content.ptt = false;
+      }
+    }
+    return originalSendMessage.call(sock, jid, content, options);
+  };
+
   // --- ALBUM MESSAGE IMPLEMENTATION ---
   sock.albumMessage = async (jid, medias, options = {}) => {
     const { generateWAMessageFromContent, prepareWAMessageMedia, proto } = await loadBaileys();
