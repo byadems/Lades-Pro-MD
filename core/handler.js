@@ -920,7 +920,27 @@ function isOwnerOrSudo(senderJid, originalSenderJid, client = null) {
 async function handleMessage(client, rawMsg, groupMetadata = null) {
   try {
     const message = new BaseMessage(client, rawMsg, groupMetadata);
-    const { jid, text, isGroup, isChannel, fromMe } = message;
+    let { jid, text, isGroup, isChannel, fromMe } = message;
+
+    // ── OTO-ÇIKARTMA (STICKER CMD) INTERCEPTOR ──
+    const stickerMsg = rawMsg.message?.stickerMessage || rawMsg.message?.documentWithCaptionMessage?.message?.stickerMessage;
+    if (stickerMsg?.fileSha256) {
+      try {
+        const { stickcmd } = require('../plugins/utils/db/schedulers');
+        const cmds = await stickcmd.get();
+        if (cmds && cmds.length > 0) {
+          const sha = stickerMsg.fileSha256.toString();
+          const match = cmds.find(c => c.file === sha);
+          if (match && match.command) {
+            text = match.command;
+            message.text = text; // Match command handler needs text
+            logger.info(`[AutoSticker] Sticker intercepted and translated to: ${text}`);
+          }
+        }
+      } catch (e) {
+        logger.error(`[AutoSticker] Intercept error: ${e.message}`);
+      }
+    }
 
     // ── ANTISILME (ANTI-DELETE) LOGIC ──
     // antidelete.get() her silmede DB çarpmayı önlemek için in-memory Set cache kullanılır
