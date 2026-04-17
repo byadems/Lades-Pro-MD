@@ -185,7 +185,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
     getMessage: async (key) => {
       const { getMessageByKey } = require("./store");
       const msg = getMessageByKey(key);
-      return msg ? msg.message : proto.Message.fromObject({});
+      return msg ? msg.message : undefined;
     },
     syncFullHistory: false,
     markOnlineOnConnect: !options.markOffline,
