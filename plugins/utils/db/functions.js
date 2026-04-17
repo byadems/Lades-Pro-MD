@@ -74,7 +74,8 @@ async function setWarn(
     warnedBy: warnedBy
   });
 
-  const warnLimit = parseInt(config.WARN || "3");
+  const settings = await getGroupSettings(jid);
+  const warnLimit = settings.warnLimit || parseInt(config.WARN || "3");
   return await getWarn(jid, user, warnLimit);
 }
 

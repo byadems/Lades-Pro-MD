@@ -37,7 +37,10 @@ const state = {
   lidCache: new LRUCache({ max: 5000, ttl: 1000 * 60 * 60 * 24 }), // 24h cache
 
   /** Batch for command performance metrics — plain Map prevents data loss from LRU eviction before flush */
+  // PERFORMANS: 5000 giriş FIFO sınırı — yoğun trafikte bellek birikmesini önler
   commandStatsBatch: new Map(),
+  /** Max entries for commandStatsBatch before FIFO eviction */
+  MAX_STATS_BATCH: 5000,
 
   /** Self-test progress (moved from global namespace) */
   testProgress: { status: 'idle', currentIndex: 0, totalCommands: 0, currentCommand: '' },

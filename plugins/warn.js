@@ -11,12 +11,13 @@ const {
   censorBadWords,
   isAdmin,
 } = require("./utils");
+const { getGroupSettings, updateGroupSettings } = require("../core/db-cache");
 const { getNumericId, isBotIdentifier } = require("./utils/lid-helper");
 const fs = require("fs");
 const path = require("path");
 
 const handler = HANDLER_PREFIX;
-const warnLimit = parseInt(WARN || "4");
+const globalWarnLimit = parseInt(WARN || "3");
 const sudoUsers = (SUDO || "").split(",");
 
 async function sendBanAudio(message) {
@@ -28,12 +29,12 @@ async function sendBanAudio(message) {
 }
 
 Module({
-    pattern: "uyar(.*)",
-    fromMe: true,
-    desc: "Grup üyelerini uyarmaya yarar. Belirlenen uyarı limitine ulaşıldığında üye otomatik olarak gruptan uzaklaştırılır.",
-    usage: ".uyar [@üye] [sebep] | .uyarısil | .uyarısıfırla | .uyarıliste | .uyarılimit [sayı]",
-    use: "grup",
-  },
+  pattern: "uyar(.*)",
+  fromMe: true,
+  desc: "Grup üyelerini uyarmaya yarar. Belirlenen uyarı limitine ulaşıldığında üye otomatik olarak gruptan uzaklaştırılır.",
+  usage: ".uyar [@üye] [sebep] | .uyarısil | .uyarısıfırla | .uyarıliste | .uyarılimit [sayı]",
+  use: "grup",
+},
   async (message, match) => {
     // match[1], "uyar" kelimesinden sonra gelen kısımdır. 
     const cmd = match[1] ? match[1].toLowerCase().trim() : "";
@@ -50,6 +51,9 @@ Module({
       return await message.sendReply("❌ _İşlem yapabilmem için öncelikle yönetici olmam gerekiyor!_");
     }
 
+    const settings = await getGroupSettings(message.jid);
+    const warnLimit = settings.warnLimit || globalWarnLimit;
+
     // ─────────────────────────────────────────────────────────
     //  ALT KOMUTLAR (Sub-commands)
     // ─────────────────────────────────────────────────────────
@@ -61,7 +65,7 @@ Module({
           const { resolveLidToPn } = require("../core/lid-helper");
           const pn = await resolveLidToPn(message.client, user);
           if (pn && pn !== user) return pn;
-        } catch (e) {}
+        } catch (e) { }
       }
       return user;
     }
@@ -161,6 +165,7 @@ Module({
       if (!newLimit || newLimit < 1 || newLimit > 20) {
         return await message.sendReply(`⚠ *Geçersiz Uyarı Limiti!*\n\n- Lütfen 1 ile 20 arasında bir miktar girin.\n- Mevcut limit: \`${warnLimit}\`\n\n💬 *Kullanım:* \`${handler}uyarılimit 5\``);
       }
+      await updateGroupSettings(message.jid, { warnLimit: newLimit });
       await message.sendReply(`✅ *Uyarı Limiti Güncellendi!*\n\n- Yeni limit: \`${newLimit}\`\n- Önceki limit: \`${warnLimit}\`\n\nℹ _Üyeler artık ${newLimit} uyarıdan sonra gruptan atılacak._`);
       return;
     }
@@ -231,12 +236,12 @@ Module({
 );
 
 Module({
-    pattern: "kaçuyarı ?(.*)",
-    fromMe: false,
-    desc: "Bir üyenin toplamda kaç uyarı aldığını ve uyarı geçmişini detaylıca listeler.",
-    usage: ".kaçuyarı [@üye]",
-    use: "grup",
-  },
+  pattern: "kaçuyarı ?(.*)",
+  fromMe: false,
+  desc: "Bir üyenin toplamda kaç uyarı aldığını ve uyarı geçmişini detaylıca listeler.",
+  usage: ".kaçuyarı [@üye]",
+  use: "grup",
+},
   async (message) => {
     if (!message.isGroup)
       return await message.sendReply("❌ _Bu komut sadece gruplarda kullanılabilir!_");
@@ -244,6 +249,9 @@ Module({
     const userIsAdmin = await isAdmin(message);
     if (!userIsAdmin)
       return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+
+    const settings = await getGroupSettings(message.jid);
+    const warnLimit = settings.warnLimit || globalWarnLimit;
 
     let targetUser = message.mention?.[0] || message.reply_message?.jid || message.sender;
 
@@ -253,7 +261,7 @@ Module({
         const { resolveLidToPn } = require("../core/lid-helper");
         const pn = await resolveLidToPn(message.client, targetUser);
         if (pn && pn !== targetUser) targetUser = pn;
-      } catch (e) {}
+      } catch (e) { }
     }
 
     const targetNumericId = getNumericId(targetUser);

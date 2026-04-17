@@ -172,7 +172,8 @@ async function fetchRecentChats() {
 
 async function getTotalUserCount() {
   try {
-    return await UserData.count();
+    const count = await MessageStats.count({ distinct: true, col: 'userJid' });
+    return count || 0;
   } catch (err) {
     return 0;
   }

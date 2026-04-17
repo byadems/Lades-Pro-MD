@@ -66,7 +66,7 @@ try {
 suppressLibsignalLogs();
 runtime.startTime = Date.now();
 
-const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 450;
+const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 500; // 450 → 500 (gereksiz restart önlenir)
 scheduler.register('memory_check', () => {
   const mem = process.memoryUsage();
   // RSS = gerçek işletim sistemi belleği (Northflank bu değeri gösterir)
@@ -74,7 +74,8 @@ scheduler.register('memory_check', () => {
     logger.warn(`Bellek sınırı (${PM2_RESTART_MB}MB RSS) aşıldı. Otomatik yeniden başlatılıyor...`);
     process.exit(1);
   }
-}, 10000);
+}, 30000); // 10s → 30s: OS çağrısı sayısı 3'te bire düştü
+
 
 function startKeepAlive() {
   const app = express();

@@ -208,17 +208,23 @@ function suppressLibsignalLogs() {
   const origLog = console.log.bind(console);
   const origInfo = console.info.bind(console);
 
+  // PERFORMANS: erken çıkış optimizasyonu
+  // Baileys her işlemde çok sayıda log üretir. Bu fonksiyon her log çağrısında çalışır.
+  // Önce hızlı tip kontrolü, sonra string içerik kontrolü yapılır.
+  const FILTER_STRINGS = ["signalstore", "libsignal", "Closing session:", "SessionEntry"];
+
   const filter = (args) => {
+    if (!args || args.length === 0) return false;
     try {
       for (const arg of args) {
-        if (typeof arg === 'string' && (
-          arg.includes("signalstore") || 
-          arg.includes("libsignal") || 
-          arg.includes("Closing session:") || 
-          arg.includes("SessionEntry")
-        )) return true;
-        
-        // If it's an object, check its constructor name or a quick string check
+        // En hızlı kontrol önce: string mi?
+        if (typeof arg === 'string') {
+          for (const s of FILTER_STRINGS) {
+            if (arg.includes(s)) return true;
+          }
+          continue; // string ama eşleşmedi, sonraki arg'a geç
+        }
+        // Nesne kontrolü (daha nadir, en sona bırak)
         if (arg && typeof arg === 'object' && arg.constructor?.name === 'SessionEntry') return true;
       }
       return false;

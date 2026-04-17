@@ -4,7 +4,7 @@ const ffmpeg = require("fluent-ffmpeg");
 const ffmpegStatic = require("ffmpeg-static");
 ffmpeg.setFfmpegPath(ffmpegStatic);
 const https = require("https");
-const { getTempPath, getTempSubdir } = require("../core/helpers");
+const { getTempPath, getTempSubdir, ffmpegLimit } = require("../core/helpers");
 
 const config = require("../config"),
   MODE = config.MODE;
@@ -12,6 +12,11 @@ const { avMix, circle, rotate, trim, uploadToImgbb, nx, nxTry, uploadToCatbox } 
 const nexray = require("./utils/nexray");
 const { censorBadWords } = require("./utils/censor");
 const handler = config.HANDLER_PREFIX;
+
+// ── API key varlığını modül başında bir kez kontrol et (her mesajda tekrar hesaplama)
+const _hasGroqKey   = !!config.GROQ_API_KEY   && config.GROQ_API_KEY   !== '';
+const _hasOpenAIKey = !!config.OPENAI_API_KEY  && config.OPENAI_API_KEY !== '';
+const _hasTranscribeApi = _hasGroqKey || _hasOpenAIKey;
 
 async function findMusic(file) {
   const acrcloud = require("acrcloud");
@@ -219,13 +224,9 @@ Module({
   async (message, match) => {
     try {
       const audioMsg = message.data?.message?.audioMessage;
-      if (!audioMsg) {
-        return;
-      }
-      if ((!config.GROQ_API_KEY || config.GROQ_API_KEY === '') &&
-        (!config.OPENAI_API_KEY || config.OPENAI_API_KEY === '')) {
-        return;
-      }
+      if (!audioMsg) return;
+      // Modül başında hesaplanan flag kullanılıyor (her mesajda config kontrole yok)
+      if (!_hasTranscribeApi) return;
       return await transcribeVoiceMessage(message, message);
     } catch (err) {
       console.error("Otomatik dinle hatası:", err);
@@ -314,44 +315,31 @@ Module({
       return await message.send("_🎵 Ses dosyası gerekli!_");
 
     try {
-      const processingMsg = await message.sendReply("_🎬 Ses siyah ekrana sahip videoya dönüştürülüyor..._"
-      );
+      const processingMsg = await message.sendReply("_🎬 Ses siyah ekrana sahip videoya dönüştürülüyor..._");
       const audioFile = await message.reply_message.download();
       const outputPath = getTempPath(`black_${Date.now()}.mp4`);
 
-      await new Promise((resolve, reject) => {
+      // ffmpegLimit: eş zamanlı en fazla 3 FFmpeg işlemi çalışır (CPU koruma)
+      await ffmpegLimit(() => new Promise((resolve, reject) => {
         ffmpeg()
           .input(audioFile)
           .input("color=c=black:s=320x240:r=30")
           .inputFormat("lavfi")
           .outputOptions([
-            "-shortest",
-            "-c:v",
-            "libx264",
-            "-preset",
-            "ultrafast",
-            "-crf",
-            "51",
-            "-c:a",
-            "copy",
-            "-pix_fmt",
-            "yuv420p",
+            "-shortest", "-c:v", "libx264", "-preset", "ultrafast",
+            "-crf", "51", "-c:a", "copy", "-pix_fmt", "yuv420p",
           ])
           .format("mp4")
           .save(outputPath)
           .on("end", resolve)
           .on("error", reject);
-      });
+      }));
 
       const videoBuffer = await fs.promises.readFile(outputPath);
       await message.send(videoBuffer, "video");
-      await message.edit(
-        "_✅ Siyah video başarıyla oluşturuldu!_",
-        message.jid,
-        processingMsg.key
-      );
-      await fs.promises.unlink(audioFile).catch(() => { });
-      await fs.promises.unlink(outputPath).catch(() => { });
+      await message.edit("_✅ Siyah video başarıyla oluşturuldu!_", message.jid, processingMsg.key);
+      await fs.promises.unlink(audioFile).catch(() => {});
+      await fs.promises.unlink(outputPath).catch(() => {});
     } catch (error) {
       console.error("Siyah video oluşturma hatası:", error);
       await message.send("_❌ Siyah video oluşturulamadı. Lütfen tekrar deneyin._");
@@ -480,18 +468,22 @@ Module({
       return await message.sendReply("*🎬 Bir videoyu yanıtla*");
     const savedFile = await message.reply_message.download();
     await message.sendReply("*✨ Hareket enterpolasyonu ve işleniyor..*");
-    ffmpeg(savedFile)
-      .videoFilters("minterpolate=fps=120")
-      .videoFilters("setpts=4*PTS")
-      .noAudio()
-      .format("mp4")
-      .save(getTempPath("slowmo.mp4"))
-      .on("end", async () => {
-        const buf = await fs.promises.readFile(getTempPath("slowmo.mp4"));
-        await message.send(buf, "video");
-        await fs.promises.unlink(getTempPath("slowmo.mp4")).catch(() => { });
-        await fs.promises.unlink(savedFile).catch(() => { });
-      });
+    // ffmpegLimit: CPU aşımını önler
+    const outPath = getTempPath("slowmo.mp4");
+    await ffmpegLimit(() => new Promise((resolve, reject) => {
+      ffmpeg(savedFile)
+        .videoFilters("minterpolate=fps=120")
+        .videoFilters("setpts=4*PTS")
+        .noAudio()
+        .format("mp4")
+        .save(outPath)
+        .on("end", resolve)
+        .on("error", reject);
+    }));
+    const buf = await fs.promises.readFile(outPath);
+    await message.send(buf, "video");
+    await fs.promises.unlink(outPath).catch(() => {});
+    await fs.promises.unlink(savedFile).catch(() => {});
   }
 );
 Module({
@@ -526,19 +518,20 @@ Module({
       return await message.sendReply("*🎬 Bir videoyu yanıtla*");
     const savedFile = await message.reply_message.download();
     await message.sendReply("*⏳ İşleniyor..*");
-    ffmpeg(savedFile)
-      .fps(13)
-      .videoBitrate(500)
-      .save(getTempPath("agif.mp4"))
-      .on("end", async () => {
-        const buf = await fs.promises.readFile(getTempPath("agif.mp4"));
-        await message.client.sendMessage(message.jid, {
-          video: buf,
-          gifPlayback: true,
-        });
-        await fs.promises.unlink(getTempPath("agif.mp4")).catch(() => { });
-        await fs.promises.unlink(savedFile).catch(() => { });
-      });
+    const outPath = getTempPath("agif.mp4");
+    // ffmpegLimit: eş zamanlı CPU aşımını önler
+    await ffmpegLimit(() => new Promise((resolve, reject) => {
+      ffmpeg(savedFile)
+        .fps(13)
+        .videoBitrate(500)
+        .save(outPath)
+        .on("end", resolve)
+        .on("error", reject);
+    }));
+    const buf = await fs.promises.readFile(outPath);
+    await message.client.sendMessage(message.jid, { video: buf, gifPlayback: true });
+    await fs.promises.unlink(outPath).catch(() => {});
+    await fs.promises.unlink(savedFile).catch(() => {});
   }
 );
 Module({
@@ -557,16 +550,20 @@ Module({
       return await message.send("*⚠️ FPS değeri yüksek*\n*Maksimum = 500*");
     const savedFile = await message.reply_message.download();
     await message.sendReply("*✨ FPS işleniyor..*");
-    ffmpeg(savedFile)
-      .videoFilters(`minterpolate=fps=${match[1]}:mi_mode=mci:me_mode=bidir`)
-      .format("mp4")
-      .save(getTempPath("interp.mp4"))
-      .on("end", async () => {
-        const buf = await fs.promises.readFile(getTempPath("interp.mp4"));
-        await message.send(buf, "video");
-        await fs.promises.unlink(getTempPath("interp.mp4")).catch(() => { });
-        await fs.promises.unlink(savedFile).catch(() => { });
-      });
+    const outPath = getTempPath("interp.mp4");
+    // ffmpegLimit: eş zamanlı CPU aşımını önler
+    await ffmpegLimit(() => new Promise((resolve, reject) => {
+      ffmpeg(savedFile)
+        .videoFilters(`minterpolate=fps=${match[1]}:mi_mode=mci:me_mode=bidir`)
+        .format("mp4")
+        .save(outPath)
+        .on("end", resolve)
+        .on("error", reject);
+    }));
+    const buf = await fs.promises.readFile(outPath);
+    await message.send(buf, "video");
+    await fs.promises.unlink(outPath).catch(() => {});
+    await fs.promises.unlink(savedFile).catch(() => {});
   }
 );
 Module({

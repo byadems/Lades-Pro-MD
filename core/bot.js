@@ -20,12 +20,20 @@ const { WhatsappSession, sequelize } = require("./database");
 const { migrateSudoToLID } = require("./lid-helper");
 const { startSchedulers } = require("./schedulers");
 const { runSelfTest } = require("./self-test");
+// ── PQueue: module-level başlat (lazy async init overhead'i önce)
 let _queue = null;
+let _queueReady = false;
+// Pre-warm: Bot başlar başlamaz queue'yu hazırla
+import('p-queue').then(({ default: PQueue }) => {
+  _queue = new PQueue({ concurrency: 5 });
+  _queueReady = true;
+}).catch(() => { /* fallback: create on demand */ });
+
 async function getMessageQueue() {
-  if (!_queue) {
-    const { default: PQueue } = await import('p-queue');
-    _queue = new PQueue({ concurrency: 5 });
-  }
+  if (_queue) return _queue;
+  const { default: PQueue } = await import('p-queue');
+  _queue = new PQueue({ concurrency: 5 });
+  _queueReady = true;
   return _queue;
 }
 
@@ -81,6 +89,15 @@ async function checkTimeDrift(thresholdMs = 5000) {
 // ─────────────────────────────────────────────────────────
 const RECONNECT_BASE_MS = 3000;
 const RECONNECT_MAX_MS = 60000;
+
+// ── Timer Leak Koruması: Tüm interval referansları dış scope'ta tutulur
+// Her yeni 'connection.update → open' olayında önce clearInterval çağrılır.
+let _presenceTimer = null;
+let _ntpTimer = null;
+let _proactiveTimer = null;
+
+// scheduled_message_sender'ın tekrar kayıt olmamasını sağlayan guard
+let _scheduledMsgRegistered = false;
 
 // ─────────────────────────────────────────────────────────
 //  Create bot instance
@@ -238,8 +255,12 @@ async function createBot(sessionId = "lades-session", options = {}) {
   };
 
   // --- ALBUM MESSAGE IMPLEMENTATION ---
+  let _baileysCache = null;
   sock.albumMessage = async (jid, medias, options = {}) => {
-    const { generateWAMessageFromContent, prepareWAMessageMedia, proto } = await loadBaileys();
+    if (!_baileysCache) {
+      _baileysCache = await loadBaileys();
+    }
+    const { generateWAMessageFromContent, prepareWAMessageMedia, proto } = _baileysCache;
     const albumMedias = [];
     
     for (const media of medias) {
@@ -379,42 +400,41 @@ async function createBot(sessionId = "lades-session", options = {}) {
       startTempCleanup();
 
       // ── PLANLI MESAJ GÖNDERİCİSİ ────────────────────────────
-      // Her 30 saniyede bir DB'deki zamanlanmış mesajları kontrol et.
-      // Bu olmadan .planla komutu DB'ye yazar ama asla göndermez!
-      const { scheduledMessages } = require('../plugins/utils/db/schedulers');
-      const scheduler = require('./scheduler');
+      // Guard: Her reconnect'te tekrar register etmez (timer leak önlemi)
+      if (!_scheduledMsgRegistered) {
+        _scheduledMsgRegistered = true;
+        const { scheduledMessages } = require('../plugins/utils/db/schedulers');
+        const scheduler = require('./scheduler');
 
-      scheduler.register('scheduled_message_sender', async () => {
-        try {
-          const due = await scheduledMessages.getDueForSending();
-          if (due.length === 0) return;
-          for (const item of due) {
-            try {
-              const msgData = JSON.parse(item.message);
-              const mediaType = msgData._mediaType;
-              delete msgData._mediaType;
+        scheduler.register('scheduled_message_sender', async () => {
+          try {
+            const due = await scheduledMessages.getDueForSending();
+            if (due.length === 0) return;
+            for (const item of due) {
+              try {
+                const msgData = JSON.parse(item.message);
+                delete msgData._mediaType;
 
-              // Base64 string → Buffer dönüşümü (medya için)
-              const toBuffer = (b64) => Buffer.isBuffer(b64) ? b64 : Buffer.from(b64, 'base64');
-              if (msgData.image) msgData.image = toBuffer(msgData.image);
-              if (msgData.video) msgData.video = toBuffer(msgData.video);
-              if (msgData.audio) msgData.audio = toBuffer(msgData.audio);
-              if (msgData.document) msgData.document = toBuffer(msgData.document);
-              if (msgData.sticker) msgData.sticker = toBuffer(msgData.sticker);
+                const toBuffer = (b64) => Buffer.isBuffer(b64) ? b64 : Buffer.from(b64, 'base64');
+                if (msgData.image)    msgData.image    = toBuffer(msgData.image);
+                if (msgData.video)    msgData.video    = toBuffer(msgData.video);
+                if (msgData.audio)    msgData.audio    = toBuffer(msgData.audio);
+                if (msgData.document) msgData.document = toBuffer(msgData.document);
+                if (msgData.sticker)  msgData.sticker  = toBuffer(msgData.sticker);
 
-              await sock.sendMessage(item.jid, msgData);
-              logger.info(`[Planlı] Mesaj gönderildi → ${item.jid}`);
-            } catch (e) {
-              logger.error({ err: e.message, jid: item.jid }, '[Planlı] Mesaj gönderilemedi');
-            } finally {
-              // Gönderilen veya hata veren mesajı her durumda DB'den sil
-              await scheduledMessages.markAsSent(item.id).catch(() => {});
+                await sock.sendMessage(item.jid, msgData);
+                logger.info(`[Planlı] Mesaj gönderildi → ${item.jid}`);
+              } catch (e) {
+                logger.error({ err: e.message, jid: item.jid }, '[Planlı] Mesaj gönderilemedi');
+              } finally {
+                await scheduledMessages.markAsSent(item.id).catch(() => {});
+              }
             }
+          } catch (e) {
+            logger.debug({ err: e.message }, '[Planlı] Scheduler döngüsünde hata');
           }
-        } catch (e) {
-          logger.debug({ err: e.message }, '[Planlı] Scheduler döngüsünde hata');
-        }
-      }, 30000, { runImmediately: false });
+        }, 30000, { runImmediately: false });
+      }
       // ── PLANLI MESAJ GÖNDERİCİSİ SONU ──────────────────────
 
       // Load plugins and schedulers on first connect
@@ -435,36 +455,39 @@ async function createBot(sessionId = "lades-session", options = {}) {
       }
 
       // ── SAAT KAYMA ENGELLEYİCİ ───────────────────────────
+      // Timer Leak Koruması: Önceki interval'lar varsa temizle,
+      // sonra yeniden oluştur. Bu sayede her reconnect'te biriken
+      // interval'lar önlenir.
+      if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
+      if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
+      if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
+
       // 1) Periyodik presence güncellemesi (her 4 dakikada bir)
-      //    WA sunucusunun bağlantıyı stale (bayat) saymasını önler.
-      const PRESENCE_INTERVAL_MS = 4 * 60 * 1000; // 4 dakika
-      const _presenceTimer = setInterval(async () => {
-        if (!sock.user) return; // Bağlantı kopmuşsa geç
+      const PRESENCE_INTERVAL_MS = 4 * 60 * 1000;
+      _presenceTimer = setInterval(async () => {
+        if (!sock.user) return;
         try {
           await sock.sendPresenceUpdate('available');
           logger.debug('[Keepalive] Presence güncellendi.');
         } catch {
-          // Bağlantı kopuksa sessizce geç — reconnect mekanizması zaten devrede
+          // Bağlantı kopuksa sessizce geç
         }
       }, PRESENCE_INTERVAL_MS);
 
-      // 2) Saat kayması izleyicisi + 6 saatlik proaktif yeniden bağlanma
-      //    WhatsApp multi-device protokolü kriptografik zaman damgaları kullandığından
-      //    sistem saati kayması "Cihazlar senkronize edilemedi" hatasına yol açar.
-      const NTP_CHECK_INTERVAL_MS  = 30 * 60 * 1000;  // 30 dakikada bir NTP kontrolü
-      const PROACTIVE_RECONNECT_MS =  6 * 60 * 60 * 1000; // 6 saatte bir zorla yeniden bağlan
+      // 2) Saat kayması izleyicisi — 60 dakikada bir (CPU tasarrufu)
+      //    timeout 3s'e düşürüldü (event-loop blokajını azaltır)
+      const NTP_CHECK_INTERVAL_MS  = 60 * 60 * 1000; // 60 dakika (30dk → 60dk)
+      const PROACTIVE_RECONNECT_MS =  6 * 60 * 60 * 1000;
 
-      const _ntpTimer = setInterval(async () => {
+      _ntpTimer = setInterval(async () => {
         if (!sock.user) return;
         try {
-          const hasDrift = await checkTimeDrift(5000); // 5sn eşik
+          const hasDrift = await checkTimeDrift(3000); // 3s eşik (5s → 3s)
           if (hasDrift) {
             logger.warn('[NTP] Saat kayması kritik seviyede. Bağlantı yenileniyor...');
-            clearInterval(_presenceTimer);
-            clearInterval(_ntpTimer);
-            clearInterval(_proactiveTimer);
-            // Mevcut soketi kapat — connection.update 'close' tetikleyecek
-            // ve reconnect mantığı devreye girecek
+            if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
+            if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
+            if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
             sock.ws?.close();
           }
         } catch {
@@ -472,27 +495,22 @@ async function createBot(sessionId = "lades-session", options = {}) {
         }
       }, NTP_CHECK_INTERVAL_MS);
 
-      const _proactiveTimer = setInterval(async () => {
+      _proactiveTimer = setInterval(async () => {
         if (!sock.user) return;
-        logger.info('[Proaktif] 6 saatlik oturum yenileme tetiklendi. Saat kaymalarını önlemek için yeniden bağlanılıyor...');
-        clearInterval(_presenceTimer);
-        clearInterval(_ntpTimer);
-        clearInterval(_proactiveTimer);
+        logger.info('[Proaktif] 6 saatlik oturum yenileme tetiklendi...');
+        if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
+        if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
+        if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
         sock.ws?.close();
       }, PROACTIVE_RECONNECT_MS);
-
-      // Bağlantı kesilince tüm timer'ları temizle
-      sock.ev.once('connection.update', ({ connection: c }) => {
-        if (c === 'close') {
-          clearInterval(_presenceTimer);
-          clearInterval(_ntpTimer);
-          clearInterval(_proactiveTimer);
-        }
-      });
       // ── SAAT KAYMA ENGELLEYİCİ SONU ────────────────────
     }
 
     if (connection === "close") {
+      // Timer Leak: bağlantı kesilince tüm interval'ları temizle
+      if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
+      if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
+      if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
       stopTempCleanup();
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;

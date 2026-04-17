@@ -19,6 +19,9 @@ const { BotMetric, CommandStat, CommandRegistry, UserData, GroupSettings, Messag
 const { antidelete } = require("../plugins/utils/db/functions");
 const { resolveLidToPn, isBotIdentifier } = require("./lid-helper"); // Moved to top-level
 
+// ── PERFORMANS: ownerNum bir kez hesaplanır, her mesajda regex yok
+const _cachedOwnerNum = (config.OWNER_NUMBER || '').replace(/[^0-9]/g, '');
+
 // ─────────────────────────────────────────────────────────
 //  Antidelete JID Cache — DB'yi her silmede çarpmamak için
 //  60 saniyede bir yenilenen in-memory Set
@@ -184,7 +187,8 @@ async function recordStat(pattern, status, durationMs, error = null, isTest = fa
   if (!isTest) recordCommand();
 }
 
-// ── Command metrics batch flush (30s) ───────────────────
+// ── Command metrics batch flush (30s) ────────────────────────
+// PERFORMANS: N+1 sorgu yerine tek bulkCreate+updateOnDuplicate
 scheduler.register('command_metrics_flush', async () => {
   if (runtime.commandStatsBatch.size === 0) return;
   const currentBatch = new Map();
@@ -192,34 +196,37 @@ scheduler.register('command_metrics_flush', async () => {
   runtime.commandStatsBatch.clear();
 
   try {
-    // Dialect-agnostic ORM approach (works with SQLite, PostgreSQL, Neon, Supabase, Render)
-    for (const [key, stat] of currentBatch.entries()) {
-      const [record, created] = await CommandStat.findOrCreate({
-        where: { pattern: key },
-        defaults: {
-          runs: stat.runs,
-          avgMs: stat.avgMs,
-          status: stat.status,
-          lastError: stat.lastError,
-          lastRun: new Date()
-        }
-      });
-      if (!created) {
-        const newRuns = record.runs + stat.runs;
-        const newAvgMs = newRuns > 0
-          ? Math.round((record.avgMs * record.runs + stat.avgMs * stat.runs) / newRuns)
-          : 0;
-        await record.update({
-          runs: newRuns,
-          avgMs: newAvgMs,
-          status: stat.status || record.status,
-          lastRun: new Date(),
-          lastError: stat.lastError || record.lastError
-        });
-      }
-    }
+    const records = Array.from(currentBatch.entries()).map(([key, stat]) => ({
+      pattern:   key,
+      runs:      stat.runs,
+      avgMs:     stat.avgMs,
+      status:    stat.status || 'ok',
+      lastRun:   new Date(),
+      lastError: stat.lastError || null,
+    }));
+    await CommandStat.bulkCreate(records, {
+      updateOnDuplicate: ['runs', 'avgMs', 'status', 'lastRun', 'lastError', 'updatedAt'],
+    });
   } catch (e) {
-    logger.debug({ err: e.message }, "Command metric batch flush failed");
+    // Fallback: SQLite eski sürümde updateOnDuplicate yoksa N+1 yöntemi
+    try {
+      for (const [key, stat] of currentBatch.entries()) {
+        const [record, created] = await CommandStat.findOrCreate({
+          where: { pattern: key },
+          defaults: { runs: stat.runs, avgMs: stat.avgMs, status: stat.status, lastError: stat.lastError, lastRun: new Date() }
+        });
+        if (!created) {
+          const nr = record.runs + stat.runs;
+          await record.update({
+            runs: nr,
+            avgMs: nr > 0 ? Math.round((record.avgMs * record.runs + stat.avgMs * stat.runs) / nr) : 0,
+            status: stat.status || record.status,
+            lastRun: new Date(),
+            lastError: stat.lastError || record.lastError
+          });
+        }
+      }
+    } catch (e2) { logger.debug({ err: e2.message }, "metrics flush fallback failed"); }
   }
 }, 30000);
 
@@ -810,9 +817,9 @@ function isOwner(senderJid, originalSenderJid, client = null) {
   const oNum = getNumericalId(originalSenderJid);
 
   // ─────────────────────────────────────────────────────────
-  //  1. CONFIG OWNER_NUMBER KONTROLÜ
+  //  1. CONFIG OWNER_NUMBER KONTROLÜ (_cachedOwnerNum: modül seviyesinde hesaplandı)
   // ─────────────────────────────────────────────────────────
-  const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, "");
+  const ownerNum = _cachedOwnerNum; // Her çağrıda regex yapma
   if (ownerNum && ownerNum !== "905XXXXXXXXX") {
     // Numerical ID match
     if (sNum === ownerNum || oNum === ownerNum) {
@@ -998,14 +1005,9 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
       return; // Limite takıldı, sessizce dur
     }
 
-    // Runtime stats için mesajı kaydet (sync)
+    // Runtime stats için mesajı kaydet (sync) — yalnızca metinli mesajlar sayılır
+    if (!text) return; // Metin yoksa saymaya gerek yok (sticker, ses, görsel vb.)
     recordMessage();
-
-    if (!text) {
-      // Kanal mesajlarında metin olmayabilir (görsel/video post) → sessizce atla
-      // Grup/DM mesajlarında ise metin yoksa tamamen atla
-      return;
-    }
 
 
     // ─────────────────────────────────────────────────────────
