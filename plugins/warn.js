@@ -30,7 +30,7 @@ async function sendBanAudio(message) {
 
 Module({
   pattern: "uyar(.*)",
-  fromMe: true,
+  fromMe: false,
   desc: "Grup üyelerini uyarmaya yarar. Belirlenen uyarı limitine ulaşıldığında üye otomatik olarak gruptan uzaklaştırılır.",
   usage: ".uyar [@üye] [sebep] | .uyarısil | .uyarısıfırla | .uyarıliste | .uyarılimit [sayı]",
   use: "grup",

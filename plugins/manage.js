@@ -618,7 +618,7 @@ Module({
 
 Module({
   pattern: "antibot ?(.*)",
-  fromMe: true,
+  fromMe: false,
   desc: "Sohbete katılan diğer botları otomatik olarak tespit eder ve gruptan uzaklaştırır.",
   usage: ".antibot [aç/kapat]",
   use: "grup",
@@ -658,7 +658,7 @@ Module({
 
 Module({
   pattern: "antispam ?(.*)",
-  fromMe: true,
+  fromMe: false,
   desc: "Grupta hızlı ve tekrarlayan (spam) mesaj atan kullanıcıları otomatik olarak tespit eder ve atar.",
   usage: ".antispam [aç/kapat]",
   use: "grup",
@@ -698,7 +698,7 @@ Module({
 
 Module({
   pattern: "pdm ?(.*)",
-  fromMe: true,
+  fromMe: false,
   desc: "Gruptaki yetki verme veya yetki alma durumlarını takip eder ve anlık bilgilendirme yapar.",
   usage: ".pdm [aç/kapat]",
   use: "grup",
@@ -736,7 +736,7 @@ Module({
 
 Module({
   pattern: "antiyetkidüşürme ?(.*)",
-  fromMe: true,
+  fromMe: false,
   desc: "Yöneticilerin yetkisinin alınmasını engeller; yapanın yetkisini alır ve mağdura iade eder.",
   usage: ".antiyetkidüşürme [aç/kapat]",
   use: "grup",
@@ -771,7 +771,7 @@ Module({
 
 Module({
   pattern: "antiyetkiverme ?(.*)",
-  fromMe: true,
+  fromMe: false,
   desc: "Onaysız yetki verilmesini engeller; hem yetki verenin hem de yeni yetkilinin yetkilerini alır.",
   usage: ".antiyetkiverme [aç/kapat]",
   use: "grup",
@@ -808,7 +808,7 @@ Module({
 
 Module({
   pattern: "antibağlantı ?(.*)",
-  fromMe: true,
+  fromMe: false,
   desc: "Grupta link paylaşımını engeller. Uyarı, silme veya atma gibi farklı modlarda çalışır.",
   usage: ".antibağlantı [yardım/aç/kapat]",
   use: "grup",
