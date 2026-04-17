@@ -261,7 +261,7 @@ async function initializeDatabase() {
     MessageStats, BotMetric, CommandStat, CommandRegistry,
   ];
 
-  // Eski Lades-MD eklentilerinden gelen (SQLite'ta hata veren) tabloları da senkronize et
+  // Eski Lades-Pro eklentilerinden gelen (SQLite'ta hata veren) tabloları da senkronize et
   try {
     const legacyModels = require("../plugins/utils/db/models");
     Object.values(legacyModels).forEach(model => {

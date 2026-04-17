@@ -32,7 +32,7 @@ const logger = pino({
 // ─────────────────────────────────────────────────────────
 const config = {
   // Bot identity
-  BOT_NAME: process.env.BOT_NAME || "Lades-MD",
+  BOT_NAME: process.env.BOT_NAME || "Lades-Pro",
   OWNER_NUMBER: process.env.OWNER_NUMBER || "905396978235",
   PREFIX: process.env.PREFIX || ".",
   SESSION: process.env.SESSION || "",
@@ -83,7 +83,7 @@ const config = {
   VERSION: process.env.VERSION || "1.0.0",
 
   // Bot bilgisi: "Ad;Sahip;GörselURL"
-  BOT_INFO: process.env.BOT_INFO || "Lades-MD;Lades Yönetimi;",
+  BOT_INFO: process.env.BOT_INFO || "Lades-Pro;Lades Yönetimi;",
 
   // Çıkartma paketi: "PaketAdı;Yazar;Emojiler"
   STICKER_DATA: process.env.STICKER_DATA || "Lades-Pro;Lades-Pro;😂",

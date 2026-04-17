@@ -330,7 +330,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
       logger.info(`✅ Bot bağlandı! JID: ${sock.user?.id}`);
       if (process.send) process.send({ type: 'bot_status', data: { connected: true, phone: sock.user.id } });
       
-      // MIGRATION: Convert SUDO numbers to LIDs (Raganork-MD style)
+      // MIGRATION: Convert SUDO numbers to LIDs (Lades-Pro style)
       try {
         await migrateSudoToLID(sock);
       } catch (e) {

@@ -284,7 +284,7 @@ class ReplyMessage {
     this.text = getMessageText(msg);
     this.caption = msg.imageMessage?.caption || msg.videoMessage?.caption || msg.documentMessage?.caption || msg.documentWithCaptionMessage?.message?.documentMessage?.caption || "";
 
-    // Media flags (Lades-MD style)
+    // Media flags (Lades-Pro style)
     this.image = !!msg.imageMessage;
     this.video = !!msg.videoMessage;
     this.audio = !!msg.audioMessage || !!msg.audioMessage?.ptt;

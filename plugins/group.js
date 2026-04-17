@@ -1672,7 +1672,7 @@ Module({
         "_.sabitle 7g_ → 7 gün\n" +
         "_.sabitle 30g_ → 30 gün\n" +
         "_.sabitle_ → varsayılan 7 gün\n" +
-        "_.sabitle sil_ → sabitlenmiş mesajı kaldır"
+        "_.sabitle sil_ → sabitlenmiş mesajı kaldırır"
       );
     }
 
@@ -1879,17 +1879,17 @@ Module({
     const target = message.jid;
     const group = await message.client.groupMetadata(target);
     const allMembers = group.participants.map(participant => participant.id);
-    
+
     let baseText = match && match[1] ? match[1].trim() : (message.reply_message?.text ? message.reply_message.text : "");
     let text = baseText ? baseText + "\n\n" : "✅ *Herkes başarıyla etiketlendi!*\n\n";
-    
+
     allMembers.forEach((jid, index) => {
       text += `${index + 1}. @${jid.split('@')[0]}\n`;
     });
-    
+
     // Baileys 'quoted' sorununu by-pass etmek için manuel gönderim veya sendOpts boş gönderimi:
     const sendOpts = message.isChannel ? {} : ((message.data?.key?.id || '').includes('DASHBOARD_') ? {} : { quoted: message.data });
-    
+
     await message.client.sendMessage(target, {
       text: text,
       contextInfo: { mentionedJid: allMembers }

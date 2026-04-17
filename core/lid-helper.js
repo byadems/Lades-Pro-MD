@@ -47,7 +47,7 @@ function getNumericalIdLocal(jid) {
 }
 
 /**
- * 1. Raganork-MD Yöntemi: Bot başlarken SUDO numaralarını LID'ye çevirip SUDO_MAP'e kaydetme.
+ * 1. Lades-Pro Yöntemi: Bot başlarken SUDO numaralarını LID'ye çevirip SUDO_MAP'e kaydetme.
  * Baileys signalRepository'i kullanarak JID'den LID bulur.
  */
 async function migrateSudoToLID(client) {
@@ -124,7 +124,7 @@ async function migrateSudoToLID(client) {
 }
 
 /**
- * 2. KnightBot-Mini Yöntemi: Gelen LID mesajını anlık olarak AuthState üzerinden Telefon Numarasına (PN) çevirme.
+ * 2. Lades-Pro Yöntemi: Gelen LID mesajını anlık olarak AuthState üzerinden Telefon Numarasına (PN) çevirme.
  */
 async function resolveLidToPn(client, lidJid) {
   if (!lidJid || !lidJid.includes('@lid')) return lidJid;

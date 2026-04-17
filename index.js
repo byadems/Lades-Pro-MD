@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * index.js - Lades-MD Entry Point
+ * index.js - Lades-Pro Entry Point
  * Stabilized and clean version.
  */
 

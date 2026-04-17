@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * main.js - Bridge for original Lades-MD plugins
+ * main.js - Bridge for original Lades-Pro plugins
  * Redirects plugin registrations to the core handler.
  */
 

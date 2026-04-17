@@ -1,5 +1,5 @@
 /**
- * Lades-MD Dayanıklılık (Resilience) Modülü
+ * Lades-Pro Dayanıklılık (Resilience) Modülü
  * 
  * Bu modül sistemin %99.9 uptime hedefine ulaşması için gereken 
  * Hata Yönetimi, Retry ve Circuit Breaker desenlerini içerir.
