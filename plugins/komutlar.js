@@ -110,8 +110,7 @@ Module({
         "👥 .toplukatıl\nToplu olarak gruba katılır.\n\n" +
         "🆔 .tümjid\nTüm JID'leri gösterir.\n\n" +
         "📢 .duyuru\nDuyuru yapar.\n\n" +
-        "📌 .sabitle\nMesajı sabitler.\n\n" +
-        "📌 .sabitlesil\nYanıtlanan mesajın sabitlemesini kaldırır. Yanıtsız kullanılırsa gruptaki tüm sabitler temizlenir.\n\n" +
+        "📌 .sabitle\nMesajı sabitler. `.sabitle sil` ile sabitlenmiş mesajı kaldırır.\n\n" +
         "📸 .pp\nProfil fotoğrafını gösterir.\n\n" +
         "🖼️ .gfoto\nGrup fotoğrafını değiştirir.\n\n" +
         "🪙 .altın\nGüncel altın fiyatlarını gösterir.\n\n" +

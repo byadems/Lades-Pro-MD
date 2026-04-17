@@ -295,7 +295,7 @@ Module({
   use: "genel",
 },
   async (message, match) => {
-    const stars = ["✦", "✯", "✯", "✰", "◬"];
+    const stars = ["✦", "✯", "✯", "✰"];
     const star = stars[Math.floor(Math.random() * stars.length)];
 
     const cmds = typeof commands === 'function' ? commands() : commands;
@@ -360,9 +360,16 @@ Module({
       const localPath = localCandidates.find((f) =>
         fs.existsSync(path.join(imagesDir, f))
       );
-      imagePayload = localPath
-        ? { url: path.join(imagesDir, localPath) }
-        : null;
+      if (localPath) {
+        try {
+          // Baileys, yerel dosya yolu URL'sini desteklemez; Buffer okuyoruz
+          imagePayload = { data: fs.readFileSync(path.join(imagesDir, localPath)) };
+        } catch {
+          imagePayload = null;
+        }
+      } else {
+        imagePayload = null;
+      }
     }
 
     const senderName = (message.pushName || message.senderName || message.sender || "Kullanıcı").replace(/[\r\n]+/gm, "");
@@ -388,15 +395,19 @@ Module({
 ${cmdmenu}`;
     try {
       if (imagePayload) {
+        // Baileys: HTTP URL ise { url }, Buffer ise doğrudan buffer
+        const imgContent = imagePayload.url
+          ? { url: imagePayload.url }
+          : imagePayload.data || imagePayload;
         await message.client.sendMessage(message.jid, {
-          image: imagePayload,
+          image: imgContent,
           caption: menu,
         });
       } else {
         await message.client.sendMessage(message.jid, { text: menu });
       }
     } catch (error) {
-      console.error("Menü görseli gönderilirken hata:", error);
+      console.error("Menü görseli gönderilirken hata:", error.message || error);
       await message.client.sendMessage(message.jid, { text: menu });
     }
   }
