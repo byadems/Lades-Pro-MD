@@ -160,17 +160,22 @@ body {
 .brand-name {
   font-weight: 900; font-size: 22px; line-height: 1.1; margin-bottom: 2px;
   display: inline-block;
-  background: linear-gradient(135deg, var(--green) 0%, var(--blue) 50%, var(--purple) 100%);
+  background: linear-gradient(135deg, var(--green) 0%, var(--blue) 33%, var(--purple) 66%, var(--green) 100%);
+  background-size: 300% auto;
   -webkit-background-clip: text;
   -moz-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
   letter-spacing: -0.5px;
-  -webkit-transform: translateZ(0); /* Force GPU layer — prevents cache-hit rendering skip */
-  transform: translateZ(0);
-  will-change: background;
+  animation: brandGradientFlow 6s linear infinite;
 }
+
+@keyframes brandGradientFlow {
+  0%   { background-position: 0% center; }
+  100% { background-position: 300% center; }
+}
+
 .brand-version { font-size: 12px; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; }
 
 .bot-status-card {
