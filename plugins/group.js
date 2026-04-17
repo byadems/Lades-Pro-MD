@@ -243,7 +243,7 @@ Module({
         }
 
         await message.client.sendMessage(message.jid, {
-          text: mentionjid(user) + "*başarıyla çıkarıldı!* ✅",
+          text: mentionjid(user) + " *başarıyla çıkarıldı!* ✅",
           mentions: [user],
         });
         await message.client.groupParticipantsUpdate(message.jid, [user], "remove");
@@ -1344,11 +1344,11 @@ Module({
   use: "sistem",
   usage:
     ".duyuru <mesaj>\n" +
-    ".duyuru <mesaj> | sabitle:24s\n" +
-    ".duyuru karalist ekle <jid>\n" +
-    ".duyuru karalist çıkar <jid>\n" +
-    ".duyuru karalist liste\n" +
-    ".duyuru karalist bu",
+    ".duyuru <mesaj> - sabitle:24s\n" +
+    ".duyuru karaliste ekle <jid>\n" +
+    ".duyuru karaliste çıkar <jid>\n" +
+    ".duyuru karaliste liste\n" +
+    ".duyuru karaliste bu",
 },
   async (message, match) => {
     const adminAccess = message.isAdmin;
@@ -1359,9 +1359,9 @@ Module({
     const input = match[1]?.trim() || "";
     const arg = input.toLowerCase();
 
-    if (arg.startsWith("grup") || arg.startsWith("karalist")) {
+    if (arg.startsWith("grup") || arg.startsWith("karaliste")) {
       const parts = input.split(" ");
-      const cmdOffset = parts[0]?.toLowerCase() === "karalist" ? 0 : 1;
+      const cmdOffset = parts[0]?.toLowerCase() === "karaliste" ? 0 : 1;
       const cmd = parts[cmdOffset + 1]?.toLowerCase();
       const jid = parts[cmdOffset + 2]?.trim();
       const liste = loadKaraListe();
@@ -1397,7 +1397,7 @@ Module({
 
     let announceText = input;
     let pinDuration = null;
-    const pipeIndex = input.lastIndexOf("|");
+    const pipeIndex = input.lastIndexOf("-");
     if (pipeIndex !== -1) {
       const after = input.slice(pipeIndex + 1).trim().toLowerCase();
       const pinMatch = after.match(/^sabitle:(24s|7g|30g)$/);
@@ -1414,9 +1414,9 @@ Module({
         `📢 _Bot'un bulunduğu tüm gruplara duyuru iletir._\n\n` +
         `*Kullanım:*\n` +
         `• \`.duyuru <mesaj>\` — sadece gönder\n` +
-        `• \`.duyuru <mesaj> | sabitle:24s\` — gönder ve 24 saat sabitle\n` +
-        `• \`.duyuru <mesaj> | sabitle:7g\` — gönder ve 7 gün sabitle\n` +
-        `• \`.duyuru <mesaj> | sabitle:30g\` — gönder ve 30 gün sabitle\n` +
+        `• \`.duyuru <mesaj> - sabitle:24s\` — gönder ve 24 saat sabitle\n` +
+        `• \`.duyuru <mesaj> - sabitle:7g\` — gönder ve 7 gün sabitle\n` +
+        `• \`.duyuru <mesaj> - sabitle:30g\` — gönder ve 30 gün sabitle\n` +
         `• Bir mesaja yanıtla + \`.duyuru\` — o mesajı ilet\n\n` +
         `*Liste Düzenleme:*\n` +
         `• \`.duyuru grup filtrele <jid>\`\n` +

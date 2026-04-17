@@ -173,14 +173,29 @@ async function createBot(sessionId = "lades-session", options = {}) {
 
   logger.info(`Lades-Pro Başlatılıyor (Baileys ${version.join(".")})`);
 
+  const { LRUCache } = require("lru-cache");
+  const createNodeCacheAdapter = (max, ttl) => {
+    const lru = new LRUCache({ max, ttl });
+    return {
+      get: (key) => lru.get(key),
+      set: (key, value) => { lru.set(key, value); return true; },
+      del: (key) => { lru.delete(key); },
+      flushAll: () => { lru.clear(); }
+    };
+  };
+
   const sock = makeWASocket({
     version,
     logger: logger.child({ module: "baileys", level: config.DEBUG ? "debug" : "warn" }),
     printQRInTerminal: false, // We handle QR ourselves
     auth: {
       creds: state.creds,
-      keys: makeCacheableSignalKeyStore(state.keys, logger.child({ module: "signal", level: config.DEBUG ? "debug" : "warn" })),
+      // Baileys 'useMultiFileAuthState' ve 'useDbAuthState' zaten state.keys'i cache ile sarmalar.
+      // Çift önbellekleme (double-cache) durumunu ve bellek sızıntısını önlemek için direkt kullanıyoruz:
+      keys: state.keys, 
     },
+    msgRetryCounterCache: createNodeCacheAdapter(500, 5 * 60 * 1000), // Max 500 mesaj, 5 dk
+    userDevicesCache: createNodeCacheAdapter(500, 5 * 60 * 1000), // Max 500 cihaz, 5 dk
     browser: Browsers.ubuntu("Chrome"),
     getMessage: async (key) => {
       const { getMessageByKey } = require("./store");

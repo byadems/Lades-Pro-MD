@@ -67,7 +67,7 @@ Module({
     }
 
     // 1. UYARISİL (.uyarısil)
-    if (cmd === "ısil") {
+    if (cmd.startsWith("ısil")) {
       let targetUser = message.mention?.[0] || message.reply_message?.jid;
       if (!targetUser) return await message.sendReply("❗ _Lütfen bir üye etiketleyin veya mesajına yanıtlayın!_");
       targetUser = await resolveTargetUser(targetUser);
@@ -96,7 +96,7 @@ Module({
     }
 
     // 2. UYARISIFIRLA (.uyarısıfırla)
-    if (cmd === "ısıfırla") {
+    if (cmd.startsWith("ısıfırla")) {
       let targetUser = message.mention?.[0] || message.reply_message?.jid;
       if (!targetUser) return await message.sendReply("❗ _Lütfen bir üyeyi etiketleyin veya mesajına yanıt verin!_");
       targetUser = await resolveTargetUser(targetUser);
@@ -124,7 +124,7 @@ Module({
     }
 
     // 3. UYARILİSTE (.uyarıliste)
-    if (cmd === "ıliste") {
+    if (cmd.startsWith("ıliste")) {
       try {
         const allWarnings = await getAllWarns(message.jid);
         if (Object.keys(allWarnings).length === 0) {
@@ -155,7 +155,7 @@ Module({
     }
 
     // 4. UYARILİMİT (.uyarılimit)
-    if (cmd === "ılimit") {
+    if (cmd.startsWith("ılimit")) {
       const textArg = match[1].replace(/ılimit/i, "").trim();
       const newLimit = parseInt(textArg);
       if (!newLimit || newLimit < 1 || newLimit > 20) {
