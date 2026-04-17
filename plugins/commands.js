@@ -367,28 +367,30 @@ Module({
     const botName = infoParts[0] || "Lades-Pro";
     const botOwner = infoParts[1] || "Lades-Pro";
     const botVersion = VERSION;
-    // Görsel: Sadece Northflank/env'de HTTP URL ayarlıysa dış kaynak kullanılır. Aksi halde repo içi varsayılan dosya.
+    // Görsel Yükleme Mantığı (Geliştirilmiş & Stabil)
+    let imgContent = null;
     const imagePart = infoParts.find((p) => (p || "").trim().startsWith("http"));
     const botImageUrl = (imagePart || "").trim();
-    const imagesDir = path.join(__dirname, "utils", "images");
-    const localCandidates = ["logo.jpg", "logo.png"];
-    let imagePayload;
+
     if (botImageUrl && botImageUrl.startsWith("http")) {
-      imagePayload = { url: botImageUrl };
+      imgContent = { url: botImageUrl };
     } else {
-      const localPath = localCandidates.find((f) =>
-        fs.existsSync(path.join(imagesDir, f))
-      );
-      if (localPath) {
+      const imagesDir = path.join(__dirname, "utils", "images");
+      const localCandidates = ["logo.jpg", "logo.png"];
+      const localFile = localCandidates.find((f) => fs.existsSync(path.join(imagesDir, f)));
+
+      if (localFile) {
+        // Baileys Buffer veriyi %100 oranında destekler. URL veya Path yerine doğrudan okuyoruz.
         try {
-          // Baileys, yerel dosya yolu URL'sini desteklemez; Buffer okuyoruz
-          imagePayload = { data: fs.readFileSync(path.join(imagesDir, localPath)) };
-        } catch {
-          imagePayload = null;
+          imgContent = fs.readFileSync(path.join(imagesDir, localFile));
+        } catch (err) {
+          config.logger.error(`[Menu] Resim okunurken hata: ${err}`);
         }
-      } else {
-        imagePayload = null;
       }
+    }
+
+    if (!imgContent) {
+      config.logger.warn(`[Menu] Logo bulunamadı. BOT_INFO URL veya local logo.jpg/png eksik.`);
     }
 
     const senderName = (message.pushName || message.senderName || message.sender || "Kullanıcı").replace(/[\r\n]+/gm, "");
@@ -413,11 +415,7 @@ Module({
 
 ${cmdmenu}`;
     try {
-      if (imagePayload) {
-        // Baileys: HTTP URL ise { url }, Buffer ise doğrudan buffer
-        const imgContent = imagePayload.url
-          ? { url: imagePayload.url }
-          : imagePayload.data || imagePayload;
+      if (imgContent) {
         await message.client.sendMessage(message.jid, {
           image: imgContent,
           caption: menu,
@@ -426,7 +424,7 @@ ${cmdmenu}`;
         await message.client.sendMessage(message.jid, { text: menu });
       }
     } catch (error) {
-      console.error("Menü görseli gönderilirken hata:", error.message || error);
+      config.logger.error(`[Menu] Mesaj gönderilemedi: ${error.message}`);
       await message.client.sendMessage(message.jid, { text: menu });
     }
   }
