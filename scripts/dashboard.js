@@ -226,8 +226,8 @@ app.get('/api/status', async (req, res) => {
   const phone = liveBotPhone || sessionPhone;
   
   res.json({
-    bot: conf.BOT_NAME || "Lades-Pro-MD",
-    botName: conf.BOT_NAME || "Lades-Pro-MD",
+    bot: conf.BOT_NAME || "Lades-Pro",
+    botName: conf.BOT_NAME || "Lades-Pro",
     hasSession: isRegistered,
     connected: connected,
     hasStoredSession,

@@ -171,7 +171,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
     version: [2, 3000, 1017531287],
   }));
 
-  logger.info(`Lades-Pro-MD Başlatılıyor (Baileys ${version.join(".")})`);
+  logger.info(`Lades-Pro Başlatılıyor (Baileys ${version.join(".")})`);
 
   const sock = makeWASocket({
     version,
@@ -341,6 +341,45 @@ async function createBot(sessionId = "lades-session", options = {}) {
       await sock.sendPresenceUpdate('available').catch(() => {});
       
       startTempCleanup();
+
+      // ── PLANLI MESAJ GÖNDERİCİSİ ────────────────────────────
+      // Her 30 saniyede bir DB'deki zamanlanmış mesajları kontrol et.
+      // Bu olmadan .planla komutu DB'ye yazar ama asla göndermez!
+      const { scheduledMessages } = require('../plugins/utils/db/schedulers');
+      const scheduler = require('./scheduler');
+
+      scheduler.register('scheduled_message_sender', async () => {
+        try {
+          const due = await scheduledMessages.getDueForSending();
+          if (due.length === 0) return;
+          for (const item of due) {
+            try {
+              const msgData = JSON.parse(item.message);
+              const mediaType = msgData._mediaType;
+              delete msgData._mediaType;
+
+              // Base64 string → Buffer dönüşümü (medya için)
+              const toBuffer = (b64) => Buffer.isBuffer(b64) ? b64 : Buffer.from(b64, 'base64');
+              if (msgData.image) msgData.image = toBuffer(msgData.image);
+              if (msgData.video) msgData.video = toBuffer(msgData.video);
+              if (msgData.audio) msgData.audio = toBuffer(msgData.audio);
+              if (msgData.document) msgData.document = toBuffer(msgData.document);
+              if (msgData.sticker) msgData.sticker = toBuffer(msgData.sticker);
+
+              await sock.sendMessage(item.jid, msgData);
+              logger.info(`[Planlı] Mesaj gönderildi → ${item.jid}`);
+            } catch (e) {
+              logger.error({ err: e.message, jid: item.jid }, '[Planlı] Mesaj gönderilemedi');
+            } finally {
+              // Gönderilen veya hata veren mesajı her durumda DB'den sil
+              await scheduledMessages.markAsSent(item.id).catch(() => {});
+            }
+          }
+        } catch (e) {
+          logger.debug({ err: e.message }, '[Planlı] Scheduler döngüsünde hata');
+        }
+      }, 30000, { runImmediately: false });
+      // ── PLANLI MESAJ GÖNDERİCİSİ SONU ──────────────────────
 
       // Load plugins and schedulers on first connect
       const pluginsDir = path.join(__dirname, "..", "plugins");

@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: "lades-pro-md",
+      name: "lades-pro",
       script: "index.js",
       watch: false,
       ignore_watch: ["node_modules", "sessions", "plugins/ai-generated", "*.log"],

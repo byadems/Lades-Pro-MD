@@ -1,7 +1,7 @@
 {
-  "name": "lades-pro-md",
+  "name": "lades-pro",
   "version": "1.0.0",
-  "description": "Ultra-premium WhatsApp bot framework - Lades-Pro-MD",
+  "description": "Ultra-premium WhatsApp bot framework - Lades-Pro",
   "main": "index.js",
   "scripts": {
     "start": "chcp 65001 && node --no-warnings index.js",
@@ -9,9 +9,9 @@
     "pair": "node --no-warnings scripts/pair.js",
     "dashboard": "node --no-warnings scripts/dashboard.js",
     "pm2:start": "pm2 start ecosystem.config.js",
-    "pm2:stop": "pm2 stop lades-pro-md",
-    "pm2:restart": "pm2 restart lades-pro-md",
-    "pm2:logs": "pm2 logs lades-pro-md"
+    "pm2:stop": "pm2 stop lades-pro",
+    "pm2:restart": "pm2 restart lades-pro",
+    "pm2:logs": "pm2 logs lades-pro"
   },
   "keywords": [
     "whatsapp",

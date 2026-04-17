@@ -138,6 +138,7 @@ const scheduledMessages = {
     return await ScheduledMessageDB.findAll({
       where: {
         scheduleTime: { [Op.lte]: new Date() },
+        isSent: false,
       },
     });
   },

@@ -51,7 +51,7 @@ async def shutdown() -> None:
 #  AI KOMUT FABRİKASI (Gemini 3 Flash)
 # ═══════════════════════════════════════
 
-SYSTEM_PROMPT = """Sen bir WhatsApp bot komut geliştiricisisin. Lades-Pro-MD bot yapısında çalışan Node.js eklentileri yazıyorsun.
+SYSTEM_PROMPT = """Sen bir WhatsApp bot komut geliştiricisisin. Lades-Pro bot yapısında çalışan Node.js eklentileri yazıyorsun.
 
 Kural: Bot yapısında Module() fonksiyonu ile komutlar oluşturulur. Tüm çıktılar SADECE Türkçe olmalı. Kesinlikle İngilizce kelime kullanma.
 

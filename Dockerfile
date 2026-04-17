@@ -3,8 +3,8 @@
 # sharp uses its own bundled libvips via SHARP_IGNORE_GLOBAL_LIBVIPS=1.
 FROM node:20-bookworm-slim
 
-LABEL maintainer="Lades-Pro-MD"
-LABEL description="Lades-Pro-MD WhatsApp Bot - Ultra Premium"
+LABEL maintainer="Lades-Pro"
+LABEL description="Lades-Pro WhatsApp Bot - Ultra Premium"
 
 # Build tools + runtime deps
 # NOTE: No libvips-dev needed — sharp will use its own bundled libvips.

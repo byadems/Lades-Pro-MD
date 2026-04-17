@@ -1273,6 +1273,10 @@ async function handleGroupUpdate(client, update) {
 }
 
 async function handleGroupParticipantsUpdate(client, update) {
+  // Admin değişikliklerinin anında algılanması için cache'i temizle
+  const { invalidateGroupMeta } = require('./store');
+  if (update.id) invalidateGroupMeta(update.id);
+
   // traditional eventHandlers (Map)
   const handlers = eventHandlers.get("groupParticipants") || [];
   for (const h of handlers) {

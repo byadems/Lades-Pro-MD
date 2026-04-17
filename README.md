@@ -1,4 +1,4 @@
-# Lades-Pro-MD 🤖
+# Lades-Pro 🤖
 
 > **Ultra-stabil, profesyonel ve %100 açık kaynaklı WhatsApp bot altyapısı.**  
 > Gelişmiş bellek yönetimi, dinamik komut üretimi ve entegre yönetim paneli ile güçlendirilmiştir.
@@ -21,8 +21,8 @@
 ### 1. Bağımlılıkları Yükle
 Aşağıdaki komutları terminalinizde çalıştırarak gerekli paketleri kurun:
 ```bash
-git clone https://github.com/byadems/Lades-Pro-MD
-cd Lades-Pro-MD
+git clone https://github.com/byadems/Lades-Pro
+cd Lades-Pro
 npm install
 ```
 
@@ -98,7 +98,7 @@ Sistem verimlilik için 13+ tablo kullanır:
 ## 📁 Proje Klasör Yapısı
 
 ```text
-Lades-Pro-MD/
+Lades-Pro/
 ├── core/                   # Çekirdek motor (Bağlantı, Handler, Database)
 ├── plugins/                # Komutlar ve özellikler (Modüler yapı)
 ├── scripts/                # Dashboard, Pair ve yardımcı araçlar

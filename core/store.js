@@ -64,7 +64,7 @@ function getMessageByKey(key) {
 // ─────────────────────────────────────────────────────────
 const groupMetaCache = new LRUCache({
   max: 500,
-  ttl: 24 * 60 * 60 * 1000,
+  ttl: 5 * 60 * 1000, // 5 dakika — admin değişikliklerinin anında algılanması için kısaltıldı
 });
 
 function setGroupMeta(groupId, meta) {

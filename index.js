@@ -69,8 +69,9 @@ runtime.startTime = Date.now();
 const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 450;
 scheduler.register('memory_check', () => {
   const mem = process.memoryUsage();
-  if (mem.heapUsed > PM2_RESTART_MB * 1024 * 1024) {
-    logger.warn(`Bellek sınırı (${PM2_RESTART_MB}MB) aşıldı. Otomatik yeniden başlatılıyor...`);
+  // RSS = gerçek işletim sistemi belleği (Northflank bu değeri gösterir)
+  if (mem.rss > PM2_RESTART_MB * 1024 * 1024) {
+    logger.warn(`Bellek sınırı (${PM2_RESTART_MB}MB RSS) aşıldı. Otomatik yeniden başlatılıyor...`);
     process.exit(1);
   }
 }, 10000);
@@ -167,7 +168,7 @@ function startKeepAlive() {
 
       _healthCache = {
         status: dbStatus === 'error' ? 'degraded' : 'ok',
-        bot: 'Lades-Pro-MD',
+        bot: 'Lades-Pro',
         timestamp: new Date().toISOString(),
         uptime: {
           seconds: uptime,
@@ -338,7 +339,7 @@ async function startSessionCleanup() {
 
     setupDashboardBridge(manager, config);
 
-    logger.info("Lades-Pro-MD Aktif!");
+    logger.info("Lades-Pro Aktif!");
   } catch (err) {
     logger.error(err, "Kritik Hata");
     process.exit(1);
