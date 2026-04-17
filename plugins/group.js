@@ -1633,6 +1633,111 @@ Module({
 );
 
 Module({
+  pattern: "sabitlesil ?(.*)",
+  fromMe: false,
+  desc: "Yanıtlanan mesajın sabitlemesini kaldırır. Yanıtsız kullanılırsa gruptaki tüm sabitler temizlenir.",
+  use: "grup",
+  usage: ".sabitlesil (yanıtla) → tek mesaj | .sabitlesil → tüm sabitleri kaldır",
+},
+  async (message, match) => {
+    if (!message.isGroup) {
+      return await message.sendReply("_❌ Bu komut sadece gruplarda kullanılabilir._");
+    }
+
+    await baileysPromise;
+    if (!generateWAMessageFromContent || !proto) {
+      return await message.sendReply(
+        "_❌ Bot bileşenleri henüz yüklenmedi, lütfen biraz bekleyip tekrar deneyin._"
+      );
+    }
+
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) {
+      return await message.sendReply("_❌ Bu grupta yönetici değilim!_");
+    }
+
+    const userIsAdmin = await isAdmin(message, message.sender);
+    if (!userIsAdmin && !message.fromOwner) {
+      return await message.sendReply("_❌ Bu komutu sadece yöneticiler kullanabilir._");
+    }
+
+    try {
+      // ── MOD 1: Yanıtlanan mesaj varsa sadece onu kaldır ──
+      if (message.reply_message) {
+        const quotedKey = {
+          remoteJid: message.jid,
+          fromMe:
+            message.reply_message.jid?.split("@")[0] ===
+            message.client.user?.id?.split(":")[0],
+          id: message.reply_message.id,
+          participant: message.reply_message.jid,
+        };
+        await message.client.sendMessage(message.jid, {
+          pin: quotedKey,
+          type: 2, // type 2 = unpin
+          time: 0,
+        });
+        return await message.sendReply("_📌 Mesajın sabitlemesi başarıyla kaldırıldı!_");
+      }
+
+      // ── MOD 2: Yanıt yok — gruptaki tüm sabitleri temizle ──
+      const groupMeta = await message.client.groupMetadata(message.jid);
+      const pinnedMsgs = groupMeta?.pinnedMessages || [];
+
+      if (!pinnedMsgs || pinnedMsgs.length === 0) {
+        return await message.sendReply(
+          "_⚠️ Bu grupta sabitlenmiş mesaj bulunamadı._\n\n" +
+          "_Belirli bir mesalın sabitlemesini kaldırmak için o mesaja yanıt vererek `.sabitlesil` yazın._"
+        );
+      }
+
+      let removed = 0;
+      let failed = 0;
+
+      for (const pinned of pinnedMsgs) {
+        try {
+          const pinKey = pinned.key || pinned;
+          await message.client.sendMessage(message.jid, {
+            pin: {
+              remoteJid: message.jid,
+              fromMe: pinKey.fromMe || false,
+              id: pinKey.id || pinned.id,
+              participant: pinKey.participant || pinned.participant || null,
+            },
+            type: 2,
+            time: 0,
+          });
+          removed++;
+          // Rate-limit koruması
+          await new Promise(r => setTimeout(r, 800));
+        } catch (e) {
+          console.error("Sabitlesil (tek mesaj) hatası:", e?.message || e);
+          failed++;
+        }
+      }
+
+      if (removed > 0 && failed === 0) {
+        return await message.sendReply(
+          `_✅ Gruptaki *${removed}* sabitlenmiş mesaj başarıyla kaldırıldı!_`
+        );
+      } else if (removed > 0) {
+        return await message.sendReply(
+          `_⚠️ *${removed}* mesaj kaldırıldı, *${failed}* mesajda hata oluştu._`
+        );
+      } else {
+        return await message.sendReply("_❌ Sabitlenmiş mesajlar kaldırılırken hata oluştu!_");
+      }
+    } catch (error) {
+      console.error("Sabitlesil komutu hatası:", error);
+      return await message.sendReply(
+        "_❌ İşlem sırasında bir hata oluştu! Lütfen tekrar deneyin._"
+      );
+    }
+  }
+);
+
+Module({
   pattern: "pp ?(.*)",
   fromMe: true,
   use: "sistem",
