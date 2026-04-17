@@ -3,9 +3,10 @@ module.exports = {
     {
       name: "lades-pro",
       script: "index.js",
+      node_args: "--max-old-space-size=256",
       watch: false,
       ignore_watch: ["node_modules", "sessions", "plugins/ai-generated", "*.log"],
-      max_memory_restart: "500M",
+      max_memory_restart: "400M",
       restart_delay: 5000,
       max_restarts: 10,
       min_uptime: "15s",
