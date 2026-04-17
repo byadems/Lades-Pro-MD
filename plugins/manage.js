@@ -351,7 +351,7 @@ Module({
 
 Module({
   pattern: "antisilme ?(.*)",
-  fromMe: true,
+  fromMe: false,
   desc: "Sohbetlerde silinen mesajları otomatik olarak yakalar ve belirlediğiniz hedefe iletir.",
   usage: ".antisilme [aç/kapat/sudo/jid]",
   use: "grup",
@@ -692,6 +692,30 @@ Module({
       await message.sendReply(
         (match[1] === "aç") ? "_Anti-Spam etkinleştirildi!_" : "_Anti-Spam kapatıldı!_"
       );
+    }
+  }
+);
+
+Module({
+  pattern: "antispamlimit ?(.*)",
+  fromMe: false,
+  desc: "Anti-Spam sisteminin tetiklenme limitini ayarlar. (Örn: `.antispamlimit 10` = 10 mesaj)",
+  usage: ".antispamlimit [sayı]",
+  use: "grup",
+},
+  async (message, match) => {
+    let adminAccesValidated = await isAdmin(message);
+    if (!message.isGroup) return;
+    if (message.fromOwner || adminAccesValidated) {
+      const limit = parseInt(match[1]);
+      if (isNaN(limit) || limit < 5 || limit > 50) {
+        const { BotVariable } = require("../core/database");
+        const currentLimit = await BotVariable.get(`SPAMLIMIT_${message.jid}`, "10");
+        return await message.sendReply(`⚠ *Geçersiz Spam Limiti!*\n\n- Lütfen 5 ile 50 arasında bir miktar girin.\n- Mevcut limit: \`${currentLimit} mesaj / 10 saniye\`\n\n💬 *Kullanım:* \`.antispamlimit 15\``);
+      }
+      const { setVar } = require("./utils");
+      await setVar(`SPAMLIMIT_${message.jid}`, limit.toString());
+      await message.sendReply(`✅ *Spam Limiti Güncellendi!*\n\n- Yeni limit: \`${limit} mesaj / 10 saniye\`\n\nℹ _Üyeler 10 saniye içinde ${limit} mesaj atarsa gruptan atılacak._`);
     }
   }
 );
@@ -1057,7 +1081,7 @@ Module({
 
 Module({
   pattern: "antikelime ?(.*)",
-  fromMe: true,
+  fromMe: false,
   desc: "Yasaklı kelime kullanımını engeller ve bu kelimeleri kullananları gruptan uzaklaştırır.",
   usage: ".antikelime [aç/kapat]",
   use: "grup",
@@ -1718,13 +1742,22 @@ Module({
   async (message) => {
     if (!message.isGroup) return;
     try {
-      // Önce veritabanından grubun aktif olup olmadığını kontrol et
-      const db = await antibot.get();
-      const jids = db.map((data) => data.jid);
-      if (!jids.includes(message.jid)) return;
+      // Önce veritabanından grupların aktif olup olmadığını kontrol et
+      const dbAntibot = await antibot.get();
+      const antibotJids = dbAntibot.map((data) => data.jid);
+      const isAntibotActive = antibotJids.includes(message.jid);
+
+      const dbAntispam = await antispam.get();
+      const antispamJids = dbAntispam.map((data) => data.jid);
+      const isAntispamActive = antispamJids.includes(message.jid);
+
+      if (!isAntibotActive && !isAntispamActive) return;
 
       // Dinamik admin hesaplamaları
       const senderIsAdmin = await isAdmin(message);
+
+      // Yetkili kişileri atla
+      if (message.fromOwner || message.fromSudo || senderIsAdmin) return;
 
       let botIsAdmin = false;
       try {
@@ -1739,96 +1772,122 @@ Module({
             (botLid && p.id.startsWith(botLid))
           );
           if (foundAdmin) botIsAdmin = true;
-
-          console.log(`[ADMIN-CHECK] BotPN: ${botPn} | BotLID: ${botLid} | GroupAdmins: ${groupAdmins.map(a => a.id).join(", ")} | Result: ${botIsAdmin}`);
         }
       } catch (e) {
         console.error("[ADMIN-CHECK] Error:", e);
       }
 
-      const id = message.id || (message.data && message.data.key && message.data.key.id) || "";
-      const rawText = message.text || "";
+      // ---------------- ANTI-SPAM SISTEMI ----------------
+      if (isAntispamActive) {
+        if (!global.spamMonitor) global.spamMonitor = new Map();
+        const spamKey = message.jid + "_" + message.sender;
+        let userData = global.spamMonitor.get(spamKey) || { count: 0, firstMessageAt: Date.now() };
 
-      // Boşlukları temizleyip aramayı o şekilde yapın (Welcome To DEW MD vs gibi kelimeleri daha kolay yakalamak için)
-      const textNoSpace = rawText.toLowerCase().replace(/\s+/g, '');
-      const botSignatures = /(statusdetails|uptime:|ram:|cpu:|ping:|bot:|owner:|╭─|╰─|welcometo.+(md|bot)|├|└|menu.*(\[|\())/i;
-      const hasBotSignature = botSignatures.test(textNoSpace);
-
-      let isBotMessage = (id.length === 16) ||
-        (id.length === 12 && id.startsWith("3EB0")) ||
-        ((id.length === 22 || id.length === 20) && (id.startsWith("BAE") || id.startsWith("B24E")));
-
-      // WhatsApp Web (22/3EB0) veya Spoofed App (32) bot imzası barındırıyorsa
-      if (hasBotSignature) {
-        isBotMessage = true;
-      }
-
-      const isForwarded = message.data?.message?.extendedTextMessage?.contextInfo?.isForwarded;
-
-      // Log the evaluation step for diagnosis
-      if (isBotMessage || hasBotSignature || id.length === 16) {
-        console.log(`[ANTIBOT-DEBUG] JID: ${message.jid} | Sender: ${message.sender} | BotAdmin: ${botIsAdmin} | SenderAdmin: ${senderIsAdmin} | Owner: ${message.fromOwner} | isBotMsg: ${isBotMessage}`);
-      }
-
-      // Çift tetiklemeleri engellemek için cache mekanizması (aynı mesaja 2 kere işlem yapmaması için)
-      if (!global.antibot_handled_ids) global.antibot_handled_ids = new Set();
-      if (global.antibot_handled_ids.has(id)) return; // Daha önce işlenmişse atla
-
-      // Aynı botun peş peşe attığı spam mesajlara tekrar tekrar uyarı mesajı gitmemesi için cache mekanizması:
-      if (!global.antibot_warned_senders) global.antibot_warned_senders = new Set();
-      const senderKey = message.jid + "_" + message.sender;
-
-      // Yetkili kişileri veya yetkimizin olmadığı grubu atla
-      if (message.fromOwner || message.fromSudo || senderIsAdmin) return;
-
-      if (isBotMessage) {
-        global.antibot_handled_ids.add(id);
-
-        // Bellek sızıntısını önlemek için bu id'yi 1 dakika sonra bellekten sil
-        setTimeout(() => {
-          global.antibot_handled_ids.delete(id);
-        }, 60000);
-
-        // Uyarı mesajının gönderilip gönderilmeyeceğini belirle
-        const shouldWarn = !global.antibot_warned_senders.has(senderKey);
-        if (shouldWarn) {
-          global.antibot_warned_senders.add(senderKey);
-          setTimeout(() => global.antibot_warned_senders.delete(senderKey), 60000);
+        const now = Date.now();
+        // 10 saniyelik pencere
+        if (now - userData.firstMessageAt > 10000) {
+          userData.count = 1;
+          userData.firstMessageAt = now;
+        } else {
+          userData.count += 1;
         }
+        global.spamMonitor.set(spamKey, userData);
 
-        if (!botIsAdmin) {
-          if (shouldWarn) {
+        const { BotVariable } = require("../core/database");
+        const limitStr = await BotVariable.get(`SPAMLIMIT_${message.jid}`, "10");
+        const limit = parseInt(limitStr) || 10;
+
+        if (userData.count >= limit) {
+          // Atma işleminden sonra sayacı sıfırla ki peş peşe tetiklenmesin
+          global.spamMonitor.delete(spamKey);
+
+          if (botIsAdmin) {
             await message.client.sendMessage(message.jid, {
-              text: `🚨 *Antibot Tespit Edildi* 🚨\n\n🤖 _Sohbete sızan bir bot tespit edildi ancak yönetici (Admin) olmadığım için uzaklaştıramıyorum! Lütfen bana yetki verin._`
+              text: `🚨 *Anti-Spam Sistemi Devrede!*\n\n🚫 @${message.sender.split("@")[0]} kısa sürede çok fazla mesaj gönderdiği için gruptan uzaklaştırıldı.\n_(Limit: 10 saniyede ${limit} mesaj)_`,
+              mentions: [message.sender]
+            });
+            await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove");
+          } else {
+            await message.client.sendMessage(message.jid, {
+              text: `🚨 *Anti-Spam Tespit Edildi!*\n\n🚫 @${message.sender.split("@")[0]} spam yapıyor ancak yönetici olmadığım için gruptan atamıyorum!`,
+              mentions: [message.sender]
             });
           }
-          return;
+        }
+      }
+
+      // ---------------- ANTI-BOT SISTEMI ----------------
+      if (isAntibotActive) {
+        const id = message.id || (message.data && message.data.key && message.data.key.id) || "";
+        const rawText = message.text || "";
+
+        const textNoSpace = rawText.toLowerCase().replace(/\s+/g, '');
+        const botSignatures = /(statusdetails|uptime:|ram:|cpu:|ping:|bot:|owner:|╭─|╰─|welcometo.+(md|bot)|├|└|menu.*(\[|\())/i;
+        const hasBotSignature = botSignatures.test(textNoSpace);
+
+        let isBotMessage = (id.length === 16) ||
+          (id.length === 12 && id.startsWith("3EB0")) ||
+          ((id.length === 22 || id.length === 20) && (id.startsWith("BAE") || id.startsWith("B24E")));
+
+        if (hasBotSignature) {
+          isBotMessage = true;
         }
 
-        // 1. ÖNCE bilgilendirme mesajı gönder (SADECE bu bot için ilk defaysa)
-        if (shouldWarn) {
-          await message.client.sendMessage(message.jid, {
-            text: `🚨 *Anti-Bot Sistemi Devrede!* 😈\n\n🤖 _Sohbete sızan bir bot tespit ettim ve anında uzaklaştırdım._ 🧹`,
-          });
-        }
+        if (!global.antibot_handled_ids) global.antibot_handled_ids = new Set();
+        if (global.antibot_handled_ids.has(id)) return; // Daha önce işlenmişse atla
 
-        // 2. Attığı sinsi mesajı herkesten sil
-        await message.client.sendMessage(message.jid, {
-          delete: {
-            remoteJid: message.jid,
-            fromMe: false,
-            id: id,
-            participant: message.sender
+        if (!global.antibot_warned_senders) global.antibot_warned_senders = new Set();
+        const senderKey = message.jid + "_" + message.sender;
+
+        if (isBotMessage) {
+          global.antibot_handled_ids.add(id);
+
+          // Bellek sızıntısını önlemek için bu id'yi 1 dakika sonra bellekten sil
+          setTimeout(() => {
+            global.antibot_handled_ids.delete(id);
+          }, 60000);
+
+          // Uyarı mesajının gönderilip gönderilmeyeceğini belirle
+          const shouldWarn = !global.antibot_warned_senders.has(senderKey);
+          if (shouldWarn) {
+            global.antibot_warned_senders.add(senderKey);
+            setTimeout(() => global.antibot_warned_senders.delete(senderKey), 60000);
           }
-        });
 
-        // 3. EN SON İlgili botu gruptan uzaklaştır (SADECE ilk defaysa)
-        if (shouldWarn) {
-          await message.client.groupParticipantsUpdate(
-            message.jid,
-            [message.sender],
-            "remove"
-          );
+          if (!botIsAdmin) {
+            if (shouldWarn) {
+              await message.client.sendMessage(message.jid, {
+                text: `🚨 *Antibot Tespit Edildi* 🚨\n\n🤖 _Sohbete sızan bir bot tespit edildi ancak yönetici (Admin) olmadığım için uzaklaştıramıyorum! Lütfen bana yetki verin._`
+              });
+            }
+            return;
+          }
+
+          // 1. ÖNCE bilgilendirme mesajı gönder (SADECE bu bot için ilk defaysa)
+          if (shouldWarn) {
+            await message.client.sendMessage(message.jid, {
+              text: `🚨 *Anti-Bot Sistemi Devrede!* 😈\n\n🤖 _Sohbete sızan bir bot tespit ettim ve anında uzaklaştırdım._ 🧹`,
+            });
+          }
+
+          // 2. Attığı sinsi mesajı herkesten sil
+          await message.client.sendMessage(message.jid, {
+            delete: {
+              remoteJid: message.jid,
+              fromMe: false,
+              id: id,
+              participant: message.sender
+            }
+          });
+
+          // 3. EN SON İlgili botu gruptan uzaklaştır (SADECE ilk defaysa)
+          if (shouldWarn) {
+            await message.client.groupParticipantsUpdate(
+              message.jid,
+              [message.sender],
+              "remove"
+            );
+          }
         }
       }
     } catch (e) {
@@ -1839,7 +1898,7 @@ Module({
 
 Module({
   pattern: "antinumara ?(.*)",
-  fromMe: true,
+  fromMe: false,
   desc: "Belirli ülke koduna sahip numaraların gruba girişini engeller/izin verir.",
   usage: ".antinumara [aç/kapat/izin 90, 1]",
   use: "grup",

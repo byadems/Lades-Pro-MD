@@ -246,10 +246,6 @@ Module({
     if (!message.isGroup)
       return await message.sendReply("❌ _Bu komut sadece gruplarda kullanılabilir!_");
 
-    const userIsAdmin = await isAdmin(message);
-    if (!userIsAdmin)
-      return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
-
     const settings = await getGroupSettings(message.jid);
     const warnLimit = settings.warnLimit || globalWarnLimit;
 

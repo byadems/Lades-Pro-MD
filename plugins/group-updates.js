@@ -276,12 +276,16 @@ Module({
     ) {
       if (message.from.split("@")[0] == message.myjid) return;
       const targetUser = typeof message.participant[0] === "string" ? message.participant[0] : message.participant[0].id;
-      if (message.action == "demote") admin_jids.push(targetUser);
+
+      const notifyJids = [...admin_jids];
+      notifyJids.push(message.from);
+      notifyJids.push(targetUser);
+
       await message.client.sendMessage(message.jid, {
-        text: `_*[${message.action == "promote" ? "🔔 Yükseltme algılandı" : "🔔 Düşürme algılandı"
+        text: `_*[${message.action == "promote" ? "🔔 Yetki verme algılandı" : "🔔 Yetki alma algılandı"
           }]*_\n\n@${message.from.split("@")[0]} @${targetUser.split("@")[0]
           } kişisini ${message.action == "promote" ? "yükseltti" : "düşürdü"}`,
-        mentions: admin_jids,
+        mentions: [...new Set(notifyJids)],
       });
     }
     if (message.action == "promote" && apjids.includes(message.jid)) {

@@ -162,41 +162,89 @@ async function resetAntifake() {
   return await FakeDB.destroy({ where: {}, truncate: true });
 }
 
-// New advanced antilink functions - mapped to GroupSettings
+// New advanced antilink functions - mapped to AntilinkConfigDB
 async function getAntilinkConfig(jid = null) {
   if (!jid) {
-    return [];
+    return await AntilinkConfigDB.findAll();
   }
-  const settings = await getGroupSettings(jid);
-  return {
-    jid: jid,
-    mode: "delete",
-    enabled: settings.antiLink
-  };
+  const config = await AntilinkConfigDB.findByPk(jid);
+  if (!config) {
+    // Return default properties if not exists
+    return {
+      jid: jid,
+      mode: "delete",
+      enabled: false,
+      isWhitelist: true,
+      allowedLinks: "gist,instagram,youtu",
+      blockedLinks: "",
+      customMessage: ""
+    };
+  }
+  return config;
 }
 
 async function setAntilinkConfig(jid, conf = {}) {
   if (!jid) return false;
-  const settings = await updateGroupSettings(jid, {
-     antiLink: conf.enabled !== undefined ? conf.enabled : undefined
+  
+  const [record, created] = await AntilinkConfigDB.findOrCreate({
+    where: { jid },
+    defaults: {
+      mode: conf.mode || "delete",
+      enabled: conf.enabled !== undefined ? conf.enabled : true,
+      isWhitelist: conf.isWhitelist !== undefined ? conf.isWhitelist : true,
+      allowedLinks: conf.allowedLinks || "gist,instagram,youtu",
+      blockedLinks: conf.blockedLinks || "",
+      customMessage: conf.customMessage || "",
+      updatedBy: conf.updatedBy || ""
+    }
   });
-  return { jid, enabled: settings.antiLink, mode: "delete" };
+
+  if (!created) {
+    await record.update({
+      mode: conf.mode !== undefined ? conf.mode : record.mode,
+      enabled: conf.enabled !== undefined ? conf.enabled : record.enabled,
+      isWhitelist: conf.isWhitelist !== undefined ? conf.isWhitelist : record.isWhitelist,
+      allowedLinks: conf.allowedLinks !== undefined ? conf.allowedLinks : record.allowedLinks,
+      blockedLinks: conf.blockedLinks !== undefined ? conf.blockedLinks : record.blockedLinks,
+      customMessage: conf.customMessage !== undefined ? conf.customMessage : record.customMessage,
+      updatedBy: conf.updatedBy || record.updatedBy
+    });
+  }
+  return await getAntilinkConfig(jid);
 }
 
 async function updateAntilinkConfig(jid, updates = {}) {
+  return await setAntilinkConfig(jid, updates);
+}
+
+async function deleteAntilinkConfig(jid) {
   if (!jid) return false;
-  const [settings] = await GroupSettings.findOrCreate({ where: { groupId: jid } });
-  if (updates.enabled !== undefined) {
-    settings.antiLink = updates.enabled;
-    await settings.save();
+  return await AntilinkConfigDB.destroy({ where: { jid } });
+}
+
+function checkAllowed(linkText, configResult) {
+  if (!configResult) return true;
+  if (!configResult.enabled) return true;
+  
+  const isWhitelist = configResult.isWhitelist !== undefined ? configResult.isWhitelist : true;
+  
+  if (isWhitelist) {
+    const allowed = (configResult.allowedLinks || "gist,instagram,youtu").split(",").map(a => a.trim().toLowerCase()).filter(Boolean);
+    if (allowed.length === 0) return false;
+    return allowed.some(a => linkText.toLowerCase().includes(a));
+  } else {
+    const blocked = (configResult.blockedLinks || "").split(",").map(b => b.trim().toLowerCase()).filter(Boolean);
+    if (blocked.length === 0) return true;
+    return !blocked.some(b => linkText.toLowerCase().includes(b));
   }
-  return { jid, enabled: settings.antiLink, mode: "delete" };
 }
 
 const antilinkConfig = {
   get: getAntilinkConfig,
   set: setAntilinkConfig,
   update: updateAntilinkConfig,
+  delete: deleteAntilinkConfig,
+  checkAllowed: checkAllowed
 };
 
 // antiSpam mapped to GroupSettings

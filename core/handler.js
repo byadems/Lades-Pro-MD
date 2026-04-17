@@ -931,11 +931,28 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
         if (originalMsg) {
           const participant = deletedKey.participant || deletedKey.remoteJid;
           const senderName = participant.split("@")[0];
-          await client.sendMessage(jid, {
+          
+          let targetJid = jid;
+          try {
+            const { BotVariable } = require("./database");
+            const mode = await BotVariable.get(`ANTI_DELETE_MODE_${jid}`, "chat");
+            
+            if (mode === "sudo") {
+              const sudoKey = (config.SUDO || config.OWNER_NUMBER || "").split(",")[0].replace(/[^0-9]/g, "");
+              if (sudoKey) targetJid = `${sudoKey}@s.whatsapp.net`;
+            } else if (mode === "custom") {
+              const customTarget = await BotVariable.get(`ANTI_DELETE_JID_${jid}`, jid);
+              if (customTarget) targetJid = customTarget;
+            }
+          } catch (e) {
+            console.error("Antidelete route error", e);
+          }
+
+          await client.sendMessage(targetJid, {
             text: `🚨 *Mesaj Silme Engellendi!* 🚨\n\n👤 *Gönderen:* @${senderName}\n\n👇 *Silinen Mesaj:*`,
             mentions: [participant]
           });
-          await client.sendMessage(jid, { forward: originalMsg }, { quoted: originalMsg });
+          await client.sendMessage(targetJid, { forward: originalMsg }, { quoted: originalMsg });
           return;
         }
       }
