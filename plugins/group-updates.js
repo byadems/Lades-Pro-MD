@@ -1,7 +1,7 @@
 const {
   antifake,
   antibot,
-  pdm,
+  antipdm,
   antipromote,
   antidemote,
   welcome,
@@ -246,10 +246,10 @@ Module({
     db.map((data) => {
       jids.push(data.jid);
     });
-    const pdmdb = await pdm.get();
-    const pdmjids = [];
-    pdmdb.map((data) => {
-      pdmjids.push(data.jid);
+    const antipdmdb = await antipdm.get();
+    const antipdmjids = [];
+    antipdmdb.map((data) => {
+      antipdmjids.push(data.jid);
     });
     const apdb = await antipromote.get();
     const apjids = [];
@@ -270,7 +270,7 @@ Module({
     });
     if (
       (message.action == "promote" || message.action == "demote") &&
-      pdmjids.includes(message.jid)
+      antipdmjids.includes(message.jid)
     ) {
       if (message.from.split("@")[0] == message.myjid) return;
       const targetUser = typeof message.participant[0] === "string" ? message.participant[0] : message.participant[0].id;

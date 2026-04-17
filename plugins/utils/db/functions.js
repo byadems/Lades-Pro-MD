@@ -267,21 +267,21 @@ async function resetAntiSpam() {
   return await antiSpamDB.destroy({ where: {}, truncate: true });
 }
 
-async function getPdm() {
+async function getAntipdm() {
   return await PDMDB.findAll();
 }
 
-async function setPdm(jid) {
+async function setAntipdm(jid) {
   const existing = await PDMDB.findOne({ where: { jid } });
   if (existing) return existing;
   return await PDMDB.create({ jid });
 }
 
-async function delPdm(jid = null) {
+async function delAntipdm(jid = null) {
   return await PDMDB.destroy({ where: { jid } });
 }
 
-async function resetPdm() {
+async function resetAntipdm() {
   return await PDMDB.destroy({ where: {}, truncate: true });
 }
 
@@ -613,7 +613,7 @@ const antidelete = {
   delete: delAntiDelete,
   reset: resetAntiDelete,
 };
-const pdm = { set: setPdm, get: getPdm, delete: delPdm, reset: resetPdm };
+const antipdm = { set: setAntipdm, get: getAntipdm, delete: delAntipdm, reset: resetAntipdm };
 const welcome = {
   set: setWelcome,
   get: getWelcome,
@@ -651,7 +651,7 @@ module.exports = {
   antispam,
   antibot,
   antidelete,
-  pdm,
+  antipdm,
   welcome,
   goodbye,
   filter,

@@ -28,7 +28,7 @@ const DANGEROUS_PATTERNS = [
   /^ybaşlat/, /^güncelle/, /^reload/, /^reboot/, /^bağla/,
   /^modülyükle/, /^modülsil/, /^mgüncelle/,
   /^uyar/, /^uyarısıfırla/, /^filtre/, /^togglefilter/,
-  /^warn/, /^pdm/, /^antikelime/, /^antisil/,
+  /^warn/, /^antipdm/, /^antikelime/, /^antisil/,
   /^speedtest/, /^hıztesti/,
   /^setvar/, /^setenv/, /^delvar/, /^değişkensil/, /^dil$/, /^mod$/,
   /^ayarlar$/, /^setsudo/, /^sudosil/, /^toggle$/, /^antibot/, /^antispam/,

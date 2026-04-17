@@ -205,7 +205,7 @@ Module({
         "️ .antisilme\nAnti-silme özelliği.\n\n" +
         "🤖 .antibot\nBot koruması.\n\n" +
         "🚫 .antispam\nSpam koruması.\n\n" +
-        "📵 .pdm\nPDM (Private Message) koruması.\n\n" +
+        "📵 .antipdm\nAnti-PDM koruması.\n\n" +
         "📉 .antiyetkidüşürme\nAnti-yetki düşürme.\n\n" +
         "📈 .antiyetkiverme\nAnti-yetki verme.\n\n" +
         "🔗 .antibağlantı\nBağlantı engelleme.\n\n" +

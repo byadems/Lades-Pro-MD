@@ -38,7 +38,7 @@ const {
   antispam,
   antipromote,
   antidemote,
-  pdm,
+  antipdm,
   antidelete,
   setWarn,
   getWarn,
@@ -721,38 +721,38 @@ Module({
 );
 
 Module({
-  pattern: "pdm ?(.*)",
+  pattern: "antipdm ?(.*)",
   fromMe: false,
   desc: "Gruptaki yetki verme veya yetki alma durumlarını takip eder ve anlık bilgilendirme yapar.",
-  usage: ".pdm [aç/kapat]",
+  usage: ".antipdm [aç/kapat]",
   use: "grup",
 },
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
       match[1] = match[1] ? match[1].toLowerCase() : "";
-      const db = await pdm.get();
+      const db = await antipdm.get();
       const jids = [];
       db.map((data) => {
         jids.push(data.jid);
       });
       if (match[1] === "aç") {
-        await pdm.set(message.jid);
+        await antipdm.set(message.jid);
       }
       if (match[1] === "kapat") {
-        await pdm.delete(message.jid);
+        await antipdm.delete(message.jid);
       }
       if (match[1] !== "aç" && match[1] !== "kapat") {
         const status = jids.includes(message.jid) ? "Açık" : "Kapalı";
         const { subject } = await message.client.groupMetadata(message.jid);
         return await message.sendReply(
-          `🚨 *Yetki Değişikliği Uyarısı (PDM)*` +
+          `🚨 *Yetki Değişikliği Uyarısı (Anti-PDM)*` +
           "\n\nℹ️ *Mevcut Durum:* " + status + " " + (jids.includes(message.jid) ? "✅" : "❌") +
-          "\n💬 *Kullanım:* `.pdm aç/kapat`"
+          "\n💬 *Kullanım:* `.antipdm aç/kapat`"
         );
       }
       await message.sendReply(
-        (match[1] === "aç") ? "_PDM etkinleştirildi!_" : "_PDM kapatıldı!_"
+        (match[1] === "aç") ? "_Anti-PDM etkinleştirildi!_" : "_Anti-PDM kapatıldı!_"
       );
     }
   }

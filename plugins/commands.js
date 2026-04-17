@@ -12,6 +12,20 @@ const { parseAliveMessage, sendAliveMessage } = require("./utils/alive-parser");
 const { badWords, censorBadWords } = require("./utils/censor");
 const { nxTry } = require("./utils");
 
+const getCategoryPriority = (category) => {
+  const cat = (category || "").toLowerCase();
+  // 1. En düşük puan (0-10): Genel ve Herkesin kullanabildiği komutlar
+  if (["genel", "download", "search", "tools", "edit", "media", "fun", "game", "dini", "chat", "ai", "araçlar", "indirme", "arama", "eğlence", "oyun", "düzenleme", "medya"].includes(cat)) return 5;
+  
+  // 2. Orta puan (50): Yönetici ve Grup komutları
+  if (["grup", "group", "koruma"].includes(cat)) return 50;
+  
+  // 3. En yüksek puan (100): Kurucu ve Sistem komutları (En son görünecekler)
+  if (["owner", "system", "sahip", "sistem"].includes(cat)) return 100;
+  
+  return 10; // Bilinmeyenler genelden biraz sonra
+};
+
 const CATEGORY_TR = {
   owner: "👑 Kurucu & Geliştirici",
   system: "⚙️ Sistem & Analiz",
@@ -86,7 +100,11 @@ Module({
     const safeHandlers = typeof HANDLERS === 'string' ? HANDLERS : String(HANDLERS);
     const handlerPrefix = safeHandlers.match(/\[(\W*)\]/)?.[1]?.[0] || ".";
 
-    for (const category in categorizedCommands) {
+    const sortedCategories = Object.keys(categorizedCommands).sort((a, b) => {
+      return getCategoryPriority(a) - getCategoryPriority(b);
+    });
+
+    for (const category of sortedCategories) {
       const catLabels = {
         'sistem': '⚙️ Sistem & Sahip',
         'sahip': '👑 Sahip',
@@ -100,7 +118,8 @@ Module({
         'sohbet': '💬 Sohbet & Mesaj',
         'genel': '📦 Genel Komutlar',
         'arama': '🔍 Arama',
-        'düzenleme': '🖌️ Düzenleme'
+        'düzenleme': '🖌️ Düzenleme',
+        'koruma': '🛡️ Koruma & Güvenlik'
       };
       const catLabel = catLabels[category] || category.charAt(0).toUpperCase() + category.slice(1);
       responseMessage += `*───「 ${catLabel} 」───*\n\n`;
@@ -313,7 +332,7 @@ Module({
       ...new Set(
         visibleCommands.map((e) => e.use || "Genel")
       ),
-    ];
+    ].sort((a, b) => getCategoryPriority(a) - getCategoryPriority(b));
 
     let cmd_obj = {};
     for (const command of visibleCommands) {
