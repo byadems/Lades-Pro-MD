@@ -14,7 +14,7 @@ async function getPrayerTimes(cityInput, type = 'ezan', date = moment().format('
   let cityName = cityCodesToNames[cityInput] || cityCodesToNames[normalizedCityInput] || cityInput;
 
   if (!cityId) {
-    return { error: '❗️ Geçersiz şehir ismi veya plaka! Lütfen geçerli bir şehir ismi veya plaka giriniz.\n💻 Kullanımı: *.ezan şehiradı & plaka*\n👉🏻 Örnek: *.ezan Diyarbakır* | *.ezan 21*' };
+    return { error: '❌ *Geçersiz şehir ismi veya plaka!*\n\n- Lütfen geçerli bir şehir veya plaka kodu giriniz.\n💬 *Kullanım:* \`.ezan [şehir/plaka]\`\n👉 *Örnek:* \`.ezan Diyarbakır\` | \`.ezan 21\`' };
   }
 
   cityName = capitalizeTurkish(cityName);
@@ -88,9 +88,9 @@ async function getPrayerTimes(cityInput, type = 'ezan', date = moment().format('
       return { cityName, today: date, ...data };
     }
   } catch (_) { }
-
-  return { error: '⚠️ Tüm vakit kaynakları başarısız oldu. Lütfen daha sonra tekrar deneyiniz.' };
-}
+ 
+   return { error: '❌ *Tüm vakit kaynakları başarısız oldu!* _Lütfen daha sonra tekrar deneyiniz._' };
+ }
 
 Module({
     pattern: 'ezan ?(.*)',
@@ -102,7 +102,7 @@ Module({
   async (message, match) => {
   const cityInput = match[1] ? match[1].toUpperCase() : null;
   if (!cityInput) {
-    return await message.sendReply('❗️ Lütfen bir şehir ismi veya plaka yazınız.\n💻 Kullanımı: *.ezan şehiradı & plaka*\n👉🏻 Örnek: *.ezan Diyarbakır* | *.ezan 21*');
+    return await message.sendReply('⚠️ *Lütfen bir şehir ismi veya plaka yazınız!*\n\n💬 *Kullanım:* \`.ezan [şehir/plaka]\`\n👉 *Örnek:* \`.ezan Diyarbakır\` | \`.ezan 21\`');
   }
 
   const { cityName, Imsak, Gunes, Ogle, Ikindi, Aksam, Yatsi, MiladiTarihKisa, HicriTarihUzun, today, error } = await getPrayerTimes(cityInput, 'ezan');
@@ -172,7 +172,7 @@ Module({
   async (message, match) => {
   const cityInput = match[1] ? match[1].toUpperCase() : null;
   if (!cityInput) {
-    return await message.sendReply('❗️ Lütfen bir şehir ismi veya plaka yazınız.\n💻 Kullanımı: *.sahur şehiradı & plaka*\n👉🏻 Örnek: *.sahur Diyarbakır* | *.sahur 21*');
+    return await message.sendReply('⚠️ *Lütfen bir şehir ismi veya plaka yazınız!*\n\n💬 *Kullanım:* \`.sahur [şehir/plaka]\`\n👉 *Örnek:* \`.sahur Diyarbakır\` | \`.sahur 21\`');
   }
 
   const today = moment().format('DD.MM.YYYY');
@@ -223,7 +223,7 @@ Module({
   async (message, match) => {
   const cityInput = match[1] ? match[1].toUpperCase() : null;
   if (!cityInput) {
-    return await message.sendReply('❗️ Lütfen bir şehir ismi veya plaka yazınız.\n💻 Kullanımı: *.iftar şehiradı & plaka*\n👉🏻 Örnek: *.iftar Diyarbakır | .iftar 21*');
+    return await message.sendReply('⚠️ *Lütfen bir şehir ismi veya plaka yazınız!*\n\n💬 *Kullanım:* \`.iftar [şehir/plaka]\`\n👉 *Örnek:* \`.iftar Diyarbakır\` | \`.iftar 21\`');
   }
 
   const today = moment().format('DD.MM.YYYY');

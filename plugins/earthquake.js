@@ -78,7 +78,7 @@ const listAllEarthquakes = async (m, { limit, region } = {}) => {
     message += `📊 Gösterilen deprem sayısı: *${filtered.length}*\n\n`;
 
     if (!filtered.length) {
-      await m.send(`${message}⚠️ Eşleşen deprem kaydı bulunamadı.`);
+      await m.send(`${message}⚠️ *Eşleşen deprem kaydı bulunamadı!*`);
       return;
     }
 
@@ -91,7 +91,7 @@ const listAllEarthquakes = async (m, { limit, region } = {}) => {
 
     await m.send(message);
   } catch (err) {
-    await m.send(`❌ HATA: ${err.message}`);
+    await m.send(`❌ *Hata oluştu:* \n\n${err.message}`);
   }
 };
 
@@ -134,7 +134,7 @@ Module({
     try {
       const { earthquakes } = await getEarthquakeData();
       const latest = earthquakes?.[0];
-      if (!latest) return await m.send("⚠️ Son deprem verisi alınamadı.");
+      if (!latest) return await m.send("⚠️ *Son deprem verisi alınamadı!*");
 
       const info =
         `🌍 *SON DEPREM*\n\n` +
@@ -143,7 +143,7 @@ Module({
         `⏰ Zaman: *${formatKandilliDate(latest.date_time)}*`;
       await m.send(info);
     } catch (err) {
-      await m.send(`❌ HATA: ${err.message}`);
+      await m.send(`❌ *Hata oluştu:* \n\n${err.message}`);
     }
   }
 );

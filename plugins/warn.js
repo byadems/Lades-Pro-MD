@@ -40,7 +40,7 @@ Module({
     const cmd = match[1] ? match[1].toLowerCase().trim() : "";
 
     if (!message.isGroup)
-      return await message.sendReply("❌ _Bu komut sadece gruplarda kullanılabilir!_");
+      return await message.sendReply("❌ *Bu komut yalnızca gruplarda çalışır!*");
 
     const userIsAdmin = await isAdmin(message);
     if (!userIsAdmin)
@@ -55,7 +55,7 @@ Module({
       } catch { return false; }
     })();
     if (!botIsAdmin) {
-      return await message.sendReply("❌ _İşlem yapabilmem için öncelikle yönetici olmam gerekiyor!_");
+      return await message.sendReply("❌ *İşlem yapabilmem için yönetici olmam gerekiyor!*");
     }
 
     const settings = await getGroupSettings(message.jid);
@@ -80,7 +80,7 @@ Module({
     // 1. UYARISİL (.uyarısil)
     if (cmd.startsWith("ısil")) {
       let targetUser = message.mention?.[0] || message.reply_message?.jid;
-      if (!targetUser) return await message.sendReply("❗ _Lütfen bir üye etiketleyin veya mesajına yanıtlayın!_");
+      if (!targetUser) return await message.sendReply("⚠️ *Lütfen bir üye etiketleyin veya mesajına yanıtlayın!*");
       targetUser = await resolveTargetUser(targetUser);
 
       const targetNumericId = getNumericId(targetUser);
@@ -101,7 +101,7 @@ Module({
           });
         }
       } catch (error) {
-        await message.sendReply("❌ *İşlem sırasında hata oluştu.*");
+        await message.sendReply("❌ *İşlem sırasında hata oluştu!*");
       }
       return;
     }
@@ -109,7 +109,7 @@ Module({
     // 2. UYARISIFIRLA (.uyarısıfırla)
     if (cmd.startsWith("ısıfırla")) {
       let targetUser = message.mention?.[0] || message.reply_message?.jid;
-      if (!targetUser) return await message.sendReply("❗ _Lütfen bir üyeyi etiketleyin veya mesajına yanıt verin!_");
+      if (!targetUser) return await message.sendReply("⚠️ *Lütfen bir üyeyi etiketleyin veya mesajına yanıt verin!*");
       targetUser = await resolveTargetUser(targetUser);
 
       const targetNumericId = getNumericId(targetUser);
@@ -129,7 +129,7 @@ Module({
           });
         }
       } catch (error) {
-        await message.sendReply("❌ *İşlem sırasında hata oluştu.*");
+        await message.sendReply("❌ *İşlem sırasında hata oluştu!*");
       }
       return;
     }
@@ -160,7 +160,7 @@ Module({
         warnList += `ℹ️ _Detaylı uyarı geçmişi için: ${handler}kaçuyarı @üye_`;
         await message.client.sendMessage(message.jid, { text: warnList, mentions });
       } catch (error) {
-        await message.sendReply("❌ _Liste alınamadı._");
+        await message.sendReply("❌ *Liste alınamadı!*");
       }
       return;
     }
@@ -170,10 +170,10 @@ Module({
       const textArg = match[1].replace(/ılimit/i, "").trim();
       const newLimit = parseInt(textArg);
       if (!newLimit || newLimit < 1 || newLimit > 20) {
-        return await message.sendReply(`⚠ *Geçersiz Uyarı Limiti!*\n\n- Lütfen 1 ile 20 arasında bir miktar girin.\n- Mevcut limit: \`${warnLimit}\`\n\n💬 *Kullanım:* \`${handler}uyarılimit 5\``);
+        return await message.sendReply(`⚠️ *Geçersiz Uyarı Limiti!*\n\n- Lütfen 1 ile 20 arasında bir miktar girin.\n- Mevcut limit: \`${warnLimit}\`\n\n💬 *Kullanım:* \`${handler}uyarılimit 5\``);
       }
       await updateGroupSettings(message.jid, { warnLimit: newLimit });
-      await message.sendReply(`✅ *Uyarı Limiti Güncellendi!*\n\n- Yeni limit: \`${newLimit}\`\n- Önceki limit: \`${warnLimit}\`\n\nℹ _Üyeler artık ${newLimit} uyarıdan sonra gruptan atılacak._`);
+      await message.sendReply(`✅ *Uyarı Limiti Güncellendi!*\n\n- Yeni limit: \`${newLimit}\`\n- Önceki limit: \`${warnLimit}\`\n\nℹ️ _Üyeler artık ${newLimit} uyarıdan sonra gruptan atılacak._`);
       return;
     }
 
@@ -183,13 +183,13 @@ Module({
     let targetUser = message.mention?.[0] || message.reply_message?.jid;
     if (!targetUser) {
       return await message.sendReply(
-        `❗ _Lütfen bir üyeyi etiketleyin veya mesajına yanıt verin!_\n\n` +
+        `⚠️ *Lütfen bir üyeyi etiketleyin veya mesajına yanıt verin!*\n\n` +
         `🔻 *Kullanımı:* \n` +
-        `• \`${handler}uyar @üye sebep\` - Uyarmaya yarar\n` +
-        `• \`${handler}kaçuyarı @üye\` - Uyarı sayısını gösterir\n` +
-        `• \`${handler}uyarısil @üye\` - 1 uyarıyı siler\n` +
-        `• \`${handler}uyarısıfırla @üye\` - Tüm uyarıları sıfırlar\n` +
-        `• \`${handler}uyarılimit\` - Maksimum uyarı limitini belirler`
+        `• \`${handler}uyar @üye sebep\` _- Uyarmaya yarar_\n` +
+        `• \`${handler}kaçuyarı @üye\` _- Uyarı sayısını gösterir_\n` +
+        `• \`${handler}uyarısil @üye\` _- 1 uyarıyı siler_\n` +
+        `• \`${handler}uyarısıfırla @üye\` _- Tüm uyarıları sıfırlar_\n` +
+        `• \`${handler}uyarılimit\` _- Maksimum uyarı limitini belirler_`
       );
     }
     targetUser = await resolveTargetUser(targetUser);
@@ -205,22 +205,31 @@ Module({
     const reason = censorBadWords(rawReason.replace(mentionRegex, "").trim() || "Sebep belirtilmedi");
 
     try {
-      await setWarn(message.jid, targetUser, reason, message.sender);
-      const warnData = await getWarn(message.jid, targetUser, warnLimit);
+      // message.sender boş olabilir, fallback uygula
+      const warnedBy = message.sender || message.jid || "system";
+      const setResult = await setWarn(message.jid, targetUser, reason, warnedBy);
+
+      // setWarn false döndürürse doğrudan getWarn ile kontrol et
+      let warnData = (setResult && typeof setResult === "object" && "exceeded" in setResult)
+        ? setResult
+        : await getWarn(message.jid, targetUser, warnLimit);
+
+      if (!warnData) return await message.sendReply("❌ *Uyarı kaydedilemedi!*");
+
       const currentWarns = warnData.current;
       const remaining = warnData.kalan ?? warnData.remaining;
 
       if (warnData.exceeded) {
-        if (isBotIdentifier(targetUser, message.client)) return await message.sendReply("❌ _Kendimi atacak kadar delirmedim. 😉_");
+        if (isBotIdentifier(targetUser, message.client)) return await message.sendReply("❌ *Kendimi atacak kadar delirmedim. 😉*");
         try {
           await message.client.groupParticipantsUpdate(message.jid, [targetUser], "remove");
           await sendBanAudio(message);
           await message.client.sendMessage(message.jid, {
-            text: `⚠ *UYARI LİMİTİ AŞILDI!*\n\n👤 Üye: *@${targetNumericId}*\n🤔 Sebep: \`${reason}\`\n🔢 Uyarı Sayısı: \`${currentWarns}/${warnLimit}\`\n👋🏻 İşlem: \`Gruptan çıkarılma\`\n\n🧹 _Limit dolduğu için üye atıldı._`,
+            text: `⚠️ *UYARI LİMİTİ AŞILDI!*\n\n👤 Üye: *@${targetNumericId}*\n🤔 Sebep: \`${reason}\`\n🔢 Uyarı Sayısı: \`${currentWarns}/${warnLimit}\`\n👋🏻 İşlem: \`Gruptan çıkarılma\`\n\n🧹 _Limit dolduğu için üye atıldı._`,
             mentions: [targetUser],
           });
         } catch (e) {
-          await message.sendReply("⚠️ _Üyeyi atamadım, yetkimi kontrol edin._");
+          await message.sendReply("❌ *Üyeyi gruptan atamadım!* _Lütfen yetkimi kontrol edin._");
         }
       } else {
         const warnText = `⚠ *UYARI!*\n\n` +
@@ -237,7 +246,7 @@ Module({
       }
     } catch (error) {
       console.error("Uyarı hatası:", error);
-      await message.sendReply("❌ _Uyarı verilemedi! Lütfen tekrar deneyin._");
+      await message.sendReply("❌ *Uyarı verilemedi!* _Lütfen tekrar deneyin._");
     }
   }
 );
@@ -251,7 +260,7 @@ Module({
 },
   async (message) => {
     if (!message.isGroup)
-      return await message.sendReply("❌ _Bu komut sadece gruplarda kullanılabilir!_");
+      return await message.sendReply("❌ *Bu komut yalnızca gruplarda çalışır!*");
 
     const settings = await getGroupSettings(message.jid);
     const warnLimit = settings.warnLimit || globalWarnLimit;
@@ -298,7 +307,7 @@ Module({
       });
     } catch (error) {
       console.error("Uyarı kontrol hatası:", error);
-      await message.sendReply("⚠️ _Uyarıları alamadım! Tekrar deneyin._");
+      await message.sendReply("❌ *Uyarıları alamadım!* _Lütfen tekrar deneyin._");
     }
   }
 );

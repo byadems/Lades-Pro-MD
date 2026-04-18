@@ -91,7 +91,7 @@ async function setVar(key, value, message = false) {
   });
   config[key.trim()] = value;
   if (message) {
-    await message.sendReply(`_${key.trim()} başarıyla '${value}' olarak ayarlandı!_`);
+    await message.sendReply(`✅ *${key.trim()} başarıyla '${value}' olarak ayarlandı!*`);
   }
   return true;
 }
@@ -100,7 +100,7 @@ async function delVar(key, message = false) {
   await BotVariable.destroy({ where: { key: key.trim() } });
   delete config[key.trim()];
   if (message) {
-    await message.sendReply(`_${key.trim()} başarıyla silindi!_`);
+    await message.sendReply(`✅ *${key.trim()} başarıyla silindi!*`);
   }
   return true;
 }
@@ -114,7 +114,7 @@ Module({
   async (message, args) => {
     const input = args[1];
     if (!input || !input.includes("=")) {
-      return await message.sendReply("_❌ Geçersiz format. Kullanım: .setvar ANAHTAR=DEGER_"
+      return await message.sendReply("❌ *Geçersiz format. Kullanım: .setvar ANAHTAR=DEGER*"
       );
     }
 
@@ -122,7 +122,7 @@ Module({
     const value = censorBadWords(valueParts.join("=").trim());
 
     if (key.trim().toUpperCase() === "SUDO") {
-      return await message.sendReply("_ℹ️ Artık setvar ile yetki verilmemektedir, .setsudo komutunu kullanın_"
+      return await message.sendReply("ℹ️ _Artık setvar ile yetki verilmemektedir, .setsudo komutunu kullanın_"
       );
     }
 
@@ -130,7 +130,7 @@ Module({
       await setVar(key.trim(), value, message);
     } catch (error) {
       await message.sendReply(
-        `_'${key.trim()}' değişkeni ayarlanamadı. Hata: ${error.message}_`
+        `❌ *'${key.trim()}' değişkeni ayarlanamadı.*\n⚠️ *Hata:* `${ error.message }``
       );
     }
   }
@@ -146,15 +146,15 @@ Module({
   async (message, args) => {
     const key = args[1]?.trim();
     if (!key) {
-      return await message.sendReply("_⚠️ Lütfen değişken adını girin. Kullanım: .getvar DEGISKEN_"
+      return await message.sendReply("⚠️ *Lütfen değişken adını girin. Kullanım: .getvar DEGISKEN*"
       );
     }
 
     const variable = config[key];
     if (variable) {
-      await message.sendReply(`_Değişken '${key}': ${variable}_`);
+      await message.sendReply(`ℹ️ _Değişken '${key}':_ *${variable}*`);
     } else {
-      await message.sendReply(`_Değişken '${key}' bulunamadı._`);
+      await message.sendReply(`❌ *Değişken '${key}' bulunamadı!*`);
     }
   }
 );
@@ -169,17 +169,17 @@ Module({
   async (message, args) => {
     const key = args[1]?.trim();
     if (!key) {
-      return await message.sendReply("_⚠️ Lütfen değişken adını girin. Kullanım: .delvar DEGISKEN_"
+      return await message.sendReply("⚠️ *Lütfen değişken adını girin. Kullanım: .delvar DEGISKEN*"
       );
     }
     try {
       if (config[key] === undefined) {
-        return await message.sendReply(`_Değişken '${key}' bulunamadı._`);
+        return await message.sendReply(`❌ *Değişken '${key}' bulunamadı!*`);
       }
       await delVar(key.trim(), message);
     } catch (error) {
       await message.sendReply(
-        `_'${key.trim()}' değişkeni silinemedi. Hata: ${error.message}_`
+        `❌ *'${key.trim()}' değişkeni silinemedi.*\n⚠️ *Hata:* `${ error.message }``
       );
     }
   }
@@ -195,7 +195,7 @@ Module({
   async (message, args) => {
     const input = args[1];
     if (!input || !input.includes("=")) {
-      return await message.sendReply("_❌ Geçersiz format. Kullanım: .setenv ANAHTAR=DEGER_"
+      return await message.sendReply("❌ *Geçersiz format. Kullanım: .setenv ANAHTAR=DEGER*"
       );
     }
 
@@ -205,7 +205,7 @@ Module({
 
     try {
       if (!fs.existsSync("./config.env")) {
-        return await message.sendReply("_⚙️ Değişken ayarları konteynerlerde desteklenmiyor. .setvar komutunu kullanın._"
+        return await message.sendReply("⚙️ *Değişken ayarları konteynerlerde desteklenmiyor. .setvar komutunu kullanın.*"
         );
       }
 
@@ -228,7 +228,7 @@ Module({
       fs.writeFileSync("./config.env", updatedLines.join("\n"));
 
       await message.sendReply(
-        `_Ortam değişkeni '${trimmedKey}' config.env'de '${value}' olarak ayarlandı_\n\n_Not: Değişikliklerin geçerli olması için yeniden başlatma gereklidir._`
+        `✅ *Ortam değişkeni '${trimmedKey}' config.env'de '${value}' olarak ayarlandı!*\n\nℹ️ _Not: Değişikliklerin geçerli olması için yeniden başlatma gereklidir._`
       );
     } catch (error) {
       await message.sendReply(
@@ -248,12 +248,12 @@ Module({
   async (message, match) => {
     try {
       const variables = await BotVariable.findAll();
-      let msg = "*Tüm Bot Değişkenleri:*\n\n";
+      let msg = "📋 *Tüm Bot Değişkenleri:*\n\n";
       for (const v of variables) {
         msg += `*${v.key}*: ${v.value}\n`;
       }
       if (!variables.length) {
-        msg += "_Henüz bir değişken ayarlanmamış._";
+        msg += "ℹ️ _Henüz bir değişken ayarlanmamış._";
       }
 
       await message.sendReply(msg);
@@ -273,7 +273,7 @@ Module({
   use: "sistem",
 },
   async (message, match) => {
-    return await message.sendReply(`_Bot ${config.PLATFORM} üzerinde çalışıyor_`);
+    return await message.sendReply(`🤖 _Bot *${config.PLATFORM}* üzerinde çalışıyor_`);
   }
 );
 
@@ -286,7 +286,7 @@ Module({
 },
   async (message, match) => {
     if (!match[1]?.trim() || !["türkçe", "tr"].includes(match[1].toLowerCase()))
-      return await message.sendReply("_❌ Geçersiz dil! Mevcut diller: Türkçe, TR"
+      return await message.sendReply("❌ *Geçersiz dil! Mevcut diller: Türkçe, TR*"
       );
     return await setVar("LANGUAGE", match[1].toLowerCase(), message);
   }
@@ -309,14 +309,14 @@ Module({
         selectedOption <= configs.length
       ) {
         const setting = configs[selectedOption - 1];
-        let msg = `_*${setting.title}*_\n\n1. Açık\n2. Kapalı`;
+        let msg = `⚙️ *${setting.title}*\n\n1. Açık\n2. Kapalı`;
         return await message.sendReply(msg);
       }
     }
     let msg =
-      "*_Ayarlar yapılandırma menüsü_*\n\n_Numaraya göre bir seçenek seçin:_\n\n";
+      "⚙️ *Ayarlar Yapılandırma Menüsü*\n\n_Numaraya göre bir seçenek seçin:_\n\n";
     if (configs.length === 0) {
-      msg += "_Şu an yapılandırılabilir ayar bulunmuyor._";
+      msg += "ℹ️ _Şu an yapılandırılabilir ayar bulunmuyor._";
     } else {
       configs.forEach((e, index) => {
         msg += `_${index + 1}. ${e.title}_\n`;
@@ -343,7 +343,7 @@ Module({
     } else {
       const mode = config.MODE === "public" ? "Genel" : "Özel";
       return await message.sendReply(
-        `⚙️ _*Mod Yöneticisi*_\n_Mevcut mod: *${mode}*_\n_Kullanım: \`.mod genel/özel\`_`
+        `⚙️ *Mod Yöneticisi*\n\nℹ️ _Mevcut mod:_ *${mode}*\n💬 _Kullanım: \`.mod genel/özel\`_`
       );
     }
   }
@@ -357,7 +357,10 @@ Module({
   use: "grup",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
+    if (!message.isGroup) return await message.sendReply("⚠️ *Bu komut sadece gruplarda kullanılabilir!*");
+    let adminAccesValidated = await isAdmin(message);
+    if (!message.fromOwner && !adminAccesValidated) return await message.sendReply("🔒 *Bu komut yalnızca yöneticilere aittir!*");
+
     let target = match[1]?.trim().toLowerCase();
     if (!target) {
       const db = await antidelete.get();
@@ -370,31 +373,32 @@ Module({
     target = target.toLowerCase();
 
     if (target === "kapat") {
-      await setVar("ANTI_DELETE", "off");
-      await setVar("ANTI_DELETE_JID", "");
-      return await message.sendReply(`_❌ Mesaj silme engeli kapatıldı ❌_`);
+      await antidelete.delete(message.jid);
+      await setVar(`ANTI_DELETE_MODE_${message.jid}`, "off");
+      return await message.sendReply("❌ *Mesaj silme engeli kapatıldı!*");
     } else if (target === "sohbet" || target === "aç") {
-      await setVar("ANTI_DELETE", "chat");
-      await setVar("ANTI_DELETE_JID", "");
-      return await message.sendReply(`_✅ Mesaj silme engellendi açıldı! ✅_\n\n_Kurtarılan mesajlar orijinal sohbete gönderilecek_`
+      await antidelete.set(message.jid);
+      await setVar(`ANTI_DELETE_MODE_${message.jid}`, "chat");
+      return await message.sendReply("✅ *Mesaj silme koruması açıldı!*\n\nℹ️ _Kurtarılan mesajlar orijinal sohbete gönderilecek_"
       );
     } else if (target === "sudo") {
-      await setVar("ANTI_DELETE", "sudo");
-      await setVar("ANTI_DELETE_JID", "");
-      return await message.sendReply(`_✅ Mesaj silme engellendi açıldı! ✅_\n\n_Kurtarılan mesajlar ilk yöneticiye gönderilecek_`
+      await antidelete.set(message.jid);
+      await setVar(`ANTI_DELETE_MODE_${message.jid}`, "sudo");
+      return await message.sendReply("✅ *Mesaj silme koruması açıldı!*\n\nℹ️ _Kurtarılan mesajlar ilk yöneticiye gönderilecek_"
       );
     } else if (target.includes("@")) {
       if (!target.match(/^\d+@(s\.whatsapp\.net|g\.us)$/)) {
-        return await message.sendReply(`_❌ Geçersiz JID formatı!_\n\n_Kabul edilen formatlar:_\n- \`123020340234@s.whatsapp.net\` (kişisel)\n- \`123020340234@g.us\` (grup)_`
+        return await message.sendReply("❌ *Geçersiz JID formatı!*\n\nℹ️ _Kabul edilen formatlar:_\n- `123020340234@s.whatsapp.net` (kişisel)\n- `123020340234@g.us` (grup)"
         );
       }
-      await setVar("ANTI_DELETE", "custom");
-      await setVar("ANTI_DELETE_JID", target);
+      await antidelete.set(message.jid);
+      await setVar(`ANTI_DELETE_MODE_${message.jid}`, "custom");
+      await setVar(`ANTI_DELETE_JID_${message.jid}`, target);
       return await message.sendReply(
-        `_✅ Mesaj silme engeli etkinleştirildi ✅_\n\n_Kurtarılan mesajlar ${target} adresine gönderilecek_`
+        `✅ *Mesaj silme engeli etkinleştirildi!*\n\nℹ️ _Kurtarılan mesajlar ${target} adresine gönderilecek_`
       );
     } else {
-      return await message.sendReply(`_❌ Geçersiz seçenek!_\n\n_Kullanım:_\n\`.antisilme aç\` - _orijinal sohbete gönderir_\n\`.antisilme sudo\` - _ilk yöneticiye gönderir_\n\`.antisilme <jid>\` - _belirtilen JID'e gönderir_\n\`.antisilme kapat\` - _mesaj silme engelini kapatır_`
+      return await message.sendReply(`❌ *Geçersiz seçenek!*\n\nℹ️ _Kullanım:_\n\`.antisilme aç\` - *orijinal sohbete gönderir*\n\`.antisilme sudo\` - *ilk yöneticiye gönderir*\n\`.antisilme <jid>\` - *belirtilen JID'e gönderir*\n\`.antisilme kapat\` - *mesaj silme engelini kapatır*`
       );
     }
   }
@@ -420,14 +424,14 @@ Module({
       } else if (m.reply_message) {
         targetLid = m.reply_message.jid;
       } else {
-        return await m.sendReply("_⚠️ Gruplarda yanıtlamak veya bahsetmek gerekli_");
+        return await m.sendReply("⚠️ *Gruplarda yanıtlamak veya bahsetmek gerekli!*");
       }
     } else {
       // in DM: use sender
       targetLid = m.sender;
     }
 
-    if (!targetLid) return await m.sendReply("_❌ Hedef belirlenemedi_");
+    if (!targetLid) return await m.sendReply("❌ *Hedef belirlenemedi!*");
 
     try {
       // get current SUDO_MAP
@@ -443,7 +447,7 @@ Module({
 
       // check if already sudo
       if (sudoMap.includes(targetLid)) {
-        return await m.sendReply("_👤 Kullanıcı zaten bir yetkili_");
+        return await m.sendReply("👤 _Üye zaten bir yetkili._");
       }
 
       // add to sudo map
@@ -453,12 +457,12 @@ Module({
       // format for display
       const displayId = targetLid.split("@")[0];
 
-      await m.sendMessage(`_@${displayId} yetkili olarak eklendi_`, "text", {
+      await m.sendMessage(`✅ *@${displayId} yetkili olarak eklendi!*`, "text", {
         mentions: [targetLid],
       });
     } catch (error) {
       console.error("Yetkili ekleme hatası:", error);
-      await m.sendReply(`_Yetkili ayarlama hatası: ${error.message}_`);
+      await m.sendReply(`❌ *Yetkili ayarlama hatası: ${error.message}*`);
     }
   }
 );
@@ -482,7 +486,7 @@ Module({
     }
 
     if (sudoMap.length === 0) {
-      return await message.sendReply("_⚙️ Ayarlanmış yönetici (sudo) yok_");
+      return await message.sendReply("⚙️ _Ayarlanmış yönetici (sudo) yok._");
     }
 
     const sudoList = sudoMap
@@ -517,14 +521,14 @@ Module({
       } else if (m.reply_message) {
         targetLid = m.reply_message.jid;
       } else {
-        return await m.sendReply("_⚠️ Gruplarda yanıtlamak veya bahsetmek gerekli_");
+        return await m.sendReply("⚠️ *Gruplarda yanıtlamak veya bahsetmek gerekli!*");
       }
     } else {
       // in DM: use sender
       targetLid = m.sender;
     }
 
-    if (!targetLid) return await m.sendReply("_❌ Hedef belirlenemedi_");
+    if (!targetLid) return await m.sendReply("❌ *Hedef belirlenemedi!*");
 
     try {
       // get current SUDO_MAP
@@ -540,7 +544,7 @@ Module({
 
       // check if user is sudo
       if (!sudoMap.includes(targetLid)) {
-        return await m.sendReply("_❌ Kullanıcı bir yetkili değil_");
+        return await m.sendReply("❌ *Kullanıcı bir yetkili değil!*");
       }
 
       // remove from sudo map
@@ -550,12 +554,12 @@ Module({
       // format for display
       const displayId = targetLid.split("@")[0];
 
-      await m.sendMessage(`_@${displayId} yetkililerden çıkarıldı!_`, "text", {
+      await m.sendMessage(`✅ *@${displayId} yetkililerden çıkarıldı!*`, "text", {
         mentions: [targetLid],
       });
     } catch (error) {
       console.error("Yetkili kaldırma hatası:", error);
-      await m.sendReply(`_Yetkili kaldırma hatası: ${error.message}_`);
+      await m.sendReply(`❌ *Yetkili kaldırma hatası: ${error.message}*`);
     }
   }
 );
@@ -589,19 +593,19 @@ Module({
           : [];
       if (!availableCommands.includes(match.trim()))
         return await message.sendReply(
-          `_${handler}${match.trim()} geçerli bir komut değil!_`
+          `❌ *${handler}${match.trim()} geçerli bir komut değil!*`
         );
       if (match == "toggle" || match == "setvar" || match == "getvar")
         return await message.sendReply(
-          `_${handler}${match.trim()} komutunu devre dışı bırakamazsınız!_`
+          `❌ *${handler}${match.trim()} komutunu devre dışı bırakamazsınız!*`
         );
       if (!disabled.includes(match)) {
         disabled.push(match.trim());
-        await message.sendReply(`_❌ \`${handler}${match}\` komutu başarıyla kapatıldı_\n_Tekrar açmak için \`${handler}toggle ${match}\` kullanın_`
+        await message.sendReply(`❌ *'${handler}${match}' komutu başarıyla kapatıldı!*\nℹ️ _Tekrar açmak için `${ handler }toggle ${ match }` kullanın._`
         );
         return await setVar("DISABLED_COMMANDS", disabled.join(","), false);
       } else {
-        await message.sendReply(`_✅ \`${handler}${match}\` komutu başarıyla açıldı_`
+        await message.sendReply(`✅ *'${handler}${match}' komutu başarıyla açıldı!*`
         );
         return await setVar(
           "DISABLED_COMMANDS",
@@ -611,7 +615,7 @@ Module({
       }
     } else
       return await message.sendReply(
-        `_Örnek: ${handler}toggle img_\n\n_(Bu .img komutunu devre dışı bırakacaktır)_`
+        `💡 _Örnek:_ *${handler}toggle img*\n\nℹ️ _Bu .img komutunu devre dışı bırakacaktır._`
       );
   }
 );
@@ -644,13 +648,13 @@ Module({
         const status = jids.includes(message.jid) ? "Açık" : "Kapalı";
         const { subject } = await message.client.groupMetadata(message.jid);
         return await message.sendReply(
-          `🚨 *Bot Engelleme Sistemi*` +
-          "\n\nℹ️ *Mevcut Durum:* " + status + " " + (jids.includes(message.jid) ? "✅" : "❌") +
-          "\n💬 *Kullanım:* `.antibot aç/kapat`"
+          `🚨 *Bot Engelleme Sistemi (Anti-Bot)*\n\n` +
+          `ℹ️ *Mevcut Durum:* ${status} ${jids.includes(message.jid) ? "✅" : "❌"}\n` +
+          `💬 *Kullanım:* `.antibot aç / kapat``
         );
       }
       await message.sendReply(
-        match[1] === "aç" ? "_Antibot etkinleştirildi!_" : "_Antibot kapatıldı!_"
+        match[1] === "aç" ? "✅ *Antibot etkinleştirildi!*" : "❌ *Antibot kapatıldı!*"
       );
     }
   }
@@ -660,62 +664,65 @@ Module({
   pattern: "antispam ?(.*)",
   fromMe: false,
   desc: "Grupta hızlı ve tekrarlayan (spam) mesaj atan kullanıcıları otomatik olarak tespit eder ve atar.",
-  usage: ".antispam [aç/kapat]",
+  usage: ".antispam [aç/kapat/limit <sayı>]",
   use: "grup",
 },
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
-      match[1] = match[1] ? match[1].toLowerCase() : "";
+      const input = match[1] ? match[1].toLowerCase().trim() : "";
+      const args = input.split(" ");
+      const command = args[0] || "";
+      const value = args.slice(1).join(" ");
+
       const db = await antispam.get();
       const jids = [];
       db.map((data) => {
         jids.push(data.jid);
       });
-      if (match[1] === "aç") {
+
+      const { BotVariable } = require("../core/database");
+      const existingLimit = await BotVariable.findOne({ where: { key: `SPAMLIMIT_${message.jid}` } });
+      const currentLimit = existingLimit ? existingLimit.value : "10";
+
+      if (command === "aç") {
         if (!message.isBotAdmin)
-          return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+          return await message.sendReply("🙁 *Üzgünüm! Öncelikle yönetici olmalısınız.*");
         await antispam.set(message.jid);
+        return await message.sendReply("✅ *Anti-Spam etkinleştirildi!*");
       }
-      if (match[1] === "kapat") {
+
+      if (command === "kapat") {
         await antispam.delete(message.jid);
+        return await message.sendReply("❌ *Anti-Spam kapatıldı!*");
       }
-      if (match[1] !== "aç" && match[1] !== "kapat") {
+
+      if (command === "limit") {
+        if (!value || value.trim() === "") {
+          return await message.sendReply(
+            `🔢 *Anti-Spam Limit Menüsü*\n\n⚡ *Mevcut Limit:* \`${currentLimit} mesaj / 10 saniye\`\n\n💬 *Kullanım:* \`.antispam limit [sayı]\`\n📏 *Aralık:* 5 - 50 mesaj`
+          );
+        }
+
+        const limit = parseInt(value);
+        if (isNaN(limit) || limit < 5 || limit > 50) {
+          return await message.sendReply(`⚠ *Geçersiz Spam Limiti!*\n\n- Lütfen 5 ile 50 arasında bir miktar girin.\n- Mevcut limit: \`${currentLimit} mesaj / 10 saniye\`\n\n💬 *Kullanım:* \`.antispam limit 15\``);
+        }
+
+        await setVar(`SPAMLIMIT_${message.jid}`, limit.toString());
+        return await message.sendReply(`✅ *Spam Limiti Güncellendi!*\n\n- Yeni limit: \`${limit} mesaj / 10 saniye\`\n\nℹ _Üyeler 10 saniye içinde ${limit} mesaj atarsa otomatikman gruptan atılacak._`);
+      }
+
+      if (command !== "aç" && command !== "kapat" && command !== "limit") {
         const status = jids.includes(message.jid) ? "Açık" : "Kapalı";
-        const { subject } = await message.client.groupMetadata(message.jid);
         return await message.sendReply(
           `🚨 *Anti-Spam Kontrol Menüsü*` +
           "\n\nℹ️ *Mevcut Durum:* " + status + " " + (jids.includes(message.jid) ? "✅" : "❌") +
-          "\n💬 *Kullanım:* `.antispam aç/kapat`"
+          `\n⚡ *Mevcut Spam Limiti:* \`${currentLimit} mesaj / 10 saniye\`` +
+          "\n💬 *Kullanım:* `.antispam aç/kapat`" +
+          "\n🔢 *Limit Ayarla:* `.antispam limit [5-50]`"
         );
       }
-      await message.sendReply(
-        (match[1] === "aç") ? "_Anti-Spam etkinleştirildi!_" : "_Anti-Spam kapatıldı!_"
-      );
-    }
-  }
-);
-
-Module({
-  pattern: "antispamlimit ?(.*)",
-  fromMe: false,
-  desc: "Anti-Spam sisteminin tetiklenme limitini ayarlar. (Örn: `.antispamlimit 10` = 10 mesaj)",
-  usage: ".antispamlimit [sayı]",
-  use: "grup",
-},
-  async (message, match) => {
-    let adminAccesValidated = await isAdmin(message);
-    if (!message.isGroup) return;
-    if (message.fromOwner || adminAccesValidated) {
-      const limit = parseInt(match[1]);
-      if (isNaN(limit) || limit < 5 || limit > 50) {
-        const { BotVariable } = require("../core/database");
-        const existingVar = await BotVariable.findOne({ where: { key: `SPAMLIMIT_${message.jid}` } });
-        const currentLimit = existingVar ? existingVar.value : "10";
-        return await message.sendReply(`⚠ *Geçersiz Spam Limiti!*\n\n- Lütfen 5 ile 50 arasında bir miktar girin.\n- Mevcut limit: \`${currentLimit} mesaj / 10 saniye\`\n\n💬 *Kullanım:* \`.antispamlimit 15\``);
-      }
-      await setVar(`SPAMLIMIT_${message.jid}`, limit.toString());
-      await message.sendReply(`✅ *Spam Limiti Güncellendi!*\n\n- Yeni limit: \`${limit} mesaj / 10 saniye\`\n\nℹ _Üyeler 10 saniye içinde ${limit} mesaj atarsa otomatikman gruptan atılacak._`);
     }
   }
 );
@@ -752,7 +759,7 @@ Module({
         );
       }
       await message.sendReply(
-        (match[1] === "aç") ? "_Anti-PDM etkinleştirildi!_" : "_Anti-PDM kapatıldı!_"
+        (match[1] === "aç") ? "✅ *Anti-PDM etkinleştirildi!*" : "❌ *Anti-PDM kapatıldı!*"
       );
     }
   }
@@ -766,7 +773,7 @@ Module({
   use: "grup",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
+    if (!message.isGroup) return await message.sendReply("⚠️ *Bu komut sadece gruplarda kullanılabilir!*");
     let adminAccesValidated = await isAdmin(message);
     if (!message.fromOwner && !adminAccesValidated) return;
     match[1] = match[1] ? match[1].toLowerCase() : "";
@@ -791,7 +798,7 @@ Module({
       );
     }
     await message.sendReply(
-      (match[1] === "aç") ? "_✅ Anti Yetki Düşürme Tespit etkinleştirildi!_" : "_❌ Anti Yetki Düşürme Tespit kapatıldı!_"
+      (match[1] === "aç") ? "✅ *Anti Yetki Düşürme Tespit etkinleştirildi!*" : "❌ *Anti Yetki Düşürme Tespit kapatıldı!*"
     );
   }
 );
@@ -804,7 +811,7 @@ Module({
   use: "grup",
 },
   async (message, match) => {
-    if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
+    if (!message.isGroup) return await message.sendReply("⚠️ *Bu komut sadece gruplarda kullanılabilir!*");
     let adminAccesValidated = await isAdmin(message);
     if (!message.fromOwner && !adminAccesValidated) return;
     match[1] = match[1] ? match[1].toLowerCase() : "";
@@ -830,8 +837,8 @@ Module({
     }
     await message.sendReply(
       (match[1] === "aç")
-        ? "_✅ Anti Yetki Verme Tespit etkinleştirildi!_"
-        : "_❌ Anti Yetki Verme Tespit kapatıldı!_"
+        ? "✅ *Anti Yetki Verme Tespit etkinleştirildi!*"
+        : "❌ *Anti Yetki Verme Tespit kapatıldı!*"
     );
   }
 );
@@ -859,7 +866,7 @@ Module({
       switch (command) {
         case "aç":
           if (!message.isBotAdmin) {
-            return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+            return await message.sendReply("🙁 *Üzgünüm! Öncelikle yönetici olmalısınız.*");
           }
 
           if (!config) {
@@ -878,7 +885,7 @@ Module({
           return await message.sendReply(`✅ *Anti-Bağlantı Engelleme Etkin!*\n\n` +
             `• Mod: *${config.mode.toUpperCase()}*\n` +
             `• Tür: *${config.isWhitelist ? "BEYAZ LİSTE" : "KARA LİSTE"}*\n` +
-            `• Daha fazla seçenek için \`${handler}antibağlantı help\` kullanın`
+            `• Daha fazla seçenek için \`${handler}antibağlantı yardım\` kullanın`
           );
         case "kapat":
           if (config) {
@@ -892,11 +899,11 @@ Module({
 
         case "mod":
           if (!value || !["uyar", "çıkar", "sil"].includes(value)) {
-            return await message.sendReply(`_❌ Geçersiz mod! Mevcut modlar:_\n\n` +
+            return await message.sendReply(`❌ *Geçersiz mod! Mevcut modlar:*\n\n` +
               `• \`uyar\` - Bağlantı gönderenleri uyar\n` +
               `• \`çıkar\` - Bağlantı gönderenleri at\n` +
               `• \`sil\` - Sadece mesajını sil\n\n` +
-              `💬 _Örnek:_ \`${handler}antibağlantı mod sil\``
+              `💡 _Örnek:_ *${handler}antibağlantı mod sil*`
             );
           }
 
@@ -920,18 +927,18 @@ Module({
           return await message.sendReply(
             `✅ *Anti-Bağlantı Engelleme modu ${value.toUpperCase()} olarak ayarlandı!*\n\n` +
             `${value === "uyar"
-              ? "⚠️ Bağlantı gönderen kullanıcılar uyarılacak"
+              ? "⚠️ _Bağlantı gönderen kullanıcılar uyarılacak._"
               : value === "çıkar"
-                ? "👢 Bağlantı gönderen kullanıcılar atılacak"
-                : "🗑️ Bağlantılar işlem yapılmadan silinecek"
+                ? "👢 _Bağlantı gönderen kullanıcılar atılacak._"
+                : "🗑️ _Bağlantılar işlem yapılmadan silinecek._"
             }`
           );
 
         case "istisna":
           if (!value) {
-            return await message.sendReply(`_💬 Alan adlarını beyaz listeye ekleyin:_\n\n` +
-              `_Kullanım:_ \`${handler}antibağlantı istisna google.com,youtube.com\`\n` +
-              `_Mevcut:_ ${config?.allowedLinks || "gist,instagram,youtu"}`
+            return await message.sendReply(`💡 _Alan adlarını beyaz listeye ekleyin:_\n\n` +
+              `💬 _Kullanım:_ *${handler}antibağlantı istisna google.com,youtube.com*\n` +
+              `ℹ️ _Mevcut:_ *${config?.allowedLinks || "gist,instagram,youtu"}*`
             );
           }
 
@@ -962,9 +969,9 @@ Module({
 
         case "engelle":
           if (!value) {
-            return await message.sendReply(`_💬 Alan adlarını kara listeye ekleyin:_\n\n` +
-              `_Kullanım:_ \`${handler}antibağlantı engelle facebook.com,twitter.com\`\n` +
-              `_Mevcut:_ ${config?.blockedLinks || "Yok"}`
+            return await message.sendReply(`💡 _Alan adlarını kara listeye ekleyin:_\n\n` +
+              `💬 _Kullanım:_ *${handler}antibağlantı engelle facebook.com,twitter.com*\n` +
+              `ℹ️ _Mevcut:_ *${config?.blockedLinks || "Yok"}*`
             );
           }
 
@@ -996,9 +1003,9 @@ Module({
         case "mesaj":
         case "msj":
           if (!value) {
-            return await message.sendReply(`_⚠️ Özel uyarı mesajı ayarlayın:_\n\n` +
-              `_Kullanım:_ \`${handler}antibağlantı mesaj Bağlantılara izin verilmiyor!\`\n` +
-              `_Mevcut:_ ${config?.customMessage || "Varsayılan mesaj"}`
+            return await message.sendReply(`⚠️ *Özel uyarı mesajı ayarlayın:*\n\n` +
+              `💬 _Kullanım:_ *${handler}antibağlantı mesaj Bağlantılara izin verilmiyor!*\n` +
+              `ℹ️ _Mevcut:_ *${config?.customMessage || "Varsayılan mesaj"}*`
             );
           }
 
@@ -1079,7 +1086,7 @@ Module({
       }
     } catch (error) {
       console.error("Antibağlantı hatası:", error);
-      return await message.sendReply("_❌ Antibağlantı ayarları güncellenirken bir hata oluştu._"
+      return await message.sendReply("❌ *Antibağlantı ayarları güncellenirken bir hata oluştu.*"
       );
     }
   }
@@ -1105,19 +1112,19 @@ Module({
       if (match[1].includes("warn")) {
         if (match[1].endsWith("aç")) {
           if (!(await isAdmin(message)))
-            return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+            return await message.sendReply("🙁 *Üzgünüm! Öncelikle yönetici olmalısınız.*");
           if (!antiwordWarn.includes(message.jid)) {
             antiwordWarn.push(message.jid);
             await setVar("ANTIWORD_WARN", antiwordWarn.join(","), false);
           }
-          return await message.sendReply(`_✅ Bu grupta kelime uyarı sistemi aktif edildi!_`
+          return await message.sendReply("✅ *Bu grupta kelime uyarı sistemi aktif edildi!*"
           );
         }
         if (match[1].endsWith("kapat")) {
           if (!(await isAdmin(message)))
-            return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+            return await message.sendReply("🙁 *Üzgünüm! Öncelikle yönetici olmalısınız.*");
           if (antiwordWarn.includes(message.jid)) {
-            await message.sendReply(`_❌ Kelime uyarı sistemi kapatıldı!_`);
+            await message.sendReply("❌ *Kelime uyarı sistemi kapatıldı!*");
             return await setVar(
               "ANTIWORD_WARN",
               antiwordWarn.filter((x) => x != message.jid).join(",") || "null",
@@ -1128,7 +1135,7 @@ Module({
       }
       if (match[1] === "aç") {
         if (!await isAdmin(message))
-          return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+          return await message.sendReply("🙁 *Üzgünüm! Öncelikle yönetici olmalısınız.*");
         await antiword.set(message.jid);
       }
       if (match[1] === "kapat") {
@@ -1141,14 +1148,14 @@ Module({
             : "Kapalı";
         const { subject } = await message.client.groupMetadata(message.jid);
         return await message.sendReply(
-          `_${subject} yasaklı kelime menüsü_` +
-          "\n\n_Yasaklı kelime engeli şu anda *" +
+          `🤬 *${subject} Yasaklı Kelime Menüsü*` +
+          "\n\nℹ️ _Yasaklı kelime engeli şu anda_ *" +
           status +
-          "*_\n\n_Ör: .antikelime aç/kapat_\n_.antikelime uyar aç/kapat_\n\n_Özel kelimeler engellemek için otomatik algılama için `ANTI_WORDS:auto` ayarlayın (varsayılan olarak zaten etkin!)_"
+          "*\n\n💬 _Ör: .antikelime aç/kapat_\n💬 _Ör: .antikelime uyar aç/kapat_"
         );
       }
       await message.sendReply(
-        match[1] === "aç" ? "_Yasaklı kelime engeli etkinleştirildi!_" : "_Yasaklı kelime engeli kapatıldı!_"
+        match[1] === "aç" ? "✅ *Yasaklı kelime engeli etkinleştirildi!*" : "❌ *Yasaklı kelime engeli kapatıldı!*"
       );
     }
   }
@@ -1414,7 +1421,7 @@ Module({
         if (quotedMsg.includes(setting.title)) {
           const value = option === 1 ? "true" : "false";
           await setVar(setting.env_var, value);
-          await message.sendReply(`✅ ${setting.title} ${value} olarak ayarlandı`);
+          await message.sendReply(`✅ *${setting.title} ${value} olarak ayarlandı!*`);
           return;
         }
       }
@@ -1430,7 +1437,7 @@ Module({
       let thatWord = containsDisallowedWords(message.text, disallowedWords);
       if (thatWord) {
         await message.sendReply(
-          `🤬 _${thatWord} kelimesi bu sohbette yasaklıdır!_`
+          `🤬 *${thatWord} kelimesi bu sohbette yasaklandı!*`
         );
         await message.client.groupParticipantsUpdate(
           message.jid,
@@ -1600,8 +1607,8 @@ Module({
                   `*Uyarılar:* ${currentWarns}/${warnLimit}\n` +
                   `*Kalan:* ${kalan}\n\n` +
                   `${kalan === 1
-                    ? "_Sonraki ihlal atılmayla sonuçlanacak!_"
-                    : `_${kalan} uyarı daha kaldı._`
+                    ? "⚠️ *Sonraki ihlal atılmayla sonuçlanacak!*"
+                    : `⚠️ *${kalan} uyarı daha kaldı.*`
                   }`,
                   "text",
                   {
@@ -1623,7 +1630,7 @@ Module({
                 "remove"
               );
               await message.sendMessage(
-                `${customMessage}\n\n*İşlem:* İzinsiz bağlantı gönderdiği için kullanıcı atıldı`,
+                `${customMessage}\n\n🧹 *İşlem:* İzinsiz bağlantı gönderdiği için kullanıcı atıldı!`,
                 "text",
                 {
                   mentions: [usr],
@@ -1631,7 +1638,7 @@ Module({
               );
             } catch (kickError) {
               await message.sendMessage(
-                `${customMessage}\n\n*Hata:* Kullanıcı atılamadı`,
+                `${customMessage}\n\n❌ *Hata:* Kullanıcı atılamadı!`,
                 "text",
                 {
                   mentions: [usr],
@@ -1734,7 +1741,7 @@ Module({
         const readMore = String.fromCharCode(8206).repeat(4001);
         if (e)
           await message.sendMessage(
-            `_❌ Hata:_\n${readMore}` + util.format(e),
+            `❌ *Hata:*\n${readMore}` + util.format(e),
             "text"
           );
       }
@@ -1912,9 +1919,9 @@ Module({
   async (message, match) => {
     let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
-      if (!message.isGroup) return await message.sendReply("⚠️ _*Bu komut sadece gruplarda kullanılabilir!*_");
+      if (!message.isGroup) return await message.sendReply("⚠️ *Bu komut sadece gruplarda kullanılabilir!*");
 
-      if (!adminAccesValidated) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısın._");
+      if (!adminAccesValidated) return await message.sendReply("🙁 *Üzgünüm! Öncelikle yönetici olmalısın.*");
 
       const input = match[1] ? match[1].toLowerCase().trim() : "";
 
@@ -1924,21 +1931,20 @@ Module({
 
       if (input === "aç") {
         await antifake.set(message.jid);
-        return await message.sendReply("_✅ Anti-Numara açıldı!_\n_(Varsayılan izin verilen alan kodları: *+90*)_\n_Özelleştirmek için:_ `.antinumara izin 90, 1`");
-      }
-
-      if (input === "kapat") {
+        return await message.sendReply("✅ *Anti-Numara açıldı!*\n\nℹ️ _Varsayılan izin verilen alan kodları:_ *+90*\n💡 _Özelleştirmek için:_ `.antinumara izin 90, 1`"
+        );
+      } if (input === "kapat") {
         await antifake.delete(message.jid);
-        return await message.sendReply("_❌ Anti-Numara tamamen kapatıldı!_");
+        return await message.sendReply("❌ *Anti-Numara tamamen kapatıldı!*");
       }
 
       if (input.startsWith("izin")) {
         const allowedParam = input.replace("izin", "").trim();
         if (!allowedParam) {
-          return await message.sendReply("_❌ Lütfen izin verilen ülke kodlarını virgülle ayırarak yazın. (Örnek: `.antinumara izin 90, 1`)_");
+          return await message.sendReply("❌ *Lütfen izin verilen ülke kodlarını virgülle ayırarak yazın. (Örnek: .antinumara izin 90, 1)*");
         }
         await antifake.set(message.jid, allowedParam);
-        return await message.sendReply(`_✅ İzin verilen ülke numara önekleri başarıyla güncellendi!\n👉🏻 Artık sadece şu numara önekine sahip üyeler girebilir: *${allowedParam}*_`);
+        return await message.sendReply(`✅ *İzin verilen ülke numara önekleri başarıyla güncellendi!*\n\n👉🏻 _Artık sadece şu numara önekine sahip üyeler girebilir:_ *${allowedParam}*`);
       }
 
       // Default menu

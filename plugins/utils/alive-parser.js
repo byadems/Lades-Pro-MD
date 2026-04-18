@@ -50,8 +50,8 @@ async function parseAliveMessage(template, messageObject) {
       .replace(/\$uptime/g, uptime)
       .replace(/\$user/g, senderName)
       .replace(/\$number/g, senderNumber)
-      .replace(/\$date/g, new Date().toLocaleDateString())
-      .replace(/\$time/g, new Date().toLocaleTimeString());
+      .replace(/\$date/g, new Date().toLocaleDateString('tr-TR'))
+      .replace(/\$time/g, new Date().toLocaleTimeString('tr-TR'));
 
     let profilePicBuffer = null;
     let customMediaBuffer = null;

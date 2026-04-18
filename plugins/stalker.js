@@ -86,10 +86,10 @@ Module({
           (result.timezone ? `🕐 Zaman Dilimi: ${result.timezone}\n` : "");
         await message.sendReply(info);
       } else {
-        await message.sendReply("❌ _IP bilgisi bulunamadı_");
+        await message.sendReply("❌ *IP bilgisi bulunamadı!*");
       }
     } catch (e) {
-      await message.sendReply(`❌ _IP takibi başarısız:_ ${e.message}`);
+      await message.sendReply(`❌ *IP takibi başarısız:* \n\n${e.message}`);
     }
   }
 );
@@ -110,7 +110,7 @@ Module({
 
     try {
       const result = await nexGet(`/stalker/instagram?username=${encodeURIComponent(username)}`);
-      if (!result) return await message.sendReply("❌ _Kullanıcı bulunamadı_");
+      if (!result) return await message.sendReply("❌ *Kullanıcı bulunamadı!*");
 
       const name = result.full_name || result.fullname || result.name || username;
       const bio = result.biography || result.bio || "-";
@@ -139,7 +139,7 @@ Module({
         await message.sendReply(caption);
       }
     } catch (e) {
-      const msg = e.message.includes("429") ? "⏰ _Instagram yoğunluk nedeniyle cevap vermiyor, lütfen biraz sonra tekrar deneyin._" : `❌ _Sorgu başarısız:_ ${e.message}`;
+      const msg = e.message.includes("429") ? "⏳ *Instagram yoğunluk nedeniyle cevap vermiyor!* _Lütfen biraz sonra tekrar deneyin._" : `❌ *Sorgu başarısız:* \n\n${e.message}`;
       await message.sendReply(msg);
     }
   }
@@ -161,7 +161,7 @@ Module({
 
     try {
       const result = await nexGet(`/stalker/twitter?username=${encodeURIComponent(username)}`);
-      if (!result) return await message.sendReply("❌ _Kullanıcı bulunamadı_");
+      if (!result) return await message.sendReply("❌ *Kullanıcı bulunamadı!*");
 
       const name = result.name || username;
       const bio = result.description || result.bio || "-";
@@ -191,7 +191,7 @@ Module({
         await message.sendReply(caption);
       }
     } catch (e) {
-      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
+      await message.sendReply(`❌ *Sorgu başarısız:* \n\n${e.message}`);
     }
   }
 );
@@ -212,7 +212,7 @@ Module({
 
     try {
       const result = await nexGet(`/stalker/freefire?uid=${encodeURIComponent(uid)}`);
-      if (!result) return await message.sendReply("❌ _Oyuncu bulunamadı_");
+      if (!result) return await message.sendReply("❌ *Oyuncu bulunamadı!*");
 
       const caption =
         `🎮 *Free Fire Bilgileri*\n\n` +
@@ -229,7 +229,7 @@ Module({
         await message.sendReply(caption || JSON.stringify(result));
       }
     } catch (e) {
-      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
+      await message.sendReply(`❌ *Sorgu başarısız:* \n\n${e.message}`);
     }
   }
 );
@@ -269,7 +269,7 @@ Module({
       } catch (_) { }
     }
 
-    if (!result) return await message.sendReply("❌ _Kullanıcı bulunamadı_");
+    if (!result) return await message.sendReply("❌ *Kullanıcı bulunamadı!*");
 
     const caption = [
       `🐙 *GitHub Profili*`,
@@ -318,7 +318,7 @@ Module({
 
     try {
       const result = await nexGet(`/stalker/mlbb?id=${encodeURIComponent(id)}&zone=${encodeURIComponent(zone)}`);
-      if (!result) return await message.sendReply("❌ _Oyuncu bulunamadı_");
+      if (!result) return await message.sendReply("❌ *Oyuncu bulunamadı!*");
 
       const caption =
         `🎮 *Mobile Legends Bilgileri*\n\n` +
@@ -335,7 +335,7 @@ Module({
         await message.sendReply(caption || JSON.stringify(result));
       }
     } catch (e) {
-      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
+      await message.sendReply(`❌ *Sorgu başarısız:* \n\n${e.message}`);
     }
   }
 );
@@ -356,7 +356,7 @@ Module({
 
     try {
       const result = await nexGet(`/stalker/roblox?username=${encodeURIComponent(username)}`);
-      if (!result) return await message.sendReply("❌ _Kullanıcı bulunamadı_");
+      if (!result) return await message.sendReply("❌ *Kullanıcı bulunamadı!*");
 
       let username_str = result.basic?.name || result.username;
       let displayname_str = result.basic?.displayName || result.displayname;
@@ -388,7 +388,7 @@ Module({
         await message.sendReply(caption);
       }
     } catch (e) {
-      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
+      await message.sendReply(`❌ *Sorgu başarısız:* \n\n${e.message}`);
     }
   }
 );
@@ -409,7 +409,7 @@ Module({
 
     try {
       const result = await nexGet(`/stalker/threads?username=${encodeURIComponent(username)}`);
-      if (!result) return await message.sendReply("❌ _Kullanıcı bulunamadı_");
+      if (!result) return await message.sendReply("❌ *Kullanıcı bulunamadı!*");
 
       const name = result.name || result.username || username;
       const bio = result.bio || result.biography || "-";
@@ -436,7 +436,7 @@ Module({
         await message.sendReply(caption);
       }
     } catch (e) {
-      await message.sendReply(`❌ _Sorgu başarısız:_ ${e.message}`);
+      await message.sendReply(`❌ *Sorgu başarısız:* \n\n${e.message}`);
     }
   }
 );
@@ -476,7 +476,7 @@ Module({
       } catch (_) { }
     }
 
-    if (!result) return await message.sendReply("❌ _Kanal bulunamadı_");
+    if (!result) return await message.sendReply("❌ *Kanal bulunamadı!*");
 
     const channel = result.channel || result;
     const caption = [

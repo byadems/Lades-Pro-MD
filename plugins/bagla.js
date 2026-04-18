@@ -24,21 +24,21 @@ Module({
         const stopFn = pairCodeQueue.get(chatJid);
         stopFn();
         pairCodeQueue.delete(chatJid);
-        return await message.sendReply("⛔ *Tüm bağlama işlemleri durduruldu*");
+        return await message.sendReply("✅ *Tüm bağlama işlemleri durduruldu!*");
       }
-      return await message.sendReply("⚠️ Aktif bir bağlama işlemi yok!");
+      return await message.sendReply("⚠️ *Aktif bir bağlama işlemi bulunmuyor!*");
     }
     if (!argRaw) {
       return await message.sendReply(
-        "*📱 WhatsApp Web*\n\n" +
-        "`.bağla 905xxxxxxx`\n" +
-        "`.bağla 905x,905y,905z`\n" +
-        "`.bağla dur`\n\n" +
-        "_Numaralar sırayla denenir_"
+        "📱 *WhatsApp Web Bağlantısı*\n\n" +
+        "• \`.bağla 905xxxxxxx\`\n" +
+        "• \`.bağla 905x,905y,905z\`\n" +
+        "• \`.bağla dur\`\n\n" +
+        "ℹ️ _Numaralar sırayla denenir._"
       );
     }
     if (pairCodeQueue.has(chatJid)) {
-      return await message.sendReply("⚠️ Zaten aktif bir bağlantı işlemi var!");
+      return await message.sendReply("⚠️ *Zaten aktif bir bağlantı işlemi var!*");
     }
     const numbers = argRaw.split(",").map(n => n.trim());
     const cleanedNumbers = numbers
@@ -46,7 +46,7 @@ Module({
       .filter(n => n && n.length >= 10 && n.length <= 15);
 
     if (cleanedNumbers.length === 0) {
-      return await message.sendReply("❌ Geçerli numara bulunamadı!");
+      return await message.sendReply("❌ *Geçerli bir numara bulunamadı!*");
     }
     let isActive = true;
     pairCodeQueue.set(chatJid, () => { isActive = false; });
@@ -85,15 +85,15 @@ Module({
     }
     if (!isActive) {
       await message.send(
-        `⛔ *İşlem durduruldu*\n\n` +
-        `🔢 Numara sayısı: ${cleanedNumbers.length}\n` +
-        `🔄 Toplam deneme: ${totalAttempt}`
+        `✅ *İşlem durduruldu!*\n\n` +
+        `🔢 Numara sayısı: \`${cleanedNumbers.length}\`\n` +
+        `🔄 Toplam deneme: \`${totalAttempt}\``
       );
     } else {
       await message.send(
         `✅ *Tüm bağlamalar tamamlandı!*\n\n` +
-        `🔢 Numara sayısı: ${cleanedNumbers.length}\n` +
-        `🔄 Toplam deneme: ${totalAttempt}`
+        `🔢 Numara sayısı: \`${cleanedNumbers.length}\`\n` +
+        `🔄 Toplam deneme: \`${totalAttempt}\``
       );
     }
   }

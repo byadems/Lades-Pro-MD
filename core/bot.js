@@ -640,19 +640,30 @@ async function createBot(sessionId = "lades-session", options = {}) {
   // ── Call events (reject if needed) ───────────────────
   sock.ev.on("call", async (calls) => {
     for (const call of calls) {
-      if (call.status === "offer" && config.REJECT_CALLS === "true") {
+      // Dinamik config değişikliğini yakalamak için her seferinde require'dan oku
+      const liveConfig = require("../config");
+      const rejectCalls = liveConfig.REJECT_CALLS === true || liveConfig.REJECT_CALLS === "true";
+
+      if (call.status === "offer" && rejectCalls) {
         const callerNumber = call.from.split("@")[0];
-        const allowedNumbers = config.ALLOWED_CALLS ? config.ALLOWED_CALLS.split(",").map(n => n.trim()) : [];
+        const allowedRaw = liveConfig.ALLOWED_CALLS || "";
+        const allowedNumbers = allowedRaw ? allowedRaw.split(",").map(n => n.trim()).filter(Boolean) : [];
         
         // Eğer arayan beyaz listedeyse reddetme
         if (allowedNumbers.includes(callerNumber)) continue;
 
-        await sock.rejectCall(call.id, call.from).catch(() => {});
+        try {
+          await sock.rejectCall(call.id, call.from);
+          logger.info(`[Aramaengel] Gelen arama reddedildi: ${call.from}`);
+        } catch (e) {
+          logger.debug({ err: e.message }, "[Aramaengel] rejectCall hatası");
+        }
         
         // Eğer bir reddetme mesajı belirlenmişse arayana gönder
-        if (config.CALL_REJECT_MESSAGE && config.CALL_REJECT_MESSAGE.trim() !== "") {
+        const rejectMsg = liveConfig.CALL_REJECT_MESSAGE;
+        if (rejectMsg && rejectMsg.trim() !== "") {
           await sock.sendMessage(call.from, { 
-            text: config.CALL_REJECT_MESSAGE.trim() 
+            text: rejectMsg.trim() 
           }).catch(() => {});
         }
       }

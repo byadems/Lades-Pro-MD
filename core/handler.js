@@ -1268,20 +1268,35 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           // Success Reaction
           if (config.SEND_REACTIONS) await message.react("✅");
 
+          // PUSH SUCCESSFUL COMMAND TO ACTIVITY BOARD
+          if (!fromMe) {
+            const actSender = (resolvedSenderJid || senderJid || '').split('@')[0] || message.pushName || 'Bilinmiyor';
+            const actGroup = (message.isGroup && groupMetadata) ? groupMetadata.subject : null;
+            process.emit('dashboard_activity', {
+              isGroup: !!message.isGroup,
+              sender: actSender,
+              groupName: actGroup || 'Özel',
+              type: 'Komut',
+              content: text.slice(0, 60),
+              command: cmd.pattern,
+              time: new Date().toLocaleTimeString('tr-TR', { hour12: false })
+            });
+          }
+
         } catch (err) {
           logger.error({ err, cmd: cmd.pattern }, "Command execution error");
           recordStat(cmd.pattern, 'error', 0, err.message);
 
           // PUSH FAILED COMMAND TO ACTIVITY BOARD
-          const actSender = (senderJid || '').split('@')[0] || (message.sender || '').split('@')[0];
-          const actGroup = (message.isGroup && groupMetadata) ? groupMetadata.subject : 'Grup';
+          const actSender = (resolvedSenderJid || senderJid || '').split('@')[0] || message.pushName || 'Bilinmiyor';
+          const actGroup = (message.isGroup && groupMetadata) ? groupMetadata.subject : null;
           process.emit('dashboard_activity', {
             isGroup: !!message.isGroup,
             sender: actSender,
-            groupName: actGroup,
-            type: 'Error', // Plain text for UI handling
-            text: String(err.message).slice(0, 80),
-            cmd: cmd.pattern,
+            groupName: actGroup || 'Özel',
+            type: 'Error',
+            content: String(err.message).slice(0, 60),
+            command: cmd.pattern,
             time: new Date().toLocaleTimeString('tr-TR', { hour12: false })
           });
 
