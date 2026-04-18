@@ -1,3 +1,14 @@
+"use strict";
+
+/**
+ * Merged Module: games.js
+ * Components: siputzx-games.js, fun-tests.js
+ */
+
+// ==========================================
+// FILE: siputzx-games.js
+// ==========================================
+(function() {
 /**
  * plugins/siputzx-games.js
  * Siputzx API - Oyun ve Canvas Komutları
@@ -435,3 +446,358 @@ Module({
     await message.sendReply(`_Profil kartı oluşturulamadı:_ ${e.message}`);
   }
 });
+})();
+
+// ==========================================
+// FILE: fun-tests.js
+// ==========================================
+(function() {
+const { Module } = require("../main");
+const { mentionjid, nx, trToEn, uploadToCatbox } = require("./utils");
+const config = require("../config");
+
+const getTargetUser = (message) => message.mention?.[0] || message.reply_message?.jid;
+const randomPercent = () => Math.floor(Math.random() * 100) + 1;
+
+async function runSingleRateCommand(message, { introText, resultText }) {
+  if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+
+  const user = getTargetUser(message);
+  if (!user) return await message.sendReply("❗️ *Bana bir kullanıcı verin!*");
+
+  await message.client.sendMessage(message.jid, {
+    text: `${mentionjid(user)} ${introText}`,
+    mentions: [user],
+  });
+
+  return await message.send(resultText(randomPercent()));
+}
+
+Module({
+  pattern: "testgay ?(.*)",
+  fromMe: false,
+  desc: "Etiketlediğiniz üyenin gaylik yüzdesini ölçer.",
+  usage: ".testgay [etiket/yanıt]",
+  use: "oyun",
+},
+  async (message) => {
+    await runSingleRateCommand(message, {
+      introText: "üyesinin *Gay* olma ihtimalini hesaplıyorum... 🧐",
+      resultText: (percent) => `🏳️‍🌈 Senin *Gaylik* yüzden: *%${percent}!*`,
+    });
+  }
+);
+
+Module({
+  pattern: "testlez ?(.*)",
+  fromMe: false,
+  desc: "Etiketlediğiniz üyenin lezlik yüzdesini ölçer.",
+  usage: ".testlez [etiket/yanıt]",
+  use: "oyun",
+},
+  async (message) => {
+    await runSingleRateCommand(message, {
+      introText: "üyesinin *Lez* olma ihtimalini hesaplıyorum... 🧐",
+      resultText: (percent) => `👩🏻‍❤️‍👩🏼 Senin *Lezlik* yüzden: *%${percent}!*`,
+    });
+  }
+);
+
+Module({
+  pattern: "testprenses ?(.*)",
+  fromMe: false,
+  desc: "Etiketlediğiniz üyenin prenseslik seviyesini ölçer.",
+  usage: ".testprenses [etiket/yanıt]",
+  use: "oyun",
+},
+  async (message) => {
+    await runSingleRateCommand(message, {
+      introText: "üyesinin *Prenses* olma ihtimalini hesaplıyorum... 🧐",
+      resultText: (percent) => `🤭 Senin *Prenseslik* yüzden: *%${percent}!* 👸🏻`,
+    });
+  }
+);
+
+Module({
+  pattern: "testregl ?(.*)",
+  fromMe: false,
+  desc: "Etiketlediğiniz üyenin Regl olma ihtimalini ölçer.",
+  usage: ".testregl [etiket/yanıt]",
+  use: "oyun",
+},
+  async (message) => {
+    await runSingleRateCommand(message, {
+      introText: "üyesinin *Regl* olma ihtimalini hesaplıyorum... 🧐",
+      resultText: (percent) => `🩸 Senin *Regl* yüzden: *%${percent}!* 😆`,
+    });
+  }
+);
+
+Module({
+  pattern: "testinanç ?(.*)",
+  fromMe: false,
+  desc: "Etiketlediğiniz üyenin inanç seviyesini ölçer.",
+  usage: ".testinanç [etiket/yanıt]",
+  use: "oyun",
+},
+  async (message) => {
+    await runSingleRateCommand(message, {
+      introText: "üyesinin *İnanç* seviyesini hesaplıyorum... 🧐",
+      resultText: (percent) => `🛐 Senin *İnanç* yüzden: *%${percent}!*`,
+    });
+  }
+);
+
+Module({
+  pattern: "aşkölç ?(.*)",
+  fromMe: false,
+  desc: "İki kişi arasındaki aşk yüzdesini ölçer.",
+  usage: ".aşkölç [etiket1] [etiket2]",
+  use: "oyun",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+
+    const percentage = Math.floor(Math.random() * 101);
+    const mentioned = message.mention || [];
+
+    if (mentioned.length > 0) {
+      if (mentioned.length < 2) {
+        return await message.sendReply("❗️ 2 isim yazmalısınız!");
+      }
+
+      const [u1, u2] = mentioned;
+      return await message.client.sendMessage(message.jid, {
+        text:
+          `🔥 ${mentionjid(u1)} ve ${mentionjid(u2)} ` +
+          `arasındaki aşk yüzdesi: *%${percentage}!* ❤️‍🔥`,
+        mentions: [u1, u2],
+      });
+    }
+
+    const parts = (match[1] || "").trim().split(/ +/).slice(0, 2);
+    if (parts.length !== 2) {
+      return await message.sendReply("❗️ 2 isim yazmalısınız!");
+    }
+
+    const [name1, name2] = parts;
+    return await message.send(
+      `🔥 *${name1}* ve *${name2}* arasındaki aşk yüzdesi: *%${percentage}!* ❤️‍🔥`
+    );
+  }
+);
+
+Module({
+  pattern: "beyin",
+  fromMe: false,
+  desc: "Zeka gelişimine katkıda bulunan rastgele bir beyin jimnastiği sorusu sorar.",
+  usage: ".beyin",
+  use: "oyun",
+},
+  async (message) => {
+    try {
+      const r = await nx("/games/asahotak");
+      const question = r.question || r.soal || r.pertanyaan || JSON.stringify(r);
+      const answer = r.answer || r.jawaban || r.kunci || "?";
+      await message.sendReply(
+        `🧠 *Beyin Jimnastiği*\n\n` +
+        `❓ ${question}\n\n` +
+        `💡 _10 saniye sonra cevap..._\n\n_(Not: Sorular/Cevaplar yabancı dilde olabilir)_`
+      );
+      setTimeout(async () => {
+        await message.sendReply(`✅ *Cevap:* ${answer}`);
+      }, 10000);
+    } catch (e) {
+      await message.sendReply(`❌ _Soruyu alamadım:_ ${e.message}`);
+    }
+  }
+);
+
+Module({
+  pattern: "bilmece",
+  fromMe: false,
+  desc: "Keyifli vakit geçirmeniz için rastgele ve düşündürücü bir bilmece sorar.",
+  usage: ".bilmece",
+  use: "oyun",
+},
+  async (message) => {
+    try {
+      const r = await nx("/games/tebaktebakan");
+      const question = r.question || r.soal || r.pertanyaan || JSON.stringify(r);
+      const answer = r.answer || r.jawaban || r.kunci || "?";
+      await message.sendReply(
+        `🎯 *Bilmece*\n\n` +
+        `❓ ${question}\n\n` +
+        `⏳ _15 saniye sonra cevap..._\n\n_(Not: Sorular/Cevaplar yabancı dilde olabilir)_`
+      );
+      setTimeout(async () => {
+        await message.sendReply(`✅ *Cevap:* ${answer}`);
+      }, 15000);
+    } catch (e) {
+      await message.sendReply(`❌ _Bilmece alınamadı:_ ${e.message}`);
+    }
+  }
+);
+
+Module({
+  pattern: "kimyasoru",
+  fromMe: false,
+  desc: "Kimya bilginizi tazeleyecek element sembolleri üzerine bir soru sorar.",
+  usage: ".kimyasoru",
+  use: "oyun",
+},
+  async (message) => {
+    try {
+      const r = await nx("/games/tebakkimia");
+      const element = r.element || r.question || r.soal || JSON.stringify(r);
+      const symbol = r.symbol || r.jawaban || r.answer || "?";
+      const number = r.atomicNumber || r.atomic_number || r.nomor || "";
+
+      await message.sendReply(
+        `⚗️ *Kimya Sorusu*\n\n` +
+        `Bu elementin sembolü nedir?\n` +
+        `🧪 *${element}*${number ? ` (Atom No: ${number})` : ""}\n\n` +
+        `⏳ _10 saniye sonra cevap..._`
+      );
+      setTimeout(async () => {
+        await message.sendReply(`✅ *Cevap:* ${symbol}`);
+      }, 10000);
+    } catch (e) {
+      await message.sendReply(`❌ _Soru alınamadı:_ ${e.message}`);
+    }
+  }
+);
+
+Module({
+  pattern: "alay ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni eğlenceli ve alaycı bir slang formatına dönüştürür.",
+  usage: ".alay [metin]",
+  use: "eğlence",
+},
+  async (message, match) => {
+    let text = (match[1] || "").trim();
+    if (!text && message.reply_message?.text) text = message.reply_message.text.trim();
+    if (!text) return await message.sendReply("😜 _Metin girin:_ `.alay Merhaba nasılsın`");
+    try {
+      const result = await nx(`/fun/alay?text=${encodeURIComponent(text)}`);
+      const alay = typeof result === "string" ? result : result?.result || result?.text || JSON.stringify(result);
+      await message.sendReply(`😜 ${alay}`);
+    } catch (e) {
+      await message.sendReply(`❌ _Dönüştürme başarısız:_ ${e.message}`);
+    }
+  }
+);
+
+Module({
+  pattern: "dragonyazı ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni Dragon Ball tarzında şık bir logoya dönüştürür.",
+  usage: ".dragonyazı [metin]",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const text = trToEn((match[1] || "").trim());
+    if (!text) return await message.sendReply("🐉 _Metin girin:_ `.dragonyazı LADES`");
+    try {
+      const buf = await nx(`/textpro/dragonball?text=${encodeURIComponent(text)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+Module({
+  pattern: "neonyazı ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni neon ışıklı ve dikkat çekici bir tabela logosu haline getirir.",
+  usage: ".neonyazı [metin]",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const text = trToEn((match[1] || "").trim());
+    if (!text) return await message.sendReply("💡 _Metin girin:_ `.neonyazı LADES`");
+    try {
+      const buf = await nx(`/textpro/typography?text=${encodeURIComponent(text)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+Module({
+  pattern: "grafitiyazı ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni sokak sanatı olan grafiti stiliyle bir logoya dönüştürür.",
+  usage: ".grafitiyazı [metin]",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const text = trToEn((match[1] || "").trim());
+    if (!text) return await message.sendReply("🖊️ _Metin girin:_ `.grafitiyazı LADES`");
+    try {
+      const buf = await nx(`/textpro/write-graffiti?text=${encodeURIComponent(text)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+Module({
+  pattern: "devilyazı ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız metni şeytan kanatları temalı karanlık bir logoya dönüştürür.",
+  usage: ".devilyazı [metin]",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const text = trToEn((match[1] || "").trim());
+    if (!text) return await message.sendReply("😈 _Metin girin:_ `.devilyazı LADES`");
+    try {
+      const buf = await nx(`/textpro/devil-wings?text=${encodeURIComponent(text)}`, { buffer: true });
+      await message.client.sendMessage(message.jid, { image: buf }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+
+Module({
+  pattern: "müzikkart ?(.*)",
+  fromMe: false,
+  desc: "Şarkı ve sanatçı ismine özel şık bir Spotify tarzı müzik kartı tasarımı oluşturur.",
+  usage: ".müzikkart [şarkı|sanatçı]",
+  use: "düzenleme",
+},
+  async (message, match) => {
+    const parts = (match[1] || "").split("|").map(s => s.trim());
+    if (parts.length < 2) return await message.sendReply("🎵 _Kullanım:_ `.müzikkart Şarkı Adı|Sanatçı` veya `Şarkı|Sanatçı|<resim_url>`");
+    const [title, artist, img] = parts;
+    let imageUrl = img || "https://i.imgur.com/Y3KqMfn.jpg";
+
+    // Reply to image check
+    const isImg = (message.reply_message?.mimetype || "").startsWith("image/");
+    try {
+      if (isImg && !img) {
+        const path = await message.reply_message.download();
+        const { url } = await uploadToCatbox(path);
+        if (url && !url.includes("hata")) imageUrl = url;
+      }
+      const buf = await nx(
+        `/canvas/musiccard?judul=${encodeURIComponent(title)}&nama=${encodeURIComponent(artist)}&image_url=${encodeURIComponent(imageUrl)}`,
+        { buffer: true }
+      );
+      await message.client.sendMessage(message.jid, {
+        image: buf,
+        caption: `🎵 *${title}* — _${artist}_`,
+      }, { quoted: message.data });
+    } catch (e) {
+      await message.sendReply(`❌ _Müzik kartı oluşturulamadı:_ ${e.message}`);
+    }
+  }
+);
+})();
+

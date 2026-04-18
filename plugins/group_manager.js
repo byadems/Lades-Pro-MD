@@ -1,0 +1,3915 @@
+"use strict";
+
+/**
+ * Merged Module: group_manager.js
+ * Components: group.js, welcome.js, filter.js, sayac.js, group-updates.js, mention.js, message-stats.js
+ */
+
+// ==========================================
+// FILE: group.js
+// ==========================================
+(function() {
+const { loadBaileys } = require("../core/helpers");
+let delay, generateWAMessageFromContent, proto;
+
+const baileysPromise = loadBaileys()
+  .then((baileys) => {
+    ({ delay, generateWAMessageFromContent, proto } = baileys);
+  })
+  .catch((err) => {
+    console.error("Baileys yüklenemedi:", err.message);
+    process.exit(1);
+  });
+const { isNumeric, mentionjid, censorBadWords, isAdmin } = require("./utils");
+const config = require("../config");
+const { ADMIN_ACCESS, MODE } = config;
+const { Module } = require("../main");
+const fs = require("fs");
+const path = require("path");
+const axios = require("axios");
+const {
+  getFullMessage,
+  fetchRecentChats,
+} = require("../core/store");
+const { setVar } = require("./manage");
+const { isBotIdentifier } = require("./utils/lid-helper");
+const handler = config.HANDLER_PREFIX;
+
+
+async function sendBanAudio(message) {
+  const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
+
+  try {
+    if (!fs.existsSync(audioPath)) return;
+
+    // Send as voice note (PTT) for a more premium experience
+    await message.sendMessage(fs.readFileSync(audioPath), "audio", { ptt: true });
+  } catch (err) {
+    console.error("Ban sesini gönderirken hata:", err);
+  }
+}
+
+
+Module({
+  pattern: "sohbetsil ?(.*)",
+  fromMe: true,
+  desc: "Mevcut grup sohbet geçmişini tamamen temizler ve konuşmayı siler.",
+  use: "sistem",
+  usage: ".sohbetsil",
+},
+  async (message, match) => {
+    await message.client.chatModify(
+      {
+        delete: true,
+        lastMessages: [
+          {
+            key: message.data.key,
+            messageTimestamp: message.data.messageTimestamp,
+          },
+        ],
+      },
+      message.jid
+    );
+    return await message.send("_🧹 Sohbet temizlendi!_");
+  }
+);
+
+Module({
+  pattern: "ban ?(.*)",
+  fromMe: false,
+  desc: "Gruptan kişi banlar. Yanıt verin ya da komutu yazdıktan sonra kişiyi etiketleyin.",
+  use: "grup",
+  usage:
+    ".ban @etiket veya yanıtla\n.ban herkes (herkesi at)\n.ban 90 (90 ile başlayan numaraları atar)",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    const botId = message.client.user.id.split(":")[0] + "@s.whatsapp.net";
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
+
+    const { participants, subject } = await message.client.groupMetadata(
+      message.jid
+    );
+    if (match[1]) {
+      if (match[1] === "herkes") {
+        let users = participants.filter((member) => !member.admin);
+        await message.send(
+          `_❗ ${subject} grubunun *tüm* üyeleri atılıyor. Bu işlemi durdurmak için botu hemen yeniden başlatın ❗_\n_*5 saniyeniz var*_`
+        );
+        await new Promise((r) => setTimeout(r, 5000));
+        for (let member of users) {
+          await new Promise((r) => setTimeout(r, 1000));
+          await message.client.groupParticipantsUpdate(
+            message.jid,
+            [member.id],
+            "remove"
+          );
+        }
+        return;
+      }
+      if (isNumeric(match[1])) {
+        let users = participants.filter(
+          (member) => member.id.startsWith(match[1]) && !member.admin
+        );
+        await message.send(
+          `_❗❗ *${match[1]}* numarasıyla başlayan *${users.length}* üye atılıyor. Bu işlemi durdurmak için botu hemen yeniden başlatın ❗❗_\n_*5 saniyeniz var*_`
+        );
+        await new Promise((r) => setTimeout(r, 5000));
+        for (let member of users) {
+          await new Promise((r) => setTimeout(r, 1000));
+          await message.client.groupParticipantsUpdate(
+            message.jid,
+            [member.id],
+            "remove"
+          );
+        }
+        return;
+      }
+    }
+    let user = message.mention?.[0] || message.reply_message?.jid;
+    if (!user) return await message.sendReply("❗️ *Bana bir kullanıcı verin!*");
+
+    if (user.includes("@lid")) {
+      try {
+        const { resolveLidToPn } = require("../core/lid-helper");
+        const pn = await resolveLidToPn(message.client, user);
+        if (pn && pn !== user) user = pn;
+      } catch (e) { }
+    }
+
+    if (isBotIdentifier(user, message.client)) {
+      return await message.sendReply("❌ _Üzgünüm, daha kendimi çıkaracak kadar delirmedim. 😉_");
+    }
+    await message.client.sendMessage(message.jid, {
+      text: mentionjid(user) + "*başarıyla çıkarıldı!* ✅",
+      mentions: [user],
+    });
+    await message.client.groupParticipantsUpdate(
+      message.jid,
+      [user],
+      "remove"
+    );
+  }
+);
+
+Module({
+  pattern: "at ?(.*)",
+  fromMe: false,
+  desc: "Gruptan kişi banlar. Yanıt verin ya da komutu yazdıktan sonra kişiyi etiketleyin.",
+  usage: ".at [@etiket/yanıtla]",
+  use: "grup",
+},
+  async (message, match) => {
+    if (!message.isGroup) {
+      return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    }
+
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin) {
+      return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    }
+
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) {
+      return await message.sendReply("❌ _Bot'un üyeleri atabilmesi için yönetici olması gerekiyor!_");
+    }
+
+    let usersToKick = [];
+    if (message.mention && message.mention.length > 0) {
+      usersToKick = message.mention;
+    } else if (message.reply_message) {
+      const replyUser =
+        message.reply_message.participant ||
+        message.reply_message.sender ||
+        message.reply_message.jid;
+      if (replyUser) {
+        usersToKick = [replyUser];
+      }
+    }
+
+    if (!usersToKick.length) {
+      return await message.sendReply(
+        "❌ _Lütfen bir üye etiketleyin veya bir mesaja yanıt verin!_"
+      );
+    }
+
+    try {
+      const { resolveLidToPn } = require("../core/lid-helper");
+      for (let i = 0; i < usersToKick.length; i++) {
+        if (usersToKick[i].includes("@lid")) {
+          const pn = await resolveLidToPn(message.client, usersToKick[i]);
+          if (pn && pn !== usersToKick[i]) usersToKick[i] = pn;
+        }
+      }
+    } catch (e) { }
+
+    let canKickAnyone = false;
+    let adminUsers = [];
+
+    for (const user of usersToKick) {
+      if (isBotIdentifier(user, message.client)) {
+        continue;
+      }
+      try {
+        const isTargetAdmin = message.groupAdmins.includes(user);
+        if (isTargetAdmin) {
+          adminUsers.push(user);
+        } else {
+          canKickAnyone = true;
+        }
+      } catch (error) {
+        console.error("Admin kontrolü hatası:", user, error);
+        canKickAnyone = true;
+      }
+    }
+
+    if (!canKickAnyone) {
+      if (adminUsers.length > 0) {
+        return await message.sendReply(
+          `❌ _Belirtilen kişi${adminUsers.length > 1 ? "lar" : ""} yönetici olduğu için atılamaz!_`
+        );
+      }
+      return await message.sendReply("❌ _Üzgünüm, daha kendimi çıkaracak kadar delirmedim. 😉_");
+    }
+
+    await sendBanAudio(message);
+
+    for (const user of usersToKick) {
+      try {
+        if (isBotIdentifier(user, message.client)) {
+          await message.sendReply("❌ _Üzgünüm, daha kendimi çıkaracak kadar delirmedim. 😉_");
+          continue;
+        }
+        const isTargetAdmin = message.groupAdmins.includes(user);
+        if (isTargetAdmin) {
+          await message.sendReply(
+            `❌ ${mentionjid(user)} _ yönetici olduğu için atılamaz!_`,
+            { mentions: [user] }
+          );
+          continue;
+        }
+
+        await message.client.sendMessage(message.jid, {
+          text: mentionjid(user) + " *başarıyla çıkarıldı!* ✅",
+          mentions: [user],
+        });
+        await message.client.groupParticipantsUpdate(message.jid, [user], "remove");
+
+        if (usersToKick.length > 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+      } catch (error) {
+        console.error("Üye atılırken hata:", error);
+        await message.sendReply(`❌ ${mentionjid(user)} _atılırken bir hata oluştu!_`, {
+          mentions: [user],
+        });
+      }
+    }
+  }
+);
+
+
+/*Module({
+    pattern: "ekle ?(.*)",
+    fromMe: true,
+    desc: "Gruba kişi ekler.",
+    warn: "Numaranız banlanabilir, dikkatli kullanın",
+    use: "grup",
+    usage: ".ekle 90532xxxxxxx",
+  },
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
+    
+    var init = match[1] || message.reply_message?.jid.split("@")[0];
+    if (!init) return await message.sendReply("❗️ *Bana bir kullanıcı verin!*");
+    var initt = init.split(" ").join("");
+    var user = initt
+      .replace(/\+/g, "")
+      .replace(" ", "")
+      .replace(" ", "")
+      .replace(" ", "")
+      .replace(" ", "")
+      .replace(/\(/g, "")
+      .replace(/\)/g, "")
+      .replace(/-/g, "");
+    await message.client.groupAdd(user, message);
+  }
+);
+*/
+
+Module({
+  pattern: "yetkiver ?(.*)",
+  fromMe: false,
+  desc: "Belirtilen kişiyi yönetici yapar.",
+  use: "grup",
+  usage: ".yetkiver [@etiket/yanıtla]",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
+
+    let user = message.mention?.[0] || message.reply_message?.jid;
+    if (!user) return await message.sendReply("❗️ *Bana bir kullanıcı verin!*");
+
+    if (user.includes("@lid")) {
+      try {
+        const { resolveLidToPn } = require("../core/lid-helper");
+        const pn = await resolveLidToPn(message.client, user);
+        if (pn && pn !== user) user = pn;
+      } catch (e) { }
+    }
+
+    await message.client.sendMessage(message.jid, {
+      text: mentionjid(user) + "✅ ```, Yönetici yapıldı!```",
+      mentions: [user],
+    });
+    await message.client.groupParticipantsUpdate(
+      message.jid,
+      [user],
+      "promote"
+    );
+  }
+);
+Module({
+  pattern: "istekler ?(.*)",
+  fromMe: false,
+  desc: "Gruptaki bekleyen katılım isteklerini listeler ve yönetmenizi sağlar.",
+  use: "grup",
+  usage: ".istekler (bekleyenleri gör)\n.istekler onayla hepsi (tüm istekleri onayla)\n.istekler reddet hepsi (tüm istekleri reddet)\n.istekler onayla 905xxx (belirli bir numarayı onayla)",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
+
+    let approvalList = await message.client.groupRequestParticipantsList(
+      message.jid
+    );
+    if (!approvalList.length)
+      return await message.sendReply("_📭 Bekleyen katılma isteği yok!_");
+
+    // MIGRATION: LID Çevirisi - Baileys'in döndürdüğü listedeki JID'leri normalize et
+    const { resolveLidToPn } = require("../core/lid-helper");
+    for (let i = 0; i < approvalList.length; i++) {
+      if (approvalList[i].jid && approvalList[i].jid.includes("@lid")) {
+        try {
+          const pn = await resolveLidToPn(message.client, approvalList[i].jid);
+          if (pn && pn !== approvalList[i].jid) approvalList[i].resolvedJid = pn;
+        } catch (e) { }
+      } else {
+        approvalList[i].resolvedJid = approvalList[i].jid;
+      }
+    }
+
+    let approvalJids = approvalList.map((x) => x.jid); // Asıl işlem için orijinal LID/JID gerekli
+
+    if (match[1]) {
+      const args = (match[1] || "").toLowerCase().trim().split(" ");
+      const action = args[0]; // "onayla", "reddet", "hepsini"
+      const target = args[1] || ""; // "hepsi", "90532..." vb.
+
+      if (action === "hepsini" && target === "onayla") {
+        // Eski kullanıma (hepsini onayla) destek
+        await message.sendReply(`_✅ ${approvalJids.length} katılımcı onaylandı._`);
+        for (let x of approvalJids) {
+          await message.client.groupRequestParticipantsUpdate(message.jid, [x], "approve");
+          await delay(900);
+        }
+        return;
+      }
+      if (action === "hepsini" && target === "reddet") {
+        // Eski kullanıma (hepsini reddet) destek
+        await message.sendReply(`_❌ ${approvalJids.length} katılımcı reddedildi._`);
+        for (let x of approvalJids) {
+          await message.client.groupRequestParticipantsUpdate(message.jid, [x], "reject");
+          await delay(900);
+        }
+        return;
+      }
+
+      if (action === "onayla" || action === "reddet") {
+        const baileysAction = action === "onayla" ? "approve" : "reject";
+
+        if (target === "hepsi") {
+          await message.sendReply(`_${action === "onayla" ? "✅" : "❌"} Toplam ${approvalJids.length} istek ${action === "onayla" ? "onaylandı" : "reddedildi"}._`);
+          for (let x of approvalJids) {
+            await message.client.groupRequestParticipantsUpdate(message.jid, [x], baileysAction);
+            await delay(900);
+          }
+          return;
+        }
+
+        // Belirli bir numara girildiyse:
+        if (target.length > 5) {
+          const cleanTarget = target.replace(/[^0-9]/g, "");
+          const targetUser = approvalList.find(x => (x.resolvedJid || x.jid).startsWith(cleanTarget));
+
+          if (targetUser) {
+            await message.client.groupRequestParticipantsUpdate(message.jid, [targetUser.jid], baileysAction);
+            return await message.sendReply(`_${action === "onayla" ? "✅" : "❌"} @${(targetUser.resolvedJid || targetUser.jid).split("@")[0]} isteği ${action === "onayla" ? "onaylandı" : "reddedildi"}._`, { mentions: [targetUser.resolvedJid || targetUser.jid] });
+          } else {
+            return await message.sendReply(`_❌ Bekleyen istekler arasında \`${cleanTarget}\` numarası bulunamadı._`);
+          }
+        }
+      }
+
+      return await message.sendReply(
+        `_❌ Geçersiz kullanım!_\n\n` +
+        `*Kullanım:* \n` +
+        `• \`.istekler onayla hepsi\`\n` +
+        `• \`.istekler reddet hepsi\`\n` +
+        `• \`.istekler onayla 905xxx\`\n` +
+        `• \`.istekler reddet 905xxx\``
+      );
+    }
+
+    let msg = "📋 *Bekleyen Katılma İstekleri*\n\n💬 _Hızlı işlem için \`.istekler onayla hepsi\` yazabilirsiniz._\n\n";
+    const requestType = (type_, requestor) => {
+      switch (type_) {
+        case "linked_group_join":
+          return "topluluk daveti";
+        case "invite_link":
+          return "davet bağlantısı";
+        case "non_admin_add":
+          return `+${requestor.split("@")[0]} tarafından eklendi`;
+        default:
+          return "bilinmiyor";
+      }
+    };
+
+    let mentions = [];
+    for (let x in approvalList) {
+      const u = approvalList[x];
+      const displayJid = u.resolvedJid || u.jid;
+      msg += `*${parseInt(x) + 1}.* 👤 @${displayJid.split("@")[0]}\n` +
+        `   🔗 _Yöntem: ${requestType(u.request_method, u.requestor)}_\n` +
+        `   🕒 _Tarih: ${new Date(parseInt(u.request_time) * 1000).toLocaleString("tr-TR")}_\n\n`;
+      mentions.push(displayJid);
+    }
+
+    msg += `ℹ️ _Belirli bir kişiyi onaylamak için: \`.istekler onayla numara\`_`;
+
+    return await message.client.sendMessage(
+      message.jid,
+      { text: msg, mentions: mentions },
+      { quoted: message.data }
+    );
+  }
+);
+Module({
+  pattern: "ayrıl",
+  fromMe: true,
+  desc: "Gruptan çıkmayı sağlar.",
+  usage: ".ayrıl (mevcut gruptan çıkar)",
+  use: "grup",
+},
+  async (message, match) => {
+    if (!message.isGroup)
+      return await message.sendReply("_ℹ️ Nereden çıkayım? Bu bir grup komutu!_"
+      );
+    const jid = message.jid;
+    setImmediate(() => message.client.groupLeave(jid));
+  }
+);
+Module({
+  pattern: "msjgetir",
+  fromMe: true,
+  desc: "Yanıtlanan mesajın asıl alıntılandığı mesajı bulur ve tekrar gönderir. Silinen mesajları görmek için idealdir.",
+  usage: ".msjgetir [yanıtla]",
+  use: "grup",
+},
+  async (message, match) => {
+    try {
+      if (!message.reply_message || !message.reply_message.id) {
+        return await message.sendReply("_💬 Lütfen alıntılanmış bir mesajı yanıtlayın!_");
+      }
+      const repliedMessage = await getFullMessage(
+        message.reply_message.id + "_"
+      );
+      if (!repliedMessage.found) {
+        return await message.sendReply("_❌ Orijinal mesaj veritabanında bulunamadı!_"
+        );
+      }
+      const messageData = repliedMessage.messageData;
+      let quotedMessageId = null;
+      let quotedMessage = null;
+      let participant = null;
+      if (messageData.message) {
+        const msgKeys = Object.keys(messageData.message);
+        for (const key of msgKeys) {
+          const msgContent = messageData.message[key];
+          if (msgContent?.contextInfo?.stanzaId) {
+            quotedMessageId = msgContent.contextInfo.stanzaId;
+            quotedMessage = msgContent.contextInfo.quotedMessage;
+            participant = msgContent.contextInfo.participant;
+            break;
+          }
+        }
+      }
+      if (!quotedMessageId) {
+        return await message.sendReply("_💬 Yanıtlanan mesaj, alıntılanmış bir mesaj içermiyor!_"
+        );
+      }
+      const originalQuoted = await getFullMessage(quotedMessageId);
+      if (originalQuoted.found) {
+        return await message.forwardMessage(
+          message.jid,
+          originalQuoted.messageData
+        );
+      } else if (quotedMessage) {
+        const reconstructedMsg = {
+          key: {
+            remoteJid: message.jid,
+            fromMe: false,
+            id: quotedMessageId,
+            participant: participant,
+          },
+          message: quotedMessage,
+        };
+        return await message.forwardMessage(message.jid, reconstructedMsg);
+      } else {
+        return await message.sendReply("_❌ Alıntılanan mesaj bulunamadı ve mevcut önbellek verisi yok!_"
+        );
+      }
+    } catch (error) {
+      console.error("Yanıtlanan komutta hata:", error);
+      return await message.sendReply("_⬇️ Alıntılanan mesaj yüklenemedi!_");
+    }
+  }
+);
+
+Module({
+  pattern: "yetkial ?(.*)",
+  fromMe: false,
+  desc: "Belirtilen yöneticinin yetkisini düşürür.",
+  use: "grup",
+  usage: ".yetkial [@etiket/yanıtla]",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
+
+    let user = message.mention?.[0] || message.reply_message?.jid;
+    if (!user) return await message.sendReply("❗️ *Bana bir kullanıcı verin!*");
+
+    if (user.includes("@lid")) {
+      try {
+        const { resolveLidToPn } = require("../core/lid-helper");
+        const pn = await resolveLidToPn(message.client, user);
+        if (pn && pn !== user) user = pn;
+      } catch (e) { }
+    }
+
+    await message.client.sendMessage(message.jid, {
+      text: mentionjid(user) + "⛔ ```, Yetkisi Düşürüldü!```",
+      mentions: [user],
+    });
+    await message.client.groupParticipantsUpdate(
+      message.jid,
+      [user],
+      "demote"
+    );
+  }
+);
+Module({
+  pattern: "sohbetkapat ?(.*)",
+  fromMe: false,
+  desc: "Grup sohbetini kapatır. Yalnızca yöneticiler mesaj gönderebilir.",
+  use: "grup",
+  usage:
+    ".sohbetkapat (grubu süresiz olarak sessize alır)\n.sohbetkapat 1s (1 saat sessize alır)\n.sohbetkapat 5d (5 dakika sessize alır)",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
+
+    if (match[1]) {
+      const h2m = function (h) {
+        return 1000 * 60 * 60 * h;
+      };
+      const m2m = function (m) {
+        return 1000 * 60 * m;
+      };
+      let duration = (match[1].endsWith("h") || match[1].endsWith("s"))
+        ? h2m(match[1].match(/\d+/)[0])
+        : m2m(match[1].match(/\d+/)[0]);
+      let displayMatch = (match[1].endsWith("h") || match[1].endsWith("s"))
+        ? match[1].replace(/[hs]/g, " saat")
+        : match[1].replace(/[md]/g, " dakika");
+      await message.client.groupSettingUpdate(message.jid, "announcement");
+      await message.send(`_${displayMatch} boyunca sessize alındı_`);
+      await require("timers/promises").setTimeout(duration);
+      return await message.client.groupSettingUpdate(
+        message.jid,
+        "not_announcement"
+      );
+      await message.send("📢 ```Grup sohbeti açıldı!```");
+    }
+    await message.client.groupSettingUpdate(message.jid, "announcement");
+    await message.send("⚠️ ```Grup sohbeti kapatıldı!```");
+  }
+);
+Module({
+  pattern: "sohbetaç",
+  fromMe: false,
+  desc: "Grup sohbetini açar. Herkes mesaj gönderebilir.",
+  use: "grup",
+  usage: ".sohbetaç",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
+
+    await message.client.groupSettingUpdate(message.jid, "not_announcement");
+    await message.send("📢 ```Grup sohbeti açıldı!```");
+  }
+);
+Module({
+  pattern: "jid",
+  fromMe: false,
+  desc: "Belirtilen kişinin veya sohbetin JID adres bilgisini verir.",
+  use: "grup",
+  usage: ".jid (mevcut sohbet kimliğini alır)\n.jid (kullanıcı kimliğini almak için yanıtla)",
+},
+  async (message) => {
+    const isAdminUser = await isAdmin(message);
+    if (message.isGroup) {
+      if (message.fromOwner || isAdminUser) {
+        const jid = message.reply_message?.jid || message.jid;
+        await message.sendReply(jid);
+      } else {
+        await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+      }
+    } else if (message.isChannel) {
+      // Kanal bağlamı: kanal JID'ini doğrudan döndür (Admin gönderdiği için yetki kontrolü atlanır)
+      await message.sendReply(message.jid);
+    } else {
+      if (MODE !== "public" && !message.fromOwner) return;
+      await message.sendReply(message.jid);
+    }
+  }
+);
+Module({
+  pattern: 'davet',
+  fromMe: true,
+  use: 'grup',
+  desc: "Grubun davet linkini getirir.",
+  usage: ".davet"
+},
+  (async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*")
+    const userIsAdmin = await isAdmin(message, message.sender);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
+
+    const code = await message.client.groupInviteCode(message.jid)
+    await message.client.sendMessage(message.jid, {
+      text: "*Grubun Davet Bağlantısı: 👇🏻*\n https://chat.whatsapp.com/" + code, detectLinks: true
+    }, { detectLinks: true })
+  }))
+
+Module({
+  pattern: "davetyenile",
+  fromMe: false,
+  use: "grup",
+  desc: "Grubun davet linkini sıfırlar.",
+  usage: ".davetyenile",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
+
+    await message.client.groupRevokeInvite(message.jid);
+    await message.send("♻ ```Grup davet linki başarıyla sıfırlandı!```");
+  }
+);
+Module({
+  pattern: "gayaryt ?(.*)",
+  fromMe: false,
+  use: "grup",
+  desc: "Grup ayarlarını kilitler (sadece yöneticiler değiştirebilir)!",
+  usage: ".gayaryt (grup ayarlarını kilitler)",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
+
+    return await message.client.groupSettingUpdate(message.jid, "locked");
+  }
+);
+Module({
+  pattern: "gayarherkes ?(.*)",
+  fromMe: false,
+  use: "grup",
+  desc: "Grup ayarlarının kilidini açar (herkes değiştirebilir)!",
+  usage: ".gayarherkes (grup ayarlarının kilidini açar)",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
+
+    return await message.client.groupSettingUpdate(message.jid, "unlocked");
+  }
+);
+Module({
+  pattern: "gadı ?(.*)",
+  fromMe: false,
+  use: "grup",
+  desc: "Grup ismini (başlığını) belirlediğiniz yeni isimle değiştirir.",
+  usage: ".gadı [yeni_isim]",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
+
+    const newName = (match[1] || message.reply_message?.text || "").trim();
+    if (!newName) return await message.sendReply("*_💬 Yeni grup adını girin!_*");
+
+    try {
+      const oldName = (await message.client.groupMetadata(message.jid)).subject || "Bilinmeyen Grup";
+      const finalName = newName.slice(0, 25);
+
+      await message.client.groupUpdateSubject(message.jid, finalName);
+
+      return await message.sendReply(
+        `*_✏️ Grup adını güncelledim!_* ✅\n\n*⬅️ Şöyleydi:* ${censorBadWords(oldName)}\n*🆕 Şöyle oldu:* ${censorBadWords(finalName)}`
+      );
+    } catch (error) {
+      console.error("Grup adı değiştirme hatası:", error);
+      return await message.sendReply("❌ _Grup adı değiştirilemedi!_");
+    }
+  }
+);
+Module({
+  pattern: "gaçıklama ?(.*)",
+  fromMe: false,
+  use: "grup",
+  desc: "Grup açıklamasını belirlediğiniz yeni metinle günceller.",
+  usage: ".gaçıklama [yeni_açıklama]",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
+
+    const newDesc = match[1] || message.reply_message?.text;
+    if (!newDesc) return await message.sendReply("*_💬 Yeni grup açıklamasını girin!_*");
+    try {
+      const meta = await message.client.groupMetadata(message.jid);
+      const oldDesc = meta.desc || "Açıklama yok";
+      const finalDesc = newDesc.slice(0, 512);
+
+      await message.client.groupUpdateDescription(message.jid, finalDesc);
+      return await message.sendReply(
+        `*_💬 Grup açıklamasını güncelledim!_* ✅\n\n*⬅️ Şöyleydi:* ${censorBadWords(oldDesc)}\n*🆕 Şöyle oldu:* ${censorBadWords(finalDesc)}`
+      );
+    } catch {
+      return await message.sendReply("_❌ Değiştirilemedi!_");
+    }
+  }
+);
+Module({
+  pattern: "common ?(.*)",
+  fromMe: false,
+  use: "grup",
+  desc: "Verdiğiniz iki farklı gruptaki ortak olan üyeleri listeler veya gruptan çıkarmanızı sağlar.",
+  usage: ".common [jid1,jid2] | .common çıkar [jid]",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) return await message.sendReply("❌ _Bot'un bu işlemi yapabilmesi için yönetici olması gerekiyor!_");
+
+    if (!match[1])
+      return await message.sendReply("_*⚠️ Jid'ler gerekli*_\n_*.common jid1,jid2*_\n _VEYA_ \n_*.common kick grup_jid*_"
+      );
+    if (match[1].includes("çıkar")) {
+      const co = match[1].split(" ")[1];
+      const g1 = await message.client.groupMetadata(co);
+      const g2 = await message.client.groupMetadata(message.jid);
+      const common = g1.participants.filter(({ id: id1 }) =>
+        g2.participants.some(({ id: id2 }) => id2 === id1)
+      );
+      const jids = [];
+      let msg = `_${g1.subject}_ & _${g2.subject}_ grubundaki ortak katılımcılar atılıyor_\n_sayı: ${common.length}_\n`;
+      common
+        .map((e) => e.id)
+        .filter((e) => !isBotIdentifier(e, message.client))
+        .map(async (s) => {
+          msg += "```@" + s.split("@")[0] + "```\n";
+          jids.push(s);
+        });
+      await message.client.sendMessage(message.jid, {
+        text: msg,
+        mentions: jids,
+      });
+      for (let user of jids) {
+        await new Promise((r) => setTimeout(r, 1000));
+        if (isBotIdentifier(user, message.client)) {
+          await message.sendReply("❌ _Üzgünüm, daha kendimi çıkaracak kadar delirmedim. 😉_");
+          continue;
+        }
+        await message.client.groupParticipantsUpdate(
+          message.jid,
+          [user],
+          "remove"
+        );
+      }
+      return;
+    }
+    const co = match[1].split(",");
+    const g1 = await message.client.groupMetadata(co[0]);
+    const g2 = await message.client.groupMetadata(co[1]);
+    const common = g1.participants.filter(({ id: id1 }) =>
+      g2.participants.some(({ id: id2 }) => id2 === id1)
+    );
+    let msg = `_*${g1.subject}* & *${g2.subject}* ortak katılımcıları:_\n_sayı: ${common.length}_\n`;
+    const jids = [];
+    common.map(async (s) => {
+      msg += "```@" + s.id.split("@")[0] + "```\n";
+      jids.push(s.id);
+    });
+    await message.client.sendMessage(message.jid, {
+      text: msg,
+      mentions: jids,
+    });
+  }
+);
+Module({
+  pattern: "diff ?(.*)",
+  fromMe: false,
+  use: "grup",
+  desc: "Verdiğiniz iki gruptaki birbirinden farklı (benzersiz) üyeleri listeler.",
+  usage: ".diff [jid1,jid2]",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+
+    if (!match[1])
+      return await message.sendReply("_*⚠️ Jid'ler gerekli*_\n_*.diff jid1,jid2*_");
+    const co = match[1].split(",");
+    const g1 = (await message.client.groupMetadata(co[0])).participants;
+    const g2 = (await message.client.groupMetadata(co[1])).participants;
+    const common = g1.filter(
+      ({ id: jid1 }) => !g2.some(({ id: jid2 }) => jid2 === jid1)
+    );
+    let msg =
+      "_*Farklı katılımcılar*_\n_sayı: " + common.length + "_\n";
+    common.map(async (s) => {
+      msg += "```" + s.id.split("@")[0] + "``` \n";
+    });
+    return await message.sendReply(msg);
+  }
+);
+Module({
+  pattern: "tag ?(.*)",
+  fromMe: false,
+  desc: "Gruptaki herkesi etiketler. Mesaja gömülü etiket atmak için mesajı yanıtlayın ya da kelime girin.",
+  use: "grup",
+  usage:
+    ".tag metin\n.tag (mesaja yanıtla)\n.tagherkes (herkesi etiketle)\n.tagyt (sadece yöneticileri etiketle)\n.tag 120363355307899193@g.us (belirli grupta etiketle)",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return;
+
+    const input = (match[1] || "").toLowerCase().trim();
+    const isTagAdmin = input === "yt" || input === "admin";
+    const isTagAll = input === "herkes" || input === "";
+    const isReply = !!message.reply_message;
+
+    // Sadece .tag yazıldıysa veya metin yoksa bilgilendirme (Emoji ile sade)
+    if (!isReply && !input) {
+      return await message.sendReply(`📢 *Grup Etiketleme Modülü* 📢\n\n💡 *Örnek Kullanım:* \`.tag Merhaba!\`\n\n🚀 *Hızlı Komutlar:*
+• \`.tag herkes\` 👥
+• \`.tag yt\` (veya \`admin\`) 🛡️
+• \`.tag <metin>\` 📝`);
+    }
+
+    const { participants } = await message.client.groupMetadata(message.jid);
+    const targets = [];
+    let msgText = "";
+
+    for (const p of participants) {
+      if (isTagAdmin && !p.admin) continue;
+      targets.push(p.id);
+      msgText += `• @${p.id.split("@")[0]}\n`;
+    }
+
+    if (isReply) {
+      // Yanıtlanan mesajı, katılımcıları etiketleyerek ilet
+      await message.client.sendMessage(message.jid, {
+        forward: message.reply_message.data,
+        contextInfo: { mentionedJid: targets }
+      });
+    } else if (input && !isTagAdmin && !isTagAll) {
+      // Özel metin ile etiketle
+      await message.client.sendMessage(message.jid, {
+        text: match[1],
+        mentions: targets,
+      });
+    } else {
+      // Liste şeklinde etiketle
+      await message.client.sendMessage(message.jid, {
+        text: `📢 *Sırayla Etiketlendi!* 📢\n\n${msgText}`,
+        mentions: targets,
+      });
+    }
+  }
+);
+Module({
+  pattern: "engelle ?(.*)",
+  fromMe: true,
+  use: "sistem",
+  desc: "Belirtilen kullanıcıyı bot üzerinden engeller.",
+  usage: ".engelle [@etiket/yanıtla]",
+},
+  async (message, match) => {
+    const isGroup = message.jid.endsWith("@g.us");
+    let user = message.jid;
+    if (isGroup) user = message.mention?.[0] || message.reply_message?.jid;
+    if (!user) return await message.sendReply("_❗ Üye etiketleyin veya mesajına yanıt verin!_");
+    await message.client.updateBlockStatus(user, "block");
+  }
+);
+Module({
+  pattern: "katıl ?(.*)",
+  fromMe: false,
+  use: "sistem",
+  desc: "Verdiğiniz grup davet bağlantısını kullanarak bir gruba katılmamı sağlar.",
+  usage: ".katıl [link]",
+},
+  async (message, match) => {
+    let rgx =
+      /^(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]{22})(?:\?.*)?$/;
+    let matchResult = match[1] && match[1].match(rgx);
+    if (!matchResult) return await message.sendReply("_*⚠️ Grup bağlantısı gerekli*_");
+    let inviteCode = matchResult[1];
+    await message.client.groupAcceptInvite(inviteCode);
+  }
+);
+Module({
+  pattern: "engelkaldır ?(.*)",
+  fromMe: true,
+  use: "sistem",
+  desc: "Daha önce engellenmiş kullanıcının engelini kaldırır.",
+  usage: ".engelkaldır [@etiket/yanıtla]",
+},
+  async (message) => {
+    const isGroup = message.jid.endsWith("@g.us");
+    if (!isGroup) return;
+    const user = message.mention?.[0] || message.reply_message?.jid;
+    if (!user) return await message.sendReply("_❗ Üye etiketleyin veya mesajına yanıt verin!_");
+    await message.client.updateBlockStatus(user, "unblock");
+  }
+);
+const MEMORY_FILE = path.join(__dirname, "visitedLinks.json");
+const loadVisitedLinks = async () => {
+  try {
+    const fsPromises = require("fs").promises;
+    if (fs.existsSync(MEMORY_FILE)) {
+      const data = await fsPromises.readFile(MEMORY_FILE, "utf-8");
+      return new Set(JSON.parse(data));
+    }
+  } catch {
+    return new Set();
+  }
+  return new Set();
+};
+const saveVisitedLinks = async (set) => {
+  try {
+    const fsPromises = require("fs").promises;
+    await fsPromises.writeFile(MEMORY_FILE, JSON.stringify([...set]), "utf-8");
+  } catch (e) {
+    console.error("Hafıza kaydedilemedi:", e);
+  }
+};
+let visitedLinks = new Set();
+(async () => {
+  visitedLinks = await loadVisitedLinks();
+})();
+
+Module({
+  pattern: "toplukatıl ?(.*)",
+  fromMe: false,
+  use: "sistem",
+  desc: "Birden fazla grup bağlantısını toplu olarak işleyerek gruplara sırayla katılmamı sağlar.",
+  usage: ".toplukatıl [link1, link2...]",
+},
+  async (message, match) => {
+    const rgx = /(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]{22})(?:\?[^\s,]*)*/g;
+    if (!match[1] || !match[1].trim()) {
+      return await message.sendReply(
+        `❌ *Lütfen grup bağlantısı girin!*\n\n` +
+        `*Kullanımı:*\n` +
+        `› .toplukatıl link1 link2\n` +
+        `› .toplukatıl link1, link2, link3\n` +
+        `› .toplukatıl link1,link2,link3`
+      );
+    }
+    let rawInput = match[1]
+      .replace(/,\s*/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    let links = rawInput.match(rgx);
+    if (!links || links.length === 0) {
+      return await message.sendReply("❌ *Geçerli WhatsApp grup bağlantısı bulunamadı!*");
+    }
+    links = [...new Set(links)];
+    const DELAY_MIN = 3000;
+    const DELAY_MAX = 6000;
+    const BATCH_SIZE = 21;
+    const REST_TIME = 900000;
+    const randomDelay = () => {
+      const delay = Math.floor(Math.random() * (DELAY_MAX - DELAY_MIN + 1)) + DELAY_MIN;
+      return new Promise((resolve) => setTimeout(resolve, delay));
+    };
+    const getErrorMessage = (error) => {
+      const msg = error?.message || "";
+      if (msg.includes("401")) return "⛔ Bağlantı geçersiz veya süresi dolmuş";
+      if (msg.includes("403")) return "🔒 Gruba katılım kısıtlanmış";
+      if (msg.includes("404")) return "🔍 Grup bulunamadı";
+      if (msg.includes("408")) return "✋ Zaten bu grubun üyesisiniz";
+      if (msg.includes("500")) return "🔧 WhatsApp sunucu hatası";
+      if (msg.includes("rate")) return "⏳ Rate limit - çok hızlı istek";
+      return `❓ ${msg || "Bilinmeyen hata"}`;
+    };
+
+    let successCount = 0;
+    let failCount = 0;
+    let skipCount = 0;
+    let memorySkipCount = 0;
+    let results = [];
+    const filteredLinks = [];
+    for (let link of links) {
+      const codeMatch = link.match(
+        /(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]{22})/
+      );
+      if (!codeMatch || !codeMatch[1]) continue;
+      const code = codeMatch[1];
+      if (visitedLinks.has(code)) {
+        memorySkipCount++;
+      } else {
+        filteredLinks.push({ link, code });
+      }
+    }
+    const totalBatches = Math.ceil(filteredLinks.length / BATCH_SIZE);
+    let startMsg =
+      `🔄 *İşlem Başlatıldı*\n\n` +
+      `📋 Toplam bağlantı: *${links.length}*\n`;
+    if (memorySkipCount > 0) {
+      startMsg += `🧠 Hafızadan atlanan: *${memorySkipCount}*\n`;
+    }
+    startMsg +=
+      `🔗 İşlenecek bağlantı: *${filteredLinks.length}*\n` +
+      `📦 Toplam part: *${totalBatches}*\n` +
+      `⏸️ Her *${BATCH_SIZE}* grup sonrası *${REST_TIME / 1000} saniye* dinlenilecek\n\n` +
+      `_Spam koruması için her işlem arasında bekleniyor..._`;
+
+    await message.sendReply(startMsg);
+    for (let i = 0; i < filteredLinks.length; i++) {
+      const { link, code } = filteredLinks[i];
+      try {
+        await message.client.groupAcceptInvite(code);
+        visitedLinks.add(code);
+        saveVisitedLinks(visitedLinks);
+        successCount++;
+        results.push(`✅ [${i + 1}] başarıyla girildi`);
+      } catch (error) {
+        if (error?.message?.includes("408")) {
+          visitedLinks.add(code);
+          saveVisitedLinks(visitedLinks);
+          skipCount++;
+          results.push(`♻️ [${i + 1}] zaten üyesiniz`);
+        } else {
+          failCount++;
+          results.push(`❌ [${i + 1}] ${getErrorMessage(error)}`);
+        }
+      }
+      const isLastLink = i === filteredLinks.length - 1;
+      const isBatchEnd = (i + 1) % BATCH_SIZE === 0;
+      if (!isLastLink) {
+        if (isBatchEnd) {
+          const currentBatch = Math.ceil((i + 1) / BATCH_SIZE);
+          const nextBatch = currentBatch + 1;
+          const nextBatchStart = i + 1;
+          const nextBatchEnd = Math.min(nextBatchStart + BATCH_SIZE, filteredLinks.length);
+          const nextBatchCount = nextBatchEnd - nextBatchStart;
+          await message.sendReply(
+            `⏸️ *${currentBatch}. part tamamlandı.*\n\n` +
+            `✅ Başarılı: *${successCount}*\n` +
+            `❌ Başarısız: *${failCount}*\n` +
+            `♻️ Zaten Üye Olunan: *${skipCount}*\n` +
+            `🧠 Hafızadan Atlanan: *${memorySkipCount}*\n\n` +
+            `📦 Sonraki part: *${nextBatch}. part* (*${nextBatchCount} bağlantı* işlenecek)\n\n` +
+            `⏳ _${REST_TIME / 1000} saniye dinleniliyor, ardından devam edilecek..._`
+          );
+          await new Promise((resolve) => setTimeout(resolve, REST_TIME));
+        } else {
+          await randomDelay();
+        }
+      }
+    }
+    let report =
+      `╔═══════════════════╗\n` +
+      `║   📊 İŞLEM RAPORU    ║\n` +
+      `╚═══════════════════╝\n\n` +
+      `✅ Başarılı: *${successCount}*\n` +
+      `❌ Başarısız: *${failCount}*\n` +
+      `♻️ Zaten Üye Olunan: *${skipCount}*\n` +
+      `🧠 Hafızadan Atlanan: *${memorySkipCount}*\n` +
+      `📋 Toplam: *${links.length}*\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `*📝 Detaylar:*\n` +
+      results.join("\n");
+    await message.sendReply(report);
+  }
+);
+
+Module({
+  pattern: "tümjid ?(.*)",
+  fromMe: true,
+  desc: "Dahil olduğum tüm grupların veya son sohbetlerin JID adreslerini listeler.",
+  use: "araçlar",
+  usage: ".tümjid hepsi | .tümjid son",
+},
+  async (message, match) => {
+    const args = match[1]?.trim().split(" ") || [];
+    const command = args[0]?.toLowerCase();
+    if (!command || (command !== "hepsi" && command !== "son")) {
+      return await message.sendReply("*Kullanım:*\n" +
+        "• `.tümjid hepsi` - Tüm grup JID'lerini göster\n" +
+        "• `.tümjid son` - Son sohbet JID'lerini göster (varsayılan 10)\n" +
+        "• `.tümjid son 15` - Son 15 sohbet JID'sini göster"
+      );
+    }
+    if (command === "hepsi") {
+      const allGroups = await message.client.groupFetchAllParticipating();
+      const gruplar = Object.keys(allGroups);
+      const recentChats = await fetchRecentChats(100);
+      const dmChats = recentChats.filter((chat) => chat.type === "private");
+      const totalChats = gruplar.length + dmChats.length;
+      if (!totalChats) return await message.sendReply("_❌ Sohbet bulunamadı!_");
+      const chunkSize = 100;
+      let totalMessages = Math.ceil(totalChats / chunkSize);
+      let chatIndex = 0;
+      for (let msgIndex = 0; msgIndex < totalMessages; msgIndex++) {
+        const startIdx = msgIndex * chunkSize;
+        const endIdx = Math.min(startIdx + chunkSize, totalChats);
+        let _msg = `*Tüm Sohbet JID'leri*\n`;
+        if (totalMessages > 1) {
+          _msg += `Bölüm ${msgIndex + 1}/${totalMessages}: Sohbetler ${startIdx + 1
+            }-${endIdx} / ${totalChats}\n\n`;
+        }
+        while (
+          chatIndex < gruplar.length &&
+          chatIndex - msgIndex * chunkSize < chunkSize
+        ) {
+          const jid = gruplar[chatIndex - msgIndex * chunkSize];
+          if (!jid) break;
+          const count = chatIndex + 1;
+          const groupData = allGroups[jid];
+          const groupName = groupData ? groupData.subject : "Bilinmeyen Grup";
+          _msg += `_*${count}. 👥 Grup:*_ \`${groupName}\`\n_JID:_ \`${jid}\`\n\n`;
+          chatIndex++;
+          if (chatIndex >= startIdx + chunkSize) break;
+        }
+        const dmStartIndex = Math.max(0, startIdx - gruplar.length);
+        const dmEndIndex = Math.min(dmChats.length, endIdx - gruplar.length);
+        for (let i = dmStartIndex; i < dmEndIndex && chatIndex < endIdx; i++) {
+          const dm = dmChats[i];
+          const count = chatIndex + 1;
+          const dmName = dm.name || "Bilinmiyor";
+          _msg += `_*${count}. 💬 Özel:*_ \`${dmName}\`\n_JID:_ \`${dm.jid}\`\n\n`;
+          chatIndex++;
+        }
+        await message.sendReply(_msg);
+        if (msgIndex < totalMessages - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+    } else if (command === "son") {
+      const limit = parseInt(args[1]) || 10;
+      if (limit > 50) {
+        return await message.sendReply("_*✨ Maksimum sınır 50 sohbettir!*_");
+      }
+      const recentChats = await fetchRecentChats(limit);
+      if (!recentChats.length) {
+        return await message.sendReply("_❌ Son sohbet bulunamadı!_");
+      }
+      let allGroups = {};
+      try {
+        allGroups = await message.client.groupFetchAllParticipating();
+      } catch (error) {
+        console.error("Grup verisi alınırken hata:", error);
+      }
+      let _msg = `*Son Sohbet JID'leri*\n_${recentChats.length} en son sohbet gösteriliyor_\n\n`;
+      for (let i = 0; i < recentChats.length; i++) {
+        const chat = recentChats[i];
+        const count = i + 1;
+        const chatType = chat.type === "group" ? "👥 Grup" : "💬 Özel";
+        let chatName = chat.name || "Bilinmiyor";
+        if (chat.type === "group" && allGroups[chat.jid]) {
+          chatName =
+            allGroups[chat.jid].subject || chat.name || "Bilinmeyen Grup";
+        }
+        const lastMessageTime = new Date(chat.lastMessageTime).toLocaleString();
+        _msg += `_*${count}. ${chatType}:*_ \`${chatName}\`\n`;
+        _msg += `_JID:_ \`${chat.jid}\`\n`;
+        _msg += `_Son Mesaj:_ ${lastMessageTime}\n\n`;
+      }
+      const chunkSize = 4000;
+      if (_msg.length > chunkSize) {
+        const chunks = [];
+        let currentChunk = `*Son Sohbet JID'leri*\n_${recentChats.length} en son sohbet gösteriliyor_\n\n`;
+        for (let i = 0; i < recentChats.length; i++) {
+          const chat = recentChats[i];
+          const count = i + 1;
+          const chatType = chat.type === "group" ? "👥 Grup" : "💬 Özel";
+          let chatName = chat.name || "Bilinmiyor";
+          if (chat.type === "group" && allGroups[chat.jid]) {
+            chatName =
+              allGroups[chat.jid].subject || chat.name || "Bilinmeyen Grup";
+          }
+          const lastMessageTime = new Date(
+            chat.lastMessageTime
+          ).toLocaleString();
+          const chatInfo = `_*${count}. ${chatType}:*_ \`${chatName}\`\n_JID:_ \`${chat.jid}\`\n_Son Mesaj:_ ${lastMessageTime}\n\n`;
+          if (currentChunk.length + chatInfo.length > chunkSize) {
+            chunks.push(currentChunk);
+            currentChunk = chatInfo;
+          } else {
+            currentChunk += chatInfo;
+          }
+        }
+        if (currentChunk.trim()) {
+          chunks.push(currentChunk);
+        }
+        for (let i = 0; i < chunks.length; i++) {
+          await message.sendReply(chunks[i]);
+          if (i < chunks.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+        }
+      } else {
+        await message.sendReply(_msg);
+      }
+    }
+  }
+);
+const PIN_DURATIONS = {
+  "24s": 86400,
+  "7g": 604800,
+  "30g": 2592000,
+};
+
+const loadKaraListe = () => {
+  try {
+    const raw = config.DUYURU_KARA_LISTE || "";
+    return raw ? raw.split(",").map((j) => j.trim()).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+};
+const saveKaraListe = async (liste) => {
+  await setVar("DUYURU_KARA_LISTE", liste.join(","));
+};
+
+const formatDuration = (totalSeconds) => {
+  const dk = Math.floor(totalSeconds / 60);
+  const sn = Math.round(totalSeconds % 60);
+  if (dk === 0) return `${sn} saniye`;
+  if (sn === 0) return `${dk} dakika`;
+  return `${dk} dakika ${sn} saniye`;
+};
+
+const estimateTime = (groupCount, hasPin) => {
+  const batchSize = hasPin ? 5 : 10;
+  const perGroupAvg = hasPin ? 4500 : 2500;
+  const pinExtraAvg = hasPin ? 2000 : 0;
+  const batchDelayAvg = hasPin ? 16000 : 10000;
+  const batchCount = Math.floor(groupCount / batchSize);
+  const totalMs = groupCount * (perGroupAvg + pinExtraAvg) + batchCount * batchDelayAvg;
+  return Math.ceil(totalMs / 1000);
+};
+
+Module({
+  pattern: "duyuru ?(.*)",
+  fromMe: true,
+  desc: "Bulunduğum tüm gruplara duyuru iletir ve isteğe bağlı olarak sabitler.",
+  use: "sistem",
+  usage:
+    ".duyuru <mesaj>\n" +
+    ".duyuru <mesaj> - sabitle:24s\n" +
+    ".duyuru karaliste ekle <jid>\n" +
+    ".duyuru karaliste çıkar <jid>\n" +
+    ".duyuru karaliste liste\n" +
+    ".duyuru karaliste bu",
+},
+  async (message, match) => {
+    const adminAccess = message.isAdmin;
+    if (!message.fromOwner && !adminAccess) {
+      return await message.sendReply("_❌ Bu komutu sadece yetkili kullanıcılar çalıştırabilir._");
+    }
+
+    const input = match[1]?.trim() || "";
+    const arg = input.toLowerCase();
+
+    if (arg.startsWith("grup") || arg.startsWith("karaliste")) {
+      const parts = input.split(" ");
+      const cmdOffset = parts[0]?.toLowerCase() === "karaliste" ? 0 : 1;
+      const cmd = parts[cmdOffset + 1]?.toLowerCase();
+      const jid = parts[cmdOffset + 2]?.trim();
+      const liste = loadKaraListe();
+      if (cmd === "filtrele" && jid) {
+        if (liste.includes(jid)) return message.sendReply("_Bu grup zaten kara listede._");
+        liste.push(jid);
+        await saveKaraListe(liste);
+        return message.sendReply(`_✅ \`${jid}\` filtreleme listesine eklendi._`);
+      }
+      if (cmd === "sil" && jid) {
+        const yeni = liste.filter((gJid) => gJid !== jid);
+        await saveKaraListe(yeni);
+        return message.sendReply(`_✅ \`${jid}\` filtreleme listesinden çıkarıldı._`);
+      }
+      if (cmd === "liste") {
+        if (!liste.length) return message.sendReply("_Kara liste boş._");
+        return message.sendReply(
+          `*📋 Duyuru Kara Listesi (${liste.length} grup):*\n` +
+          liste.map((gJid, i) => `${i + 1}. \`${gJid}\``).join("\n")
+        );
+      }
+      if (cmd === "bu") {
+        return message.sendReply(`ℹ _Mevcut grup JID'i:_\n\`${message.jid}\``);
+      }
+      return message.sendReply(
+        `🔻 *Grup filtresi kullanımı:*\n` +
+        `• \`.duyuru grup filtrele <jid>\`\n` +
+        `• \`.duyuru grup sil <jid>\`\n` +
+        `• \`.duyuru grup liste\`\n` +
+        `• \`.duyuru grup bu\` — bulunduğun grubun JID'ini göster`
+      );
+    }
+
+    let announceText = input;
+    let pinDuration = null;
+    const pipeIndex = input.lastIndexOf("-");
+    if (pipeIndex !== -1) {
+      const after = input.slice(pipeIndex + 1).trim().toLowerCase();
+      const pinMatch = after.match(/^sabitle:(24s|7g|30g)$/);
+      if (pinMatch) {
+        pinDuration = PIN_DURATIONS[pinMatch[1]];
+        announceText = input.slice(0, pipeIndex).trim();
+      }
+    }
+
+    const hasReply = !!message.reply_message;
+    const hasText = announceText.length > 0;
+    if (!hasText && !hasReply) {
+      return message.sendReply(
+        `📢 _Bot'un bulunduğu tüm gruplara duyuru iletir._\n\n` +
+        `*Kullanım:*\n` +
+        `• \`.duyuru <mesaj>\` — sadece gönder\n` +
+        `• \`.duyuru <mesaj> - sabitle:24s\` — gönder ve 24 saat sabitle\n` +
+        `• \`.duyuru <mesaj> - sabitle:7g\` — gönder ve 7 gün sabitle\n` +
+        `• \`.duyuru <mesaj> - sabitle:30g\` — gönder ve 30 gün sabitle\n` +
+        `• Bir mesaja yanıtla + \`.duyuru\` — o mesajı ilet\n\n` +
+        `*Liste Düzenleme:*\n` +
+        `• \`.duyuru grup filtrele <jid>\`\n` +
+        `• \`.duyuru grup sil <jid>\`\n` +
+        `• \`.duyuru grup liste\`\n` +
+        `• \`.duyuru grup bu\``
+      );
+    }
+
+    let allGroups;
+    try {
+      allGroups = await message.client.groupFetchAllParticipating();
+    } catch (err) {
+      console.error("[Duyuru] groupFetchAllParticipating hatası:", err);
+      return message.sendReply("_❌ Grup listesi alınamadı._");
+    }
+
+    const karaListe = loadKaraListe();
+    const groupJids = Object.keys(allGroups).filter((jid) => !karaListe.includes(jid));
+    if (!groupJids.length) {
+      return message.sendReply("_Hiç grup bulunamadı (veya tamamı liste dışına alınmış)._");
+    }
+
+    const pinLabel = pinDuration
+      ? `, ${pinDuration === 86400 ? "24 saat" : pinDuration === 604800 ? "7 gün" : "30 gün"} süreyle sabitlenecek`
+      : "";
+    const eta = estimateTime(groupJids.length, !!pinDuration);
+    const confirmMsg = await message.sendReply(
+      `_📢 Duyuru *${groupJids.length}* gruba gönderiliyor${pinLabel}…_\n` +
+      `_⏱️ Tahmini süre: *${formatDuration(eta)}*_` +
+      (karaListe.length ? `\n_(${karaListe.length} grup atlandı)_` : "")
+    );
+
+    let sent = 0;
+    let pinned = 0;
+    let failed = 0;
+
+    const BATCH_SIZE = pinDuration ? 5 : 10;
+    const BATCH_DELAY_MIN = pinDuration ? 12000 : 8000;
+    const BATCH_DELAY_EXTRA = pinDuration ? 8000 : 4000;
+    const PER_GROUP_DELAY_MIN = pinDuration ? 3000 : 1500;
+    const PER_GROUP_DELAY_EXTRA = pinDuration ? 3000 : 2000;
+    const PIN_RETRY_COUNT = 2;
+    const PIN_RETRY_DELAY = 5000;
+
+    for (const jid of groupJids) {
+      try {
+        let sentMsg;
+        if (hasReply) {
+          sentMsg = await message.client.sendMessage(jid, {
+            forward: message.quoted,
+          });
+          if (hasText) {
+            await message.client.sendMessage(jid, { text: announceText });
+          }
+        } else {
+          sentMsg = await message.client.sendMessage(jid, {
+            text: announceText,
+          });
+        }
+        sent++;
+
+        if (pinDuration && sentMsg?.key) {
+          await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1000));
+
+          let pinSuccess = false;
+          for (let attempt = 1; attempt <= PIN_RETRY_COUNT; attempt++) {
+            try {
+              await message.client.sendMessage(jid, {
+                pin: sentMsg.key,
+                type: 1,
+                time: pinDuration,
+              });
+              pinned++;
+              pinSuccess = true;
+              break;
+            } catch (pinErr) {
+              const errMsg = pinErr?.message || "";
+              console.warn(
+                `[Duyuru] Sabitleme denemesi ${attempt}/${PIN_RETRY_COUNT} başarısız ${jid}:`,
+                errMsg
+              );
+
+              if (
+                errMsg.includes("rate-overlimit") ||
+                errMsg.includes("429") ||
+                pinErr?.data === 429
+              ) {
+                if (attempt < PIN_RETRY_COUNT) {
+                  const backoffDelay = PIN_RETRY_DELAY * attempt + Math.random() * 3000;
+                  console.log(
+                    `[Duyuru] Rate limit, ${Math.round(backoffDelay / 1000)}s bekleniyor...`
+                  );
+                  await new Promise((r) => setTimeout(r, backoffDelay));
+                }
+              } else {
+                break;
+              }
+            }
+          }
+        }
+
+        if (sent % BATCH_SIZE === 0) {
+          await new Promise((r) =>
+            setTimeout(r, BATCH_DELAY_MIN + Math.random() * BATCH_DELAY_EXTRA)
+          );
+        }
+
+        const delayMs = PER_GROUP_DELAY_MIN + Math.floor(Math.random() * PER_GROUP_DELAY_EXTRA);
+        await new Promise((r) => setTimeout(r, delayMs));
+      } catch (err) {
+        console.error(`[Duyuru] ${jid} için başarısız:`, err?.message || err);
+        failed++;
+
+        const errMsg = err?.message || "";
+        if (
+          errMsg.includes("rate-overlimit") ||
+          errMsg.includes("429") ||
+          err?.data === 429
+        ) {
+          console.log("[Duyuru] Genel rate limit, 15s bekleniyor...");
+          await new Promise((r) => setTimeout(r, 15000 + Math.random() * 5000));
+        }
+      }
+    }
+
+    let summary =
+      `*📢 Duyuru tamamlandı!*\n\n` +
+      `✅ _Gönderildi:_ *${sent}/${groupJids.length}*\n`;
+    if (karaListe.length)
+      summary += `🚫 _Atlandı (kara liste):_ *${karaListe.length}*\n`;
+    if (pinDuration) summary += `📌 _Sabitlendi:_ *${pinned}/${sent}*\n`;
+    if (failed > 0) summary += `❌ _Başarısız:_ *${failed}*\n`;
+    await message.edit(summary, message.jid, confirmMsg.key);
+  }
+);
+
+Module({
+  pattern: "sabitle ?(.*)",
+  fromMe: false,
+  desc: "Mesajı sabitler veya sabitlenmiş mesajı kaldırır. `sil` argümanıyla sabitleme kaldırma moduna geçer.",
+  use: "grup",
+  usage:
+    ".sabitle 24s | .sabitle 7g | .sabitle 30g | .sabitle (varsayılan 7 gün)\n" +
+    ".sabitle sil (yanıtla → tek mesajı kaldır) | .sabitle sil (tüm sabitleri kaldır)",
+},
+  async (message, match) => {
+    if (!message.isGroup) {
+      return await message.sendReply("_❌ Bu komut sadece gruplarda kullanılabilir._");
+    }
+
+    await baileysPromise;
+    if (!generateWAMessageFromContent || !proto) {
+      return await message.sendReply(
+        "_❌ Bot bileşenleri henüz yüklenmedi, lütfen biraz bekleyip tekrar deneyin._"
+      );
+    }
+
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) {
+      return await message.sendReply("_❌ Bu grupta yönetici değilim!_");
+    }
+
+    const input = match[1] ? match[1].trim().toLowerCase() : "";
+
+    // ── SABITLE SİL MODU ──────────────────────────────────────────
+    if (input === "sil") {
+      const userIsAdmin = await isAdmin(message, message.sender);
+      if (!userIsAdmin && !message.fromOwner) {
+        return await message.sendReply("_❌ Bu işlemi sadece yöneticiler yapabilir._");
+      }
+
+      try {
+        // Mod 1: Yanıtlanan mesajın sabitini kaldır
+        if (message.reply_message) {
+          const quotedKey = {
+            remoteJid: message.jid,
+            fromMe:
+              message.reply_message.jid?.split("@")[0] ===
+              message.client.user?.id?.split(":")[0],
+            id: message.reply_message.id,
+            participant: message.reply_message.jid,
+          };
+          await message.client.sendMessage(message.jid, {
+            pin: quotedKey,
+            type: 2,
+            time: 0,
+          });
+          return await message.sendReply("_📌 Mesajın sabitlemesi başarıyla kaldırıldı!_");
+        }
+
+        // Mod 2: Yanıt yok — gruptaki tüm sabitleri temizle
+        const groupMeta = await message.client.groupMetadata(message.jid);
+        const pinnedMsgs = groupMeta?.pinnedMessages || [];
+
+        if (!pinnedMsgs || pinnedMsgs.length === 0) {
+          return await message.sendReply(
+            "_⚠️ Bu grupta sabitlenmiş mesaj bulunamadı._\n\n" +
+            "_Belirli bir mesajın sabitlemesini kaldırmak için o mesaja yanıt vererek `.sabitle sil` yazın._"
+          );
+        }
+
+        let removed = 0;
+        let failed = 0;
+
+        for (const pinned of pinnedMsgs) {
+          try {
+            const pinKey = pinned.key || pinned;
+            await message.client.sendMessage(message.jid, {
+              pin: {
+                remoteJid: message.jid,
+                fromMe: pinKey.fromMe || false,
+                id: pinKey.id || pinned.id,
+                participant: pinKey.participant || pinned.participant || null,
+              },
+              type: 2,
+              time: 0,
+            });
+            removed++;
+            await new Promise(r => setTimeout(r, 800)); // Rate-limit koruması
+          } catch (e) {
+            console.error("Sabitle sil (tek mesaj) hatası:", e?.message || e);
+            failed++;
+          }
+        }
+
+        if (removed > 0 && failed === 0) {
+          return await message.sendReply(
+            `_✅ Gruptaki *${removed}* sabitlenmiş mesaj başarıyla kaldırıldı!_`
+          );
+        } else if (removed > 0) {
+          return await message.sendReply(
+            `_⚠️ *${removed}* mesaj kaldırıldı, *${failed}* mesajda hata oluştu._`
+          );
+        } else {
+          return await message.sendReply("_❌ Sabitlenmiş mesajlar kaldırılırken hata oluştu!_");
+        }
+      } catch (error) {
+        console.error("Sabitle sil komutu hatası:", error);
+        return await message.sendReply(
+          "_❌ İşlem sırasında bir hata oluştu! Lütfen tekrar deneyin._"
+        );
+      }
+    }
+
+    // ── SABİTLE MODU (normal) ──────────────────────────────────────
+    if (!message.reply_message) {
+      return await message.sendReply(
+        "_❌ Lütfen sabitlemek istediğiniz mesaja yanıtlayarak yazın!_\n\n" +
+        "🔻 _Kullanım:_\n" +
+        "_.sabitle 24s_ → 24 saat\n" +
+        "_.sabitle 7g_ → 7 gün\n" +
+        "_.sabitle 30g_ → 30 gün\n" +
+        "_.sabitle_ → varsayılan 7 gün\n" +
+        "_.sabitle sil_ → sabitlenmiş mesajı kaldırır"
+      );
+    }
+
+    let durationSeconds;
+    let durationText;
+
+    if (input === "24s" || input === "24saat" || input === "1g" || input === "1gün") {
+      durationSeconds = 86400;
+      durationText = "24 saat";
+    } else if (input === "30g" || input === "30gün" || input === "30gun") {
+      durationSeconds = 2592000;
+      durationText = "30 gün";
+    } else {
+      durationSeconds = 604800;
+      durationText = "7 gün";
+    }
+
+    try {
+      const quotedKey = {
+        remoteJid: message.jid,
+        fromMe:
+          message.reply_message.jid?.split("@")[0] ===
+          message.client.user?.id?.split(":")[0],
+        id: message.reply_message.id,
+        participant: message.reply_message.jid,
+      };
+      await message.client.sendMessage(message.jid, {
+        pin: quotedKey,
+        type: 1,
+        time: durationSeconds,
+      });
+      return await message.sendReply(`_📌 Mesaj, başarıyla *${durationText}* süreyle sabitlendi!_`);
+    } catch (error) {
+      console.error("Sabitle komutu hatası:", error);
+      return await message.sendReply("_❌ Mesaj sabitleme sırasında bir hata oluştu!_");
+    }
+  }
+);
+
+Module({
+  pattern: "pp ?(.*)",
+  fromMe: true,
+  use: "sistem",
+  desc: "Profil resmimi değiştirir veya belirtilen kullanıcının profil resmini alır.",
+  usage: ".pp [görsel/yanıtla]",
+},
+  async (message, match) => {
+    if (message.reply_message && message.reply_message.image) {
+      const image = await message.reply_message.download();
+      const botJid = message.client.user?.id?.split(":")[0] + "@s.whatsapp.net";
+      await message.client.setProfilePicture(botJid, {
+        url: image,
+      });
+      return await message.sendReply("_*⚙️ Profil resmi güncellendi ✅*_");
+    }
+    if (message.reply_message && !message.reply_message.image) {
+      try {
+        const image = await message.client.profilePictureUrl(
+          message.reply_message?.jid,
+          "image"
+        );
+        return await message.sendReply({ url: image }, "image");
+      } catch {
+        return await message.sendReply("_❌ Profil resmi bulunamadı!_");
+      }
+    }
+  }
+);
+Module({
+  pattern: "gfoto ?(.*)",
+  fromMe: false,
+  use: "sistem",
+  desc: "Grubun profil fotoğrafını değiştirir veya mevcut fotoğrafı tam boyut olarak gönderir.",
+  usage: ".gfoto [görsel/yanıtla]",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    const botId = message.client.user.id.split(':')[0] + '@s.whatsapp.net';
+    const botIsAdmin = await isAdmin(message, botId);
+    if (!botIsAdmin) return await message.sendReply("❌ _Bu işlemi yapabilmem için yönetici olmam gerekiyor!_");
+
+    if (message.reply_message && message.reply_message.image) {
+      const image = await message.reply_message.download();
+      await message.client.setProfilePicture(message.jid, { url: image });
+      return await message.sendReply("_*⚙️ Grup fotoğrafı güncellendi ✅*_");
+    }
+    if (!message.reply_message.image) {
+      try {
+        const image = await message.client.profilePictureUrl(
+          message.jid,
+          "image"
+        );
+        return await message.sendReply({ url: image }, "image");
+      } catch {
+        return await message.sendReply("_❌ Profil resmi bulunamadı!_");
+      }
+    }
+  }
+);
+
+
+function parseSarrafiye(html) {
+  const results = {};
+  const rowRegex = /<tr[^>]*>\s*<td[^>]*>(.*?)<\/td>\s*<td[^>]*>([\d.,]+)<\/td>\s*<td[^>]*>([\d.,]+)<\/td>\s*<td[^>]*>(.*?)<\/td>/gi;
+  let match;
+  while ((match = rowRegex.exec(html)) !== null) {
+    const name = match[1]
+      .replace(/<[^>]+>/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    results[name] = {
+      buy: match[2],
+      sell: match[3],
+      change: match[4].replace("%", "").trim(),
+    };
+  }
+  return results;
+}
+
+Module({
+  pattern: "altın ?(.*)",
+  fromMe: false,
+  desc: "Anlık Altın fiyatlarını ve piyasa değişim verilerini listeler.",
+  usage: ".altın",
+  use: "araçlar",
+},
+  async (message) => {
+    const loading = await message.send("🔄 _Altın fiyatlarına bakıyorum..._");
+
+    try {
+      const { data: html } = await axios.get("https://www.sarrafiye.net/piyasa/altin.html", {
+        timeout: 15000,
+        headers: {
+          "User-Agent": "Mozilla/5.0",
+        },
+      });
+      const data = parseSarrafiye(html);
+      const kur = data["Kur"];
+      const gram = data["Gram Altın"];
+      const ceyrek = data["Çeyrek Altın"];
+      const yarim = data["Yarım Altın"];
+      const tam = data["Tam Ata Lira"] || data["Tam Altın"];
+
+      if (!kur && !gram && !ceyrek && !yarim && !tam) {
+        return await message.edit(
+          "⚠️ _Altın verilerine ulaşılamadı!_\n_Kaynak yapısı değişmiş olabilir._",
+          message.jid,
+          loading.key
+        );
+      }
+
+      let text = "💰 `GÜNCEL ALTIN FİYATLARI`\n\n";
+      function addBlock(title, emoji, item, currency = "₺") {
+        if (!item) return;
+        const symbol = item.change.startsWith("-") ? "📉" : "📈";
+        text += `${emoji} *${title}*\n`;
+        text += `   💵 Alış: *${item.buy} ${currency}*\n`;
+        text += `   💰 Satış: *${item.sell} ${currency}*\n`;
+        text += `   ${symbol} Değişim: %${item.change}\n\n`;
+      }
+
+      addBlock("Kur", "📊", kur);
+      addBlock("Gram Altın", "🟡", gram);
+      addBlock("Çeyrek Altın", "🪙", ceyrek);
+      addBlock("Yarım Altın", "💎", yarim);
+      addBlock("Tam Altın", "🏅", tam);
+
+      const now = new Date().toLocaleString("tr-TR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      text += `_📅 ${now}_`;
+      text += "\nℹ Kaynak: _Kuyumcu Altın Verileri_";
+
+      await message.edit(text.trim(), message.jid, loading.key);
+    } catch (err) {
+      console.error("Altın modülü hata:", err?.message || err);
+      await message.edit(
+        "⚠️ _Altın verileri alınırken hata oluştu._\n_Lütfen daha sonra tekrar deneyin._",
+        message.jid,
+        loading.key
+      );
+    }
+  }
+);
+
+
+Module({
+  pattern: 'etiket ?(.*)',
+  fromMe: false,
+  desc: "Gruptaki tüm üyeleri etiketleyerek duyuru yapmanızı sağlar.",
+  usage: ".etiket [mesaj]",
+  use: 'grup',
+},
+  async (message, match) => {
+    const userIsAdmin = await isAdmin(message, message.sender);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+    if (!message.isGroup) return await message.sendReply("❗️ *Bu komut yalnızca grup sohbetlerinde çalışır!*");
+    const target = message.jid;
+    const group = await message.client.groupMetadata(target);
+    const allMembers = group.participants.map(participant => participant.id);
+
+    let baseText = match && match[1] ? match[1].trim() : (message.reply_message?.text ? message.reply_message.text : "");
+    let text = baseText ? baseText + "\n\n" : "✅ *Herkes başarıyla etiketlendi!*\n\n";
+
+    allMembers.forEach((jid, index) => {
+      text += `${index + 1}. @${jid.split('@')[0]}\n`;
+    });
+
+    // Baileys 'quoted' sorununu by-pass etmek için manuel gönderim veya sendOpts boş gönderimi:
+    const sendOpts = message.isChannel ? {} : ((message.data?.key?.id || '').includes('DASHBOARD_') ? {} : { quoted: message.data });
+
+    await message.client.sendMessage(target, {
+      text: text,
+      contextInfo: { mentionedJid: allMembers }
+    }, sendOpts);
+  });
+
+Module({
+  pattern: 'ytetiket',
+  fromMe: false,
+  desc: "Grup yöneticilerini etiketler.",
+  usage: ".ytetiket",
+  use: 'grup',
+},
+  async (message, match) => {
+    const target = message.jid;
+    const group = await message.client.groupMetadata(target);
+    const admins = group.participants.filter(v => v.admin !== null).map(x => x.id);
+    let text = "🚨 *Yöneticiler:*";
+    admins.forEach(jid => {
+      text += `
+@${jid.split('@')[0]}`;
+    });
+    await message.client.sendMessage(target, { text: text, contextInfo: { mentionedJid: admins } });
+  });
+})();
+
+// ==========================================
+// FILE: welcome.js
+// ==========================================
+(function() {
+const { Module } = require("../main");
+const config = require("../config");
+const { welcome, goodbye, censorBadWords, isAdmin } = require("./utils");
+const {
+  parseWelcomeMessage,
+  sendWelcomeMessage,
+} = require("./utils/welcome-parser");
+
+Module({
+  pattern: "karşıla ?(.*)",
+  fromMe: true,
+  onlyAdmin: true,
+  desc: "Yeni üye katıldığında gönderilecek olan grup karşılama mesajını özelleştirmenizi ve yönetmenizi sağlar.",
+  usage: ".karşıla Merhaba $mention, $group grubuna hoş geldin! $pp\n.karşıla aç/kapat\n.karşıla getir\n.karşıla sil", use: "grup",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+
+    const input = match[1]?.toLowerCase();
+    if (!input) {
+      const current = await welcome.get(message.jid);
+      const status = current?.enabled ? "Açık ✅" : "Kapalı ❌";
+      return await message.sendReply(`👋🏻 *Karşılama Mesajı Ayarları*
+ℹ️ *Mevcut Durum:* ${status}
+
+💬 *Kullanım:*
+• \`.karşıla <mesaj>\` - Karşılama mesajını ayarla
+• \`.karşıla aç/kapat\` - Karşılamayı aç/kapat
+• \`.karşıla getir\` - Mevcut mesajı görüntüle
+• \`.karşıla sil\` - Karşılama mesajını sil
+• \`.karşıla durum\` - Tüm grupların durumunu göster (sadece sahip)
+• \`.karşıla yardım\` - Örneklerle ayrıntılı yardımı göster
+
+*Yer Tutucular:*
+• \`$mention\` - Kullanıcıyı etiketle
+• \`$user\` - Kullanıcı adı
+• \`$group\` - Grup adı
+• \`$desc\` - Grup açıklaması
+• \`$count\` - Üye sayısı
+• \`$pp\` - Kullanıcı profil resmi
+• \`$gpp\` - Grup profil resmi
+• \`$date\` - Bugünün tarihi
+• \`$time\` - Şu anki saat
+
+*Örnek:*
+\`.karşıla Merhaba $mention! $group grubuna hoş geldin 🎉 $pp\`
+\`.karşıla Hoş geldin $user! Harika grubumuzda artık $count üyeyiz! $gpp\``);
+    }
+
+    if (input === "aç") {
+      const current = await welcome.get(message.jid);
+      if (!current) {
+        return await message.sendReply("_⚙️ Karşılama mesajı ayarlanmamış! Önce şunu kullanarak bir tane ayarlayın:_\n*.karşıla <mesajınız>*");
+      }
+      await welcome.toggle(message.jid, true);
+      return await message.sendReply("_✅ Karşılama mesajları etkinleştirildi!_ ✅");
+    }
+
+    if (input === "kapat") {
+      await welcome.toggle(message.jid, false);
+      return await message.sendReply("_💬 Karşılama mesajları devre dışı!_ ❌");
+    }
+
+    if (input === "getir") {
+      const current = await welcome.get(message.jid);
+      if (!current) return await message.sendReply("_⚙️ Bu grup için karşılama mesajı ayarlanmamış!_");
+      return await message.sendReply(`*Mevcut Karşılama Mesajı:*\n\n${current.message}\n\n*Durum:* ${current.enabled ? "Açık ✅" : "Kapalı ❌"}`);
+    }
+
+    if (input === "sil") {
+      const deleted = await welcome.delete(message.jid);
+      if (deleted) {
+        return await message.sendReply("_Karşılama mesajı başarıyla silindi!_ 🗑️");
+      }
+      return await message.sendReply("_❌ Silinecek karşılama mesajı bulunamadı!_");
+    }
+
+    if (input === "durum" && message.fromOwner) {
+      const welcomeData = await welcome.get();
+      let statusText = "*🎉 KARŞILAMA DURUMU 🎉*\n\n";
+      for (let data of welcomeData) {
+        statusText += `• *${data.jid}*: ${data.enabled ? "✅" : "❌"}\n`;
+      }
+      return await message.sendReply(statusText);
+    }
+
+    const welcomeMessage = censorBadWords(match[1]);
+    if (welcomeMessage.length > 2000) {
+      return await message.sendReply("_⚠️ Karşılama mesajı çok uzun! Lütfen 2000 karakterin altında tutun._");
+    }
+
+    await welcome.set(message.jid, welcomeMessage);
+    await message.sendReply(`_Karşılama mesajı ayarlandı!_ ✅\n\n💡 _İpucu:_ \`.karşılatest\` _kullanın!_`);
+  }
+);
+
+Module({
+  pattern: "elveda ?(.*)",
+  fromMe: true,
+  onlyAdmin: true,
+  desc: "Üye ayrıldığında gönderilecek olan grup veda mesajını özelleştirmenizi ve yönetmenizi sağlar.",
+  usage: ".elveda [mesaj] | .elveda aç/kapat",
+  use: "grup",
+},
+  async (message, match) => {
+    if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+
+    const input = match[1]?.toLowerCase();
+    if (!input) {
+      const current = await goodbye.get(message.jid);
+      const status = current?.enabled ? "Açık ✅" : "Kapalı ❌";
+      return await message.sendReply(`🥺 *Veda Mesajı Ayarları*\nℹ️ *Mevcut Durum:* ${status}\n\n*Kullanım:* .elveda <mesaj>, .elveda aç/kapat, .elveda sil`);
+    }
+
+    if (input === "aç") {
+      const current = await goodbye.get(message.jid);
+      if (!current) return await message.sendReply("_⚙️ Veda mesajı ayarlanmamış!_");
+      await goodbye.toggle(message.jid, true);
+      return await message.sendReply("_✅ Veda mesajları açıldı!_");
+    }
+
+    if (input === "kapat") {
+      await goodbye.toggle(message.jid, false);
+      return await message.sendReply("_❌ Veda mesajları kapatıldı!_");
+    }
+
+    if (input === "getir") {
+      const current = await goodbye.get(message.jid);
+      if (!current) return await message.sendReply("_⚙️ Veda mesajı ayarlanmamış!_");
+      return await message.sendReply(`*Mevcut Veda Mesajı:*\n\n${current.message}`);
+    }
+
+    if (input === "sil") {
+      await goodbye.delete(message.jid);
+      return await message.sendReply("_Veda mesajı silindi!_ 🗑️");
+    }
+
+    const goodbyeMessage = censorBadWords(match[1]);
+    await goodbye.set(message.jid, goodbyeMessage);
+    await message.sendReply(`_Veda mesajı ayarlandı!_ ✅`);
+  }
+);
+
+Module({
+  pattern: "karşılatest ?(.*)",
+  fromMe: true,
+  onlyAdmin: true,
+  desc: "Mevcut gruptaki karşılama mesajının nasıl göründüğünü denemeniz için bir test mesajı gönderir.",
+  usage: ".karşılatest",
+  use: "grup",
+},
+  async (message) => {
+    if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+
+    const welcomeData = await welcome.get(message.jid);
+    if (!welcomeData || !welcomeData.enabled) return await message.sendReply("_❌ Karşılama kapalı veya ayarlanmamış!_");
+    const parsed = await parseWelcomeMessage(welcomeData.message, message, [message.sender]);
+    if (parsed) {
+      await message.sendReply("*💬 Karşılama Test Ediliyor:*");
+      await sendWelcomeMessage(message, parsed);
+    }
+  }
+);
+
+Module({
+  pattern: "elvedatest ?(.*)",
+  fromMe: true,
+  onlyAdmin: true,
+  desc: "Mevcut gruptaki veda mesajının nasıl göründüğünü denemeniz için bir test mesajı gönderir.",
+  usage: ".elvedatest",
+  use: "grup",
+},
+  async (message) => {
+    if (!message.isGroup) return await message.sendReply("_⚠️ Bu komut sadece gruplarda kullanılabilir!_");
+    const userIsAdmin = await isAdmin(message);
+    if (!userIsAdmin && !message.fromOwner) return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+
+    const goodbyeData = await goodbye.get(message.jid);
+    if (!goodbyeData || !goodbyeData.enabled) return await message.sendReply("_❌ Veda kapalı veya ayarlanmamış!_");
+    const parsed = await parseWelcomeMessage(goodbyeData.message, message, [message.sender]);
+    if (parsed) {
+      await message.sendReply("*💬 Veda Test Ediliyor:*");
+      await sendWelcomeMessage(message, parsed);
+    }
+  }
+);
+})();
+
+// ==========================================
+// FILE: filter.js
+// ==========================================
+(function() {
+const { Module } = require("../main");
+const { ADMIN_ACCESS, HANDLER_PREFIX } = require("../config");
+const { filter, isAdmin } = require("./utils");
+
+const handler = HANDLER_PREFIX;
+
+Module({
+  pattern: "filtre ?(.*)",
+  fromMe: true,
+  desc: "Belirli kelimelere otomatik yanıt oluşturur.",
+  usage: ".filtre merhaba | Merhaba! | sohbet\n.filtre yardım | Size yardım edebilirim | herkes\n.filtre güle | Güle güle! | grup | tam-eşleşme",
+  use: "grup",
+},
+  async (message, match) => {
+    if (match[0].includes("filtreler")) return;
+    let adminAccess = await isAdmin(message);
+    if (!message.fromOwner && !adminAccess) return;
+    const input = match[1]?.trim();
+    if (!input) {
+      return await message.sendReply(`*📝 Filtre Komutları:*\n\n` +
+        `• \`${handler}filtre tetikleyici | yanıt\` - Sohbet filtresi oluştur\n` +
+        `• \`${handler}filtre tetikleyici | yanıt | herkes\` - Genel filtre oluştur\n` +
+        `• \`${handler}filtre tetikleyici | yanıt | grup\` - Sadece grup filtresi\n` +
+        `• \`${handler}filtre tetikleyici | yanıt | dm\` - Sadece DM filtresi\n` +
+        `• \`${handler}filtre tetikleyici | yanıt | sohbet | exact\` - Sadece tam eşleşme\n` +
+        `• \`${handler}filtre tetikleyici | yanıt | sohbet | case\` - Büyük/küçük harf duyarlı\n` +
+        `• \`${handler}filtreler\` - Tüm filtreleri listele\n` +
+        `• \`${handler}filtresil tetikleyici\` - Filtreyi sil\n` +
+        `• \`${handler}filtredurum tetikleyici\` - Filtreyi aç/kapat\n\n` +
+        `*Kapsamlar:*\n` +
+        `• \`sohbet\` - Sadece mevcut sohbet (varsayılan)\n` +
+        `• \`herkes\` - Tüm sohbetler\n` +
+        `• \`grup\` - Tüm gruplar\n` +
+        `• \`dm\` - Tüm DM'ler\n\n` +
+        `*Seçenekler:*\n` +
+        `• \`tam-eşleşme\` - Sadece tam kelime eşleşmesi\n` +
+        `• \`büyük-küçük\` - Büyük/küçük harf duyarlı eşleşme`
+      );
+    }
+
+    const parts = input.split("|").map((p) => p.trim());
+    if (parts.length < 2) {
+      return await message.sendReply("_💬 Format: tetikleyici | yanıt | kapsam(isteğe bağlı) | seçenekler(isteğe bağlı)_"
+      );
+    }
+
+    const trigger = parts[0];
+    const response = parts[1];
+    const scopeRaw = (parts[2] || "sohbet").toLowerCase().trim();
+    const options = parts[3] || "";
+
+    // Türkçe kapsam adlarını DB ile uyumlu İngilizce'ye çevir
+    const scopeMap = { sohbet: "chat", herkes: "global", grup: "group", dm: "dm" };
+    const scope = scopeMap[scopeRaw];
+
+    if (!trigger || !response) {
+      return await message.sendReply("_⚠️ Hem tetikleyici hem de yanıt gereklidir!_"
+      );
+    }
+
+    if (!scope) {
+      return await message.sendReply("_❌ Geçersiz kapsam! Şunları kullanın: sohbet, herkes, grup veya dm_"
+      );
+    }
+
+    const filterOptions = {
+      caseSensitive: options.includes("büyük-küçük") || options.includes("case"),
+      exactMatch: options.includes("tam-eşleşme") || options.includes("exact"),
+    };
+
+    try {
+      await filter.set(
+        trigger,
+        response,
+        message.jid,
+        scope,
+        message.sender,
+        filterOptions
+      );
+
+      const scopeText =
+        scope === "chat"
+          ? "bu sohbet"
+          : scope === "global"
+            ? "tüm sohbetler"
+            : scope === "group"
+              ? "tüm gruplar"
+              : "tüm DM'ler";
+      const optionsText = [];
+      if (filterOptions.exactMatch) optionsText.push("tam eşleşme");
+      if (filterOptions.caseSensitive) optionsText.push("büyük/küçük harf duyarlı");
+      const optionsStr = optionsText.length
+        ? ` (${optionsText.join(", ")})`
+        : "";
+
+      await message.sendReply(`✅ *Filtre Oluşturuldu!*\n\n` +
+        `*Tetikleyici:* ${trigger}\n` +
+        `*Yanıt:* ${response}\n` +
+        `*Kapsam:* ${scopeText}${optionsStr}`
+      );
+    } catch (error) {
+      console.error("Filtre oluşturma hatası:", error);
+      await message.sendReply("_❌ Filtre oluşturulamadı!_");
+    }
+  }
+);
+
+Module({
+  pattern: "filtreler ?(.*)",
+  fromMe: false,
+  desc: "Sohbet veya genel kapsamda oluşturulmuş olan tüm aktif filtreleri listeler.",
+  usage: ".filtreler\n.filtreler herkes\n.filtreler grup",
+  use: "grup",
+},
+  async (message, match) => {
+    let adminAccess = await isAdmin(message);
+    if (!message.fromOwner && !adminAccess) return;
+
+    const scopeRaw = match[1]?.trim().toLowerCase();
+    const scopeMap = { herkes: "global", grup: "group", dm: "dm" };
+    const scope = scopeRaw ? (scopeMap[scopeRaw] || scopeRaw) : null;
+    let filters;
+
+    try {
+      if (scope && ["global", "group", "dm"].includes(scope)) {
+        filters = await filter.getByScope(scope);
+      } else {
+        filters = await filter.get(message.jid);
+      }
+
+      if (!filters || filters.length === 0) {
+        return await message.sendReply("_📭 Filtre bulunamadı!_");
+      }
+
+      let msg = `*📝 Aktif Filtreler:*\n\n`;
+
+      filters.forEach((f, index) => {
+        const scopeEmoji =
+          {
+            sohbet: "💬",
+            herkes: "🌍",
+            grup: "👥",
+            dm: "📱",
+          }[f.scope] || "💬";
+
+        const options = [];
+        if (f.exactMatch) options.push("exact");
+        if (f.caseSensitive) options.push("case");
+        const optionsStr = options.length ? ` [${options.join(", ")}]` : "";
+
+        msg += `${index + 1}. ${scopeEmoji} *${f.trigger}*${optionsStr}\n`;
+        msg += `   ↳ _${f.response.substring(0, 50)}${f.response.length > 50 ? "..." : ""
+          }_\n`;
+        msg += `   _Kapsam: ${f.scope}${f.enabled ? "" : " (devre dışı)"}_\n\n`;
+      });
+
+      await message.sendReply(msg);
+    } catch (error) {
+      console.error("Filtre listeleme hatası:", error);
+      await message.sendReply("_❌ Filtreler alınamadı!_");
+    }
+  }
+);
+
+Module({
+  pattern: "filtresil ?(.*)",
+  fromMe: false,
+  desc: "Daha önce oluşturulmuş olan bir filtre tetikleyicisini sistemden kalıcı olarak siler.",
+  usage: ".filtresil tetikleyici\n.filtresil tetikleyici herkes",
+  use: "grup",
+},
+  async (message, match) => {
+    let adminAccess = await isAdmin(message);
+    if (!message.fromOwner && !adminAccess) return;
+
+    const input = match[1]?.trim();
+    if (!input) {
+      return await message.sendReply("_🗑️ Silinecek filtre tetikleyicisini belirtin!_\n_Kullanım: .filtresil tetikleyici_"
+      );
+    }
+
+    const parts = input.split(" ");
+    const trigger = parts[0];
+    const scopeRaw = (parts[1] || "sohbet").toLowerCase();
+    const scopeMap = { sohbet: "chat", herkes: "global", grup: "group", dm: "dm" };
+    const scope = scopeMap[scopeRaw] || "chat";
+    if (parts[1] && !scopeMap[scopeRaw]) {
+      return await message.sendReply("_❌ Geçersiz kapsam! Şunları kullanın: sohbet, herkes, grup veya dm_"
+      );
+    }
+
+    try {
+      const deleted = await filter.delete(trigger, message.jid, scope);
+
+      if (deleted > 0) {
+        await message.sendReply(
+          `✅ _"${trigger}" filtresi başarıyla silindi!_`
+        );
+      } else {
+        await message.sendReply(`_❌ "${trigger}" filtresi bulunamadı!_`);
+      }
+    } catch (error) {
+      console.error("Filtre silme hatası:", error);
+      await message.sendReply("_🗑️ Filtre silinemedi!_");
+    }
+  }
+);
+
+Module({
+  pattern: "filtredurum ?(.*)",
+  fromMe: false,
+  desc: "Belirlediğiniz bir filtreyi geçici olarak devre dışı bırakır veya tekrar aktif eder.",
+  usage: ".filtredurum tetikleyici\n.filtredurum tetikleyici herkes",
+  use: "grup",
+},
+  async (message, match) => {
+    let adminAccess = await isAdmin(message);
+    if (!message.fromOwner && !adminAccess) return;
+
+    const input = match[1]?.trim();
+    if (!input) {
+      return await message.sendReply("_💬 Değiştirilecek filtre tetikleyicisini belirtin!_\n_Kullanım: .filtredurum tetikleyici_"
+      );
+    }
+
+    const parts = input.split(" ");
+    const trigger = parts[0];
+    const scopeRaw = (parts[1] || "sohbet").toLowerCase();
+    const scopeMap = { sohbet: "chat", herkes: "global", grup: "group", dm: "dm" };
+    const scope = scopeMap[scopeRaw] || "chat";
+    if (parts[1] && !scopeMap[scopeRaw]) {
+      return await message.sendReply("_❌ Geçersiz kapsam! Şunları kullanın: sohbet, herkes, grup veya dm_"
+      );
+    }
+
+    try {
+      const currentFilter = await filter.get(message.jid, trigger);
+      if (!currentFilter) {
+        return await message.sendReply(`❌ _"${trigger}" filtresi bulunamadı!_`);
+      }
+
+      const newStatus = !currentFilter.enabled;
+      const toggled = await filter.toggle(
+        trigger,
+        message.jid,
+        scope,
+        newStatus
+      );
+
+      if (toggled) {
+        await message.sendReply(
+          `✅ _"${trigger}" filtresi ${newStatus ? "açıldı" : "kapatıldı"
+          }!_`
+        );
+      } else {
+        await message.sendReply(`❌ _"${trigger}" filtresi değiştirilemedi!_`);
+      }
+    } catch (error) {
+      console.error("Filtre aç/kapa hatası:", error);
+      await message.sendReply("_❌ Filtre değiştirilemedi!_");
+    }
+  }
+);
+
+Module({
+  pattern: "testfiltre ?(.*)",
+  fromMe: false,
+  desc: "Yazdığınız bir kelimenin herhangi bir filtreyle eşleşip eşleşmediğini test eder.",
+  usage: ".testfiltre [metin]",
+  use: "grup",
+},
+  async (message, match) => {
+    let adminAccess = await isAdmin(message);
+    if (!message.fromOwner && !adminAccess) return;
+
+    const testText = match[1]?.trim();
+    if (!testText) {
+      return await message.sendReply("_💬 Filtrelere karşı test edilecek metni girin!_\n_Kullanım: .testfiltre merhaba dünya_"
+      );
+    }
+
+    try {
+      const matchedFilter = await filter.checkMatch(testText, message.jid);
+
+      if (matchedFilter) {
+        await message.sendReply(`✅ *Filtre Eşleşmesi Bulundu!*\n\n` +
+          `*Tetikleyici:* ${matchedFilter.trigger}\n` +
+          `*Yanıt:* ${matchedFilter.response}\n` +
+          `*Kapsam:* ${matchedFilter.scope}\n` +
+          `*Seçenekler:* ${matchedFilter.exactMatch ? "tam eşleşme " : ""}${matchedFilter.caseSensitive
+            ? "büyük/küçük harf duyarlı"
+            : "büyük/küçük harf duyarsız"
+          }`
+        );
+      } else {
+        await message.sendReply(
+          `❌ _"${testText}" hiçbir filtreyi tetiklemez_`
+        );
+      }
+    } catch (error) {
+      console.error("Filtre test hatası:", error);
+      await message.sendReply("_❌ Filtre test edilemedi!_");
+    }
+  }
+);
+
+Module({
+  pattern: "filtreyardım",
+  fromMe: false,
+  desc: "Filtreleme sistemi ve gelişmiş seçenekleri hakkında detaylı yardım sunar.",
+  usage: ".filtreyardım",
+  use: "grup",
+},
+  async (message) => {
+    const helpText =
+      `*🔧 Filtre Sistemi Yardımı*\n\n` +
+      `*Filtreler nedir?*\n` +
+      `Filtreler, belirli kelime veya ifadelere otomatik yanıt veren tetikleyicilerdir.\n\n` +
+      `*📝 Filtre Oluşturma:*\n` +
+      `\`${handler}filtre merhaba | Merhaba! Nasılsın?\`\n` +
+      `• Sohbete özel filtre oluşturur\n` +
+      `• Birisi "merhaba" yazdığında bot "Merhaba! Nasılsın?" yanıtını verir\n\n` +
+      `*🌍 Filtre Kapsamları:*\n` +
+      `• \`sohbet\` - Sadece mevcut sohbette çalışır\n` +
+      `• \`herkes\` - Tüm sohbetlerde çalışır\n` +
+      `• \`grup\` - Sadece tüm gruplarda çalışır\n` +
+      `• \`dm\` - Sadece tüm DM'lerde çalışır\n\n` +
+      `*⚙️ Filtre Seçenekleri:*\n` +
+      `• \`tam-eşleşme\` - Sadece tam kelime eşleşmesi\n` +
+      `• \`büyük-küçük\` - Büyük/küçük harf duyarlı eşleşme\n\n` +
+      `*📋 Örnekler:*\n` +
+      `\`${handler}filtre bot | Buradayım! | sohbet\`\n` +
+      `\`${handler}filtre yardım | Yöneticiyle iletişime geçin | herkes\`\n` +
+      `\`${handler}filtre Merhaba | Selam! | grup | tam-eşleşme\`\n` +
+      `\`${handler}filtre ŞİFRE | Şş! | dm | büyük-küçük\`\n\n` +
+      `*🔧 Yönetim:*\n` +
+      `• \`${handler}filtreler\` - Tüm filtreleri listele\n` +
+      `• \`${handler}filtresil tetikleyici\` - Filtreyi sil\n` +
+      `• \`${handler}filtredurum tetikleyici\` - Aç/kapat\n` +
+      `• \`${handler}testfiltre metin\` - Eşleşmeyi test et\n\n` +
+      `*💡 İpuçları:*\n` +
+      `• Her mesaj için filtreler kontrol edilir\n` +
+      `• Genel filtreler her yerde çalışır\n` +
+      `• Kesin tetikleyiciler için tam eşleşme kullanın\n` +
+      `• Şifre/kodlar için büyük/küçük harf duyarlı kullanışlıdır`;
+
+    await message.sendReply(helpText);
+  }
+);
+})();
+
+// ==========================================
+// FILE: sayac.js
+// ==========================================
+(function() {
+const { Module } = require('../main');
+const moment = require('moment-timezone');
+
+moment.locale('tr');
+
+
+
+function calculateTime(futureTime) {
+  const future = moment(futureTime, 'YYYY-MM-DD HH:mm:ss');
+  const now = moment();
+  const diff = future.diff(now);
+
+  if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+
+  const duration = moment.duration(diff);
+
+  return {
+    days: Math.floor(duration.asDays()),
+    hours: duration.hours(),
+    minutes: duration.minutes(),
+    seconds: duration.seconds(),
+  };
+}
+
+function findClosestDate(dates) {
+  const now = moment();
+  let closestDate = null;
+  let minDiff = Infinity;
+
+  dates.forEach((dateObj) => {
+    const date = moment(dateObj.date);
+    const diff = date.diff(now);
+
+    if (diff >= 0 && diff < minDiff) {
+      minDiff = diff;
+      closestDate = dateObj;
+    }
+  });
+
+  return closestDate;
+}
+
+Module({
+  pattern: 'ykssayaç',
+  fromMe: false,
+  desc: 'YKS (TYT/AYT/YDT) sınavlarına kalan süreyi veya tercih tarihlerini gösterir.',
+  usage: '.ykssayaç',
+  use: 'araçlar',
+},
+  async (m) => {
+    const sinavsonuc = '2026-07-22 07:30:00';
+    const tercihbaslangic = '2025-07-30 00:00:00';
+    const tercihbitis = '2025-08-08 23:59:59';
+    const now = moment();
+
+    if (now.isAfter(moment(tercihbitis, 'YYYY-MM-DD HH:mm:ss'))) {
+      const time1 = calculateTime('2026-06-20 10:15:00');
+      const time2 = calculateTime('2026-06-21 10:15:00');
+      const time3 = calculateTime('2026-06-21 15:45:00');
+
+      await m.sendReply(
+        `⏳ *TYT* sınavına *${time1.days} gün ${time1.hours} saat ${time1.minutes} dakika ${time1.seconds} saniye* kaldı!\n📅 *20 Haziran 2026 - 10:15*\n\n` +
+        `⏳ *AYT* sınavına *${time2.days} gün ${time2.hours} saat ${time2.minutes} dakika ${time2.seconds} saniye* kaldı!\n📅 *21 Haziran 2026 - 10:15*\n\n` +
+        `⏳ *YDT* sınavına *${time3.days} gün ${time3.hours} saat ${time3.minutes} dakika ${time3.seconds} saniye* kaldı!\n📅 *21 Haziran 2026 - 15:45*`
+      );
+    } else if (now.isBefore(moment(sinavsonuc, 'YYYY-MM-DD HH:mm:ss'))) {
+      const timeToResults = calculateTime(sinavsonuc);
+      await m.sendReply(
+        `👀 YKS sonuçlarının açıklanmasına *${timeToResults.days} gün ${timeToResults.hours} saat ${timeToResults.minutes} dakika ${timeToResults.seconds} saniye* kaldı!\n📅 *22 Temmuz 2025 - 07:30*`
+      );
+    } else if (now.isBefore(moment(tercihbaslangic, 'YYYY-MM-DD HH:mm:ss'))) {
+      const timeToPreferences = calculateTime(tercihbaslangic);
+      await m.sendReply(
+        `🎓 YKS tercihlerinin başlamasına *${timeToPreferences.days} gün ${timeToPreferences.hours} saat ${timeToPreferences.minutes} dakika ${timeToPreferences.seconds} saniye* kaldı!\n📅 *31 Temmuz 2025*`
+      );
+    } else if (now.isBefore(moment(tercihbitis, 'YYYY-MM-DD HH:mm:ss'))) {
+      const timeToEnd = calculateTime(tercihbitis);
+      await m.sendReply(
+        `⏰ YKS tercihlerinin bitmesine *${timeToEnd.days} gün ${timeToEnd.hours} saat ${timeToEnd.minutes} dakika ${timeToEnd.seconds} saniye* kaldı!\n📅 *8 Ağustos 2025 - 23:59*`
+      );
+    } else {
+      const time1 = calculateTime('2026-06-20 10:15:00');
+      await m.sendReply(
+        `🆕 2026 YKS süreci başladı!\n⏳ *TYT* sınavına ${time1.days} gün kaldı.\n📅 *20 Haziran 2026 - 10:15*`
+      );
+    }
+  }
+);
+
+Module({
+  pattern: 'kpsssayaç',
+  fromMe: false,
+  desc: 'KPSS (Lisans/Önlisans/Ortaöğretim/E-KPSS) sınavlarına kalan süreyi gösterir.',
+  usage: '.kpsssayaç',
+  use: 'araçlar',
+},
+  async (m) => {
+    const lisans = calculateTime('2026-09-06 10:15:00');
+    const onlisans = calculateTime('2026-10-04 10:15:00');
+    const ortaogretim = calculateTime('2026-10-25 10:15:00');
+    const ekpss = calculateTime('2026-04-19 10:15:00');
+    await m.sendReply(
+      `_(TAHMİNİ)_\n⏳ KPSS *(Lisans)* sınavına *${lisans.days} gün ${lisans.hours} saat ${lisans.minutes} dakika ${lisans.seconds} saniye* kaldı!\n📅 *26 Temmuz 2026 - 10:15*\n\n⏳ KPSS *(Önlisans)* sınavına *${onlisans.days} gün ${onlisans.hours} saat ${onlisans.minutes} dakika ${onlisans.seconds} saniye* kaldı!\n📅 *4 Ekim 2026 - 10:15*\n\n⏳ KPSS *(Ortaöğretim)* sınavına *${ortaogretim.days} gün ${ortaogretim.hours} saat ${ortaogretim.minutes} dakika ${ortaogretim.seconds} saniye* kaldı!\n📅 *25 Ekim 2026 - 10:15*\n\n⏳ *E-KPSS* sınavına *${ekpss.days} gün ${ekpss.hours} saat ${ekpss.minutes} dakika ${ekpss.seconds} saniye* kaldı!\n📅 *19 Nisan 2026 - 10:15*`
+    );
+  }
+);
+
+Module({
+  pattern: 'msüsayaç',
+  fromMe: false,
+  desc: 'MSÜ sınavına kalan süreyi gösterir.',
+  usage: '.msüsayaç',
+  use: 'araçlar',
+},
+  async (m) => {
+    const targetDate = moment('2026-03-01 10:15:00');
+    const now = moment();
+
+    if (now.isAfter(targetDate)) {
+      await m.sendReply(
+        `❗ *OPS! MSÜ sınavı bu yıl için tamamlandı.* ✅\n📅 *1 Mart 2026 - 10:15*`
+      );
+    } else {
+      const time = calculateTime(targetDate);
+      await m.sendReply(
+        `⏳ *MSÜ* sınavına *${time.days} gün ${time.hours} saat ${time.minutes} dakika ${time.seconds}* saniye kaldı!\n📅 *1 Mart 2026 - 10:15*`
+      );
+    }
+  }
+);
+
+Module({
+  pattern: 'okulsayaç',
+  fromMe: false,
+  desc: 'Okulların kapanmasına, ara tatillere veya yeni döneme kalan süreyi gösterir.',
+  usage: '.okulsayaç',
+  use: 'araçlar',
+},
+  async (m) => {
+    const schoolDates = [
+      { date: '2025-11-10 08:00:00', label: '1. Dönem ara tatili' },
+      { date: '2026-01-19 08:00:00', label: 'Yarıyıl tatili' },
+      { date: '2026-03-16 08:00:00', label: '2. Dönem ara tatili' },
+      { date: '2026-06-26 08:00:00', label: 'Yaz Tatili' },
+    ];
+    let closestDateObj = findClosestDate(schoolDates);
+    if (!closestDateObj) {
+      closestDateObj = {
+        date: '2025-09-08 08:00:00',
+        label: 'Okulların açılışı',
+      };
+    }
+
+    const time = calculateTime(closestDateObj.date);
+    const formattedDate = moment(closestDateObj.date).format('DD MMMM YYYY - dddd');
+
+    await m.sendReply(
+      `🧐 En yakın tarih: *${closestDateObj.label}*\n⏳ ${closestDateObj.label === 'Okulların açılışı'
+        ? 'Okulların açılmasına'
+        : 'Okulların kapanmasına'
+      } *${time.days} gün ${time.hours} saat ${time.minutes} dakika ${time.seconds}* saniye kaldı! 🥳\n📅 *${formattedDate}*`
+    );
+  }
+);
+
+Module({
+  pattern: 'ramazansayaç',
+  fromMe: false,
+  desc: 'Ramazan ayının başlangıcına veya bitişine kalan süreyi gösterir.',
+  usage: '.ramazansayaç',
+  use: 'araçlar',
+},
+  async (m) => {
+    const ramazanStart = '2026-02-19 02:23:00';
+    const ramazanEnd = '2026-03-19 19:30:00';
+    const now = moment();
+
+    if (now.isBetween(moment(ramazanStart), moment(ramazanEnd))) {
+      const time = calculateTime(ramazanEnd);
+      await m.sendReply(
+        `⏳ Ramazan ayının bitmesine *${time.days} gün ${time.hours} saat ${time.minutes} dakika ${time.seconds} saniye* kaldı! 🥲\n📅 *19 Mart 2026 - Perşembe*`
+      );
+    } else if (now.isBefore(moment(ramazanStart))) {
+      const time = calculateTime(ramazanStart);
+      await m.sendReply(
+        `⏳ Ramazan ayına girmemize *${time.days} gün ${time.hours} saat ${time.minutes} dakika ${time.seconds} saniye* kaldı! 😍\n📅 *19 Şubat 2026 - Perşembe*`
+      );
+    }
+  }
+);
+})();
+
+// ==========================================
+// FILE: group-updates.js
+// ==========================================
+(function() {
+const {
+  antifake,
+  antibot,
+  antipdm,
+  antipromote,
+  antidemote,
+  welcome,
+  goodbye,
+  isAdmin,
+} = require("./utils");
+const { automute, autounmute, stickcmd } = require("./utils/db/schedulers");
+const {
+  parseWelcomeMessage,
+  sendWelcomeMessage,
+} = require("./utils/welcome-parser");
+
+async function isSuperAdmin(message, user = message.client.user.id) {
+  const metadata = await message.client.groupMetadata(message.jid);
+  let superadmin = metadata.participants.filter((v) => v.admin == "superadmin");
+  superadmin = superadmin.length ? superadmin[0].id == user : false;
+  return superadmin;
+}
+const { Module } = require("../main");
+const config = require("../config");
+const { ALLOWED, ADMIN_ACCESS, SUDO } = config;
+const handler = config.HANDLER_PREFIX;
+
+function tConvert(time) {
+  time = time.toString().match(/^([01]\d|2[0-3])( )([0-5]\d)(:[0-5]\d)?$/) || [
+    time,
+  ];
+  if (time.length > 1) {
+    time = time.slice(1);
+    time[5] = +time[0] < 12 ? " AM" : " PM";
+    time[0] = +time[0] % 12 || 12;
+  }
+  return time.join("").replace(" ", ":");
+}
+
+async function extractData(message) {
+  return message.quoted.message.stickerMessage.fileSha256.toString();
+}
+Module({
+  pattern: "otoçıkartma ?(.*)",
+  fromMe: false,
+  desc: "Komutları çıkartmalara yapıştırır. Çıkartma gönderilirse komut gibi çalışır!",
+  use: "araçlar",
+  usage: ".otoçıkartma .ban",
+  warn: "Sadece çıkartmalarda çalışır",
+},
+  async (message, match) => {
+    if (!match[1] || !message.reply_message || !message.reply_message.sticker)
+      return await message.sendReply("_💬 Bir çıkartmayı yanıtlayın_\n_Ör: *.otoçıkartma .ban*_"
+      );
+    try {
+      await stickcmd.set(match[1], await extractData(message));
+    } catch {
+      return await message.sendReply("_❌ Başarısız!_");
+    }
+    await message.client.sendMessage(
+      message.jid,
+      {
+        text: `_✨ ${match[1]} komutu bu çıkartmaya yapıştırıldı! Yeniden bağlanılıyor..._`,
+      },
+      {
+        quoted: message.quoted,
+      }
+    );
+  }
+);
+
+Module({
+  pattern: "otoçıkartmasil ?(.*)",
+  fromMe: false,
+  desc: "Çıkartmalardaki komutları siler",
+  usage: ".otoçıkartmasil .ban",
+  use: "araçlar",
+},
+  async (message, match) => {
+    if (message.reply_message && message.reply_message.sticker) {
+      let deleted = await stickcmd.delete(await extractData(message), "file");
+      if (deleted)
+        return await message.client.sendMessage(
+          message.jid,
+          {
+            text: `_🗑️ Çıkartma komutlardan kaldırıldı!_`,
+          },
+          {
+            quoted: message.quoted,
+          }
+        );
+      if (!deleted && match[1]) {
+        const delete_again = await stickcmd.delete(match[1], "command");
+        if (delete_again)
+          return await message.sendReply(
+            `_🗑️ ${match[1]} sabit komutlardan kaldırıldı!_`
+          );
+        if (!delete_again)
+          return await message.sendReply("_❌ Böyle bir çıkartma/komut bulunamadı!_");
+      }
+      if (!deleted && !match[1])
+        return await message.send("_❌ Böyle bir çıkartma bulunamadı!_");
+    } else if (match[1] && !message.reply_message) {
+      let deleted = await stickcmd.delete(match[1], "command");
+      if (deleted)
+        return await message.sendReply(
+          `_✅ ${match[1]} sabit komutlardan başarıyla kaldırıldı!_`
+        );
+      if (!deleted)
+        return await message.sendReply("_❌ Böyle bir komut bulunamadı!_");
+    } else
+      return await message.sendReply("_💬 Çıkartmaya yanıt verin veya komut girin!_\n_Ör: *.otoçıkartmasil .ban*_"
+      );
+  }
+);
+
+Module({
+  pattern: "otoçıkartmalar ?(.*)",
+  fromMe: false,
+  desc: "Çıkartmalardaki komutları gösterir",
+  use: "araçlar",
+},
+  async (message, match) => {
+    const all = await stickcmd.get();
+    const commands = all.map((element) => element.dataValues.command);
+    const msg = commands.join("_\n_");
+    message.sendReply("_*✨ Çıkartma yapılmış komutlar:*_\n\n_" + msg + "_");
+  }
+);
+
+Module({
+  pattern: "otosohbetkapat ?(.*)",
+  fromMe: false,
+  desc: "Grup sohbetinin otomatik kapanma özelliğini aktif eder.",
+  warn: "Sunucu saatine göre çalışır",
+  use: "grup",
+},
+  async (message, match) => {
+    let adminAccesValidated = await isAdmin(message);
+    if (message.fromOwner || adminAccesValidated) {
+      match = match[1]?.toLowerCase();
+      if (!match)
+        return await message.sendReply("*✨ Yanlış format!*\n*.otosohbetkapat 22 00 (Saat 22:00 için)*\n*.otosohbetkapat 06 00 (Saat 06:00 için)*\n*.otosohbetkapat kapat*"
+        );
+      if (match.includes("am") || match.includes("pm"))
+        return await message.sendReply("_⏰ Zaman SS DD (24 saat) formatında olmalıdır (Örn: 22 00)_"
+        );
+      if (match == "kapat") {
+        await automute.delete(message.jid);
+        return await message.sendReply("📴 *Otomatik sohbet kapatma devre dışı bırakıldı ❗*"
+        );
+      }
+      const mregex = /[0-2][0-9] [0-5][0-9]/;
+      if (!mregex.test(match?.match(/(\d+)/g)?.join(" "))) {
+        return await message.sendReply("*_⚠️ Yanlış format!_\n_.otosohbetkapat 22 00 (Saat 22:00 için)_\n_.otosohbetkapat 06 00 (Saat 06:00 için)_*");
+      }
+
+      // Çift isAdmin() kontrolüne gerek yok, zaten en başta adminAccesValidated ile kontrol ettik
+      if (!message.isBotAdmin) {
+        return await message.sendReply("*❌ İşlemi yapabilmem için lütfen benim grubunuzda _yönetici_ olduğuma emin olun!*");
+      }
+
+      await automute.set(message.jid, match.match(/(\d+)/g)?.join(" "));
+      await message.sendReply(
+        `*_⏰ Grup ${tConvert(match.match(/(\d+)/g).join(" "))} saatinde otomatik susturulacak._*`
+      );
+    }
+  }
+);
+
+Module({
+  pattern: "otosohbetaç ?(.*)",
+  fromMe: false,
+  desc: "Grup sohbetinin otomatik açılma özelliğini aktif eder.",
+  warn: "Sunucu saatine göre çalışır",
+  use: "grup",
+},
+  async (message, match) => {
+    let adminAccesValidated = await isAdmin(message);
+    if (message.fromOwner || adminAccesValidated) {
+      match = match[1]?.toLowerCase();
+      if (!match) {
+        return await message.sendReply("*_⚠️ Yanlış format!_*\n*_.otosohbetaç 22 00 (Saat 22:00 için)_*\n*_.otosohbetaç 06 00 (Saat 06:00 için)_*\n*_.otosohbetaç kapat_*");
+      }
+      if (match.includes("am") || match.includes("pm")) {
+        return await message.sendReply("_⏰ Zaman SS DD (24 saat) formatında olmalıdır (Örn: 08 00)_");
+      }
+      if (match === "kapat") {
+        await autounmute.delete(message.jid);
+        return await message.sendReply("*❌ _Otomatik sohbet açma devre dışı bırakıldı!_*");
+      }
+      const mregex2 = /[0-2][0-9] [0-5][0-9]/;
+      if (mregex2.test(match?.match(/(\d+)/g)?.join(" ")) === false)
+        return await message.sendReply("*_⚠️ Yanlış format!_\n_.otosohbetaç 22 00 (Saat 22:00 için)_\n_.otosohbetaç 06 00 (Saat 06:00 için)_*"
+        );
+      const admin2 = await isAdmin(message);
+      if (!admin2) return await message.sendReply("*❌ Yönetici değilim!*");
+      await autounmute.set(message.jid, match?.match(/(\d+)/g)?.join(" "));
+      await message.sendReply(
+        `*_⏰ Grup ${tConvert(match)} saatinde otomatik açılacak, sistemi yeniden başlatıyorum..._*`
+      );
+      process.exit(0);
+    }
+  }
+);
+
+Module({
+  pattern: "otosohbet ?(.*)",
+  fromMe: true,
+  onlyAdmin: true,
+  desc: "Grup sohbetinin otomatik açılış ve kapanış saatlerini ayarlar. (Örn: .otosohbet 09:00|23:00)",
+  use: "grup",
+},
+  async (message, match) => {
+    let adminAccesValidated = await isAdmin(message);
+    if (message.fromOwner || adminAccesValidated) {
+      const mute = await automute.get();
+      const unmute = await autounmute.get();
+      let msg = "";
+      for (e in mute) {
+        let temp = unmute.find((element) => element.chat === mute[e].chat);
+        if (temp && temp.time) {
+          mute[e].unmute = temp.time;
+        }
+        msg +=
+          `*${Math.floor(parseInt(e) + 1)}. Grup:* ${(await message.client.groupMetadata(mute[e].chat)).subject
+          }
+*➥ Sessizlik:* ${tConvert(mute[e].time)}
+*➥ Sessizlik Açılış:* ${tConvert(mute[e].unmute || "Ayarlanmadı")}` + "\n\n";
+      }
+      if (!msg) return await message.sendReply("_❌ Susturma/Açma kaydı bulunamadı!_");
+      message.sendReply("*⏰ Zamanlanmış Susturmalar/Açmalar*\n\n" + msg);
+    }
+  }
+);
+
+Module({
+  on: "groupParticipants",
+  fromMe: false,
+},
+  async (message, match) => {
+    message.myjid = message.client.user.lid ? message.client.user.lid.split(":")[0] : message.client.user.id.split(":")[0];
+    const db = await antifake.get();
+    let sudos = SUDO.split(",");
+    const jids = [];
+    db.map((data) => {
+      jids.push(data.jid);
+    });
+    const antipdmdb = await antipdm.get();
+    const antipdmjids = [];
+    antipdmdb.map((data) => {
+      antipdmjids.push(data.jid);
+    });
+    const apdb = await antipromote.get();
+    const apjids = [];
+    apdb.map((data) => {
+      apjids.push(data.jid);
+    });
+    const addb = await antidemote.get();
+    const adjids = [];
+    addb.map((data) => {
+      adjids.push(data.jid);
+    });
+    const admin_jids = [];
+    const admins = (await message.client.groupMetadata(message.jid)).participants
+      .filter((v) => v.admin !== null)
+      .map((x) => x.id.split(":")[0] + "@s.whatsapp.net");
+    admins.map(async (user) => {
+      admin_jids.push(user);
+    });
+    if (
+      (message.action == "promote" || message.action == "demote") &&
+      antipdmjids.includes(message.jid)
+    ) {
+      if (message.from.split("@")[0] == message.myjid) return;
+      const targetUser = typeof message.participant[0] === "string" ? message.participant[0] : message.participant[0].id;
+
+      const notifyJids = [...admin_jids];
+      notifyJids.push(message.from);
+      notifyJids.push(targetUser);
+
+      await message.client.sendMessage(message.jid, {
+        text: `_*${message.action == "promote" ? "🔔 (Yetki verme algılandı!)" : "🔔 (Yetki alma algılandı!)"
+          }*_\n\n_Yönetici @${message.from.split("@")[0]},\n @${targetUser.split("@")[0]
+          } üyesini ${message.action == "promote" ? "yönetici yaptı._" : "yöneticilikten aldı._"}`,
+        mentions: [...new Set(notifyJids)],
+      });
+    }
+    if (message.action == "promote" && apjids.includes(message.jid)) {
+      const targetUser = typeof message.participant[0] === "string" ? message.participant[0] : message.participant[0].id;
+      if (
+        message.from.split("@")[0] == message.myjid ||
+        sudos.includes(message.from.split("@")[0]) ||
+        targetUser.split("@")[0] == message.myjid ||
+        (await isSuperAdmin(message, message.from))
+      )
+        return;
+      const botId = message.client.user.id.split(":")[0] + "@s.whatsapp.net";
+      const isAdminPromote = await isAdmin(message, botId);
+      if (!isAdminPromote) return;
+      await message.client.groupParticipantsUpdate(
+        message.jid,
+        [message.from],
+        "demote"
+      );
+      return await message.client.groupParticipantsUpdate(
+        message.jid,
+        [targetUser],
+        "demote"
+      );
+    }
+    if (message.action == "demote" && adjids.includes(message.jid)) {
+      const targetUser = typeof message.participant[0] === "string" ? message.participant[0] : message.participant[0].id;
+      if (
+        message.from.split("@")[0] == message.myjid ||
+        sudos.includes(message.from.split("@")[0]) ||
+        (await isSuperAdmin(message, message.from))
+      )
+        return;
+      if (targetUser.split("@")[0] == message.myjid) {
+        return await message.client.sendMessage(message.jid, {
+          text: `_*❌ Bot yetkisi düşürüldü, geri yükleme yapılamıyor* [Yetki düşüren: @${message.from.split("@")[0]
+            }]_`,
+          mentions: admin_jids,
+        });
+      }
+      const botId = message.client.user.id.split(":")[0] + "@s.whatsapp.net";
+      const isAdminDemote = await isAdmin(message, botId);
+      if (!isAdminDemote) return;
+      await message.client.groupParticipantsUpdate(
+        message.jid,
+        [message.from],
+        "demote"
+      );
+      return await message.client.groupParticipantsUpdate(
+        message.jid,
+        [targetUser],
+        "promote"
+      );
+    }
+    if (message.action === "add" && jids.includes(message.jid)) {
+      const fakeRecord = db.find((d) => d.jid === message.jid);
+      const groupAllowed = (fakeRecord && fakeRecord.allowed) ? fakeRecord.allowed : (ALLOWED || "90");
+      const allowed = groupAllowed.split(",").map((p) => p.trim()).filter(Boolean);
+      let participantId = typeof message.participant[0] === "string" ? message.participant[0] : message.participant[0].id;
+
+      // YÖNETİCİ BYPASS: Gruba bir yönetici tarafından manüel eklenen kişiler korunur ve göz ardı edilir.
+      if (message.from) {
+        const { isBotIdentifier } = require("./utils/lid-helper");
+        const adderClean = message.from.split(":")[0] + "@s.whatsapp.net";
+
+        if (isBotIdentifier(adderClean, message.client)) return; // Bot'un eklediklerini atla
+
+        try {
+          const isActionByAdmin = await isAdmin(message, adderClean);
+          if (isActionByAdmin) {
+            return console.log(`[Anti-Numara] Uyarı: Bir yönetici birini eklediği için antinumara istisnası uygulandı.`);
+          }
+        } catch (e) { }
+      }
+
+      // MIGRATION: Antinumara için LID'yi Telefon Numarasına Çevir
+      let isLid = participantId.includes("@lid");
+      if (isLid) {
+        try {
+          const { resolveLidToPn } = require("../core/lid-helper");
+          const resolvedPn = await resolveLidToPn(message.client, participantId);
+          if (resolvedPn && resolvedPn !== participantId) {
+            participantId = resolvedPn;
+            isLid = false; // Başarıyla PN'ye çevrildi
+          }
+        } catch (e) { }
+      }
+
+      // KÖKTEN ÇÖZÜM: LID çözülemediği durumlarda (+90 numaralı biri bile olsa WhatsApp
+      // gizlilik ayarlarından dolayı numarası gizlenmiş olabilir), rastgele LID numarasını
+      // yabancı numara sanıp atmaması için işlemi güvenli bir şekilde pas geçiyoruz.
+      if (participantId.includes("@lid")) {
+        console.log(`[Anti-Numara] ${participantId} telefon numarasına (PN) çevrilemedi. Gerçek numara gizli olduğu için es geçildi.`);
+        return;
+      }
+
+      // KÖKTEN ÇÖZÜM: LID ve PN her koşulda inceleniyor
+      const participantNumber = participantId.split("@")[0];
+      const isAllowedNumber = allowed.some((prefix) =>
+        participantNumber.startsWith(prefix)
+      );
+
+      // Yabancı numara veya çözülemeyen LID tespit edildi
+      if (!isAllowedNumber) {
+        const { isBotIdentifier } = require("./utils/lid-helper");
+
+        // Bot'un kendisi olup olmadığını kontrol edelim
+        if (isBotIdentifier(participantId, message.client)) return;
+
+        // Bot admin mi? WhatsApp Multi-Device session (örn. :15) kimlik karmaşası yaratmaması için temizliyoruz.
+        const botIdClean = message.client.user.id.split(":")[0] + "@s.whatsapp.net";
+        const isBotAdmin = await isAdmin(message, botIdClean);
+        if (!isBotAdmin) {
+          return console.log("[Anti-Numara] Bot yönetici olmadığı için atma işlemi iptal edildi.");
+        }
+
+        // Atılacak hedefi belirle
+        const targetKick = typeof message.participant[0] === "string" ? message.participant[0] : message.participant[0].id;
+
+        // Kullanıcıya şeffaf bildirim yapalım
+        await message.client.sendMessage(message.jid, {
+          text: `🚨 *Anti-Numara Koruması!*\n\n🛡️ _İzin verilmeyen bir numara tespit ettim._\n🧹 _Gruptan uzaklaştırıyorum..._`
+        });
+
+        try {
+          await message.client.groupParticipantsUpdate(
+            message.jid,
+            [targetKick],
+            "remove"
+          );
+          console.log(`[Anti-Numara] ${targetKick} gruptan atıldı.`);
+        } catch (err) {
+          console.error(`[Anti-Numara] Atma hatası:`, err);
+          await message.client.sendMessage(message.jid, {
+            text: `❌ *Bot kişiyi atarken WhatsApp kaynaklı bir sunucu hatası yaşadı.*\n(Lütfen kişiyi manuel atınız.)`
+          });
+        }
+      }
+    }
+
+    if (message.action === "add") {
+      const welcomeData = await welcome.get(message.jid);
+      if (welcomeData && welcomeData.enabled) {
+        try {
+          const parsedMessage = await parseWelcomeMessage(
+            welcomeData.message,
+            message,
+            message.participant
+          );
+          if (parsedMessage) {
+            await sendWelcomeMessage(message, parsedMessage);
+          }
+        } catch (error) {
+          console.error("Hoş geldin mesajı gönderilirken hata:", error);
+        }
+      }
+    }
+
+    if (message.action === "remove") {
+      const goodbyeData = await goodbye.get(message.jid);
+      if (goodbyeData && goodbyeData.enabled) {
+        try {
+          const parsedMessage = await parseWelcomeMessage(
+            goodbyeData.message,
+            message,
+            message.participant
+          );
+          if (parsedMessage) {
+            await sendWelcomeMessage(message, parsedMessage);
+          }
+        } catch (error) {
+          console.error("Hoşça kal mesajı gönderilirken hata:", error);
+        }
+      }
+    }
+  }
+);
+})();
+
+// ==========================================
+// FILE: mention.js
+// ==========================================
+(function() {
+const { Module } = require("../main");
+const config = require("../config");
+const { SUDO } = config;
+const { uploadToCatbox } = require("./utils/upload");
+
+const fs = require("fs");
+const path = require("path");
+
+const handler = config.HANDLER_PREFIX;
+
+const { setVar, delVar } = require("./manage");
+
+function getMentionReply() {
+  try {
+    return config.MENTION_REPLY ? JSON.parse(config.MENTION_REPLY) : null;
+  } catch (error) {
+    console.error("Etiket yanıtı ayrıştırma hatası:", error);
+    return null;
+  }
+}
+
+async function setMentionReply(data) {
+  try {
+    return await setVar("MENTION_REPLY", JSON.stringify(data));
+  } catch (error) {
+    console.error("Etiket yanıtı ayarlama hatası:", error);
+    return false;
+  }
+}
+
+async function deleteMentionReply() {
+  try {
+    return await delVar("MENTION_REPLY");
+  } catch (error) {
+    console.error("Etiket yanıtı silme hatası:", error);
+    return false;
+  }
+}
+
+function isSudoUser(jid) {
+  if (!jid) return false;
+
+  let sudoMap = [];
+  if (config.SUDO_MAP) {
+    try {
+      sudoMap = JSON.parse(config.SUDO_MAP);
+      if (!Array.isArray(sudoMap)) sudoMap = [];
+    } catch (e) {
+      sudoMap = [];
+    }
+  }
+
+  return sudoMap.includes(jid);
+}
+
+Module({
+  pattern: "bahsetme ?(.*)",
+  fromMe: false,
+  desc: "Biri sizi etiketlediğinde botun vereceği otomatik yanıtı ayarlamanıza, görüntülemenize veya silmenize olanak tanır.",
+  use: "araçlar",
+  usage: ".bahsetme [mesaj/getir/sil/yardım]",
+},
+  async (message, match) => {
+    const args = match[1]?.trim().split(" ");
+    const subcommand = args?.[0]?.toLowerCase();
+    const input = args?.slice(1).join(" ");
+
+    if (!subcommand) {
+      return await message.sendReply(`Lütfen bir alt komut belirtin!\n\n*Mevcut komutlar:*\n• \`${handler}bahsetme mesaj\` - Etiket yanıtını ayarla (mesajı yanıtla veya metin ekle)\n• \`${handler}bahsetme getir\` - Mevcut etiket yanıtını görüntüle\n• \`${handler}bahsetme sil\` - Etiket yanıtını sil\n• \`${handler}bahsetme yardım\` - Ayrıntılı yardımı göster`
+      );
+    }
+
+    switch (subcommand) {
+      case "sil":
+        const success = await deleteMentionReply();
+        if (success) {
+          return await message.sendReply("✅ Bahsetme yanıtı başarıyla silindi!");
+        } else {
+          return await message.sendReply("🗑️ Bahsetme yanıtı silinemedi!");
+        }
+
+      case "getir":
+      case "göster":
+        const mentionData = getMentionReply();
+        if (!mentionData) {
+          return await message.sendReply("Bahsetme yanıtı ayarlanmadı!\n\n*Kullanım:*\n• Bir mesajı yanıtlayıp `.bahsetme mesaj` yazın\n• Veya metin mesajı için `.bahsetme mesaj <metin>` kullanın"
+          );
+        }
+
+        let responseText = "*Mevcut Etiket Yanıtı:*\n\n";
+        responseText += `*Tür:* \`${mentionData.type.toUpperCase()}\`\n`;
+        if (mentionData.caption) {
+          responseText += `*Başlık:* _${mentionData.caption}_\n`;
+        }
+        if (mentionData.url) {
+          responseText += `*Medya URL:* \`${mentionData.url}\`\n`;
+        }
+        responseText += `*Ayarlandı:* _${new Date(
+          mentionData.timestamp
+        ).toLocaleString()}_`;
+
+        return await message.sendReply(responseText);
+
+      case "mesaj":
+        if (message.reply_message) {
+          try {
+            const replyMsg = message.reply_message;
+            let mentionData = {
+              type: "text",
+              content: "",
+              caption: "",
+              url: "",
+              timestamp: new Date().toISOString(),
+            };
+
+            if (
+              replyMsg.image ||
+              replyMsg.video ||
+              replyMsg.audio ||
+              replyMsg.document ||
+              replyMsg.sticker
+            ) {
+              let mediaType = "document";
+              if (replyMsg.image) mediaType = "image";
+              else if (replyMsg.video) mediaType = "video";
+              else if (replyMsg.audio) mediaType = "audio";
+              else if (replyMsg.sticker) mediaType = "sticker";
+
+              const downloadedFilePath = await replyMsg.download();
+
+              const uploadResult = await uploadToCatbox(downloadedFilePath);
+
+              fs.unlinkSync(downloadedFilePath);
+
+              if (uploadResult && uploadResult.url) {
+                mentionData.type = mediaType;
+                mentionData.url = uploadResult.url;
+                mentionData.caption = replyMsg.text || "";
+              } else {
+                return await message.sendReply("⚠️ Medya yüklenemedi! Lütfen tekrar deneyin."
+                );
+              }
+            } else if (replyMsg.text) {
+              mentionData.type = "text";
+              mentionData.content = replyMsg.text;
+            } else {
+              return await message.sendReply("💬 Bahsetme yanıtı için desteklenmeyen mesaj türü!"
+              );
+            }
+
+            const success = await setMentionReply(mentionData);
+            if (success) {
+              return await message.sendReply(`✅ Bahsetme yanıtı başarıyla ayarlandı!\n\n*Tür:* \`${mentionData.type.toUpperCase()}\`\n*İçerik:* _${mentionData.content || mentionData.caption || "Medya dosyası"
+                }_`
+              );
+            } else {
+              return await message.sendReply("⚙️ Bahsetme yanıtı ayarlanamadı!");
+            }
+          } catch (error) {
+            console.error("Etiket yanıtı ayarlama hatası:", error);
+            return await message.sendReply("❌ Bahsetme yanıtı ayarlanırken hata oluştu! Lütfen tekrar deneyin."
+            );
+          }
+        }
+
+        if (input && input.trim()) {
+          const mentionData = {
+            type: "text",
+            content: input.trim(),
+            caption: "",
+            url: "",
+            timestamp: new Date().toISOString(),
+          };
+
+          const success = await setMentionReply(mentionData);
+          if (success) {
+            return await message.sendReply(
+              `Etiket yanıtı başarıyla ayarlandı!\n\n*İçerik:* _${mentionData.content}_`
+            );
+          } else {
+            return await message.sendReply("⚙️ Bahsetme yanıtı ayarlanamadı!");
+          }
+        }
+
+        return await message.sendReply(`💬 Lütfen 'mesaj' komutu için içerik sağlayın!\n\n*Kullanım:*\n• Herhangi bir mesajı yanıtlayın ve \`${handler}bahsetme mesaj\` yazın\n• Veya metin mesajı için \`${handler}bahsetme mesaj <metin>\` kullanın`);
+
+      case "yardım":
+        const helpText = `🏷️ *Otomatik @Bahsetme (Etiket) Cevaplama Yardımı*
+
+*Nedir?*
+Birisi botu veya yöneticileri etiketlediğinde, bot otomatik olarak kaydedilmiş yanıtı gönderir.
+
+*Komutlar:* _(Sadece sahip)_
+• \`${handler}bahsetme mesaj\` - Etiket yanıtı olarak ayarlamak için herhangi bir mesajı yanıtlayın
+• \`${handler}bahsetme mesaj <text>\` - Metni etiket yanıtı olarak ayarla
+• \`${handler}bahsetme getir\` - Mevcut etiket yanıtını görüntüle
+• \`${handler}bahsetme sil\` - Etiket yanıtını sil
+
+*Desteklenen Türler:*
+• Metin mesajları
+• Görseller _(başlıklı)_
+• Videolar _(başlıklı)_
+• Ses dosyaları
+• Çıkartmalar
+• Belgeler
+
+*Nasıl çalışır:*
+1. Yukarıdaki komutları kullanarak etiket yanıtı ayarlayın
+2. Birisi mesajda botu veya yöneticileri etiketlediğinde
+3. Bot otomatik olarak kaydedilmiş yanıtı gönderir
+
+*Örnekler:*
+• Bir resmi yanıtlayıp şunu yazın \`${handler}bahsetme mesaj\`
+• \`${handler}bahsetme mesaj Efendim kanka?\`
+• \`${handler}bahsetme getir\` - mevcut yanıtı görmek için
+• \`${handler}bahsetme sil\` - yanıtı kaldırmak için
+
+_ℹ️ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
+
+        return await message.sendReply(helpText);
+
+      default:
+        return await message.sendReply(`❌ Bilinmeyen alt komut: \`${subcommand}\`\n\n*Mevcut komutlar:*\n• \`${handler}bahsetme mesaj\` - Etiket yanıtını ayarla\n• \`${handler}bahsetme getir\` - Mevcut etiket yanıtını görüntüle\n• \`${handler}bahsetme sil\` - Etiket yanıtını sil\n• \`${handler}bahsetme yardım\` - Yardımı göster`
+        );
+    }
+  }
+);
+
+Module({
+  on: "text",
+  fromMe: false,
+},
+  async (message) => {
+    try {
+      if (
+        !message.mention ||
+        !Array.isArray(message.mention) ||
+        message.mention.length === 0
+      ) {
+        return;
+      }
+
+      const botId = message.client.user?.lid?.split(":")[0] + "@s.whatsapp.net";
+      const botNumericId = botId?.split("@")[0];
+
+      let isMentioned = false;
+
+      for (const mentionedJid of message.mention) {
+        const mentionedNumericId = mentionedJid?.split("@")[0];
+
+        if (mentionedNumericId === botNumericId || mentionedJid === botId) {
+          isMentioned = true;
+          break;
+        }
+
+        if (isSudoUser(mentionedJid)) {
+          isMentioned = true;
+          break;
+        }
+      }
+
+      if (!isMentioned) {
+        return;
+      }
+
+      const mentionData = getMentionReply();
+      if (!mentionData) {
+        return;
+      }
+
+      switch (mentionData.type) {
+        case "text":
+          if (mentionData.content) {
+            await message.sendReply(mentionData.content);
+          }
+          break;
+
+        case "image":
+          if (mentionData.url) {
+            await message.sendReply({ url: mentionData.url }, "image", {
+              caption: mentionData.caption || "",
+            });
+          }
+          break;
+
+        case "video":
+          if (mentionData.url) {
+            await message.sendReply({ url: mentionData.url }, "video", {
+              caption: mentionData.caption || "",
+            });
+          }
+          break;
+
+        case "audio":
+          if (mentionData.url) {
+            await message.sendReply({ url: mentionData.url }, "audio", {
+              ptt: true,
+              mimetype: "audio/mpeg",
+            });
+          }
+          break;
+
+        case "sticker":
+          if (mentionData.url) {
+            await message.sendReply({ url: mentionData.url }, "sticker");
+          }
+          break;
+
+        case "document":
+          if (mentionData.url) {
+            await message.sendReply({ url: mentionData.url }, "document", {
+              caption: mentionData.caption || "",
+            });
+          }
+          break;
+      }
+    } catch (error) {
+      console.error("Otomatik etiket yanıtında hata:", error);
+    }
+  }
+);
+})();
+
+// ==========================================
+// FILE: message-stats.js
+// ==========================================
+(function() {
+const { mentionjid, isAdmin } = require("./utils");
+const { ADMIN_ACCESS } = require("../config");
+const { Module } = require("../main");
+const {
+  fetchFromStore,
+  getTopUsers,
+  getGlobalTopUsers,
+  incrementStats,
+} = require("../core/store");
+const fs = require("fs");
+const path = require("path");
+
+
+function timeSince(date, lang = "tr") {
+  if (!date) return lang === "tr" ? "Hiç" : "Never";
+  const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+  let interval = Math.floor(seconds / 31536000);
+  if (interval >= 1) return lang == "tr" ? `${interval} yıl önce` : `${interval} years ago`;
+  interval = Math.floor(seconds / 2592000);
+  if (interval >= 1) return lang == "tr" ? `${interval} ay önce` : `${interval} months ago`;
+  interval = Math.floor(seconds / 604800);
+  if (interval >= 1) return lang == "tr" ? `${interval} hafta önce` : `${interval} weeks ago`;
+  interval = Math.floor(seconds / 86400);
+  if (interval >= 1) return lang == "tr" ? `${interval} gün önce` : `${interval} days ago`;
+  interval = Math.floor(seconds / 3600);
+  if (interval >= 1) return lang == "tr" ? `${interval} saat önce` : `${interval} hours ago`;
+  interval = Math.floor(seconds / 60);
+  if (interval >= 1) return lang == "tr" ? `${interval} dakika önce` : `${interval} minutes ago`;
+  return lang == "tr" ? `az önce` : `just now`;
+}
+
+function parseDuration(number, unit) {
+  const num = parseInt(number);
+  if (isNaN(num)) return null;
+  switch (unit) {
+    case "gün":
+      return num * 24 * 60 * 60 * 1000;
+    case "hafta":
+      return num * 7 * 24 * 60 * 60 * 1000;
+    case "ay":
+      return num * 30 * 24 * 60 * 60 * 1000;
+    case "yıl":
+      return num * 365 * 24 * 60 * 60 * 1000;
+    default:
+      return null;
+  }
+}
+
+
+async function sendBanAudio(message) {
+  const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
+  try {
+    if (!fs.existsSync(audioPath)) {
+      console.error("Ban sesi dosyası bulunamadı:", audioPath);
+      return;
+    }
+    const stream = fs.createReadStream(audioPath);
+    try {
+      await message.send({ stream }, "audio");
+    } finally {
+      stream.destroy();
+    }
+  } catch (err) {
+    console.error("Ban sesini gönderirken hata:", err);
+  }
+}
+
+function parseDurationInput(duration) {
+  const regex = /^(\d+)\s*(gün|hafta|ay|yıl|d|w|m|y)$/i;
+  const match = String(duration || "").trim().match(regex);
+  if (!match) return null;
+
+  const value = parseInt(match[1]);
+  const unitRaw = match[2].toLowerCase();
+  const unitMap = { d: "gün", w: "hafta", m: "ay", y: "yıl" };
+  const unit = unitMap[unitRaw] || unitRaw;
+  const ms = parseDuration(value, unit);
+  if (!ms) return null;
+  return new Date(Date.now() - ms);
+}
+
+Module({
+  pattern: "mesajlar ?(.*)",
+  fromMe: false,
+  desc: "Grup üyelerinin gönderdiği toplam mesaj sayılarını ve mesaj türü dağılımlarını liste halinde sunar.",
+  usage: ".mesajlar (mesaj gönderen tüm üyeler)\n.mesajlar @etiket (belirli bir üye)",
+  use: "araçlar",
+},
+  async (message, match) => {
+    if (!message.isGroup)
+      return await message.sendReply("⚠ _Bu komut sadece gruplarda kullanılabilir!_");
+
+    var users = (await message.client.groupMetadata(message.jid)).participants.map((e) => e.id);
+    if (message.mention?.[0]) users = message.mention;
+    if (message.reply_message && !message.mention.length)
+      users = [message.reply_message?.jid];
+
+    let userStats = await fetchFromStore(message.jid);
+    let usersWithMessages = [];
+
+    for (let user of users) {
+      let userStat = userStats.find((stat) => stat.userJid === user);
+      if (userStat && userStat.totalMessages > 0) {
+        usersWithMessages.push({
+          jid: user,
+          stat: userStat,
+        });
+      }
+    }
+
+    usersWithMessages.sort((a, b) => b.stat.totalMessages - a.stat.totalMessages);
+
+    if (usersWithMessages.length === 0) {
+      return await message.sendReply("❌ _Veritabanında mesaj gönderen üye bulunamadı._");
+    }
+
+    let final_msg = `👥 _${usersWithMessages.length} üye tarafından gönderilen mesajlar_
+🏆 _Mesaj sayısına göre sıralanmış (en yüksekten en düşüğe)_
+
+`;
+    let mentionsList = [];
+
+    for (let i = 0; i < usersWithMessages.length; i++) {
+      let userObj = usersWithMessages[i];
+      let user = userObj.jid;
+      let userStat = userObj.stat;
+      let count = userStat.totalMessages;
+      let name = userStat.User?.name?.replace(/[\r\n]+/gm, "") || "Bilinmiyor";
+      let lastMsg = timeSince(userStat.lastMessageAt);
+      let types_msg = "\n";
+
+      if (userStat.textMessages > 0)
+        types_msg += `💬 Metin: *${userStat.textMessages}*\n`;
+      if (userStat.imageMessages > 0)
+        types_msg += `🖼️ Görsel: *${userStat.imageMessages}*\n`;
+      if (userStat.videoMessages > 0)
+        types_msg += `🎥 Video: *${userStat.videoMessages}*\n`;
+      if (userStat.audioMessages > 0)
+        types_msg += `🎙 Ses: *${userStat.audioMessages}*\n`;
+      if (userStat.stickerMessages > 0)
+        types_msg += `🎨 Çıkartma: *${userStat.stickerMessages}*\n`;
+      if (userStat.otherMessages > 0)
+        types_msg += `📎 Diğer: *${userStat.otherMessages}*\n`;
+
+      mentionsList.push(user);
+      final_msg += `${i + 1}. 👤 Üye: @${user.split("@")[0]}\n`;
+      final_msg += `📝 İsim: *${name}*\n`;
+      final_msg += `📊 Toplam mesaj: *${count}*\n`;
+      final_msg += `🕒 Son mesaj: *${lastMsg}*${types_msg}\n`;
+    }
+
+    return await message.client.sendMessage(message.jid, {
+      text: final_msg,
+      mentions: mentionsList,
+    });
+  }
+);
+
+
+Module({
+  pattern: "üyetemizle ?(.*)",
+  fromMe: false,
+  desc: "Belirtilen süre boyunca mesaj atmayan üyeleri listeler veya çıkarır.",
+  usage:
+    ".üyetemizle 30 gün | .üyetemizle 2 hafta | .üyetemizle 3 ay | .üyetemizle 1 yıl\n\n" +
+    "Komutun sonuna 'çıkar' ekleyerek üyeleri gruptan atabilirsiniz.",
+  use: "araçlar",
+},
+  async (message, match) => {
+    try {
+      if (!message.isGroup) {
+        return await message.sendReply("❌ _Bu komut sadece grup sohbetlerinde kullanılabilir!_");
+      }
+      const admin = await isAdmin(message);
+      if (!admin) {
+        return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
+      }
+      if (!match[1]?.trim()) {
+        return await message.sendReply(
+          "❗  *Lütfen şu şekillerde kullanınız:*\n" +
+          ".üyetemizle 30 gün\n" +
+          ".üyetemizle 2 hafta\n" +
+          ".üyetemizle 3 ay\n" +
+          ".üyetemizle 1 yıl\n" +
+          "🧹 _(Üyeleri çıkarmak için komut sonuna *çıkar* ekleyebilirsiniz.)_"
+        );
+      }
+      const args = (match[1] || "").trim().split(/\s+/);
+      const durationStr = args[0];
+      const durationUnit = args[1]?.toLowerCase();
+      const shouldKick = args.includes("çıkar");
+      const durationMs = parseDuration(durationStr, durationUnit);
+      if (!durationMs) {
+        return await message.sendReply(
+          "❌ _Geçersiz süre formatı!_\n" +
+          "Örnekler:\n" +
+          ".üyetemizle 30 gün\n" +
+          ".üyetemizle 2 hafta\n" +
+          ".üyetemizle 3 ay\n" +
+          ".üyetemizle 1 yıl çıkar"
+        );
+      }
+      const cutoffDate = new Date(Date.now() - durationMs);
+      const groupMetadata = await message.client.groupMetadata(message.jid);
+      const participants = groupMetadata.participants.map((p) => p.id);
+      const admins = groupMetadata.participants.filter((p) => p.admin !== null).map((p) => p.id);
+      const userStats = await fetchFromStore(message.jid);
+      let oldestMessageDate = null;
+      if (userStats.length > 0) {
+        const oldest = userStats.reduce((oldest, current) => {
+          const currDate = new Date(current.lastMessageAt || current.createdAt);
+          const oldDate = new Date(oldest.lastMessageAt || oldest.createdAt);
+          return currDate < oldDate ? current : oldest;
+        });
+        oldestMessageDate = new Date(oldest.lastMessageAt || oldest.createdAt);
+      }
+      const dataWarning = oldestMessageDate && cutoffDate < oldestMessageDate;
+      let inactiveMembers = [];
+      for (const user of participants) {
+        if (admins.includes(user)) continue;
+        const userStat = userStats.find((stat) => stat.userJid === user);
+        if (!userStat || !userStat.lastMessageAt) {
+          inactiveMembers.push({ jid: user, lastMessage: "*Hiç mesaj yok*", totalMessages: userStat?.totalMessages || 0 });
+          continue;
+        }
+        const lastMsgDate = new Date(userStat.lastMessageAt);
+        if (lastMsgDate < cutoffDate) {
+          inactiveMembers.push({ jid: user, lastMessage: timeSince(userStat.lastMessageAt, "tr"), totalMessages: userStat.totalMessages });
+        }
+      }
+      if (shouldKick) {
+        const botIsAdmin = await isAdmin(message);
+        if (!botIsAdmin) {
+          return await message.sendReply("⚠️ _Üzgünüm! Üyeleri çıkarabilmem için yönetici olmam gerekiyor._");
+        }
+        if (inactiveMembers.length === 0) {
+          return await message.sendReply("😎 _Belirtilen süre zarfında çıkarılacak inaktif üye bulunamadı._");
+        }
+        const kickMsg =
+          `⚠️ _Dikkat! Bu işlem geri alınamaz._\n` +
+          `🧹 _Toplam ${inactiveMembers.length} üye ${durationStr} ${durationUnit} boyunca sessiz kaldıkları için çıkarılacaklar._\n` +
+          `_5 saniye içinde başlıyoruz. Dua etmeye başlayın..._ 🥲`;
+        await message.client.sendMessage(message.jid, { text: kickMsg, mentions: inactiveMembers.map((m) => m.jid) });
+        await sendBanAudio(message);
+        await new Promise((r) => setTimeout(r, 5000));
+        let kickCount = 0;
+        for (let i = 0; i < Math.min(inactiveMembers.length, 20); i++) {
+          const member = inactiveMembers[i];
+          try {
+            await new Promise((r) => setTimeout(r, 3000));
+            await message.client.groupParticipantsUpdate(message.jid, [member.jid], "remove");
+            kickCount++;
+            if (kickCount % 5 === 0) {
+              await message.send(`_Şu ana kadar ${kickCount}/${inactiveMembers.length} üye gruptan çıkarıldı..._`);
+            }
+          } catch (err) {
+            console.error("Üye çıkarılırken hata:", err);
+            await message.send(`❌ @${member.jid.split("@")[0]} çıkarılırken bir sorun oluştu.`);
+          }
+        }
+        return await message.send(`✅ _Toplam ${kickCount}/${inactiveMembers.length} inaktif üye gruptan çıkarıldı._`);
+      }
+      if (inactiveMembers.length === 0) {
+        return await message.sendReply(`_Belirtilen süre (${durationStr} ${durationUnit}) için inaktif üye bulunamadı._`);
+      }
+      let responseMsg =
+        `ℹ️ *Son _${durationStr} ${durationUnit}_ boyunca mesaj atmayan üyeler;* _(${inactiveMembers.length})_\n` +
+        `_(Kendilerine birer fatiha okuyalım)_ 🥲\n\n`;
+      if (dataWarning) {
+        responseMsg +=
+          `⚠️ _Dikkat! Veritabanı yalnızca ${timeSince(oldestMessageDate, "tr")}'den itibaren kayıt tutuyor. ` +
+          `Bu tarihten önce aktif olanlar da inaktif sayılmış olabilir._\n\n`;
+      }
+      for (let i = 0; i < inactiveMembers.length; i++) {
+        const member = inactiveMembers[i];
+        responseMsg += `${i + 1}. @${member.jid.split("@")[0]}\n`;
+        responseMsg += `   _Son mesaj:_ ${member.lastMessage}\n`;
+        responseMsg += `   _Toplam mesaj:_ ${member.totalMessages}\n\n`;
+      }
+      return await message.client.sendMessage(message.jid, {
+        text: responseMsg,
+        mentions: inactiveMembers.map((m) => m.jid),
+      });
+    } catch (err) {
+      console.error("üyetemizle komutunda hata:", err);
+      return await message.sendReply("⚠️ _Bir hata oluştu. Lütfen tekrar deneyin._");
+    }
+  }
+);
+
+
+Module({
+  pattern: "users ?(.*)",
+  fromMe: true,
+  desc: "Tüm sohbetlerde veya mevcut grupta en çok mesaj gönderen lider kullanıcıları sıralı olarak listeler.",
+  usage: ".users | .users [sayı] | .users genel [sayı]",
+  use: "araçlar",
+},
+  async (message, match) => {
+    let adminAccesValidated =
+      message.isGroup ? await isAdmin(message) : false;
+    if (message.fromOwner || adminAccesValidated) {
+      let limit = 10;
+      let isGlobal = false;
+
+      if (match[1]) {
+        const args = (match[1] || "").trim().split(" ");
+
+        if (args.includes("genel")) {
+          isGlobal = true;
+
+          const limitArg = args.find(
+            (arg) => arg !== "genel" && !isNaN(parseInt(arg))
+          );
+          if (limitArg) {
+            const parsedLimit = parseInt(limitArg);
+            if (parsedLimit > 0 && parsedLimit <= 50) {
+              limit = parsedLimit;
+            } else if (parsedLimit > 50) {
+              return await message.sendReply("_👤 Maksimum sınır 50 kullanıcıdır._");
+            }
+          }
+        } else {
+          const parsedLimit = parseInt(args[0]);
+          if (parsedLimit && parsedLimit > 0 && parsedLimit <= 50) {
+            limit = parsedLimit;
+          } else if (parsedLimit > 50) {
+            return await message.sendReply("_👤 Maksimum sınır 50 kullanıcıdır._");
+          } else if (parsedLimit <= 0) {
+            return await message.sendReply("_⚠️ Sınır pozitif bir sayı olmalıdır._"
+            );
+          }
+        }
+      }
+
+      if (!message.isGroup && !match[1]?.includes("chat")) {
+        isGlobal = true;
+      }
+
+      try {
+        let topUsers;
+        let scopeText;
+
+        if (isGlobal) {
+          topUsers = await getGlobalTopUsers(limit);
+          scopeText = "genel";
+        } else {
+          topUsers = await getTopUsers(message.jid, limit);
+          scopeText = message.isGroup ? "group" : "chat";
+        }
+
+        if (topUsers.length === 0) {
+          return await message.sendReply(
+            `📊 _${scopeText} istatistikleri için veritabanında kullanıcı verisi bulunamadı._`
+          );
+        }
+
+        let responseMsg = `_Mesaj sayısına göre en iyi ${topUsers.length} ${scopeText} kullanıcı_\n\n`;
+
+        for (let i = 0; i < topUsers.length; i++) {
+          const user = topUsers[i];
+          const rank = i + 1;
+          const name = user.name?.replace(/[\r\n]+/gm, "") || "Bilinmiyor";
+          const lastMessage = timeSince(user.lastMessageAt);
+
+          responseMsg += `*${rank}.* @${(user.userJid || user.jid || "").split("@")[0]}\n`;
+          responseMsg += `   _İsim:_ ${name}\n`;
+          responseMsg += `   _Mesajlar:_ ${user.totalMessages}${isGlobal ? " (tüm sohbetlerde)" : ""
+            }\n`;
+          responseMsg += `   _Son görülme:_ ${lastMessage}\n\n`;
+        }
+
+        if (isGlobal) {
+          responseMsg += `\n_💡 İpucu: Sadece mevcut sohbet istatistikleri için \`.users chat\` kullanın._`;
+        } else if (message.isGroup) {
+          responseMsg += `\n_💡 İpucu: Tüm sohbetlerdeki genel istatistikler için \`.users global\` kullanın._`;
+        }
+
+        const mentions = topUsers.map((user) => user.userJid || user.jid).filter(Boolean);
+
+        return await message.client.sendMessage(message.jid, {
+          text: responseMsg,
+          mentions: mentions,
+        });
+      } catch (error) {
+        console.error("Kullanıcılar komutunda hata:", error);
+        return await message.sendReply("_⚠️ Kullanıcı verisi alınamadı. Lütfen tekrar deneyin._"
+        );
+      }
+    }
+  }
+);
+
+Module({
+  on: "message",
+  fromMe: false, // Track others
+  desc: "Mesaj istatistiklerini günceller.",
+},
+  async (message) => {
+    try {
+      let type = "text";
+      if (message.image) type = "image";
+      else if (message.video) type = "video";
+      else if (message.audio) type = "audio";
+      else if (message.sticker) type = "sticker";
+      else if (!message.text) type = "other";
+
+      await incrementStats(message.jid, message.sender, type);
+    } catch (err) {
+      console.error("İstatistik artırma hatası:", err);
+    }
+  }
+);
+
+Module({
+  on: "text",
+  fromMe: true, // Track self (pattern matching for commands usually excludes this, but 'on: message'/text catches it)
+},
+  async (message) => {
+    // Only track if it's NOT a command (to avoid double counting with patterns, 
+    // although commands usually have their own logic. But here we want to track all)
+    try {
+      let type = "text";
+      if (message.image) type = "image";
+      else if (message.video) type = "video";
+      else if (message.audio) type = "audio";
+      else if (message.sticker) type = "sticker";
+      else if (!message.text) type = "other";
+
+      await incrementStats(message.jid, message.sender, type);
+    } catch (err) {
+      console.error("İstatistik artırma hatası (self):", err);
+    }
+  }
+);
+})();
+
