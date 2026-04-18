@@ -142,7 +142,7 @@ async function getRuntimeStats() {
     const [msgMetric, cmdMetric, userCount, groupCount] = await Promise.all([
       BotMetric.findByPk('total_messages'),
       BotMetric.findByPk('total_commands'),
-      UserData.count(),
+      require('./store').getTotalUserCount(),
       GroupSettings.count()
     ]);
 

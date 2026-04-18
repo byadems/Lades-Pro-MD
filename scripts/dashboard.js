@@ -189,7 +189,7 @@ app.get('/api/status', async (req, res) => {
     const [msgM, cmdM, uCount, gCount] = await Promise.all([
       BotMetric.findByPk('total_messages'),
       BotMetric.findByPk('total_commands'),
-      UserData.count(),
+      require('../core/store').getTotalUserCount(),
       GroupSettings.count()
     ]);
     totalMessages = msgM ? parseInt(msgM.value) : 0;

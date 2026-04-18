@@ -372,8 +372,7 @@ _Merhaba $user!_
       let cmdmenu = final.trim();
       const used = bytesToSize(process.memoryUsage().rss); // Northflank Container RAM Usage Fix
       const total = bytesToSize(os.totalmem());
-      const { UserData } = require("../core/database");
-      const totalUsers = await UserData.count().catch(() => 0); // UserData'dan gerçek kişi sayısı
+      const totalUsers = await require("../core/store").getTotalUserCount();
       const botInfo = config.BOT_INFO || "Lades-Pro;Lades-Pro;";
       const infoParts = botInfo.split(";");
       const botName = infoParts[0] || "Lades-Pro";
