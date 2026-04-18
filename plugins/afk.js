@@ -186,7 +186,6 @@ Module({
          `ℹ️ _Biri size mesaj attığında veya sizi etiketlediğinde otomatik yanıt vereceğim._\n` +
          `ℹ️ _Çevrimiçi olmak için herhangi bir mesaj yazın._`
        );
-      );
     }
   }
 );

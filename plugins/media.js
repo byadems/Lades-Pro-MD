@@ -617,7 +617,7 @@
 🏢 Yapım Şirketi: ${data.label}
 🤔 Spotify: ${"spotify" in data.external_metadata ? "Mevcut" : "Mevcut Değil"}
 ▶️ YouTube: *${"youtube" in data.external_metadata ? "https://youtu.be/" + data.external_metadata.youtube.vid : "Mevcut Değil"}*\n
-💡 *İpucu:* _İndirmek için_ `.şarkı ${ data.title }` _yazabilirsiniz._`,
+💡 *İpucu:* _İndirmek için_ \`.şarkı ${ data.title }\` _yazabilirsiniz._`,
     };
 
   await message.client.sendMessage(message.jid, Message);

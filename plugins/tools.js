@@ -370,9 +370,10 @@ _Merhaba $user!_
       }
 
       let cmdmenu = final.trim();
-      const used = bytesToSize(os.freemem());
+      const used = bytesToSize(process.memoryUsage().rss); // Northflank Container RAM Usage Fix
       const total = bytesToSize(os.totalmem());
-      const totalUsers = await getTotalUserCount();
+      const { UserData } = require("../core/database");
+      const totalUsers = await UserData.count().catch(() => 0); // UserData'dan gerçek kişi sayısı
       const botInfo = config.BOT_INFO || "Lades-Pro;Lades-Pro;";
       const infoParts = botInfo.split(";");
       const botName = infoParts[0] || "Lades-Pro";
@@ -392,8 +393,8 @@ _Merhaba $user!_
         const localFile = localCandidates.find((f) => fs.existsSync(path.join(imagesDir, f)));
 
         if (localFile) {
-          // Buffer yerine doğrudan dosya yolu (URL objesi) kullanarak Baileys'in mimetype/thumbnail ayarlarını doğru yapmasını sağlıyoruz (Northflank uyumluluğu için)
-          imgContent = { url: path.join(imagesDir, localFile) };
+          // Cloud/Container (Bulut sunucu) uyumluluğu için URL/Path Object okuma yerine kesin buffer kullanılır.
+          imgContent = fs.readFileSync(path.join(imagesDir, localFile));
           if (localFile.endsWith('.png')) imgMimeType = "image/png";
         }
       }

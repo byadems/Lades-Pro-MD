@@ -130,7 +130,7 @@ Module({
       await setVar(key.trim(), value, message);
     } catch (error) {
       await message.sendReply(
-        `❌ *'${key.trim()}' değişkeni ayarlanamadı.*\n⚠️ *Hata:* `${ error.message }``
+        `❌ *'${key.trim()}' değişkeni ayarlanamadı.*\n⚠️ *Hata:* \`${ error.message }\``
       );
     }
   }
@@ -179,7 +179,7 @@ Module({
       await delVar(key.trim(), message);
     } catch (error) {
       await message.sendReply(
-        `❌ *'${key.trim()}' değişkeni silinemedi.*\n⚠️ *Hata:* `${ error.message }``
+        `❌ *'${key.trim()}' değişkeni silinemedi.*\n⚠️ *Hata:* \`${ error.message }\``
       );
     }
   }
@@ -601,7 +601,7 @@ Module({
         );
       if (!disabled.includes(match)) {
         disabled.push(match.trim());
-        await message.sendReply(`❌ *'${handler}${match}' komutu başarıyla kapatıldı!*\nℹ️ _Tekrar açmak için `${ handler }toggle ${ match }` kullanın._`
+        await message.sendReply(`❌ *'${handler}${match}' komutu başarıyla kapatıldı!*\nℹ️ _Tekrar açmak için \`${ handler }toggle ${ match }\` kullanın._`
         );
         return await setVar("DISABLED_COMMANDS", disabled.join(","), false);
       } else {
@@ -650,7 +650,7 @@ Module({
         return await message.sendReply(
           `🚨 *Bot Engelleme Sistemi (Anti-Bot)*\n\n` +
           `ℹ️ *Mevcut Durum:* ${status} ${jids.includes(message.jid) ? "✅" : "❌"}\n` +
-          `💬 *Kullanım:* `.antibot aç / kapat``
+          `💬 *Kullanım:* \`.antibot aç / kapat\``
         );
       }
       await message.sendReply(
