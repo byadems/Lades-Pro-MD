@@ -508,7 +508,14 @@ class BaseMessage {
     let jid = this.jid;
 
     // 1. Direct Baileys generic signature: sendMessage(jid, content, options)
-    if (typeof arg1 === "string" && arg1.includes("@")) {
+    const isJid = typeof arg1 === "string" && !arg1.includes(" ") && (
+      arg1.endsWith("@s.whatsapp.net") || 
+      arg1.endsWith("@g.us") || 
+      arg1.endsWith("@lid") || 
+      arg1.endsWith("@newsletter") || 
+      arg1 === "status@broadcast"
+    );
+    if (isJid) {
       return this.client.sendMessage(arg1, arg2, arg3 || {});
     }
 

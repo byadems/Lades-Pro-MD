@@ -174,12 +174,10 @@ Module({
 
         try {
           const r = await axios.get('https://api.nexray.web.id/downloader/v2/instagram?url=' + encodeURIComponent(url), { timeout: 40000 });
-          const media = r.data.result?.media;
+          const media = r.data.result?.media || r.data.result;
           if (media && Array.isArray(media)) {
-            for (const item of media.slice(0, 3)) {
-              if (item.url && (item.type === 'video' || item.type === 'mp4')) {
-                allMediaUrls.push(item.url);
-              }
+            for (const item of media.slice(0, 10)) {
+              if (item.url) allMediaUrls.push(item.url);
             }
             if (allMediaUrls.length > 0) found = true;
           }
@@ -190,10 +188,8 @@ Module({
             const r = await axios.get('https://api.nexray.web.id/downloader/instagram?url=' + encodeURIComponent(url), { timeout: 40000 });
             const nexrayData = r.data.result;
             if (nexrayData && Array.isArray(nexrayData)) {
-              for (const item of nexrayData.slice(0, 3)) {
-                if (item.url && (item.type === 'video' || item.url.includes('.mp4'))) {
-                  allMediaUrls.push(item.url);
-                }
+              for (const item of nexrayData.slice(0, 10)) {
+                if (item.url) allMediaUrls.push(item.url);
               }
               if (allMediaUrls.length > 0) found = true;
             }
@@ -204,27 +200,12 @@ Module({
           try {
             const fallback = await siputGet("/api/d/sssinstagram", { url });
             const r = fallback.result || fallback.data;
-
-            if (r?.url && !Array.isArray(r)) {
-              const items = r.url;
-              if (Array.isArray(items)) {
-                for (const item of items.slice(0, 5)) {
-                  if (item?.url && Array.isArray(item.url)) {
-                    for (const u of item.url.slice(0, 3)) {
-                      if (u?.url?.startsWith("http")) allMediaUrls.push(u.url);
-                    }
-                  }
-                }
-                if (allMediaUrls.length > 0) found = true;
-              }
-            }
-
-            if (!found && r && Array.isArray(r)) {
-              for (const item of r.slice(0, 5)) {
-                if (item?.url && Array.isArray(item.url)) {
-                  for (const u of item.url.slice(0, 3)) {
-                    if (u?.url?.startsWith("http")) allMediaUrls.push(u.url);
-                  }
+            const items = Array.isArray(r) ? r : (r?.url || r?.data);
+            if (Array.isArray(items)) {
+              for (const item of items.slice(0, 10)) {
+                const mUrl = typeof item === 'string' ? item : (item.url || item.download_url);
+                if (mUrl && typeof mUrl === 'string' && mUrl.startsWith("http")) {
+                  allMediaUrls.push(mUrl);
                 }
               }
               if (allMediaUrls.length > 0) found = true;
@@ -236,15 +217,12 @@ Module({
           try {
             const fallback = await siputGet("/api/d/igram", { url });
             const r = fallback.result || fallback.data;
-            if (r && Array.isArray(r)) {
-              for (const item of r.slice(0, 5)) {
-                const edges = item?.node?.media?.edges;
-                if (edges && Array.isArray(edges)) {
-                  for (const edge of edges.slice(0, 5)) {
-                    if (edge?.node?.display_url) {
-                      allMediaUrls.push(edge.node.display_url);
-                    }
-                  }
+            const items = Array.isArray(r) ? r : (r?.url || r?.data);
+            if (Array.isArray(items)) {
+              for (const item of items.slice(0, 10)) {
+                const mUrl = typeof item === 'string' ? item : (item.url || item.download_url);
+                if (mUrl && typeof mUrl === 'string' && mUrl.startsWith("http")) {
+                  allMediaUrls.push(mUrl);
                 }
               }
               if (allMediaUrls.length > 0) found = true;
@@ -256,27 +234,12 @@ Module({
           try {
             const fallback = await siputGet("/api/d/fastdl", { url });
             const r = fallback.result || fallback.data;
-
-            if (r?.url && !Array.isArray(r)) {
-              const items = r.url;
-              if (Array.isArray(items)) {
-                for (const item of items.slice(0, 5)) {
-                  if (item?.url && Array.isArray(item.url)) {
-                    for (const u of item.url.slice(0, 3)) {
-                      if (u?.url?.startsWith("http")) allMediaUrls.push(u.url);
-                    }
-                  }
-                }
-                if (allMediaUrls.length > 0) found = true;
-              }
-            }
-
-            if (!found && r && Array.isArray(r)) {
-              for (const item of r.slice(0, 5)) {
-                if (item?.url && Array.isArray(item.url)) {
-                  for (const u of item.url.slice(0, 3)) {
-                    if (u?.url?.startsWith("http")) allMediaUrls.push(u.url);
-                  }
+            const items = Array.isArray(r) ? r : (r?.url || r?.data);
+            if (Array.isArray(items)) {
+              for (const item of items.slice(0, 10)) {
+                const mUrl = typeof item === 'string' ? item : (item.url || item.download_url);
+                if (mUrl && typeof mUrl === 'string' && mUrl.startsWith("http")) {
+                  allMediaUrls.push(mUrl);
                 }
               }
               if (allMediaUrls.length > 0) found = true;
@@ -465,9 +428,8 @@ Module({
         cleanTempFile(tempPath);
       }
     }
-    userIdentifier = userIdentifier
-      .replace("https://instagram.com/stories/", "")
-      .split("/")[0];
+    const storyMatch = userIdentifier.match(/stories\/([A-Za-z0-9._]+)/i);
+    userIdentifier = storyMatch ? storyMatch[1] : userIdentifier;
     await message.sendReply(`_${userIdentifier} kullanıcısının (${storyData.length} hikayesi iletiliyor...)_`, { quoted: message.data });
     for (const storyMediaUrl of storyData) {
       const isImage = isMediaImage(storyMediaUrl);

@@ -223,8 +223,26 @@ async function downloadInstagram(url, options = {}) {
     if (data?.status && data?.result) {
       const r = data.result;
       if (r.media && Array.isArray(r.media)) {
-        const urls = r.media.map(m => (typeof m === 'object' ? (m?.video_url || m?.url || m?.thumbnail) : m)).filter(Boolean);
-        if (urls.length) return [...new Set(urls)];
+        let urls = [];
+        const isSingleStory = cleanUrl.includes("/stories/") && /\d+$/.test(cleanUrl);
+
+        if (isSingleStory) {
+          // Tekil hikaye bağlantısında sadece asıl medyayı al (videoyu tercih et)
+          const video = r.media.find(m => m.type === "video" || m.video_url);
+          if (video) urls = [video.video_url || video.url];
+          else if (r.media[0]) urls = [r.media[0].url || r.media[0].thumbnail];
+        } else {
+          // Normal postlarda hepsi alınır ama video varsa thumbnail'ı elemek için basit bir kontrol:
+          // Eğer sadece 2 öğe varsa ve biri video biri fotoğrafsa, fotoğraf muhtemelen thumbnail'dır.
+          const hasVideo = r.media.some(m => m.type === "video" || m.video_url);
+          if (hasVideo && r.media.length === 2 && r.media.some(m => m.type === "image")) {
+            urls = r.media.filter(m => m.type === "video" || m.video_url).map(m => m.video_url || m.url);
+          } else {
+            urls = r.media.map(m => (typeof m === 'object' ? (m?.video_url || m?.url || m?.thumbnail) : m));
+          }
+        }
+        const filtered = urls.filter(Boolean);
+        if (filtered.length) return [...new Set(filtered)];
       }
       if (r.url) return [r.url];
       if (r.video_url) return [r.video_url];

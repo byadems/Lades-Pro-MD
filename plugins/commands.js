@@ -369,6 +369,7 @@ Module({
     const botVersion = VERSION;
     // Görsel Yükleme Mantığı (Geliştirilmiş & Stabil)
     let imgContent = null;
+    let imgMimeType = "image/jpeg";
     const imagePart = infoParts.find((p) => (p || "").trim().startsWith("http"));
     const botImageUrl = (imagePart || "").trim();
 
@@ -380,12 +381,9 @@ Module({
       const localFile = localCandidates.find((f) => fs.existsSync(path.join(imagesDir, f)));
 
       if (localFile) {
-        // Baileys Buffer veriyi %100 oranında destekler. URL veya Path yerine doğrudan okuyoruz.
-        try {
-          imgContent = fs.readFileSync(path.join(imagesDir, localFile));
-        } catch (err) {
-          config.logger.error(`[Menu] Resim okunurken hata: ${err}`);
-        }
+        // Buffer yerine doğrudan dosya yolu (URL objesi) kullanarak Baileys'in mimetype/thumbnail ayarlarını doğru yapmasını sağlıyoruz (Northflank uyumluluğu için)
+        imgContent = { url: path.join(imagesDir, localFile) };
+        if (localFile.endsWith('.png')) imgMimeType = "image/png";
       }
     }
 
@@ -419,6 +417,7 @@ ${cmdmenu}`;
         await message.client.sendMessage(message.jid, {
           image: imgContent,
           caption: menu,
+          mimetype: imgMimeType
         });
       } else {
         await message.client.sendMessage(message.jid, { text: menu });
