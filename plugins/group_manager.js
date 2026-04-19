@@ -1045,14 +1045,14 @@
   })();
 
   Module({
-    pattern: "toplukatıl ?(.*)",
+    pattern: "toplukatıl(?:\\s+([\\s\\S]*))?",
     fromMe: false,
     use: "sistem",
     desc: "Birden fazla grup bağlantısını toplu olarak işleyerek gruplara sırayla katılmamı sağlar.",
     usage: ".toplukatıl [link1, link2...]",
   },
     async (message, match) => {
-      const rgx = /(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]{22})(?:\?[^\s,]*)*/g;
+      const rgx = /(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]+)(?:\?[^\s,]*)*/g;
       if (!match[1] || !match[1].trim()) {
         return await message.sendReply(
           `❌ *Lütfen grup bağlantısı girin!*\n\n` +
@@ -1098,7 +1098,7 @@
       const filteredLinks = [];
       for (let link of links) {
         const codeMatch = link.match(
-          /(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]{22})/
+          /(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]+)/
         );
         if (!codeMatch || !codeMatch[1]) continue;
         const code = codeMatch[1];

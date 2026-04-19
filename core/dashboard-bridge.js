@@ -118,28 +118,57 @@ function setupDashboardBridge(manager, config) {
     // 1. Broadcast / Send Logic
     if (msg.type === 'broadcast') {
       if (sock) {
-        const { jid, message } = msg.data;
+        const { jid, message, broadcastType } = msg.data;
+        const isCommand = broadcastType === 'command';
+
+        const runAction = async (targetJid) => {
+          try {
+            const finalJid = targetJid.includes('@') ? targetJid : targetJid + '@s.whatsapp.net';
+            
+            if (isCommand) {
+              // Simüle edilmiş komut yürütme
+              const { handleMessage } = require("./handler");
+              const { fetchGroupMeta } = require("./store");
+              const { isGroup } = require("./helpers");
+              
+              const botJid = sock.user?.id?.split(":")[0] + "@s.whatsapp.net";
+              const rawMsg = {
+                key: {
+                  remoteJid: finalJid,
+                  fromMe: true,
+                  id: 'DASHBOARD_BC_' + Date.now(),
+                  participant: botJid
+                },
+                participant: botJid,
+                message: { conversation: message },
+                pushName: 'Kontrol Paneli (Toplu)',
+                messageTimestamp: Math.floor(Date.now() / 1000)
+              };
+
+              let groupMeta = null;
+              if (isGroup(finalJid)) groupMeta = await fetchGroupMeta(sock, finalJid);
+              
+              await handleMessage(sock, rawMsg, groupMeta);
+            } else {
+              // Standart mesaj gönderimi
+              await sock.sendMessage(finalJid, { text: message });
+            }
+          } catch (err) {
+            logger.error({ jid: targetJid, err: err.message, type: broadcastType }, "Broadcast action failed");
+          }
+        };
+
         if (jid === 'all') {
           const chats = await getAllGroups(sock);
           const groupJids = Object.keys(chats).slice(0, 300);
-          
           const queue = await getBroadcastQueue();
           
           for (const j of groupJids) {
-            queue.add(async () => {
-              try {
-                await sock.sendMessage(j, { text: message });
-              } catch (err) {
-                logger.error({ jid: j, err: err.message }, "Broadcast failed for group");
-              }
-            });
+            queue.add(() => runAction(j));
           }
         } else {
-          try {
-            await sock.sendMessage(jid.includes('@') ? jid : jid + '@s.whatsapp.net', { text: message });
-          } catch (err) {
-            logger.error({ jid, err: err.message }, "Broadcast failed");
-          }
+          // Tekli hedef (genelde app.js zaten döngüyle tekli gönderiyor ama API desteği tam olsun)
+          await runAction(jid);
         }
       }
     } 

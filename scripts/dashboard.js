@@ -362,7 +362,14 @@ app.post('/api/system/broadcast', (req, res) => {
 
   // Forward broadcast request to parent process
   if (process.send) {
-    process.send({ type: 'broadcast', data: { jid: jid || 'all', message, broadcastType: type || 'text' } });
+    process.send({ 
+      type: 'broadcast', 
+      data: { 
+        jid: jid || 'all', 
+        message, 
+        broadcastType: type || 'text' 
+      } 
+    });
     res.json({ success: true, message: "Duyuru sinyali gönderildi." });
   } else {
     res.status(500).json({ error: "Sistem bağlantısı kurulamadı." });

@@ -1043,11 +1043,25 @@
             </div>
           </div>
 
-          <!-- Sağ: Koordinatör -->
+          <!-- Koordinatör -->
           <div class="panel-card bc-editor">
             <div class="pc-header">
               <span class="pc-title">Duyuru Koordinatörü</span>
               <span class="pc-badge" id="selectedCountBadge">0 Alıcı Seçildi</span>
+            </div>
+            <div class="bc-mode-selector" style="margin-bottom: 20px; display: flex; gap: 10px;">
+              <button type="button" class="bc-mode-btn active" data-bc-mode="text" id="bcModeText" style="flex:1; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border2); background: var(--bg2); color: var(--text2); cursor: pointer; font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
+                <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
+                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" stroke-width="2" />
+                </svg>
+                Duyuru Modu
+              </button>
+              <button type="button" class="bc-mode-btn" data-bc-mode="command" id="bcModeCmd" style="flex:1; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border2); background: var(--bg2); color: var(--text2); cursor: pointer; font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
+                <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="currentColor" />
+                </svg>
+                Komut Modu
+              </button>
             </div>
             <form id="broadcastForm" class="settings-form">
               <div class="bc-delay-block"

@@ -15,7 +15,8 @@ const S = {
   testProgressPoll: null,
   selectedBroadcastJids: new Set(),
   activeSingleTarget: null,
-  allCommands: []
+  allCommands: [],
+  activeBroadcastMode: 'text'
 };
 let es = null;
 let pairCountdownTimer = null;
@@ -528,17 +529,54 @@ function filterBroadcastGroups() {
 function setupBroadcast() {
   const form = document.getElementById('broadcastForm');
   if (!form) return;
+
+  // Mod Seçici Başlatma
+  document.querySelectorAll('.bc-mode-btn').forEach(btn => {
+    btn.onclick = () => {
+      const mode = btn.dataset.bcMode;
+      S.activeBroadcastMode = mode;
+      
+      document.querySelectorAll('.bc-mode-btn').forEach(b => {
+        b.classList.remove('active');
+        b.style.background = 'var(--bg2)';
+        b.style.borderColor = 'var(--border2)';
+        b.style.color = 'var(--text2)';
+        b.style.boxShadow = 'none';
+      });
+
+      btn.classList.add('active');
+      const accentColor = mode === 'text' ? 'var(--blue)' : 'var(--accent)';
+      btn.style.background = mode === 'command' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(59, 130, 246, 0.15)';
+      btn.style.borderColor = accentColor;
+      btn.style.color = 'var(--text)';
+      btn.style.boxShadow = `0 0 15px ${accentColor}44`;
+
+      const msgArea = document.getElementById('bc_message');
+      if (msgArea) {
+        msgArea.placeholder = mode === 'text' 
+          ? 'Tüm alıcılara gönderilecek mesajı buraya yazın...' 
+          : 'Seçilen gruplarda çalıştırılacak komutu yazın (Örn: .menu)...';
+      }
+      
+      const submitSpan = document.querySelector('#bcSubmit span');
+      if (submitSpan) {
+        submitSpan.textContent = mode === 'text' ? 'YAYINI BAŞLAT' : 'TOPLU KOMUT ÇALIŞTIR';
+      }
+    };
+  });
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const message = getVal('bc_message').trim();
-    if (!message) return toast('Mesaj boş olamaz!', 'error');
-    if (S.selectedBroadcastJids.size === 0) return toast('En az bir alıcı seçmelisiniz!', 'warn');
+    if (!message) return toast('Mesaj/Komut boş olamaz!', 'error');
+    if (S.selectedBroadcastJids.size === 0) return toast('En az bir hedef seçmelisiniz!', 'warn');
 
+    const isCommand = S.activeBroadcastMode === 'command';
     const targets = Array.from(S.selectedBroadcastJids);
     const total = targets.length;
     let minD = parseInt(getVal('bc_min_delay')) || 2;
     let maxD = parseInt(getVal('bc_max_delay')) || 5;
-    if (minD > maxD) [minD, maxD] = [maxD, minD]; // Auto-correct
+    if (minD > maxD) [minD, maxD] = [maxD, minD];
     
     const btn = document.getElementById('bcSubmit');
     const progBox = document.getElementById('bcProgressBox');
@@ -549,17 +587,20 @@ function setupBroadcast() {
     progBox.style.display = 'block';
     let successCount = 0;
 
+    const actionText = isCommand ? 'Çalıştırılıyor' : 'Gönderiliyor';
+
     for (let i = 0; i < total; i++) {
       const jid = targets[i];
       const progress = Math.round(((i + 1) / total) * 100);
       progFill.style.width = `${progress}%`;
-      progTxt.innerHTML = `<span style="color:var(--blue)">Gönderiliyor:</span> ${i + 1}/${total} <br><small>${esc(jid)}</small>`;
+      progFill.style.background = isCommand ? 'var(--accent-glow)' : 'var(--blue-glow)';
+      progTxt.innerHTML = `<span style="color:${isCommand ? 'var(--accent)' : 'var(--blue)'}">${actionText}:</span> ${i + 1}/${total} <br><small>${esc(jid)}</small>`;
 
       try {
         const r = await fetch('/api/system/broadcast', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jid, message })
+          body: JSON.stringify({ jid, message, type: isCommand ? 'command' : 'text' })
         });
         if (r.ok) successCount++;
       } catch (err) { console.error('Broadcast error for ' + jid, err); }
@@ -574,8 +615,8 @@ function setupBroadcast() {
     }
 
     btn.disabled = false;
-    progTxt.innerHTML = `<span style="color:var(--green); font-weight:bold;">TAMAMLANDI</span><br>${successCount}/${total} başarılı gönderim.`;
-    toast(`${successCount} duyuru başarıyla gönderildi!`, 'success');
+    progTxt.innerHTML = `<span style="color:var(--green); font-weight:bold;">TAMAMLANDI</span><br>${successCount}/${total} başarılı işlem.`;
+    toast(`${successCount} işlem başarıyla tamamlandı!`, 'success');
     
     setTimeout(() => {
       progBox.style.display = 'none';
