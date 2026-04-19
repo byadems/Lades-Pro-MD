@@ -96,8 +96,9 @@ let _presenceTimer = null;
 let _ntpTimer = null;
 let _proactiveTimer = null;
 
-// scheduled_message_sender'ın tekrar kayıt olmamasını sağlayan guard
+// scheduled_message_sender ve otomasyonun tekrar kayıt olmamasını sağlayan guardlar
 let _scheduledMsgRegistered = false;
+let _automationRegistered = false;
 
 // ─────────────────────────────────────────────────────────
 //  Create bot instance
@@ -434,6 +435,54 @@ async function createBot(sessionId = "lades-session", options = {}) {
             logger.debug({ err: e.message }, '[Planlı] Scheduler döngüsünde hata');
           }
         }, 30000, { runImmediately: false });
+      }
+
+      if (!_automationRegistered) {
+        _automationRegistered = true;
+        const { automute, autounmute } = require("../plugins/utils/db/zamanlayicilar");
+        const moment = require("moment-timezone");
+        const scheduler = require("./zamanlayici").scheduler;
+
+        scheduler.register('group_automation_processor', async () => {
+          try {
+            const now = moment().tz("Europe/Istanbul");
+            const currentTime = now.format("HH mm"); // DB formatı "HH MM"
+
+            // 1. Otomatik Susturma (Mute)
+            const mutes = await automute.get();
+            for (const item of mutes) {
+              if (item.time === currentTime) {
+                try {
+                  await sock.groupSettingUpdate(item.chat, "announcement");
+                  await sock.sendMessage(item.chat, { 
+                    text: `🔒 *Otomatik Grup Kapatma*\n\n⏰ Saat: \`${now.format("HH:mm")}\`\nℹ️ _Sohbet otomatik olarak kapatıldı._` 
+                  });
+                  logger.info(`[Otomasyon] Grup susturuldu: ${item.chat}`);
+                } catch (e) {
+                  logger.error({ err: e.message, chat: item.chat }, "[Otomasyon] Grup susturma hatası");
+                }
+              }
+            }
+
+            // 2. Otomatik Açma (Unmute)
+            const unmutes = await autounmute.get();
+            for (const item of unmutes) {
+              if (item.time === currentTime) {
+                try {
+                  await sock.groupSettingUpdate(item.chat, "not_announcement");
+                  await sock.sendMessage(item.chat, { 
+                    text: `🔓 *Otomatik Grup Açma*\n\n⏰ Saat: \`${now.format("HH:mm")}\`\nℹ️ _Sohbet otomatik olarak açıldı. Keyifli sohbetler!_` 
+                  });
+                  logger.info(`[Otomasyon] Grup açıldı: ${item.chat}`);
+                } catch (e) {
+                  logger.error({ err: e.message, chat: item.chat }, "[Otomasyon] Grup açma hatası");
+                }
+              }
+            }
+          } catch (e) {
+            logger.debug({ err: e.message }, '[Otomasyon] İşlemci döngüsünde hata');
+          }
+        }, 60000, { runImmediately: false });
       }
       // ── PLANLI MESAJ GÖNDERİCİSİ SONU ──────────────────────
 

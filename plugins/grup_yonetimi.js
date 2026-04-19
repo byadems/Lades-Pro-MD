@@ -2823,106 +2823,98 @@
   );
 
   Module({
-    pattern: "otosohbetkapat ?(.*)",
-    fromMe: false,
-    desc: "Grup sohbetinin otomatik kapanma özelliğini aktif eder.",
-    warn: "Sunucu saatine göre çalışır",
-    use: "grup",
-  },
-    async (message, match) => {
-      let adminAccesValidated = await isAdmin(message);
-      if (message.fromOwner || adminAccesValidated) {
-        match = match[1]?.toLowerCase();
-        if (!match)
-          return await message.sendReply("*✨ Yanlış format!*\n\nDesteklenen formatlar:\n• .otosohbetkapat 22 45\n• .otosohbetkapat 22:45\n• .otosohbetkapat 22.45\n• .otosohbetkapat kapat");
-        if (match.includes("am") || match.includes("pm"))
-          return await message.sendReply("⏰ *Zaman SS DD (24 saat) formatında olmalıdır! (Örn: 22 00)*"
-          );
-        if (match == "kapat") {
-          await automute.delete(message.jid);
-          return await message.sendReply("📴 *Otomatik sohbet kapatma devre dışı bırakıldı ❗*"
-          );
-        }
-        const timeMatch = match?.match(/^([0-2][0-9])[:. ]?([0-5][0-9])$/);
-        if (!timeMatch) {
-          return await message.sendReply("⚠️ *Yanlış format!*\n\nDesteklenen formatlar:\n• .otosohbetkapat 22 45\n• .otosohbetkapat 22:45\n• .otosohbetkapat 22.45\n• .otosohbetkapat kapat");
-        }
-
-        if (!message.isBotAdmin) {
-          return await message.sendReply("*❌ İşlemi yapabilmem için lütfen benim grubunuzda _yönetici_ olduğuma emin olun!*");
-        }
-
-        const time = timeMatch[1] + " " + timeMatch[2];
-        await automute.set(message.jid, time);
-        await message.sendReply(
-          `⏰ *Grup ${tConvert(time)} saatinde otomatik susturulacak.*`
-        );
-      }
-    }
-  );
-
-  Module({
-    pattern: "otosohbetaç ?(.*)",
-    fromMe: false,
-    desc: "Grup sohbetinin otomatik açılma özelliğini aktif eder.",
-    warn: "Sunucu saatine göre çalışır",
-    use: "grup",
-  },
-    async (message, match) => {
-      let adminAccesValidated = await isAdmin(message);
-      if (message.fromOwner || adminAccesValidated) {
-        match = match[1]?.toLowerCase();
-        if (!match) {
-          return await message.sendReply("⚠️ *Yanlış format!* \n\n💬 *.otosohbetaç 22 00* _(Saat 22:00 için)_\n💬 *.otosohbetaç 06 00* _(Saat 06:00 için)_\n💬 *.otosohbetaç kapat*");
-        }
-        if (match.includes("am") || match.includes("pm")) {
-          return await message.sendReply("⏰ *Zaman SS DD (24 saat) formatında olmalıdır! (Örn: 08 00)*");
-        }
-        if (match === "kapat") {
-          await autounmute.delete(message.jid);
-          return await message.sendReply("❌ *Otomatik sohbet açma devre dışı bırakıldı!*");
-        }
-        const timeMatch2 = match?.match(/^([0-2][0-9])[:. ]?([0-5][0-9])$/);
-        if (!timeMatch2) {
-          return await message.sendReply("⚠️ *Yanlış format!*\n\nDesteklenen formatlar:\n• .otosohbetaç 22 45\n• .otosohbetaç 22:45\n• .otosohbetaç 22.45\n• .otosohbetaç kapat");
-        }
-        const admin2 = await isAdmin(message);
-        if (!admin2) return await message.sendReply("*❌ Yönetici değilim!*");
-        const time2 = timeMatch2[1] + " " + timeMatch2[2];
-        await autounmute.set(message.jid, time2);
-        await message.sendReply(
-          `⏰ *Grup ${tConvert(time2)} saatinde otomatik açılacak!*`
-        );
-      }
-    }
-  );
-
-  Module({
     pattern: "otosohbet ?(.*)",
-    fromMe: true,
-    onlyAdmin: true,
-    desc: "Grup sohbetinin otomatik açılış ve kapanış saatlerini ayarlar. (Örn: .otosohbet 09:00|23:00)",
+    fromMe: false,
+    desc: "Grup sohbetinin otomatik açılış ve kapanış saatlerini yönetir.",
+    usage: ".otosohbet aç [HH:MM] | .otosohbet kapat [HH:MM] | .otosohbet sil [aç/kapat] | .otosohbet liste",
     use: "grup",
   },
     async (message, match) => {
       let adminAccesValidated = await isAdmin(message);
-      if (message.fromOwner || adminAccesValidated) {
-        const mute = await automute.get();
-        const unmute = await autounmute.get();
+      if (!(message.fromOwner || adminAccesValidated)) return;
+
+      const args = match[1]?.trim().split(/\s+/);
+      const subcommand = args?.[0]?.toLowerCase();
+      const value = args?.slice(1).join(" ")?.trim();
+
+      // Liste/Yardım görünümleri
+      if (!subcommand || subcommand === "liste" || subcommand === "yardım") {
+        const mutes = await automute.get();
+        const unmutes = await autounmute.get();
+
+        const allChats = new Set([
+          ...mutes.map(m => m.chat),
+          ...unmutes.map(u => u.chat)
+        ]);
+
         let msg = "";
-        for (e in mute) {
-          let temp = unmute.find((element) => element.chat === mute[e].chat);
-          if (temp && temp.time) {
-            mute[e].unmute = temp.time;
-          }
-          msg +=
-            `*${Math.floor(parseInt(e) + 1)}. Grup:* ${(await message.client.groupMetadata(mute[e].chat)).subject
-            }
-*➥ Sessizlik:* ${tConvert(mute[e].time)}
-*➥ Sessizlik Açılış:* ${tConvert(mute[e].unmute || "Ayarlanmadı")}` + "\n\n";
+        let count = 0;
+
+        for (const chatJid of allChats) {
+          const muteData = mutes.find(m => m.chat === chatJid);
+          const unmuteData = unmutes.find(u => u.chat === chatJid);
+
+          let chatName = "Bilinmeyen Grup";
+          try {
+            const meta = await message.client.groupMetadata(chatJid);
+            chatName = meta.subject || chatName;
+          } catch (e) { }
+
+          count++;
+          msg += `*${count}. Grup:* ${chatName}\n`;
+          msg += `*➥ Kapanış:* ${muteData ? tConvert(muteData.time) : "_Pasif_"}\n`;
+          msg += `*➥ Açılış:* ${unmuteData ? tConvert(unmuteData.time) : "_Pasif_"}\n\n`;
         }
-        if (!msg) return await message.sendReply("❌ *Susturma/Açma kaydı bulunamadı!*");
-        message.sendReply("*⏰ Zamanlanmış Susturmalar/Açmalar*\n\n" + msg);
+
+        if (!msg) return await message.sendReply("❌ *Henüz planlanmış bir açılış/kapanış kaydı bulunamadı!*");
+        return await message.sendReply("⏰ *Zamanlanmış Sohbet Yönetimi*\n\n" + msg + "_ℹ️ Saatler Türkiye/İstanbul zamanına göredir._");
+      }
+
+      // Alt komut işlemleri
+      switch (subcommand) {
+        case "aç":
+        case "kapat": {
+          if (!value) {
+            return await message.sendReply(`⚠️ *Saat belirtilmedi!* \n\n*Örnek:* \`.otosohbet ${subcommand} 08:00\``);
+          }
+
+          if (value.includes("am") || value.includes("pm")) {
+            return await message.sendReply("⏰ *Lütfen saati 24 saat formatında (SS:DD) girin!* \n_Örn: 22:30_");
+          }
+
+          const timeMatch = value.match(/^([0-2][0-9])[:. ]?([0-5][0-9])$/);
+          if (!timeMatch) {
+            return await message.sendReply(`⚠️ *Geçersiz zaman formatı!* \n\n*Doğru Kullanım:* \`.otosohbet ${subcommand} 22:30\``);
+          }
+
+          if (message.isGroup && !message.isBotAdmin) {
+            return await message.sendReply("❌ *Bu işlemi yapabilmem için yönetici olmam gerekiyor!*");
+          }
+
+          const timeStr = timeMatch[1] + " " + timeMatch[2];
+          if (subcommand === "kapat") {
+            await automute.set(message.jid, timeStr);
+            return await message.sendReply(`✅ *Grup her gün saat ${tConvert(timeStr)}'de otomatik olarak KAPANACAK.*`);
+          } else {
+            await autounmute.set(message.jid, timeStr);
+            return await message.sendReply(`✅ *Grup her gün saat ${tConvert(timeStr)}'de otomatik olarak AÇILACAK.*`);
+          }
+        }
+
+        case "sil": {
+          if (value === "aç" || value === "unmute") {
+            await autounmute.delete(message.jid);
+            return await message.sendReply("✅ *Otomatik açılma zamanlaması bu grup için silindi.*");
+          } else if (value === "kapat" || value === "mute") {
+            await automute.delete(message.jid);
+            return await message.sendReply("✅ *Otomatik kapanma zamanlaması bu grup için silindi.*");
+          } else {
+            return await message.sendReply("⚠️ *Hangi zamanlamayı silmek istiyorsunuz?* \n\n*Örn:* \`.otosohbet sil kapat\` veya \`.otosohbet sil aç\`");
+          }
+        }
+
+        default:
+          return await message.sendReply(`❌ *Bilinmeyen alt komut:* \`${subcommand}\` \n\n*Mevcut komutlar:*\n• \`.otosohbet aç [saat]\`\n• \`.otosohbet kapat [saat]\`\n• \`.otosohbet sil aç/kapat\`\n• \`.otosohbet liste\``);
       }
     }
   );

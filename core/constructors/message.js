@@ -8,6 +8,7 @@
 
 const { getTempPath, cleanTempFile, getGroupAdmins, loadBaileys } = require("../yardimcilar");
 const fs = require("fs");
+const { toOpus, toMp4Audio } = require("../media-utils");
 
 /**
  * Enrich a message context with helper methods.
@@ -47,8 +48,20 @@ function enrichMessage(ctx, sock) {
     replyAudio: async (buffer, opts = {}) => {
       const q = generateQuoted();
       const isPtt = opts.ptt || false;
+
+      let processedBuffer = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+      try {
+        if (isPtt) {
+          processedBuffer = await toOpus(processedBuffer);
+        } else {
+          processedBuffer = await toMp4Audio(processedBuffer);
+        }
+      } catch (e) {
+        // Fallback to original if conversion fails
+      }
+
       return sock.sendMessage(jid, { 
-        audio: Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer), 
+        audio: processedBuffer, 
         mimetype: isPtt ? "audio/ogg; codecs=opus" : "audio/mp4",
         ptt: isPtt,
         ...opts 
