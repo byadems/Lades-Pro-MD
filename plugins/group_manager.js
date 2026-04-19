@@ -1071,10 +1071,10 @@
         return await message.sendReply("❌ *Geçerli WhatsApp grup bağlantısı bulunamadı!*");
       }
       links = [...new Set(links)];
-      const DELAY_MIN = 3000;
-      const DELAY_MAX = 6000;
-      const BATCH_SIZE = 21;
-      const REST_TIME = 900000;
+      const DELAY_MIN = 12000;
+      const DELAY_MAX = 58000;
+      const BATCH_SIZE = 9;
+      const REST_TIME = 2700000;
       const randomDelay = () => {
         const delay = Math.floor(Math.random() * (DELAY_MAX - DELAY_MIN + 1)) + DELAY_MIN;
         return new Promise((resolve) => setTimeout(resolve, delay));
