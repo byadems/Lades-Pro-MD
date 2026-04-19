@@ -464,7 +464,7 @@ Module({
   async (message, match) => {
     if (
       !message.reply_message ||
-      (!message.reply_message.video && !message.reply_message.image)
+      (!message.reply_message.video && !message.reply_message.audio)
     ) {
       return await message.sendReply("⚠️ *Bir ses dosyasına yanıt vermelisiniz!*"
       );
