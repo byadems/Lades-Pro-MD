@@ -1104,8 +1104,8 @@ Module({
 Module({
   pattern: "antikelime ?(.*)",
   fromMe: false,
-  desc: "Yasaklı kelime kullanımını engeller ve bu kelimeleri kullananları gruptan uzaklaştırır.",
-  usage: ".antikelime [aç/kapat]",
+  desc: "Yasaklı kelime kullanımını engeller (normal: uyarır, at modu: atar).",
+  usage: ".antikelime [aç/kapat/at]",
   use: "grup",
 },
   async (message, match) => {
@@ -1118,18 +1118,18 @@ Module({
         jids.push(data.jid);
       });
       const antiwordWarn = config.ANTIWORD_WARN?.split(",") || [];
-      if (match[1].includes("warn")) {
-        if (match[1].endsWith("aç")) {
+      if (match[1].includes("warn") || match[1] === "aç" || match[1] === "on") {
+        if (match[1].endsWith("aç") || match[1].endsWith("on") || match[1] === "aç") {
           if (!(await isAdmin(message)))
             return await message.sendReply("🙁 *Üzgünüm! Öncelikle yönetici olmalısınız.*");
           if (!antiwordWarn.includes(message.jid)) {
             antiwordWarn.push(message.jid);
             await setVar("ANTIWORD_WARN", antiwordWarn.join(","), false);
           }
-          return await message.sendReply("✅ *Bu grupta kelime uyarı sistemi aktif edildi!*"
+          return await message.sendReply("✅ *Bu grupta kelime uyarı sistemi aktif edildi!*\n_Uyarı verir, gerekirse atar._"
           );
         }
-        if (match[1].endsWith("kapat")) {
+        if (match[1].endsWith("kapat") || match[1].endsWith("off") || match[1] === "kapat") {
           if (!(await isAdmin(message)))
             return await message.sendReply("🙁 *Üzgünüm! Öncelikle yönetici olmalısınız.*");
           if (antiwordWarn.includes(message.jid)) {
@@ -1142,25 +1142,31 @@ Module({
           }
         }
       }
-      if (match[1] === "aç") {
+      if (match[1] === "at") {
         if (!await isAdmin(message))
           return await message.sendReply("🙁 *Üzgünüm! Öncelikle yönetici olmalısınız.*");
         await antiword.set(message.jid);
+        if (antiwordWarn.includes(message.jid)) {
+          await setVar(
+            "ANTIWORD_WARN",
+            antiwordWarn.filter((x) => x != message.jid).join(",") || "null",
+            false
+          );
+        }
+        return await message.sendReply("✅ *Bu grupta kelime atma sistemi aktif edildi!*\n_Kullanıcıları diret atar._");
       }
-      if (match[1] === "kapat") {
+      if (match[1] === "kapat" || match[1] === "off") {
         await antiword.delete(message.jid);
       }
-      if (match[1] !== "aç" && match[1] !== "kapat") {
+      if (match[1] !== "at" && match[1] !== "aç" && match[1] !== "kapat") {
         const status =
-          jids.includes(message.jid) || antiwordWarn.includes(message.jid)
-            ? "Açık"
-            : "Kapalı";
+          jids.includes(message.jid) ? "At Modu" : antiwordWarn.includes(message.jid) ? "Açık (Uyarır)" : "Kapalı";
         const { subject } = await message.client.groupMetadata(message.jid);
         return await message.sendReply(
           `🤬 *${subject} Yasaklı Kelime Menüsü*` +
-          "\n\nℹ️ _Yasaklı kelime engeli şu anda_ *" +
+          "\n\nℹ️ _Kelime engeli şu anda_ *" +
           status +
-          "*\n\n💬 _Ör: .antikelime aç/kapat_\n💬 _Ör: .antikelime uyar aç/kapat_"
+          "*\n\n💬 _Ör: .antikelime aç_ → Sadece uyarır\n💬 _Ör: .antikelime at_ → Direkt atar\n💬 _Ör: .antikelime kapat_ → Kapatır"
         );
       }
       await message.sendReply(
@@ -1437,44 +1443,44 @@ Module({
     }
 
     const antiwordjids = await getCachedAntiwordJids();
-    if (antiwordjids.has(message.jid) && !message.isAdmin) {
-      const antiwordWarn = config.ANTIWORD_WARN?.split(",") || [];
-      const isWarnMode = antiwordWarn.includes(message.jid);
-      
+    const antiwordWarn = config.ANTIWORD_WARN?.split(",") || [];
+
+    if (!message.isAdmin) {
       let disallowedWords = null;
       if (config.ANTI_WORDS && config.ANTI_WORDS !== "auto") {
         disallowedWords = config.ANTI_WORDS.split(",").map(w => w.trim()).filter(Boolean);
       }
-      
+
       let thatWord = findDisallowedWord(message.text, disallowedWords);
-      
+
       if (thatWord) {
-        if (isWarnMode) {
-          // UYARI MODU: Kullanıcıyı uyar ve mesajı sil
+        const isKickMode = antiwordjids.has(message.jid);
+        const isWarnMode = antiwordWarn.includes(message.jid);
+
+        if (isKickMode) {
+          await message.sendReply(`🤬 *'${thatWord}' kelimesi bu grupta yasaklanmıştır!* @${message.sender.split("@")[0]} uzaklaştırılıyor...`, { mentions: [message.sender] });
+
+          try {
+            await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove");
+          } catch (e) {
+            console.error("Antiword kick hatası:", e);
+          }
+
+          return await message.client.sendMessage(message.jid, { delete: message.data.key });
+        } else if (isWarnMode) {
           const { WARN } = require("../config");
           const warnLimit = parseInt(WARN || "3");
-          
+
           await uyariEkle(message.jid, message.sender, `Yasaklı kelime kullanımı: ${thatWord}`, message.client.user.id);
           const warnData = await uyariGetir(message.jid, message.sender, warnLimit);
-          
+
           if (warnData.exceeded) {
             await message.sendReply(`🤬 *Yasaklı kelime kullanımı nedeniyle sınır aşıldı!* @${message.sender.split("@")[0]} gruptan uzaklaştırılıyor.`, { mentions: [message.sender] });
             await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove");
           } else {
             await message.sendReply(`⚠️ @${message.sender.split("@")[0]}, *bu grupta yasaklı kelime kullanmamalısınız!*\n\n*Kelime:* ${thatWord}\n*Uyarı:* ${warnData.current}/${warnLimit}`, { mentions: [message.sender] });
           }
-          
-          return await message.client.sendMessage(message.jid, { delete: message.data.key });
-        } else {
-          // DİREKT ATMA MODU
-          await message.sendReply(`🤬 *'${thatWord}' kelimesi bu grupta yasaklanmıştır!* @${message.sender.split("@")[0]} uzaklaştırılıyor...`, { mentions: [message.sender] });
-          
-          try {
-            await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove");
-          } catch (e) {
-            console.error("Antiword kick hatası:", e);
-          }
-          
+
           return await message.client.sendMessage(message.jid, { delete: message.data.key });
         }
       }
