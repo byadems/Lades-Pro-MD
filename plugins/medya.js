@@ -163,18 +163,28 @@
         });
       };
 
+      const tryRequestWithRetry = async (useOpenAI) => {
+        try {
+          return await makeRequest(useOpenAI);
+        } catch (error) {
+          console.log(`⚠️ ${useOpenAI ? 'OpenAI' : 'Groq'} API isteği başarısız oldu, tekrar deneniyor...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return await makeRequest(useOpenAI);
+        }
+      };
+
       let response;
       try {
         if (useGroq) {
-          response = await makeRequest(false);
+          response = await tryRequestWithRetry(false);
         } else {
-          response = await makeRequest(true);
+          response = await tryRequestWithRetry(true);
         }
       } catch (groqError) {
         if (!groqError.useOpenAI && config.OPENAI_API_KEY && config.OPENAI_API_KEY !== '') {
           console.log("⚠️ Groq başarısız, OpenAI API'ye geçiliyor...");
           try {
-            response = await makeRequest(true);
+            response = await tryRequestWithRetry(true);
             console.log("✅ OpenAI API başarılı!");
           } catch (openaiError) {
             console.error("❌ Her iki API de başarısız:", openaiError);
@@ -245,6 +255,7 @@
   },
     async (message, match) => {
       try {
+        if (message.fromMe) return;
         const audioMsg = message.data?.message?.audioMessage;
         let hasApi = (config.GROQ_API_KEY && config.GROQ_API_KEY !== '') || (config.OPENAI_API_KEY && config.OPENAI_API_KEY !== '');
 
