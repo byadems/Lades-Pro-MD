@@ -11,7 +11,7 @@
 (function () {
   const { Module } = require("../main");
   const config = require("../config");
-  const { setVar } = require("./manage");
+  const { setVar } = require('./yonetim_araclari');
   const { downloadGram, pinterestDl, tiktok, fb } = require("./utils");
   const { getVideoInfo, downloadAudio, convertM4aToMp3, searchYoutube } = require('./utils/youtube_araclari');
   const { saveToDisk, getTempPath, cleanTempFile, isMediaImage, readMp4Dimensions } = require("../core/yardimcilar");

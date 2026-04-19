@@ -1,5 +1,5 @@
 // Import all modules
-const dbOperations = require("./db/functions");
+const dbOperations = require("./db/fonksiyonlar");
 const mediaProcessing = require("./medya_islemcisi");
 const utils = require("./genel_araclar");
 const language = require("./manglish_ceviri");
@@ -7,12 +7,12 @@ const language = require("./manglish_ceviri");
 // Grouped database operations
 const {
   syncWarnsSequence,
-  getWarn,
-  setWarn,
-  resetWarn,
-  decrementWarn,
-  getWarnCount,
-  getAllWarns,
+  uyariGetir,
+  uyariEkle,
+  uyariSifirla,
+  uyariAzalt,
+  uyariSayisiAl,
+  tumUyarilariAl,
   antilinkConfig,
   antiword,
   antifake,
@@ -87,13 +87,13 @@ const { nx, nxTry, fmtCount, trToEn } = require("./nexray_api");
 module.exports = {
   // Database Operations
   syncWarnsSequence,
-  getWarn,
-  setWarn,
+  uyariGetir,
+  uyariEkle,
   fancy,
-  resetWarn,
-  decrementWarn,
-  getWarnCount,
-  getAllWarns,
+  uyariSifirla,
+  uyariAzalt,
+  uyariSayisiAl,
+  tumUyarilariAl,
   antilinkConfig,
   antiword,
   antifake,

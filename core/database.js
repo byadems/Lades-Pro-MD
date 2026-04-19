@@ -263,7 +263,7 @@ async function initializeDatabase() {
 
   // Eski Lades-Pro eklentilerinden gelen (SQLite'ta hata veren) tabloları da senkronize et
   try {
-    const legacyModels = require("../plugins/utils/db/models");
+    const legacyModels = require("../plugins/utils/db/modeller");
     Object.values(legacyModels).forEach(model => {
       // Sadece sequelize Model instance'larını ekle
       if (model && model.sync && model.getTableName) {

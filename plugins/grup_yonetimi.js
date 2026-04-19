@@ -31,8 +31,8 @@
     getFullMessage,
     fetchRecentChats,
   } = require("../core/store");
-  const { setVar } = require("./manage");
-  const { isBotIdentifier } = require("./utils/lid-helper");
+  const { setVar } = require('./yonetim_araclari');
+  const { isBotIdentifier } = require("./utils/lid_yardimcisi");
   const handler = config.HANDLER_PREFIX;
 
 
@@ -2688,7 +2688,7 @@
     goodbye,
     isAdmin,
   } = require("./utils");
-  const { automute, autounmute, stickcmd } = require("./utils/db/schedulers");
+  const { automute, autounmute, stickcmd } = require("./utils/db/zamanlayicilar");
   const {
     parseWelcomeMessage,
     sendWelcomeMessage,
@@ -3039,7 +3039,7 @@
 
         // YÖNETİCİ BYPASS: Gruba bir yönetici tarafından manüel eklenen kişiler korunur ve göz ardı edilir.
         if (message.from) {
-          const { isBotIdentifier } = require("./utils/lid-helper");
+          const { isBotIdentifier } = require("./utils/lid_yardimcisi");
           const adderClean = message.from.split(":")[0] + "@s.whatsapp.net";
 
           if (isBotIdentifier(adderClean, message.client)) return; // Bot'un eklediklerini atla
@@ -3080,7 +3080,7 @@
 
         // Yabancı numara veya çözülemeyen LID tespit edildi
         if (!isAllowedNumber) {
-          const { isBotIdentifier } = require("./utils/lid-helper");
+          const { isBotIdentifier } = require("./utils/lid_yardimcisi");
 
           // Bot'un kendisi olup olmadığını kontrol edelim
           if (isBotIdentifier(participantId, message.client)) return;
@@ -3203,7 +3203,7 @@
         const isAllowedNumber = allowed.some(prefix => participantNumber.startsWith(prefix));
 
         if (!isAllowedNumber) {
-          const { isBotIdentifier } = require("./utils/lid-helper");
+          const { isBotIdentifier } = require("./utils/lid_yardimcisi");
           if (isBotIdentifier(participantId, message.client)) return;
 
           const botIdClean = message.client.user.id.split(":")[0] + "@s.whatsapp.net";
@@ -3250,7 +3250,7 @@
 
   const handler = config.HANDLER_PREFIX;
 
-  const { setVar, delVar } = require("./manage");
+  const { setVar, delVar } = require('./yonetim_araclari');
 
   function getMentionReply() {
     try {

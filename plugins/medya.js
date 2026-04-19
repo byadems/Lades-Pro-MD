@@ -21,7 +21,7 @@
     MODE = config.MODE;
   const { avMix, circle, rotate, trim, uploadToImgbb, nx, nxTry, uploadToCatbox } = require("./utils");
   const nexray = require('./utils/nexray_api');
-  const { censorBadWords } = require("./utils/censor");
+  const { censorBadWords } = require("./utils/sansur");
   const handler = config.HANDLER_PREFIX;
 
   // ── API key varlığını modül başında bir kez kontrol et (her mesajda tekrar hesaplama)

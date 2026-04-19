@@ -12,7 +12,7 @@
   const { Module } = require("../main");
   const config = require("../config");
   const axios = require("axios");
-  const { setVar } = require("./manage");
+  const { setVar } = require("./yonetim_araclari");
   const fs = require("fs");
   const { getBuffer, uploadToImgbb } = require("./utils");
   const nexray = require('./utils/nexray_api');

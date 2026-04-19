@@ -20,7 +20,7 @@ const config = require("../config");
 const axios = require("axios");
 const fileType = require("file-type");
 const { getTempPath, getTempSubdir, ffmpegLimit } = require("../core/yardimcilar");
-const { badWords } = require("./utils/censor");
+const { badWords } = require("./utils/sansur");
 
 /** TTS için metni google-tts-api limitine (200 karakter) uygun hale getirir. */
 function prepareTtsText(text) {

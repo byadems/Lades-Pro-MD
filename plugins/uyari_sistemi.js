@@ -2,17 +2,17 @@ const { Module } = require("../main");
 const config = require("../config");
 const { ADMIN_ACCESS, HANDLER_PREFIX, WARN, SUDO } = config;
 const {
-  getWarn,
-  setWarn,
-  resetWarn,
-  decrementWarn,
-  getWarnCount,
-  getAllWarns,
+  uyariGetir,
+  uyariEkle,
+  uyariSifirla,
+  uyariAzalt,
+  uyariSayisiAl,
+  tumUyarilariAl,
   censorBadWords,
   isAdmin,
 } = require("./utils");
 const { getGroupSettings, updateGroupSettings } = require("../core/db-cache");
-const { getNumericId, isBotIdentifier } = require("./utils/lid-helper");
+const { getNumericId, isBotIdentifier } = require("./utils/lid_yardimcisi");
 const fs = require("fs");
 const path = require("path");
 
@@ -50,7 +50,7 @@ Module({
     const botIsAdmin = message.isBotAdmin ?? (() => {
       try {
         if (!message.groupAdmins) return false;
-        const { isBotIdentifier } = require("./utils/lid-helper");
+        const { isBotIdentifier } = require("./utils/lid_yardimcisi");
         return message.groupAdmins.some(a => isBotIdentifier(a, message.client));
       } catch { return false; }
     })();
@@ -85,16 +85,16 @@ Module({
 
       const targetNumericId = getNumericId(targetUser);
       try {
-        const currentCount = await getWarnCount(message.jid, targetUser);
+        const currentCount = await uyariSayisiAl(message.jid, targetUser);
         if (currentCount === 0) {
           return await message.client.sendMessage(message.jid, {
             text: `🥳 *Hiç uyarısı yok!*\n\n👤 Üye: \`@${targetNumericId}\`\nℹ️ Durumu: \`Silinecek uyarı bulunamadı\``,
             mentions: [targetUser],
           });
         }
-        const removed = await decrementWarn(message.jid, targetUser);
+        const removed = await uyariAzalt(message.jid, targetUser);
         if (removed) {
-          const newCount = await getWarnCount(message.jid, targetUser);
+          const newCount = await uyariSayisiAl(message.jid, targetUser);
           await message.client.sendMessage(message.jid, {
             text: `✅ *UYARI SİLİNDİ!*\n\n👤 Üye: *@${targetNumericId}*\n⛔ Silinen: \`1 uyarı\`\n🔢 Kalan: \`${newCount} uyarı\`\nℹ️ Durumu: *${newCount === 0 ? "SİCİLİ TEMİZ 😎" : "Hâlâ uyarısı mevcut"}*`,
             mentions: [targetUser],
@@ -114,14 +114,14 @@ Module({
 
       const targetNumericId = getNumericId(targetUser);
       try {
-        const currentCount = await getWarnCount(message.jid, targetUser);
+        const currentCount = await uyariSayisiAl(message.jid, targetUser);
         if (currentCount === 0) {
           return await message.client.sendMessage(message.jid, {
             text: `🤯 *UYARI BULUNAMADI!*\n\n👤 Üye: *@${targetNumericId}*\nℹ️ Durumu: \`Sıfırlanacak uyarı yok\``,
             mentions: [targetUser],
           });
         }
-        const removed = await resetWarn(message.jid, targetUser);
+        const removed = await uyariSifirla(message.jid, targetUser);
         if (removed) {
           await message.client.sendMessage(message.jid, {
             text: `✅ *Uyarılar Sıfırlandı!*\n\n👤 Üye: *@${targetNumericId}*\n🔢 Sıfırlanan: \`${currentCount} uyarı\`\nℹ️ Durumu: *SİCİLİ TEMİZ* 😎`,
@@ -137,7 +137,7 @@ Module({
     // 3. UYARILİSTE (.uyarıliste)
     if (cmd.startsWith("ıliste")) {
       try {
-        const allWarnings = await getAllWarns(message.jid);
+        const allWarnings = await tumUyarilariAl(message.jid);
         if (Object.keys(allWarnings).length === 0) {
           return await message.sendReply(`✅ *GRUP TEMİZ!*\n\n🎉 Bu grupta uyarı alan üye göremedim.\n💯 _Herkes kurallara uyuyor, böyle devam!_ 😎`);
         }
@@ -207,12 +207,12 @@ Module({
     try {
       // message.sender boş olabilir, fallback uygula
       const warnedBy = message.sender || message.jid || "system";
-      const setResult = await setWarn(message.jid, targetUser, reason, warnedBy);
+      const setResult = await uyariEkle(message.jid, targetUser, reason, warnedBy);
 
       // setWarn false döndürürse doğrudan getWarn ile kontrol et
       let warnData = (setResult && typeof setResult === "object" && "exceeded" in setResult)
         ? setResult
-        : await getWarn(message.jid, targetUser, warnLimit);
+        : await uyariGetir(message.jid, targetUser, warnLimit);
 
       if (!warnData) return await message.sendReply("❌ *Uyarı kaydedilemedi!*");
 
@@ -279,7 +279,7 @@ Module({
     const targetNumericId = getNumericId(targetUser);
 
     try {
-      const warnings = await getWarn(message.jid, targetUser);
+      const warnings = await uyariGetir(message.jid, targetUser);
       if (!warnings || warnings.length === 0) {
         return await message.client.sendMessage(message.jid, {
           text: `✅ *UYARI BULUNAMADI!*\n\n👤 Üye: *@${targetNumericId}*\nℹ️ Durumu: *SİCİLİ TEMİZ* 😎\n🔢 Uyarı Sayısı: \`0/${warnLimit}\``,

@@ -37,31 +37,31 @@ walk(path.join(__dirname, '..'), (err, files) => {
     let mod = false;
 
     // We must replace requires for memory. 
-    // Usually it's require('./scheduler') or require('../core/scheduler')
+    // Usually it's require("./core/zamanlayici") or require("./core/zamanlayici")
     
     // Core references
-    if (content.includes('require("./scheduler")')) {
+    if (content.includes('require("./core/zamanlayici")')) {
       content = content.replace(/require\("\.\/scheduler"\)/g, 'require("./zamanlayici").scheduler');
       mod = true;
     }
-    if (content.includes("require('./scheduler')")) {
+    if (content.includes("require("./core/zamanlayici")")) {
       content = content.replace(/require\('\.\/scheduler'\)/g, 'require("./zamanlayici").scheduler');
       mod = true;
     }
-    if (content.includes('require("../core/scheduler")')) {
+    if (content.includes('require("./core/zamanlayici")')) {
       content = content.replace(/require\("\.\.\/core\/scheduler"\)/g, 'require("../core/zamanlayici").scheduler');
       mod = true;
     }
-    if (content.includes("require('../core/scheduler')")) {
+    if (content.includes("require("./core/zamanlayici")")) {
       content = content.replace(/require\('\.\.\/core\/scheduler'\)/g, 'require("../core/zamanlayici").scheduler');
       mod = true;
     }
 
-    if (content.includes('require("./schedulers")')) {
+    if (content.includes('require("./core/zamanlayici")')) {
       content = content.replace(/require\("\.\/schedulers"\)/g, 'require("./zamanlayici")');
       mod = true;
     }
-    if (content.includes("require('./schedulers')")) {
+    if (content.includes("require("./core/zamanlayici")")) {
       content = content.replace(/require\('\.\/schedulers'\)/g, 'require("./zamanlayici")');
       mod = true;
     }

@@ -403,7 +403,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
       // Guard: Her reconnect'te tekrar register etmez (timer leak önlemi)
       if (!_scheduledMsgRegistered) {
         _scheduledMsgRegistered = true;
-        const { scheduledMessages } = require('../plugins/utils/db/schedulers');
+        const { scheduledMessages } = require("../plugins/utils/db/zamanlayicilar");
         const scheduler = require("./zamanlayici").scheduler;
 
         scheduler.register('scheduled_message_sender', async () => {

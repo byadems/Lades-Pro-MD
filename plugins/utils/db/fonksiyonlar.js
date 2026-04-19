@@ -25,7 +25,7 @@ const {
   WelcomeDB,
   GoodbyeDB,
   AntilinkConfigDB
-} = require("./models");
+} = require("./modeller");
 const config = require("../../../config");
 
 async function syncWarnsSequence() {
@@ -33,7 +33,7 @@ async function syncWarnsSequence() {
   return;
 }
 
-async function getWarn(jid = null, user = null, cnt) {
+async function uyariGetir(jid = null, user = null, cnt) {
   if (!jid || !user) return null;
 
   const uyarı = await UyariKayit.findAll({
@@ -60,7 +60,7 @@ async function getWarn(jid = null, user = null, cnt) {
   };
 }
 
-async function setWarn(
+async function uyariEkle(
   jid = null,
   user = null,
   reason = "Sebep belirtilmedi",
@@ -77,10 +77,10 @@ async function setWarn(
 
   const settings = await getGroupSettings(jid);
   const warnLimit = settings.warnLimit || parseInt(config.WARN || "3");
-  return await getWarn(jid, user, warnLimit);
+  return await uyariGetir(jid, user, warnLimit);
 }
 
-async function resetWarn(jid = null, user) {
+async function uyariSifirla(jid = null, user) {
   if (!jid || !user) return false;
 
   const deleted = await UyariKayit.destroy({
@@ -90,7 +90,7 @@ async function resetWarn(jid = null, user) {
   return deleted > 0;
 }
 
-async function getWarnCount(jid = null, user = null) {
+async function uyariSayisiAl(jid = null, user = null) {
   if (!jid || !user) return 0;
 
   return await UyariKayit.count({
@@ -98,7 +98,7 @@ async function getWarnCount(jid = null, user = null) {
   });
 }
 
-async function decrementWarn(jid = null, user = null) {
+async function uyariAzalt(jid = null, user = null) {
   if (!jid || !user) return false;
 
   const uyarı = await UyariKayit.findAll({
@@ -116,7 +116,7 @@ async function decrementWarn(jid = null, user = null) {
   return deleted > 0;
 }
 
-async function getAllWarns(jid = null) {
+async function tumUyarilariAl(jid = null) {
   if (!jid) return [];
 
   const uyarı = await UyariKayit.findAll({
@@ -637,12 +637,12 @@ const filter = {
 
 module.exports = {
   syncWarnsSequence,
-  getWarn,
-  setWarn,
-  resetWarn,
-  getWarnCount,
-  decrementWarn,
-  getAllWarns,
+  uyariGetir,
+  uyariEkle,
+  uyariSifirla,
+  uyariSayisiAl,
+  uyariAzalt,
+  tumUyarilariAl,
   antilinkConfig,
   antiword,
   antifake,

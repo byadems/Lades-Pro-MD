@@ -16,7 +16,7 @@ const { isGroup, getGroupAdmins, getMessageText, getMentioned, getQuotedMsg, loa
 const { getMessageByKey, fetchGroupMeta } = require("./store");
 const { LRUCache } = require("lru-cache");
 const { BotMetrik, KomutIstatistik, KomutKayit, KullaniciVeri, GrupAyar, MesajIstatistik: MsgStats, Op, sequelize } = require("./database");
-const { antidelete } = require("../plugins/utils/db/functions");
+const { antidelete } = require("../plugins/utils/db/fonksiyonlar");
 const { resolveLidToPn, isBotIdentifier } = require("./yardimcilar"); // Moved to top-level
 
 // ── PERFORMANS: ownerNum bir kez hesaplanır, her mesajda regex yok
@@ -944,7 +944,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     const stickerMsg = rawMsg.message?.stickerMessage || rawMsg.message?.documentWithCaptionMessage?.message?.stickerMessage;
     if (stickerMsg?.fileSha256) {
       try {
-        const { stickcmd } = require('../plugins/utils/db/schedulers');
+        const { stickcmd } = require("../plugins/utils/db/zamanlayicilar");
         const cmds = await stickcmd.get();
         if (cmds && cmds.length > 0) {
           const sha = stickerMsg.fileSha256.toString();

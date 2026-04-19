@@ -17,10 +17,10 @@
   const fs = require("fs");
   const axios = require("axios");
   const { uploadToImgbb } = require('./utils/dosya_yukleme');
-  const { setVar } = require("./manage");
+  const { setVar } = require('./yonetim_araclari');
   const { getTotalUserCount } = require("../core/store");
   const { parseAliveMessage, sendAliveMessage } = require('./utils/sistem_durum_ayristirici');
-  const { badWords, censorBadWords } = require("./utils/censor");
+  const { badWords, censorBadWords } = require("./utils/sansur");
   const { nxTry } = require("./utils");
 
   const getCategoryPriority = (category) => {

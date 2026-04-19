@@ -40,8 +40,8 @@ const {
   antidemote,
   antipdm,
   antidelete,
-  setWarn,
-  getWarn,
+  uyariEkle,
+  uyariGetir,
   linkDetector,
   censorBadWords,
   isAdmin,
@@ -1563,14 +1563,14 @@ Module({
             const targetNumericId = usr?.split("@")[0];
 
             try {
-              await setWarn(
+              await uyariEkle(
                 message.jid,
                 usr,
                 "İzinsiz bağlantı gönderme",
                 message.client.user.id
               );
 
-              const warnData = await getWarn(message.jid, usr, warnLimit);
+              const warnData = await uyariGetir(message.jid, usr, warnLimit);
               const currentWarns = warnData.current;
               const kalan = warnData.kalan;
 

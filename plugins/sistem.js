@@ -264,7 +264,7 @@
 // ==========================================
 (function () {
   const { Module } = require("../main");
-  const { scheduledMessages } = require("./utils/db/schedulers");
+  const { scheduledMessages } = require("./utils/db/zamanlayicilar");
   const moment = require("moment");
 
   function isValidJID(text) {
@@ -616,7 +616,8 @@
   const config = require("../config");
   const axios = require("axios");
   const fs = require("fs");
-  const { PluginDB, installPlugin } = require("./sql/plugin");
+  const { PluginDB } = require('./utils/db/modeller');
+const installPlugin = async () => {}; // Stub for removed installer
   const handler = config.HANDLER_PREFIX;
   const { extractUrls, validateUrl } = require("../core/yardimcilar");
   const crypto = require("crypto");

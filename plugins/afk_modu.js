@@ -1,7 +1,7 @@
 const { Module } = require("../main");
 const { censorBadWords } = require("./utils");
 const config = require("../config");
-const { setVar, getVar, delVar } = require("./manage");
+const { setVar, getVar, delVar } = require('./yonetim_araclari');
 const afkCache = new Map();
 
 async function initAFKCache() {
