@@ -424,14 +424,27 @@ _Merhaba $user!_
 
 ${cmdmenu}`;
       try {
+        const channelOpts = {
+          contextInfo: {
+            isForwarded: true,
+            forwardingScore: 999,
+            forwardedNewsletterMessageInfo: {
+              newsletterJid: process.env.CHANNEL_JID || "120363427366763599@newsletter",
+              newsletterName: "📢 " + (process.env.BOT_NAME || "Güncellemeler"),
+              serverMessageId: -1
+            }
+          }
+        };
+
         if (imgContent) {
           await message.client.sendMessage(message.jid, {
             image: imgContent,
             caption: menu,
-            mimetype: imgMimeType
+            mimetype: imgMimeType,
+            ...channelOpts
           });
         } else {
-          await message.client.sendMessage(message.jid, { text: menu });
+          await message.client.sendMessage(message.jid, { text: menu, ...channelOpts });
         }
       } catch (error) {
         config.logger.error(`[Menu] Mesaj gönderilemedi: ${error.message}`);

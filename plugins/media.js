@@ -235,9 +235,8 @@
     async (message, match) => {
       try {
         const audioMsg = message.data?.message?.audioMessage;
-        if (!audioMsg) return;
-        // Modül başında hesaplanan flag kullanılıyor (her mesajda config kontrole yok)
-        if (!_hasTranscribeApi) return;
+        const hasApi = (config.GROQ_API_KEY && config.GROQ_API_KEY !== '') || (config.OPENAI_API_KEY && config.OPENAI_API_KEY !== '');
+        if (!hasApi) return;
         return await transcribeVoiceMessage(message, message);
       } catch (err) {
         console.error("Otomatik dinle hatası:", err);

@@ -1050,8 +1050,9 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     }
 
     // Runtime stats için mesajı kaydet (sync) — yalnızca metinli mesajlar sayılır
-    if (!text) return; // Metin yoksa saymaya gerek yok (sticker, ses, görsel vb.)
-    recordMessage();
+    if (text) {
+      recordMessage();
+    }
 
 
     // ─────────────────────────────────────────────────────────
@@ -1116,6 +1117,36 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
       client.sendMessage(jid, { react: { text: emoji, key: rawMsg.key } }).catch(() => { });
     }
 
+    // ── Native Permission Checks Ön Yükleme ──
+    let isAdmin = false;
+    let isBotAdmin = false;
+    let groupMetadataFetched = null;
+
+    if (isGroup) {
+      try {
+        groupMetadataFetched = await fetchGroupMeta(client, jid);
+        if (groupMetadataFetched) {
+          const admins = getGroupAdmins(groupMetadataFetched);
+          message.groupAdmins = admins;
+          isAdmin = admins.some(a => a.split("@")[0].split(":")[0] === senderJid.split("@")[0].split(":")[0] ||
+            a.split("@")[0].split(":")[0] === resolvedSenderJid.split("@")[0].split(":")[0]);
+          // isBotIdentifier is globally scoped here
+          isBotAdmin = admins.some(a => isBotIdentifier(a, client));
+        }
+      } catch (e) {
+        logger.debug({ err: e.message }, "Admin check error");
+      }
+    } else if (isChannel) {
+      message.groupAdmins = [senderJid, resolvedSenderJid];
+      isAdmin = true;
+      isBotAdmin = true;
+    } else {
+      message.groupAdmins = [];
+    }
+
+    message.isAdmin = isAdmin;
+    message.isBotAdmin = isBotAdmin;
+
     // ── on:"text" / on:"message" event handler'ları — prefix gerekmez ──────
     // Cache kullan: her mesajda spread/concat yapma (O(1) lookup)
     const textHandlers = getTextHandlers();
@@ -1165,39 +1196,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
       const match = cmd._regex ? input.match(cmd._regex) : null;
 
       if (match) {
-        // ── Native Permission Checks ──
-        let isAdmin = false;
-        let isBotAdmin = false;
-
-        if (isGroup) {
-          try {
-            // metadata yoksa çekmeye çalış
-            if (!groupMetadata) {
-              groupMetadata = await fetchGroupMeta(client, jid);
-            }
-            if (groupMetadata) {
-              const admins = getGroupAdmins(groupMetadata);
-              message.groupAdmins = admins; // Tüm liste (eklentiler için)
-              isAdmin = admins.some(a => a.split("@")[0].split(":")[0] === senderJid.split("@")[0].split(":")[0] ||
-                a.split("@")[0].split(":")[0] === resolvedSenderJid.split("@")[0].split(":")[0]);
-              isBotAdmin = admins.some(a => isBotIdentifier(a, client));
-            }
-          } catch (e) {
-            logger.debug({ err: e.message }, "Admin check error");
-          }
-        } else if (isChannel) {
-          message.groupAdmins = [senderJid, resolvedSenderJid];
-          isAdmin = true; // In channels, whoever can send messages IS an admin.
-          isBotAdmin = true;
-        } else {
-          message.groupAdmins = [];
-        }
-
-        // Mesaj nesnesine ekle (pluginler için)
-        message.isAdmin = isAdmin;
-        message.isBotAdmin = isBotAdmin;
-        message.fromOwner = ownerCheck;
-        message.fromSudo = sudoCheck;
+        // ── Native Permission Checks Removed To Top ──
 
         // Core Logic Filters - fromMe: true komutlar için hata mesajı
         if (cmd.fromMe && !fromMe && !ownerOrSudo) {

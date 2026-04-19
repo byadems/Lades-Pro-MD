@@ -130,7 +130,7 @@ Module({
       await setVar(key.trim(), value, message);
     } catch (error) {
       await message.sendReply(
-        `❌ *'${key.trim()}' değişkeni ayarlanamadı.*\n⚠️ *Hata:* \`${ error.message }\``
+        `❌ *'${key.trim()}' değişkeni ayarlanamadı.*\n⚠️ *Hata:* \`${error.message}\``
       );
     }
   }
@@ -179,7 +179,7 @@ Module({
       await delVar(key.trim(), message);
     } catch (error) {
       await message.sendReply(
-        `❌ *'${key.trim()}' değişkeni silinemedi.*\n⚠️ *Hata:* \`${ error.message }\``
+        `❌ *'${key.trim()}' değişkeni silinemedi.*\n⚠️ *Hata:* \`${error.message}\``
       );
     }
   }
@@ -601,7 +601,7 @@ Module({
         );
       if (!disabled.includes(match)) {
         disabled.push(match.trim());
-        await message.sendReply(`❌ *'${handler}${match}' komutu başarıyla kapatıldı!*\nℹ️ _Tekrar açmak için \`${ handler }toggle ${ match }\` kullanın._`
+        await message.sendReply(`❌ *'${handler}${match}' komutu başarıyla kapatıldı!*\nℹ️ _Tekrar açmak için \`${handler}toggle ${match}\` kullanın._`
         );
         return await setVar("DISABLED_COMMANDS", disabled.join(","), false);
       } else {
@@ -1467,7 +1467,7 @@ Module({
 
         for (const link of foundLinks) {
           const inviteMatch = (link || "").match(
-            /^(https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]{22})(\?.*)?$/i
+            /^(https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]+)(\?.*)?$/i
           );
           if (!inviteMatch) continue;
 
@@ -1492,7 +1492,7 @@ Module({
           }
 
           const infoMessage =
-            `Saygıdeğer yöneticilerim; *${groupMetadata.subject}* grubunda ` +
+            `*${groupMetadata.subject}* grubunda ` +
             `şu şahsı *${senderName}* (+${senderNumber}) suçüstü yakaladım. 😈
 
 🔗 ${message.text}`;
@@ -1522,7 +1522,7 @@ Module({
 
       if (antilinkConf && antilinkConf.enabled) {
         let linkBlocked = false;
-        const whatsappInviteMatch = /chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]{22})/i;
+        const whatsappInviteMatch = /chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]+)/i;
         let currentGroupCode = null;
         if (message.isGroup) {
           try {
