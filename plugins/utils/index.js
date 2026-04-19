@@ -80,7 +80,7 @@ const linkDetector = require("./baglanti_tespit");
 
 const fancy = require("./metin_stilleri");
 
-const { censorBadWords, badWords } = require("./sansur");
+const { censorBadWords, badWords, containsBadWord, BAD_WORD_REGEX } = require("./sansur");
 
 const { nx, nxTry, fmtCount, trToEn } = require("./nexray_api");
 
@@ -160,7 +160,9 @@ module.exports = {
 
   // Küfür sansürü (tüm pluginlerden erişilebilir)
   censorBadWords,
+  containsBadWord,
   badWords,
+  BAD_WORD_REGEX,
 
   // Nexray Utilities
   nx,

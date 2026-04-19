@@ -77,11 +77,12 @@
     let processingMsg;
     try {
       const voiceMsg = targetMessage || message;
-      const isVoice = voiceMsg.audio ||
-        voiceMsg.ptt ||
-        voiceMsg.data?.message?.audioMessage ||
-        voiceMsg.reply_message?.audio ||
-        voiceMsg.reply_message?.ptt;
+      // .dinle komutu ile explicitly bir targetMessage (reply_message) paslanmışsa onu kontrol et
+      // Değilse (otomatik tetikleme) sadece asıl mesajı kontrol et
+      const isVoice = voiceMsg.audio || 
+                      voiceMsg.ptt || 
+                      voiceMsg.data?.message?.audioMessage;
+      
       if (!isVoice) {
         return;
       }
@@ -121,7 +122,7 @@
       };
       const useGroq = config.GROQ_API_KEY && config.GROQ_API_KEY !== '';
       const makeRequest = (useOpenAI = false) => {
-        const body = buildBody(useOpenAI ? "gpt-4o-mini-transcribe" : "whisper-large-v3");
+        const body = buildBody(useOpenAI ? "whisper-1" : "whisper-large-v3");
         return new Promise((resolve, reject) => {
           const options = useOpenAI ? {
             hostname: 'api.openai.com',
@@ -271,6 +272,11 @@
         }
 
         if (!hasApi) return;
+        
+        // Sadece mesajın KENDİSİ ses dosyasıysa otomatik çevir (yanıtlarda tetiklenme!)
+        const isSelfVoice = message.audio || message.ptt || audioMsg;
+        if (!isSelfVoice) return;
+        
         return await transcribeVoiceMessage(message, message);
       } catch (err) {
         console.error("Otomatik dinle hatası:", err);

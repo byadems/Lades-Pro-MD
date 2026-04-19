@@ -1,15 +1,24 @@
-function containsDisallowedWords(str, disallowedWords) {
-  str = str.toLowerCase();
-  for (let word of disallowedWords) {
-    if (str.match(word)) {
-      let otherWords = str.replace(word, "±").split("±");
-      for (let _word of otherWords) {
-        str = str.replace(_word, "");
-      }
-      let filteredWord = str;
-      return filteredWord;
-    }
+const { badWords: globalBadWords, containsBadWord, BAD_WORD_REGEX } = require("./utils");
+
+/**
+ * Metindeki yasaklı kelimeyi bulur ve döndürür.
+ * @param {string} str - Kontrol edilecek metin
+ * @param {string[]} disallowedWords - Özel yasaklı kelimeler listesi (isteğe bağlı)
+ * @returns {string|null} Bulunan kelime veya null
+ */
+function findDisallowedWord(str, disallowedWords) {
+  if (!str) return null;
+  
+  // Eğer özel bir liste verilmişse onu kullan, yoksa global listeyi/regex'i kullan
+  if (disallowedWords && Array.isArray(disallowedWords) && disallowedWords.length > 0) {
+    const escaped = disallowedWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    const customRegex = new RegExp(`\\b(${escaped.join("|")})\\b`, "gi");
+    const match = str.match(customRegex);
+    return match ? match[0] : null;
   }
+  
+  const match = str.match(BAD_WORD_REGEX);
+  return match ? match[0] : null;
 }
 
 function checkLinks(links, allowedWords) {
@@ -1428,25 +1437,46 @@ Module({
     }
 
     const antiwordjids = await getCachedAntiwordJids();
-    if (antiwordjids.has(message.jid)) {
+    if (antiwordjids.has(message.jid) && !message.isAdmin) {
       const antiwordWarn = config.ANTIWORD_WARN?.split(",") || [];
-      if (antiwordWarn.includes(message.jid)) return;
-      let disallowedWords = (config.ANTI_WORDS || "auto").split(",");
-      if (config.ANTI_WORDS == "auto")
-        disallowedWords = require("badwords/array");
-      let thatWord = containsDisallowedWords(message.text, disallowedWords);
+      const isWarnMode = antiwordWarn.includes(message.jid);
+      
+      let disallowedWords = null;
+      if (config.ANTI_WORDS && config.ANTI_WORDS !== "auto") {
+        disallowedWords = config.ANTI_WORDS.split(",").map(w => w.trim()).filter(Boolean);
+      }
+      
+      let thatWord = findDisallowedWord(message.text, disallowedWords);
+      
       if (thatWord) {
-        await message.sendReply(
-          `🤬 *${thatWord} kelimesi bu sohbette yasaklandı!*`
-        );
-        await message.client.groupParticipantsUpdate(
-          message.jid,
-          [message.sender],
-          "remove"
-        );
-        return await message.client.sendMessage(message.jid, {
-          delete: message.data.key,
-        });
+        if (isWarnMode) {
+          // UYARI MODU: Kullanıcıyı uyar ve mesajı sil
+          const { WARN } = require("../config");
+          const warnLimit = parseInt(WARN || "3");
+          
+          await uyariEkle(message.jid, message.sender, `Yasaklı kelime kullanımı: ${thatWord}`, message.client.user.id);
+          const warnData = await uyariGetir(message.jid, message.sender, warnLimit);
+          
+          if (warnData.exceeded) {
+            await message.sendReply(`🤬 *Yasaklı kelime kullanımı nedeniyle sınır aşıldı!* @${message.sender.split("@")[0]} gruptan uzaklaştırılıyor.`, { mentions: [message.sender] });
+            await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove");
+          } else {
+            await message.sendReply(`⚠️ @${message.sender.split("@")[0]}, *bu grupta yasaklı kelime kullanmamalısınız!*\n\n*Kelime:* ${thatWord}\n*Uyarı:* ${warnData.current}/${warnLimit}`, { mentions: [message.sender] });
+          }
+          
+          return await message.client.sendMessage(message.jid, { delete: message.data.key });
+        } else {
+          // DİREKT ATMA MODU
+          await message.sendReply(`🤬 *'${thatWord}' kelimesi bu grupta yasaklanmıştır!* @${message.sender.split("@")[0]} uzaklaştırılıyor...`, { mentions: [message.sender] });
+          
+          try {
+            await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove");
+          } catch (e) {
+            console.error("Antiword kick hatası:", e);
+          }
+          
+          return await message.client.sendMessage(message.jid, { delete: message.data.key });
+        }
       }
     }
 

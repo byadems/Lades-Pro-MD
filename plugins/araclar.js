@@ -740,15 +740,21 @@ ${cmdmenu}`;
         const [targetJid, targetMsgId] = refMatch[1].split("|");
 
         if (targetJid && targetMsgId) {
-          const yanitMetni = `📬 *MESAJINIZ VAR!*\n💬 _Geliştiriciden yanıt geldi!_\n\n${message.text}\n\nℹ️ _Bu mesaj sistem tarafından otomatik olarak iletilmiştir._`;
+          const senderMatch = repliedText.match(/👤 \*Gönderen:\* @([0-9]+)/);
+          const hedeflenenKullanici = senderMatch ? `${senderMatch[1]}@s.whatsapp.net` : null;
+          const yollananKullanici = hedeflenenKullanici || message.reply_message?.mentions?.[0];
+
+          const etiket = yollananKullanici ? `@${yollananKullanici.split("@")[0]} ` : "";
+          const yanitMetni = `📬 *MESAJINIZ VAR!*\n💬 _Geliştiriciden yanıt geldi!_\n\n${etiket}${message.text}\n\nℹ️ _Bu mesaj sistem tarafından iletilmiştir._`;
 
           try {
             // targetMsgId ile kullanıcının orijinal komutuna doğrudan yanıt ver
             await message.client.sendMessage(targetJid, {
-              text: yanitMetni
+              text: yanitMetni,
+              mentions: yollananKullanici ? [yollananKullanici] : []
             }, {
               quoted: {
-                key: { remoteJid: targetJid, id: targetMsgId, participant: targetJid.includes("@g.us") ? message.reply_message?.mentions?.[0] : undefined },
+                key: { remoteJid: targetJid, id: targetMsgId, participant: targetJid.includes("@g.us") ? yollananKullanici : undefined },
                 message: { conversation: "Bildiriniz" }
               }
             });

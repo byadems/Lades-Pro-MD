@@ -15,9 +15,7 @@ const nx = require('./nexray_api');
  */
 async function isAdmin(message, userJid = message.sender) {
   if (!message.isGroup) return false;
-  
-  const { isBotIdentifier } = require("./yardimcilar");
-
+  const { isBotIdentifier } = require("./lid_yardimcisi");
   // Eğer kontrol edilen kişi bizzat komutu gönderen (owner) ise true döndür.
   if (message.fromOwner && userJid === message.sender) return true;
 
@@ -32,11 +30,11 @@ async function isAdmin(message, userJid = message.sender) {
     const metadata = await fetchGroupMeta(message.client, message.jid);
     if (!metadata) return false;
     const admins = getGroupAdmins(metadata);
-    
+
     // Eğer botun yöneticiliğini kontrol ediyorsak lid-helper'daki isBotIdentifier'ı kullanalım.
     // Çünkü botun hem PN hem de LID'si olabilir.
     if (isBotIdentifier(userJid, message.client)) {
-       return admins.some(a => isBotIdentifier(a, message.client));
+      return admins.some(a => isBotIdentifier(a, message.client));
     }
 
     const checkedJidNumeric = userJid.split("@")[0].split(":")[0];
