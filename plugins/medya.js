@@ -273,10 +273,11 @@
 
         if (!hasApi) return;
         
-        // Sadece mesajın KENDİSİ ses dosyasıysa otomatik çevir (yanıtlarda tetiklenme!)
-        const isSelfVoice = message.audio || message.ptt || audioMsg;
-        if (!isSelfVoice) return;
-        
+        // Yalnızca mikrofon ile kaydedilmiş sesli mesajlarda (PTT) otomatik çeviri yap.
+        // Paylaşılan şarkı / müzik / ses dosyası (ptt: false) otomatik analize dahil değil.
+        const isPtt = message.ptt || audioMsg?.ptt === true;
+        if (!isPtt) return;
+
         return await transcribeVoiceMessage(message, message);
       } catch (err) {
         console.error("Otomatik dinle hatası:", err);

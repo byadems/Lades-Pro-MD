@@ -33,7 +33,7 @@ async function toOpus(buffer) {
             "-avoid_negative_ts make_zero",
             "-map_metadata -1",
           ])
-          .toFormat("opus")
+          .toFormat("ogg") // OGG container + Opus codec = audio/ogg; codecs=opus (WhatsApp PTT için doğru format)
           .on("end", async () => {
             try {
               const outBuffer = await fs.promises.readFile(outputPath);

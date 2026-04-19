@@ -234,22 +234,69 @@ async function createBot(sessionId = "lades-session", options = {}) {
   // Store events
   bindToSocket(sock);
 
-  // --- AUDIO MESSAGE PLAYBACK FIX (SES DOSYASI YÜRÜTME SORUNU) ---
-  // WhatsApp'ın son güncellemeleri audio/mpeg veya hatalı gönderilmiş ptt: true mesajlarını çökertmektedir.
-  // Bu yüzden tüm ses mesajlarını global olarak araya girip onarıyoruz.
+  // ─── iOS UYUMLU SES MESAJI DÜZELTME SİSTEMİ ─────────────────────────────
+  // WhatsApp iOS istemcisi yalnızca belirli ses formatlarını oynatabilir:
+  //   - Oynatma çubuklu ses mesajı → AAC kodekli MP4 container (audio/mp4)
+  //   - PTT (sesli mesaj) → OGG container + Opus kodek (audio/ogg; codecs=opus)
+  //
+  // audio/mpeg (MP3) her iki tipte de iOS'ta açılmaz.
+  // Çözüm: sendMessage intercept edilerek audio buffer'ı gerçek zamanlı dönüştürülür.
+  const { toMp4Audio, toOpus } = require('./media-utils');
+
   const originalSendMessage = sock.sendMessage;
   sock.sendMessage = async (jid, content, options) => {
     if (content && content.audio) {
-      if (content.mimetype === "audio/mpeg") {
-        content.mimetype = "audio/mp4"; // iOS ve modern WA Web MP4 mimetipi (M4A) istiyor
+      const mime = content.mimetype || '';
+      const isPtt = !!content.ptt;
+
+      // ── PTT (Sesli Mesaj) Akışı ──────────────────────────────────────────
+      // PTT yalnızca OGG/Opus ile çalışır. Başka bir format gelirse dönüştür.
+      if (isPtt && !mime.includes('ogg') && !mime.includes('opus')) {
+        try {
+          let buf = null;
+          if (Buffer.isBuffer(content.audio)) {
+            buf = content.audio;
+          } else if (content.audio && content.audio.url) {
+            // URL ise buffer'a çekmeden Opus'a yönlendiremeyiz, ptt=false yap
+            content.ptt = false;
+            content.mimetype = 'audio/mp4';
+          }
+          if (buf) {
+            const opusBuf = await toOpus(buf);
+            content.audio = opusBuf;
+            content.mimetype = 'audio/ogg; codecs=opus';
+            // ptt=true kalır
+          }
+        } catch (e) {
+          // Dönüşüm başarısız → güvenli fallback: ptt kaldır, mp4 yap
+          logger.debug('[AudioFix] PTT Opus dönüşümü başarısız, fallback:', e.message);
+          content.ptt = false;
+          content.mimetype = 'audio/mp4';
+        }
       }
-      if (!content.mimetype) {
-        content.mimetype = "audio/mp4";
+
+      // ── Normal Ses Mesajı Akışı ──────────────────────────────────────────
+      // audio/mpeg (MP3) iOS'ta hiç açılmaz → AAC/MP4 container'a çevir.
+      else if (!isPtt && (mime === 'audio/mpeg' || mime === 'audio/mp3' || mime === '')) {
+        if (Buffer.isBuffer(content.audio)) {
+          // Buffer gelirse gerçek zamanlı M4A'ya dönüştür
+          try {
+            const m4aBuf = await toMp4Audio(content.audio);
+            content.audio = m4aBuf;
+            content.mimetype = 'audio/mp4';
+          } catch (e) {
+            logger.debug('[AudioFix] MP4 audio dönüşümü başarısız, mimetype düzeltiliyor:', e.message);
+            content.mimetype = 'audio/mp4'; // En azından mimetype'ı düzelt
+          }
+        } else {
+          // URL/stream tabanlı → buffer dönüşümü mümkün değil, mimetype düzelt
+          content.mimetype = 'audio/mp4';
+        }
       }
-      // OGG OPUS codec ile encode edilmemiş PTT'ler yeni WA sürümlerinde çalışmaz
-      // Normal ses dosyası (oynatma çubuğu olan) formatına çeviriyoruz
-      if (content.ptt && (!content.mimetype.includes("ogg") && !content.mimetype.includes("opus"))) {
-        content.ptt = false;
+
+      // ── Fallback: Mimetype yoksa varsayılan ata ───────────────────────────
+      else if (!mime && !isPtt) {
+        content.mimetype = 'audio/mp4';
       }
     }
     return originalSendMessage.call(sock, jid, content, options);

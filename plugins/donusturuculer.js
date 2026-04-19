@@ -651,7 +651,7 @@ Module({
 
       await message.client.sendMessage(message.jid, {
         audio,
-        mimetype: "audio/mpeg",
+        mimetype: "audio/mp4",
         ptt: true,
       });
     } catch (error) {

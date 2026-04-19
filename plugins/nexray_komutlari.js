@@ -714,7 +714,7 @@ Module({
 
       await message.client.sendMessage(message.jid, {
         audio: { url: result.url },
-        mimetype: "audio/mpeg",
+        mimetype: "audio/mp4",
         fileName: `${title}.mp3`,
         externalAdReply: {
           title,
@@ -733,7 +733,7 @@ Module({
           const audioUrl = r.url || r.download || r.audio;
           await message.client.sendMessage(message.jid, {
             audio: { url: audioUrl },
-            mimetype: "audio/mpeg",
+            mimetype: "audio/mp4",
           }, { quoted: message.data });
           return;
         }

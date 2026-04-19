@@ -632,7 +632,7 @@
 
               await saveToDisk(audioUrl, tempPath);
               await message.edit("🔺 _Ses gönderiliyor..._", message.jid, downloadMsg.key);
-              await message.sendReply({ url: tempPath }, "audio");
+              await message.sendReply({ audio: { url: tempPath }, mimetype: "audio/mp4" });
               await message.edit("✅ *İndirme tamamlandı!*", message.jid, downloadMsg.key);
             } catch (err) {
               if (config.DEBUG)
@@ -643,7 +643,7 @@
                   if (!downloadMsg) downloadMsg = await message.sendReply("♻️ _Yedek yöntemle indiriliyor..._");
                   await saveToDisk(fallback.url, tempPath);
                   await message.edit("🔺 _Ses gönderiliyor..._", message.jid, downloadMsg.key);
-                  await message.sendReply({ url: tempPath }, "audio");
+                  await message.sendReply({ audio: { url: tempPath }, mimetype: "audio/mp4" });
                   await message.edit("✅ *İndirme tamamlandı!*", message.jid, downloadMsg.key);
                   return;
                 }
@@ -1729,7 +1729,7 @@
 
           await message.client.sendMessage(message.jid, {
             audio: { url: result.url },
-            mimetype: "audio/mpeg",
+            mimetype: "audio/mp4",
             fileName: `${safeArtist} - ${safeTitle}.mp3`,
           }, { quoted: message.data });
 
@@ -1756,7 +1756,7 @@
 
           await message.client.sendMessage(message.jid, {
             audio: { url: result.url },
-            mimetype: "audio/mpeg",
+            mimetype: "audio/mp4",
             fileName: `${safeArtist} - ${safeTitle}.mp3`,
             externalAdReply: {
               title: safeTitle,
@@ -1779,7 +1779,7 @@
               const audioUrl = r.url || r.download || r.audio;
               await message.client.sendMessage(message.jid, {
                 audio: { url: audioUrl },
-                mimetype: "audio/mpeg",
+                mimetype: "audio/mp4",
               }, { quoted: message.data });
               return;
             }
@@ -2136,7 +2136,7 @@
         const stream = fs.createReadStream(audioPath);
         await message.sendMessage({ stream }, "document", {
           fileName: `${safeTitle}.mp3`,
-          mimetype: "audio/mpeg",
+          mimetype: "audio/mp4",
           caption: `_*${safeTitle}*_`,
         });
         stream.destroy();
@@ -2169,7 +2169,7 @@
 
           await message.client.sendMessage(message.jid, {
             audio: { url: fallback.url },
-            mimetype: "audio/mpeg",
+            mimetype: "audio/mp4",
             fileName: `${safeTitle}.mp3`,
           }, { quoted: message.data });
 
@@ -2253,7 +2253,7 @@
           const safeTitle = censorBadWords(result.title);
           await message.client.sendMessage(message.jid, {
             audio: { url: result.url },
-            mimetype: "audio/mpeg",
+            mimetype: "audio/mp4",
             fileName: `${safeTitle}.mp3`,
           }, { quoted: message.data });
 
@@ -2271,7 +2271,7 @@
 
           await message.client.sendMessage(message.jid, {
             audio: { url: result.url },
-            mimetype: "audio/mpeg",
+            mimetype: "audio/mp4",
             fileName: `${safeTitle}.mp3`,
           }, { quoted: message.data });
 
@@ -2301,7 +2301,7 @@
 
           await message.client.sendMessage(message.jid, {
             audio: { url: result.url },
-            mimetype: "audio/mpeg",
+            mimetype: "audio/mp4",
             fileName: `${safeTitle}.mp3`,
           }, { quoted: message.data });
 
@@ -2379,7 +2379,7 @@
 
             await message.client.sendMessage(message.jid, {
               audio: { url: result.url },
-              mimetype: "audio/mpeg",
+              mimetype: "audio/mp4",
               fileName: `${safeTitle}.mp3`,
             }, { quoted: message.data });
 
@@ -2486,7 +2486,7 @@
 
               await message.client.sendMessage(message.jid, {
                 audio: { url: result.url },
-                mimetype: "audio/mpeg",
+                mimetype: "audio/mp4",
                 fileName: `${censorBadWords(result.title)}.mp3`,
               }, { quoted: message.data });
 
@@ -2712,7 +2712,7 @@
               const stream = fs.createReadStream(audioPath);
               await message.sendMessage({ stream }, "document", {
                 fileName: `${safeTitle}.mp3`,
-                mimetype: "audio/mpeg",
+                mimetype: "audio/mp4",
                 caption: `_*${safeTitle}*_`,
               });
               stream.destroy();
@@ -2735,7 +2735,7 @@
                   await message.edit(`🔻🔺 _İndirilip yükleniyor..._ *${safeTitle}*`, message.jid, downloadMsg.key);
                   await message.client.sendMessage(message.jid, {
                     audio: { url: fallback.url },
-                    mimetype: "audio/mpeg",
+                    mimetype: "audio/mp4",
                     fileName: `${safeTitle}.mp3`,
                     caption: `_*${safeTitle}*_`
                   }, { quoted: message.data });
