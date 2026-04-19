@@ -234,118 +234,50 @@ async function createBot(sessionId = "lades-session", options = {}) {
   // Store events
   bindToSocket(sock);
 
-  // ─── iOS UYUMLU SES MESAJI DÜZELTİCİ (v2 — Gerçek Dönüşüm) ────────────────
-  // Sorunun kökü: iOS WhatsApp dosyanın mimetype etiketine değil, binary verinin
-  // gerçek codec başlığına (magic bytes) bakarak karar verir.
-  // Önceki çözüm sadece mimetype string'ini değiştirip gerçek MP3 veriyi aynı
-  // bırakıyordu → iOS yine de açamıyordu.
-  //
-  // Bu versiyon:
-  //  1) { url: yerelDosyaYolu } → dosyayı okur, magic byte ile MP3 mi diye bakar
-  //  2) MP3 ise ffmpeg ile gerçek AAC/M4A'ya dönüştürür (binary veriyi de!)
-  //  3) PTT ise OGG/Opus'a dönüştürür
-  //  4) HTTP URL ise indirmeden sadece mimetype düzeltir (en azından)
-  const { toMp4Audio, toOpus } = require('./media-utils');
-
-  /**
-   * MP3 magic byte tespiti.
-   * ID3 etiketi (ID3v2): 0x49 0x44 0x33
-   * MPEG sync word: 0xFF 0xEx (MPEG1/2 layer 1–3)
-   */
-  function isMp3Binary(buf) {
-    if (!Buffer.isBuffer(buf) || buf.length < 3) return false;
-    // ID3 tag header
-    if (buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) return true;
-    // MPEG sync: 0xFF + (0xE0–0xFF)
-    if (buf[0] === 0xFF && (buf[1] & 0xE0) === 0xE0) return true;
-    return false;
-  }
-
-  /**
-   * OGG magic byte tespiti: "OggS" = 0x4F 0x67 0x67 0x53
-   */
-  function isOggBinary(buf) {
-    if (!Buffer.isBuffer(buf) || buf.length < 4) return false;
-    return buf[0] === 0x4F && buf[1] === 0x67 && buf[2] === 0x67 && buf[3] === 0x53;
-  }
+  // ─── iOS UYUMLU SESLİ MESAJ (PTT) DÜZELTİCİ ────────────────────────────────
+  // Sorunun Doğrusu: iOS cihazlar, normal müzik dosyalarında "audio/mpeg" (MP3) 
+  // açabilirler! Ancak bir ses mesajı (ptt: true) gönderiliyorsa, bunun KESİNLİKLE 
+  // "audio/ogg; codecs=opus" formatında olması gerekir, aksi takdirde iOS'ta açılamaz.
+  // Bu interceptor, şarkılara (ptt: false) ASLA DOKUNMAZ. Sadece MP3 olarak gelen 
+  // sesli mesajları (ptt: true) OGG formatına dönüştürür.
+  const { toOpus } = require('./media-utils');
 
   const originalSendMessage = sock.sendMessage;
   sock.sendMessage = async (jid, content, options) => {
-    if (content && content.audio) {
+    if (content && content.audio && content.ptt) {
       const mime = content.mimetype || '';
-      const isPtt = !!content.ptt;
+      
+      // Eğer PTT ise ancak doğru kodek değilse dönüştürmemiz gerekir
+      if (!mime.includes('ogg') && !mime.includes('opus')) {
+        let audioBuf = null;
 
-      // ── Adım 1: Ses verisini Buffer'a çöz ──────────────────────────────────
-      // Buffer zaten varsa kullan.
-      // { url: yerelYol } ise dosyayı oku (HTTP URL'leri atla, dönüştüremeyiz).
-      let audioBuf = null;
-
-      if (Buffer.isBuffer(content.audio)) {
-        audioBuf = content.audio;
-      } else if (content.audio && typeof content.audio.url === 'string') {
-        const audioUrl = content.audio.url;
-        const isLocalPath = !audioUrl.startsWith('http://') && !audioUrl.startsWith('https://');
-        if (isLocalPath) {
-          try {
-            if (fs.existsSync(audioUrl)) {
-              audioBuf = await fsp.readFile(audioUrl);
+        if (Buffer.isBuffer(content.audio)) {
+          audioBuf = content.audio;
+        } else if (typeof content.audio.url === 'string') {
+          const audioUrl = content.audio.url;
+          const isLocalPath = !audioUrl.startsWith('http://') && !audioUrl.startsWith('https://');
+          if (isLocalPath) {
+            try {
+              if (fs.existsSync(audioUrl)) {
+                audioBuf = await fsp.readFile(audioUrl);
+              }
+            } catch (e) {
+              logger.debug('[PttFix] Yerel dosya okunamadı:', e.message);
             }
-          } catch (e) {
-            logger.debug('[AudioFix] Yerel dosya okunamadı:', e.message);
           }
         }
-      }
 
-      // ── Adım 2: Buffer varsa gerçek dönüşüm yap ────────────────────────────
-      if (audioBuf) {
-        const isAlreadyOgg = isOggBinary(audioBuf);
-        const isActuallyMp3 = isMp3Binary(audioBuf);
-
-        if (isPtt) {
-          // PTT: OGG/Opus zorunlu. Zaten OGG değilse dönüştür.
-          if (!isAlreadyOgg) {
-            try {
-              content.audio = await toOpus(audioBuf);
-              content.mimetype = 'audio/ogg; codecs=opus';
-              // ptt: true kalır
-            } catch (e) {
-              logger.debug('[AudioFix] Opus dönüşümü başarısız, normal ses olarak gönderiyor:', e.message);
-              content.audio = audioBuf;
-              content.ptt = false;
-              content.mimetype = 'audio/mp4';
-            }
-          } else {
-            content.audio = audioBuf;
+        if (audioBuf) {
+          try {
+            content.audio = await toOpus(audioBuf);
             content.mimetype = 'audio/ogg; codecs=opus';
+          } catch (e) {
+            logger.debug('[PttFix] Opus dönüşümü başarısız, ptt iptal edildi:', e.message);
+            content.ptt = false; // Dönüştürülemediyse düz müzik gibi gönder
           }
         } else {
-          // Normal ses: MP3 ise AAC/M4A'ya dönüştür. Zaten M4A/OGG ise dokunma.
-          if (isActuallyMp3 || mime === 'audio/mpeg' || mime === 'audio/mp3') {
-            try {
-              content.audio = await toMp4Audio(audioBuf);
-              content.mimetype = 'audio/mp4';
-            } catch (e) {
-              logger.debug('[AudioFix] M4A dönüşümü başarısız, ham buffer ile devam:', e.message);
-              content.audio = audioBuf;
-              content.mimetype = 'audio/mp4';
-            }
-          } else {
-            // Zaten uyumlu format (M4A, OGG, vb.) — buffer'ı kullan, mimetype'ı normalize et
-            content.audio = audioBuf;
-            if (!mime || mime === 'audio/mpeg' || mime === 'audio/mp3') {
-              content.mimetype = 'audio/mp4';
-            }
-          }
-        }
-      } else {
-        // ── Adım 3: HTTP URL veya stream — binary dönüşüm mümkün değil ───────
-        // En azından metadata'yı düzelt.
-        if (isPtt && mime && !mime.includes('ogg') && !mime.includes('opus')) {
-          // Geçersiz PTT → normal sese çevir
+          // Stream veya URL ise dönüştüremeyiz, oynatılabilir olması için ptt'yi kapat
           content.ptt = false;
-        }
-        if (!mime || mime === 'audio/mpeg' || mime === 'audio/mp3') {
-          content.mimetype = 'audio/mp4';
         }
       }
     }

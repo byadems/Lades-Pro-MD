@@ -583,7 +583,7 @@ class BaseMessage {
     } else if (r_type === "audio") {
       // audio/mp4 (AAC container) = iOS + Android uyumlu oynatma çubuklu ses
       // audio/mpeg (MP3) iOS'ta açılmaz; bot.js interceptor da bu dönüşümü yapar
-      content.mimetype = r_options.mimetype || "audio/mp4";
+      content.mimetype = r_options.mimetype || "audio/mpeg";
     }
 
     const baileysOpts = { ...r_options };

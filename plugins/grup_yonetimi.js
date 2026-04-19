@@ -3527,7 +3527,7 @@ _ℹ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
             if (mentionData.url) {
               await message.sendReply({ url: mentionData.url }, "audio", {
                 ptt: true,
-                mimetype: "audio/mp4",
+                mimetype: "audio/mpeg",
               });
             }
             break;
