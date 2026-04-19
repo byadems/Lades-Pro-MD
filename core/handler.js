@@ -552,10 +552,37 @@ class BaseMessage {
 
     if (r_options.caption) content.caption = r_options.caption;
     if (r_options.fileName) content.fileName = r_options.fileName;
-    if (r_options.mimetype) content.mimetype = r_options.mimetype;
     if (r_options.mentions) content.mentions = r_options.mentions;
-    if (r_options.ptt) content.ptt = r_options.ptt;
     if (r_options.gifPlayback) content.gifPlayback = r_options.gifPlayback;
+
+    // Audio/voice note (PTT) handling
+    if (r_type === "audio" && r_options.ptt) {
+      try {
+        const { toOpus, toMp4Audio } = require("./media-utils");
+        let audioBuffer = r_content;
+        if (Buffer.isBuffer(r_content)) {
+          audioBuffer = r_content;
+        } else if (r_content && r_content.url) {
+          const { getBuffer } = require("../plugins/utils");
+          audioBuffer = await getBuffer(r_content.url);
+        }
+        if (audioBuffer) {
+          const opusBuffer = await toOpus(audioBuffer);
+          content.audio = opusBuffer;
+          content.mimetype = "audio/ogg; codecs=opus";
+          content.ptt = true;
+        } else {
+          content.mimetype = r_options.mimetype || "audio/ogg";
+          content.ptt = r_options.ptt;
+        }
+      } catch (err) {
+        console.error("Sesli mesaj dönüşümü başarısız:", err);
+        content.mimetype = r_options.mimetype || "audio/ogg";
+        content.ptt = r_options.ptt;
+      }
+    } else if (r_type === "audio") {
+      content.mimetype = r_options.mimetype || "audio/mp4";
+    }
 
     const baileysOpts = { ...r_options };
     delete baileysOpts.caption;

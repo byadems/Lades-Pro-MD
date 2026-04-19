@@ -37,16 +37,23 @@
 
 
   async function sendBanAudio(message) {
-    const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
+const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
 
-    try {
-      if (!fs.existsSync(audioPath)) return;
-
-      // Send as voice note (PTT) for a more premium experience
-      await message.sendMessage(fs.readFileSync(audioPath), "audio", { ptt: true });
-    } catch (err) {
-      console.error("Ban sesini gönderirken hata:", err);
+  try {
+    if (!fs.existsSync(audioPath)) {
+      console.error("Ban sesi bulunamadı:", audioPath);
+      return;
     }
+
+    const stream = fs.createReadStream(audioPath);
+    try {
+      await message.send({ stream }, "audio");
+    } finally {
+      stream.destroy();
+    }
+  } catch (err) {
+    console.error("Ban sesini gönderirken hata:", err);
+  }
   }
 
 
@@ -3525,10 +3532,7 @@ _ℹ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
 
           case "audio":
             if (mentionData.url) {
-              await message.sendReply({ url: mentionData.url }, "audio", {
-                ptt: true,
-                mimetype: "audio/mpeg",
-              });
+              await message.sendReply({ url: mentionData.url }, "audio");
             }
             break;
 

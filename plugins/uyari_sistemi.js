@@ -23,9 +23,20 @@ const sudoUsers = (SUDO || "").split(",");
 async function sendBanAudio(message) {
   const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
   try {
-    if (!fs.existsSync(audioPath)) return;
-    await message.sendMessage(fs.readFileSync(audioPath), "audio", { ptt: true });
-  } catch (err) { }
+    if (!fs.existsSync(audioPath)) {
+      console.error("Ban sesi bulunamadı:", audioPath);
+      return;
+    }
+
+    const stream = fs.createReadStream(audioPath);
+    try {
+      await message.send({ stream }, "audio");
+    } finally {
+      stream.destroy();
+    }
+  } catch (err) {
+    console.error("Ban sesini gönderirken hata:", err);
+  }
 }
 
 Module({

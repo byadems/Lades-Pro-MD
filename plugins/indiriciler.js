@@ -632,7 +632,7 @@
 
               await saveToDisk(audioUrl, tempPath);
               await message.edit("🔺 _Ses gönderiliyor..._", message.jid, downloadMsg.key);
-              await message.sendReply({ audio: { url: tempPath }, mimetype: "audio/mpeg" });
+              await message.sendReply({ url: tempPath }, "audio");
               await message.edit("✅ *İndirme tamamlandı!*", message.jid, downloadMsg.key);
             } catch (err) {
               if (config.DEBUG)
@@ -643,7 +643,7 @@
                   if (!downloadMsg) downloadMsg = await message.sendReply("♻️ _Yedek yöntemle indiriliyor..._");
                   await saveToDisk(fallback.url, tempPath);
                   await message.edit("🔺 _Ses gönderiliyor..._", message.jid, downloadMsg.key);
-                  await message.sendReply({ audio: { url: tempPath }, mimetype: "audio/mpeg" });
+                  await message.sendReply({ url: tempPath }, "audio");
                   await message.edit("✅ *İndirme tamamlandı!*", message.jid, downloadMsg.key);
                   return;
                 }
