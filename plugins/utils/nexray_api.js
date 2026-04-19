@@ -4,7 +4,7 @@
  */
 const axios = require("axios");
 const FormData = require("form-data");
-const { withRetry, CircuitBreaker } = require("./resilience");
+const { withRetry, CircuitBreaker } = require('./hata_yonetimi');
 
 const BASE = "https://api.nexray.web.id";
 const TIMEOUT = 60000;

@@ -1,11 +1,11 @@
 const { Module } = require("../main");
 const axios = require("axios");
 const config = require("../config");
-const { CircuitBreaker } = require("./utils/resilience");
-const nexray = require("./utils/nexray");
-const { saveToDisk, getTempPath, cleanTempFile, isMediaImage } = require("../core/helpers");
+const { CircuitBreaker } = require('./utils/hata_yonetimi');
+const nexray = require('./utils/nexray_api');
+const { saveToDisk, getTempPath, cleanTempFile, isMediaImage } = require("../core/yardimcilar");
 const { sticker, addExif, trToEn } = require("./utils");
-const { uploadToImgbb, uploadToCatbox } = require("./utils/upload");
+const { uploadToImgbb, uploadToCatbox } = require('./utils/dosya_yukleme');
 
 async function uploadMedia(filePath, type = "image") {
   if (type === "image") {

@@ -14,11 +14,11 @@ const { logger, ...config } = require("../config");
 const { getAuthState, displayQR } = require("./auth");
 const { bindToSocket, fetchGroupMeta } = require("./store");
 const { handleMessage, handleGroupUpdate, handleGroupParticipantsUpdate, loadPlugins } = require("./handler");
-const { getNumericalId, getMessageText, isGroup, suppressLibsignalLogs, startTempCleanup, stopTempCleanup, loadBaileys } = require("./helpers");
+const { getNumericalId, getMessageText, isGroup, suppressLibsignalLogs, startTempCleanup, stopTempCleanup, loadBaileys } = require("./yardimcilar");
 const runtime = require("./runtime");
-const { WhatsappSession, sequelize } = require("./database");
-const { migrateSudoToLID } = require("./lid-helper");
-const { startSchedulers } = require("./schedulers");
+const { WhatsappOturum, sequelize } = require("./database");
+const { migrateSudoToLID } = require("./yardimcilar");
+const { startSchedulers } = require("./zamanlayici");
 const { runSelfTest } = require("./self-test");
 // ── PQueue: module-level başlat (lazy async init overhead'i önce)
 let _queue = null;
@@ -131,12 +131,12 @@ async function createBot(sessionId = "lades-session", options = {}) {
       
       await sequelize.transaction(async (t) => {
         // Use lock to prevent concurrent migrations during multi-instance boot
-        const existingInDb = await WhatsappSession.findByPk(sessionId, { transaction: t, lock: true });
+        const existingInDb = await WhatsappOturum.findByPk(sessionId, { transaction: t, lock: true });
         if (!existingInDb) {
           logger.info(`Oturum senkronizasyonu: Yerel dosyadan veri tabanına aktarılıyor (${sessionId})...`);
           const data = await fsp.readFile(credsFile, 'utf-8');
           const creds = JSON.parse(data);
-          await WhatsappSession.create({ 
+          await WhatsappOturum.create({ 
             sessionId, 
             sessionData: JSON.stringify({ creds, keys: {} }) 
           }, { transaction: t });
@@ -404,7 +404,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
       if (!_scheduledMsgRegistered) {
         _scheduledMsgRegistered = true;
         const { scheduledMessages } = require('../plugins/utils/db/schedulers');
-        const scheduler = require('./scheduler');
+        const scheduler = require("./zamanlayici").scheduler;
 
         scheduler.register('scheduled_message_sender', async () => {
           try {

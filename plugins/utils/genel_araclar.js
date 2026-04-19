@@ -6,8 +6,8 @@
  */
 
 const axios = require("axios");
-const { runtime, formatBytes, toUserJid, getGroupAdmins } = require("../../core/helpers");
-const nx = require("./nexray");
+const { runtime, formatBytes, toUserJid, getGroupAdmins } = require("../../core/yardimcilar");
+const nx = require('./nexray_api');
 
 /**
  * Checks if a user is an admin in the group.
@@ -16,7 +16,7 @@ const nx = require("./nexray");
 async function isAdmin(message, userJid = message.sender) {
   if (!message.isGroup) return false;
   
-  const { isBotIdentifier } = require("./lid-helper");
+  const { isBotIdentifier } = require("./yardimcilar");
 
   // Eğer kontrol edilen kişi bizzat komutu gönderen (owner) ise true döndür.
   if (message.fromOwner && userJid === message.sender) return true;

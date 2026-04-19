@@ -1,8 +1,8 @@
 // Import all modules
 const dbOperations = require("./db/functions");
-const mediaProcessing = require("./mediaProcessors");
-const utils = require("./misc");
-const language = require("./manglish");
+const mediaProcessing = require("./medya_islemcisi");
+const utils = require("./genel_araclar");
+const language = require("./manglish_ceviri");
 
 // Grouped database operations
 const {
@@ -70,19 +70,19 @@ const {
 // Language functions
 const { malayalamToManglish, manglishToMalayalam } = language;
 
-const aiTTS = require("./ai-tts");
+const aiTTS = require("./yapay_zeka_ses");
 
-const { gis } = require("./gis");
+const { gis } = require("./google_gorsel_arama");
 
-const { uploadToImgbb, uploadToCatbox } = require("./upload");
+const { uploadToImgbb, uploadToCatbox } = require("./dosya_yukleme");
 
-const linkDetector = require("./link-detector");
+const linkDetector = require("./baglanti_tespit");
 
-const fancy = require("./fancy");
+const fancy = require("./metin_stilleri");
 
-const { censorBadWords, badWords } = require("./censor");
+const { censorBadWords, badWords } = require("./sansur");
 
-const { nx, nxTry, fmtCount, trToEn } = require("./nexray");
+const { nx, nxTry, fmtCount, trToEn } = require("./nexray_api");
 
 module.exports = {
   // Database Operations

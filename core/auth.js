@@ -10,8 +10,8 @@
 const path = require("path");
 const fs = require("fs");
 const qrcodeTerminal = require("qrcode-terminal");
-const { loadBaileys } = require("./helpers");
-const { WhatsappSession } = require("./database");
+const { loadBaileys } = require("./yardimcilar");
+const { WhatsappOturum } = require("./database");
 const { logger } = require("../config");
 
 // ─────────────────────────────────────────────────────────
@@ -30,7 +30,7 @@ async function useDbAuthState(sessionId) {
     return obj;
   };
 
-  let sessionRow = await WhatsappSession.findByPk(sessionId);
+  let sessionRow = await WhatsappOturum.findByPk(sessionId);
 
   function getState() {
     if (!sessionRow || !sessionRow.sessionData) return {};
@@ -70,7 +70,7 @@ async function useDbAuthState(sessionId) {
           // Serialize current state
           const sessionData = JSON.stringify({ creds, keys: storedKeys }, BufferJSON.replacer);
           if (!sessionRow) {
-            sessionRow = await WhatsappSession.create({ sessionId, sessionData }, { transaction: t });
+            sessionRow = await WhatsappOturum.create({ sessionId, sessionData }, { transaction: t });
           } else {
             await sessionRow.update({ sessionData }, { transaction: t });
           }

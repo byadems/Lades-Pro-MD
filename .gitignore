@@ -1,12 +1,6 @@
 # Dependencies
 node_modules/
 
-# Environment & Secrets — ZORUNLU: asla commit'leme
-config.env
-.env
-*.env
-*.env.*
-
 # Session & Auth — Güvenlik: kimlik bilgileri
 sessions/
 auth_info_baileys/
@@ -27,10 +21,19 @@ yarn-error.log*
 .pnpm-debug.log*
 startup_error.txt
 
-# Media & temp
+# Geçici & medya dosyaları
+temp/
+scratch/
 *.webp
 *.png
 *.jpg
+*.mp4
+*.mp3
+*.ogg
+*.opus
+
+# Test dosyaları (prod'a gitmesin)
+test-*.js
 
 # Build & Cache
 dist/
@@ -43,3 +46,4 @@ bot.pid
 
 # Misc
 *-player-script.js
+config.env

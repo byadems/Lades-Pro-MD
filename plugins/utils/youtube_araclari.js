@@ -1,8 +1,8 @@
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const path = require('path');
-const { getTempPath, saveToDisk } = require('../../core/helpers');
-const nexray = require('./nexray');
+const { getTempPath, saveToDisk } = require('../../core/yardimcilar');
+const nexray = require('./nexray_api');
 const pLimit = require('p-limit');
 
 // YouTube concurrency limit (max 3 concurrent downloads/info requests)

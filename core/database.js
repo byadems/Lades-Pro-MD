@@ -73,23 +73,23 @@ if (isPostgres && !isMongoDB) {
 // ─────────────────────────────────────────────────────────
 
 /** WhatsApp session state - one row per session */
-const WhatsappSession = sequelize.define("WhatsappSession", {
+const WhatsappOturum = sequelize.define("WhatsappOturum", {
   sessionId: { type: DataTypes.STRING(256), primaryKey: true, allowNull: false },
   sessionData: {
     // TEXT('long') MySQL'e özgü. PostgreSQL ve SQLite için düz TEXT kullan.
     type: DataTypes.TEXT,
     allowNull: true,
   },
-}, { tableName: "whatsapp_sessions", timestamps: true });
+}, { tableName: "whatsapp_oturumlar", timestamps: true });
 
 /** Key-value bot configuration store */
-const BotConfig = sequelize.define("BotConfig", {
+const BotAyar = sequelize.define("BotAyar", {
   key: { type: DataTypes.STRING(128), primaryKey: true, allowNull: false, unique: true },
   value: { type: DataTypes.TEXT, allowNull: true },
-}, { tableName: "bot_config", timestamps: true });
+}, { tableName: "bot_ayarlar", timestamps: true });
 
 /** Per-group settings */
-const GroupSettings = sequelize.define("GroupSettings", {
+const GrupAyar = sequelize.define("GrupAyar", {
   groupId: { type: DataTypes.STRING(64), primaryKey: true, allowNull: false },
   welcome: { type: DataTypes.BOOLEAN, defaultValue: false },
   welcomeMsg: { type: DataTypes.TEXT, allowNull: true },
@@ -103,10 +103,10 @@ const GroupSettings = sequelize.define("GroupSettings", {
   warnLimit: { type: DataTypes.INTEGER, defaultValue: 3 },
   maxWarn: { type: DataTypes.INTEGER, defaultValue: 3 },
   prefix: { type: DataTypes.STRING(5), defaultValue: "." },
-}, { tableName: "group_settings", timestamps: true });
+}, { tableName: "grup_ayarlar", timestamps: true });
 
 /** Per-user data */
-const UserData = sequelize.define("UserData", {
+const KullaniciVeri = sequelize.define("KullaniciVeri", {
   jid: { type: DataTypes.STRING(64), primaryKey: true, allowNull: false },
   name: { type: DataTypes.STRING(128), allowNull: true },
   warns: { type: DataTypes.INTEGER, defaultValue: 0 },
@@ -114,48 +114,48 @@ const UserData = sequelize.define("UserData", {
   afk: { type: DataTypes.BOOLEAN, defaultValue: false },
   afkReason: { type: DataTypes.TEXT, allowNull: true },
   afkSince: { type: DataTypes.BIGINT, allowNull: true },
-}, { tableName: "user_data", timestamps: true });
+}, { tableName: "kullanici_veriler", timestamps: true });
 
 /** Warn logs */
-const WarnLog = sequelize.define("WarnLog", {
+const UyariKayit = sequelize.define("UyariKayit", {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   groupId: { type: DataTypes.STRING(64), allowNull: false },
   userJid: { type: DataTypes.STRING(64), allowNull: false },
   reason: { type: DataTypes.TEXT, allowNull: true },
   warnedBy: { type: DataTypes.STRING(64), allowNull: true },
-}, { tableName: "warn_logs", timestamps: true, updatedAt: false });
+}, { tableName: "uyari_kayitlar", timestamps: true, updatedAt: false });
 
 /** Keyword filters */
-const Filter = sequelize.define("Filter", {
+const Filtre = sequelize.define("Filtre", {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   groupId: { type: DataTypes.STRING(64), allowNull: false },
   keyword: { type: DataTypes.TEXT, allowNull: false },
   response: { type: DataTypes.TEXT, allowNull: true },
   active: { type: DataTypes.BOOLEAN, defaultValue: true },
-}, { tableName: "filters", timestamps: true });
+}, { tableName: "filtreler", timestamps: true });
 
 /** Scheduled messages */
-const Schedule = sequelize.define("Schedule", {
+const Zamanlama = sequelize.define("Zamanlama", {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   groupId: { type: DataTypes.STRING(64), allowNull: false },
   cronExpr: { type: DataTypes.STRING(64), allowNull: false },
   message: { type: DataTypes.TEXT, allowNull: false },
   active: { type: DataTypes.BOOLEAN, defaultValue: true },
   createdBy: { type: DataTypes.STRING(64), allowNull: true },
-}, { tableName: "schedules", timestamps: true });
+}, { tableName: "zamanlamalar", timestamps: true });
 
 /** External plugins */
-const ExternalPlugin = sequelize.define("ExternalPlugin", {
+const HariciEklenti = sequelize.define("HariciEklenti", {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   name: { type: DataTypes.STRING(128), allowNull: false, unique: true },
   url: { type: DataTypes.TEXT, allowNull: true },
   // TEXT('long') MySQL'e özgü. PostgreSQL ve SQLite için düz TEXT kullan.
   code: { type: DataTypes.TEXT, allowNull: true },
   active: { type: DataTypes.BOOLEAN, defaultValue: true },
-}, { tableName: "external_plugins", timestamps: true });
+}, { tableName: "harici_eklentiler", timestamps: true });
 
 /** AI-generated command metadata */
-const AiCommand = sequelize.define("AiCommand", {
+const YapayZekaKomut = sequelize.define("YapayZekaKomut", {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   commandName: { type: DataTypes.STRING(64), allowNull: false },
   description: { type: DataTypes.TEXT, allowNull: true },
@@ -163,10 +163,10 @@ const AiCommand = sequelize.define("AiCommand", {
   code: { type: DataTypes.TEXT, allowNull: false },
   active: { type: DataTypes.BOOLEAN, defaultValue: true },
   createdBy: { type: DataTypes.STRING(64), allowNull: true },
-}, { tableName: "ai_commands", timestamps: true });
+}, { tableName: "yapay_zeka_komutlar", timestamps: true });
 
 /** Message statistics tracking */
-const MessageStats = sequelize.define("MessageStats", {
+const MesajIstatistik = sequelize.define("MesajIstatistik", {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   jid: { type: DataTypes.STRING(64), allowNull: false },
   userJid: { type: DataTypes.STRING(64), allowNull: false },
@@ -179,7 +179,7 @@ const MessageStats = sequelize.define("MessageStats", {
   otherMessages: { type: DataTypes.INTEGER, defaultValue: 0 },
   lastMessageAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 }, { 
-  tableName: "message_stats", 
+  tableName: "mesaj_istatistikler", 
   timestamps: true,
   indexes: [
     { fields: ["jid"] },
@@ -189,31 +189,31 @@ const MessageStats = sequelize.define("MessageStats", {
 });
 
 /** Global bot metrics (Total messages, commands, etc.) */
-const BotMetric = sequelize.define("BotMetric", {
+const BotMetrik = sequelize.define("BotMetrik", {
   key: { type: DataTypes.STRING(64), primaryKey: true, allowNull: false },
   value: { type: DataTypes.BIGINT, defaultValue: 0 },
-}, { tableName: "bot_metrics", timestamps: true });
+}, { tableName: "bot_metrikler", timestamps: true });
 
 /** Command execution statistics */
-const CommandStat = sequelize.define("CommandStat", {
+const KomutIstatistik = sequelize.define("KomutIstatistik", {
   pattern: { type: DataTypes.STRING(128), primaryKey: true, allowNull: false },
   status: { type: DataTypes.STRING(32), defaultValue: "success" }, // success or error
   runs: { type: DataTypes.INTEGER, defaultValue: 0 },
   avgMs: { type: DataTypes.INTEGER, defaultValue: 0 },
   lastRun: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   lastError: { type: DataTypes.TEXT, allowNull: true },
-}, { tableName: "command_stats", timestamps: true });
+}, { tableName: "komut_istatistikler", timestamps: true });
 
 /** Registered command metadata */
-const CommandRegistry = sequelize.define("CommandRegistry", {
+const KomutKayit = sequelize.define("KomutKayit", {
   pattern: { type: DataTypes.STRING(128), primaryKey: true, allowNull: false },
   statKey: { type: DataTypes.STRING(64), allowNull: false },
   description: { type: DataTypes.TEXT, allowNull: true },
   usage: { type: DataTypes.STRING(64), allowNull: true },
-}, { tableName: "command_registry", timestamps: false });
+}, { tableName: "komut_kayitlar", timestamps: false });
 
 // Associations
-MessageStats.belongsTo(UserData, { foreignKey: "userJid", targetKey: "jid", as: "User" });
+MesajIstatistik.belongsTo(KullaniciVeri, { foreignKey: "userJid", targetKey: "jid", as: "User" });
 
 // ─────────────────────────────────────────────────────────
 //  Database initialization
@@ -256,9 +256,9 @@ async function initializeDatabase() {
   }
 
   const models = [
-    WhatsappSession, BotConfig, GroupSettings, UserData,
-    WarnLog, Filter, Schedule, ExternalPlugin, AiCommand,
-    MessageStats, BotMetric, CommandStat, CommandRegistry,
+    WhatsappOturum, BotAyar, GrupAyar, KullaniciVeri,
+    UyariKayit, Filtre, Zamanlama, HariciEklenti, YapayZekaKomut,
+    MesajIstatistik, BotMetrik, KomutIstatistik, KomutKayit,
   ];
 
   // Eski Lades-Pro eklentilerinden gelen (SQLite'ta hata veren) tabloları da senkronize et
@@ -313,39 +313,39 @@ async function initializeDatabase() {
 }
 
 // ─────────────────────────────────────────────────────────
-//  BotVariable helper (backward compat alias → BotConfig)
+//  BotVariable helper (backward compat alias → BotAyar)
 // ─────────────────────────────────────────────────────────
 const BotVariable = {
   get: async (key, defaultVal = null) => {
-    const row = await BotConfig.findByPk(key);
+    const row = await BotAyar.findByPk(key);
     return row ? row.value : defaultVal;
   },
   set: async (key, value) => {
-    await BotConfig.upsert({ key, value: String(value) });
+    await BotAyar.upsert({ key, value: String(value) });
   },
-  upsert: async (data) => BotConfig.upsert(data),
-  findAll: async () => BotConfig.findAll(),
-  findByPk: async (key) => BotConfig.findByPk(key),
+  upsert: async (data) => BotAyar.upsert(data),
+  findAll: async () => BotAyar.findAll(),
+  findByPk: async (key) => BotAyar.findByPk(key),
 };
 
 module.exports = {
   sequelize,
   isMongoDB,
   isPostgres,
-  WhatsappSession,
-  BotConfig,
+  WhatsappOturum,
+  BotAyar,
   BotVariable,
-  GroupSettings,
-  UserData,
-  WarnLog,
-  Filter,
-  Schedule,
-  ExternalPlugin,
-  AiCommand,
-  MessageStats,
-  BotMetric,
-  CommandStat,
-  CommandRegistry,
+  GrupAyar,
+  KullaniciVeri,
+  UyariKayit,
+  Filtre,
+  Zamanlama,
+  HariciEklenti,
+  YapayZekaKomut,
+  MesajIstatistik,
+  BotMetrik,
+  KomutIstatistik,
+  KomutKayit,
   initializeDatabase,
   Op,
   DataTypes,

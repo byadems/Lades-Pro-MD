@@ -378,7 +378,7 @@ function renderCommands(filter = '') {
     c.pattern?.toLowerCase().includes(filter) || c.desc?.toLowerCase().includes(filter)
   ) : S.commands;
 
-  // Apply Status Filter
+  // Apply Status Filtre
   if (S.cmdStatusFilter !== 'all') {
     cmds = cmds.filter(c => {
       if (S.cmdStatusFilter === 'ok') return c.stat?.status === 'ok';
@@ -817,7 +817,7 @@ function updateTermBadge() {
 }
 
 function setupTerminalControls() {
-  // Filter
+  // Filtre
   document.querySelectorAll('.f-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.f-btn').forEach(b => b.classList.remove('active'));

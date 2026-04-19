@@ -19,7 +19,7 @@ const {
 const config = require("../config");
 const axios = require("axios");
 const fileType = require("file-type");
-const { getTempPath, getTempSubdir, ffmpegLimit } = require("../core/helpers");
+const { getTempPath, getTempSubdir, ffmpegLimit } = require("../core/yardimcilar");
 const { badWords } = require("./utils/censor");
 
 /** TTS için metni google-tts-api limitine (200 karakter) uygun hale getirir. */
@@ -206,9 +206,6 @@ Module({
 
       await message.sendMessage(stickerBuf, "sticker", { quoted: message.quoted });
 
-      // Orijinal medyayı silme işlemi (opsiyonel, desteklenmeyebilir)
-      // Artık orijinal mesajı silmiyoruz.
-
       try {
         if (typeof mediaBuf === "string" && require("fs").existsSync(mediaBuf)) {
           require("fs").unlinkSync(mediaBuf);
@@ -218,6 +215,21 @@ Module({
       return;
     } catch (e) {
       console.error("Çıkartma hatası:", e);
+      // Baileys medya anahtarı hataları — genellikle çok eski mesajlarda olur
+      if (
+        e.code === "MEDIA_KEY_EXPIRED" ||
+        e.message?.includes("empty media key") ||
+        e.message?.includes("Cannot derive") ||
+        e.message?.includes("MEDIA_KEY_EXPIRED") ||
+        e.message?.includes("media key") ||
+        e.message?.includes("decrypt")
+      ) {
+        return await message.sendReply(
+          "❌ *Medya indirilemedi!*\n\n" +
+          "⚠️ _Bu mesaj çok eski veya sunucudan kaldırılmış. " +
+          "Lütfen medyayı tekrar gönderin ve komutu o mesaja yanıtlayın._"
+        );
+      }
       return await message.sendReply("❌ *Çıkartma oluşturulamadı!*\n⚠️ *Hata:* " + (e.message || e));
     }
   }

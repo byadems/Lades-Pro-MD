@@ -15,8 +15,8 @@
   const { setVar } = require("./manage");
   const fs = require("fs");
   const { getBuffer, uploadToImgbb } = require("./utils");
-  const nexray = require("./utils/nexray");
-  const { callGenerativeAI } = require("./utils/misc");
+  const nexray = require('./utils/nexray_api');
+  const { callGenerativeAI } = require('./utils/genel_araclar');
 
   const API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/";
   const models = [

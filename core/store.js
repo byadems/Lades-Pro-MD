@@ -10,8 +10,8 @@
 const { LRUCache } = require("lru-cache");
 const { logger } = require("../config");
 const runtime = require("./runtime");
-const { WhatsappSession, BotMetric, MessageStats, UserData, sequelize } = require("./database");
-const scheduler = require("./scheduler");
+const { WhatsappOturum, BotMetrik, MesajIstatistik, KullaniciVeri, sequelize } = require("./database");
+const scheduler = require("./zamanlayici").scheduler;
 
 // Message store: jid → Map<msgId, msg>
 const messageStore = new LRUCache({
@@ -172,18 +172,24 @@ async function fetchRecentChats() {
 
 async function getTotalUserCount() {
   try {
-    const count = await MessageStats.count({ distinct: true, col: 'userJid' });
-    return count || 0;
+    // Hem DB'den hem bellek önbelleğinden say, büyük olanı döndür
+    // (Tablo henüz flush edilmemiş olabilir; in-memory her zaman taze)
+    const [dbCount, memCount] = await Promise.all([
+      MesajIstatistik.count({ distinct: true, col: 'userJid' }).catch(() => 0),
+      Promise.resolve(runtime.metrics.users.size),
+    ]);
+    return Math.max(dbCount || 0, memCount || 0);
   } catch (err) {
-    return 0;
+    // Fallback: sadece bellek
+    return runtime.metrics.users.size || 0;
   }
 }
 
 async function fetchFromStore(jid) {
   try {
-    return await MessageStats.findAll({
+    return await MesajIstatistik.findAll({
       where: { jid },
-      include: [{ model: UserData, as: "User" }],
+      include: [{ model: KullaniciVeri, as: "User" }],
     });
   } catch (err) {
     logger.debug({ err, jid }, "Failed to fetch from store");
@@ -193,11 +199,11 @@ async function fetchFromStore(jid) {
 
 async function getTopUsers(jid, limit = 10) {
   try {
-    return await MessageStats.findAll({
+    return await MesajIstatistik.findAll({
       where: { jid },
       order: [["totalMessages", "DESC"]],
       limit,
-      include: [{ model: UserData, as: "User" }],
+      include: [{ model: KullaniciVeri, as: "User" }],
     });
   } catch (err) {
     logger.debug({ err, jid }, "Failed to get top users");
@@ -207,14 +213,14 @@ async function getTopUsers(jid, limit = 10) {
 
 async function getGlobalTopUsers(limit = 10) {
   try {
-    const results = await MessageStats.findAll({
+    const results = await MesajIstatistik.findAll({
       attributes: [
         "userJid",
         [sequelize.fn("SUM", sequelize.col("totalMessages")), "totalMessages"],
         [sequelize.fn("MAX", sequelize.col("lastMessageAt")), "lastMessageAt"],
       ],
       group: ["userJid", "User.jid"],
-      include: [{ model: UserData, as: "User" }],
+      include: [{ model: KullaniciVeri, as: "User" }],
       order: [[sequelize.literal("totalMessages"), "DESC"]],
       limit,
     });
@@ -236,38 +242,47 @@ const statsBatch = new Map();
 
 scheduler.register('message_stats_flush', async () => {
   if (statsBatch.size === 0) return;
-  // Copy current entries for processing
+  // Mevcut batch'i kopyala ve temizle
   const currentBatch = Array.from(statsBatch.entries());
   statsBatch.clear();
 
   try {
     for (const [key, inc] of currentBatch) {
       const { jid, userJid, data } = inc;
+      const now = new Date();
 
-      // Atomic UPSERT for MessageStats
-      await sequelize.query(
-        "INSERT INTO message_stats (jid, userJid, totalMessages, textMessages, imageMessages, videoMessages, audioMessages, stickerMessages, otherMessages, lastMessageAt, createdAt, updatedAt) " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now'), DATETIME('now'), DATETIME('now')) " +
-        "ON CONFLICT(jid, userJid) DO UPDATE SET " +
-        "totalMessages = totalMessages + excluded.totalMessages, " +
-        "textMessages = textMessages + excluded.textMessages, " +
-        "imageMessages = imageMessages + excluded.imageMessages, " +
-        "videoMessages = videoMessages + excluded.videoMessages, " +
-        "audioMessages = audioMessages + excluded.audioMessages, " +
-        "stickerMessages = stickerMessages + excluded.stickerMessages, " +
-        "otherMessages = otherMessages + excluded.otherMessages, " +
-        "lastMessageAt = DATETIME('now'), " +
-        "updatedAt = DATETIME('now')",
-        {
-          replacements: [
-            jid, userJid,
-            data.totalMessages, data.textMessages, data.imageMessages,
-            data.videoMessages, data.audioMessages, data.stickerMessages,
-            data.otherMessages
-          ],
-          type: sequelize.QueryTypes.INSERT
+      try {
+        // KullaniciVeri (foreign key) önce oluşturulmalı
+        await KullaniciVeri.findOrCreate({
+          where: { jid: userJid },
+          defaults: { jid: userJid },
+        }).catch(() => {}); // Hata olsa bile devam et
+
+        // Sequelize ORM upsert — hem SQLite hem PostgreSQL ile çalışır
+        const [record, created] = await MesajIstatistik.findOrCreate({
+          where: { jid, userJid },
+          defaults: {
+            ...data,
+            lastMessageAt: now,
+          },
+        });
+
+        if (!created) {
+          // Mevcut kaydı atomik olarak artır
+          await record.increment({
+            totalMessages: data.totalMessages,
+            textMessages: data.textMessages,
+            imageMessages: data.imageMessages,
+            videoMessages: data.videoMessages,
+            audioMessages: data.audioMessages,
+            stickerMessages: data.stickerMessages,
+            otherMessages: data.otherMessages,
+          });
+          await record.update({ lastMessageAt: now });
         }
-      );
+      } catch (rowErr) {
+        logger.debug({ err: rowErr.message, jid, userJid }, "Stats row upsert failed");
+      }
     }
   } catch (e) {
     logger.debug({ err: e.message }, "Stats batch flush failed");

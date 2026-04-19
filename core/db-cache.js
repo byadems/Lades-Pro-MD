@@ -1,7 +1,7 @@
 "use strict";
 
 const { LRUCache } = require("lru-cache");
-const { GroupSettings, UserData, BotConfig, Filter } = require("./database");
+const { GrupAyar, KullaniciVeri, BotAyar, Filtre } = require("./database");
 const { logger } = require("../config");
 
 // ─────────────────────────────────────────────────────────
@@ -18,7 +18,7 @@ const adminCache  = new LRUCache({ max: 500, ttl: 2 * 60 * 1000 });  // 2 min TT
 // ─────────────────────────────────────────────────────────
 async function getGroupSettings(groupId) {
   if (groupCache.has(groupId)) return groupCache.get(groupId);
-  const [row] = await GroupSettings.findOrCreate({
+  const [row] = await GrupAyar.findOrCreate({
     where: { groupId },
     defaults: { groupId },
   });
@@ -28,7 +28,7 @@ async function getGroupSettings(groupId) {
 }
 
 async function updateGroupSettings(groupId, updates) {
-  const [row] = await GroupSettings.findOrCreate({ where: { groupId }, defaults: { groupId } });
+  const [row] = await GrupAyar.findOrCreate({ where: { groupId }, defaults: { groupId } });
   await row.update(updates);
   const plain = row.get({ plain: true });
   groupCache.set(groupId, plain);
@@ -44,14 +44,14 @@ function invalidateGroup(groupId) {
 // ─────────────────────────────────────────────────────────
 async function getUserData(jid) {
   if (userCache.has(jid)) return userCache.get(jid);
-  const [row] = await UserData.findOrCreate({ where: { jid }, defaults: { jid } });
+  const [row] = await KullaniciVeri.findOrCreate({ where: { jid }, defaults: { jid } });
   const plain = row.get({ plain: true });
   userCache.set(jid, plain);
   return plain;
 }
 
 async function updateUserData(jid, updates) {
-  const [row] = await UserData.findOrCreate({ where: { jid }, defaults: { jid } });
+  const [row] = await KullaniciVeri.findOrCreate({ where: { jid }, defaults: { jid } });
   await row.update(updates);
   const plain = row.get({ plain: true });
   userCache.set(jid, plain);
@@ -67,14 +67,14 @@ function invalidateUser(jid) {
 // ─────────────────────────────────────────────────────────
 async function getConfig(key, defaultVal = null) {
   if (configCache.has(key)) return configCache.get(key);
-  const row = await BotConfig.findByPk(key);
+  const row = await BotAyar.findByPk(key);
   const val = row ? row.value : defaultVal;
   configCache.set(key, val);
   return val;
 }
 
 async function setConfig(key, value) {
-  await BotConfig.upsert({ key, value: String(value) });
+  await BotAyar.upsert({ key, value: String(value) });
   configCache.set(key, String(value));
 }
 
@@ -83,11 +83,11 @@ function invalidateConfig(key) {
 }
 
 // ─────────────────────────────────────────────────────────
-//  Filter helpers (per group)
+//  Filtre helpers (per group)
 // ─────────────────────────────────────────────────────────
 async function getFilters(groupId) {
   if (filterCache.has(groupId)) return filterCache.get(groupId);
-  const rows = await Filter.findAll({ where: { groupId, active: true } });
+  const rows = await Filtre.findAll({ where: { groupId, active: true } });
   const filters = rows.map(r => r.get({ plain: true }));
   filterCache.set(groupId, filters);
   return filters;

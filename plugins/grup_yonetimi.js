@@ -9,7 +9,7 @@
 // FILE: group.js
 // ==========================================
 (function () {
-  const { loadBaileys } = require("../core/helpers");
+  const { loadBaileys } = require("../core/yardimcilar");
   let delay, generateWAMessageFromContent, proto;
 
   const baileysPromise = loadBaileys()
@@ -134,7 +134,7 @@
 
       if (user.includes("@lid")) {
         try {
-          const { resolveLidToPn } = require("../core/lid-helper");
+          const { resolveLidToPn } = require("../core/yardimcilar");
           const pn = await resolveLidToPn(message.client, user);
           if (pn && pn !== user) user = pn;
         } catch (e) { }
@@ -198,7 +198,7 @@
       }
 
       try {
-        const { resolveLidToPn } = require("../core/lid-helper");
+        const { resolveLidToPn } = require("../core/yardimcilar");
         for (let i = 0; i < usersToKick.length; i++) {
           if (usersToKick[i].includes("@lid")) {
             const pn = await resolveLidToPn(message.client, usersToKick[i]);
@@ -326,7 +326,7 @@
 
       if (user.includes("@lid")) {
         try {
-          const { resolveLidToPn } = require("../core/lid-helper");
+          const { resolveLidToPn } = require("../core/yardimcilar");
           const pn = await resolveLidToPn(message.client, user);
           if (pn && pn !== user) user = pn;
         } catch (e) { }
@@ -365,7 +365,7 @@
         return await message.sendReply("📭 _Bekleyen katılma isteği yok._");
 
       // MIGRATION: LID Çevirisi - Baileys'in döndürdüğü listedeki JID'leri normalize et
-      const { resolveLidToPn } = require("../core/lid-helper");
+      const { resolveLidToPn } = require("../core/yardimcilar");
       for (let i = 0; i < approvalList.length; i++) {
         if (approvalList[i].jid && approvalList[i].jid.includes("@lid")) {
           try {
@@ -574,7 +574,7 @@
 
       if (user.includes("@lid")) {
         try {
-          const { resolveLidToPn } = require("../core/lid-helper");
+          const { resolveLidToPn } = require("../core/yardimcilar");
           const pn = await resolveLidToPn(message.client, user);
           if (pn && pn !== user) user = pn;
         } catch (e) { }
@@ -1936,7 +1936,7 @@
   const {
     parseWelcomeMessage,
     sendWelcomeMessage,
-  } = require("./utils/welcome-parser");
+  } = require('./utils/karsilama_ayristirici');
 
   Module({
     pattern: "karşıla ?(.*)",
@@ -2692,7 +2692,7 @@
   const {
     parseWelcomeMessage,
     sendWelcomeMessage,
-  } = require("./utils/welcome-parser");
+  } = require('./utils/karsilama_ayristirici');
 
   async function isSuperAdmin(message, user = message.client.user.id) {
     const metadata = await message.client.groupMetadata(message.jid);
@@ -3056,7 +3056,7 @@
         let isLid = participantId.includes("@lid");
         if (isLid) {
           try {
-            const { resolveLidToPn } = require("../core/lid-helper");
+            const { resolveLidToPn } = require("../core/yardimcilar");
             const resolvedPn = await resolveLidToPn(message.client, participantId);
             if (resolvedPn && resolvedPn !== participantId) {
               participantId = resolvedPn;
@@ -3186,7 +3186,7 @@
         let participantId = senderLid;
         if (participantId.includes("@lid")) {
           try {
-            const { resolveLidToPn } = require("../core/lid-helper");
+            const { resolveLidToPn } = require("../core/yardimcilar");
             const resolved = await resolveLidToPn(message.client, participantId);
             if (resolved && resolved !== participantId) participantId = resolved;
           } catch (e) { }
@@ -3243,7 +3243,7 @@
   const { Module } = require("../main");
   const config = require("../config");
   const { SUDO } = config;
-  const { uploadToCatbox } = require("./utils/upload");
+  const { uploadToCatbox } = require('./utils/dosya_yukleme');
 
   const fs = require("fs");
   const path = require("path");

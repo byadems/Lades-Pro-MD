@@ -106,7 +106,7 @@ function createMockMsg(ownJid, text, cmd) {
     download: async (type) => {
       const fs = require('fs');
       const path = require('path');
-      const { getTempPath } = require('./helpers');
+      const { getTempPath } = require('./yardimcilar');
       const pat = String(cmd.pattern);
 
       // Determine expected file type

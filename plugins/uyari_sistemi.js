@@ -69,7 +69,7 @@ Module({
     async function resolveTargetUser(user) {
       if (user && user.includes("@lid")) {
         try {
-          const { resolveLidToPn } = require("../core/lid-helper");
+          const { resolveLidToPn } = require("../core/yardimcilar");
           const pn = await resolveLidToPn(message.client, user);
           if (pn && pn !== user) return pn;
         } catch (e) { }
@@ -270,7 +270,7 @@ Module({
     // MIGRATION: LID Çevirisi
     if (targetUser && targetUser.includes("@lid")) {
       try {
-        const { resolveLidToPn } = require("../core/lid-helper");
+        const { resolveLidToPn } = require("../core/yardimcilar");
         const pn = await resolveLidToPn(message.client, targetUser);
         if (pn && pn !== targetUser) targetUser = pn;
       } catch (e) { }

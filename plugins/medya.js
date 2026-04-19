@@ -15,12 +15,12 @@
   const ffmpegStatic = require("ffmpeg-static");
   ffmpeg.setFfmpegPath(ffmpegStatic);
   const https = require("https");
-  const { getTempPath, getTempSubdir, ffmpegLimit } = require("../core/helpers");
+  const { getTempPath, getTempSubdir, ffmpegLimit } = require("../core/yardimcilar");
 
   const config = require("../config"),
     MODE = config.MODE;
   const { avMix, circle, rotate, trim, uploadToImgbb, nx, nxTry, uploadToCatbox } = require("./utils");
-  const nexray = require("./utils/nexray");
+  const nexray = require('./utils/nexray_api');
   const { censorBadWords } = require("./utils/censor");
   const handler = config.HANDLER_PREFIX;
 
@@ -1167,7 +1167,7 @@
   const fileType = require("file-type");
   const path = require("path");
   const fs = require("fs");
-  const { getTempSubdir, getTempPath } = require("../core/helpers");
+  const { getTempSubdir, getTempPath } = require("../core/yardimcilar");
 
   const getFileType = async (buffer) => {
     try {
@@ -1762,7 +1762,7 @@
     async (m, t) => {
       if (m.reply_message.sticker) {
         const q = await m.reply_message.download("buffer");
-        const { getTempPath } = require("../core/helpers");
+        const { getTempPath } = require("../core/yardimcilar");
         const outPath = getTempPath("converted.mp4");
         try {
           await webp2mp4(q, outPath);

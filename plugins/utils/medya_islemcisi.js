@@ -12,8 +12,8 @@ const sharp = require("sharp");
 const fs = require("fs");
 const path = require("path");
 
-const { getTempPath, cleanTempFile, ffmpegLimit } = require("../../core/helpers");
-const nx = require("./nexray");
+const { getTempPath, cleanTempFile, ffmpegLimit } = require("../../core/yardimcilar");
+const nx = require('./nexray_api');
 
 // Configure ffmpeg path
 ffmpeg.setFfmpegPath(ffmpegStatic);

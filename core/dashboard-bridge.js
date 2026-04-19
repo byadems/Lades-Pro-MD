@@ -129,7 +129,7 @@ function setupDashboardBridge(manager, config) {
               // Simüle edilmiş komut yürütme
               const { handleMessage } = require("./handler");
               const { fetchGroupMeta } = require("./store");
-              const { isGroup } = require("./helpers");
+              const { isGroup } = require("./yardimcilar");
               
               const botJid = sock.user?.id?.split(":")[0] + "@s.whatsapp.net";
               const rawMsg = {
@@ -220,7 +220,7 @@ function setupDashboardBridge(manager, config) {
         try {
           const { handleMessage } = require("./handler");
           const { fetchGroupMeta } = require("./store");
-          const { isGroup } = require("./helpers");
+          const { isGroup } = require("./yardimcilar");
           
           const jid = msg.data.jid.includes('@') ? msg.data.jid : msg.data.jid + '@s.whatsapp.net';
           const command = msg.data.command;
@@ -277,7 +277,7 @@ function setupDashboardBridge(manager, config) {
     } else if (msg.type === 'dashboard_login_complete') {
       logger.info("Dashboard girişi tamamlandı. Oturum aktarılıyor...");
       try {
-        const { WhatsappSession } = require('./database');
+        const { WhatsappOturum } = require('./database');
         const authDir = msg.authDir;
         const credsFile = path.join(authDir, 'creds.json');
         if (fs.existsSync(credsFile)) {
@@ -300,7 +300,7 @@ function setupDashboardBridge(manager, config) {
             } catch { }
           }
           const sessionData = JSON.stringify({ creds: credsData, keys: keysData });
-          await WhatsappSession.upsert({ sessionId: 'lades-session', sessionData });
+          await WhatsappOturum.upsert({ sessionId: 'lades-session', sessionData });
           logger.info("Oturum verisi 'lades-session' DB'ye aktarıldı.");
         }
       } catch (e) {
@@ -333,7 +333,7 @@ function setupDashboardBridge(manager, config) {
 
   // --- STATUS POLLING (Migrated to Scheduler) ---
 
-  const scheduler = require("./scheduler");
+  const scheduler = require("./zamanlayici").scheduler;
   const statusTask = scheduler.register('dashboard_status_polling', () => {
     if (!_dashboardRef || !_dashboardRef.connected) return;
     const isConnected = manager.isConnected('lades-session');

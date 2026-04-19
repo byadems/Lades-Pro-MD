@@ -1,7 +1,7 @@
 const {
-  WarnLog,
-  Filter,
-  GroupSettings,
+  UyariKayit,
+  Filtre,
+  GrupAyar,
 } = require("../../../core/database");
 
 const { 
@@ -29,14 +29,14 @@ const {
 const config = require("../../../config");
 
 async function syncWarnsSequence() {
-  // Not needed for modern WarnLog
+  // Not needed for modern UyariKayit
   return;
 }
 
 async function getWarn(jid = null, user = null, cnt) {
   if (!jid || !user) return null;
 
-  const uyarı = await WarnLog.findAll({
+  const uyarı = await UyariKayit.findAll({
     where: { groupId: jid, userJid: user },
     order: [["createdAt", "DESC"]],
   });
@@ -68,7 +68,7 @@ async function setWarn(
 ) {
   if (!jid || !user || !warnedBy) return false;
 
-  await WarnLog.create({
+  await UyariKayit.create({
     groupId: jid,
     userJid: user,
     reason: reason,
@@ -83,7 +83,7 @@ async function setWarn(
 async function resetWarn(jid = null, user) {
   if (!jid || !user) return false;
 
-  const deleted = await WarnLog.destroy({
+  const deleted = await UyariKayit.destroy({
     where: { groupId: jid, userJid: user },
   });
 
@@ -93,7 +93,7 @@ async function resetWarn(jid = null, user) {
 async function getWarnCount(jid = null, user = null) {
   if (!jid || !user) return 0;
 
-  return await WarnLog.count({
+  return await UyariKayit.count({
     where: { groupId: jid, userJid: user },
   });
 }
@@ -101,7 +101,7 @@ async function getWarnCount(jid = null, user = null) {
 async function decrementWarn(jid = null, user = null) {
   if (!jid || !user) return false;
 
-  const uyarı = await WarnLog.findAll({
+  const uyarı = await UyariKayit.findAll({
     where: { groupId: jid, userJid: user },
     order: [["createdAt", "DESC"]],
     limit: 1,
@@ -109,7 +109,7 @@ async function decrementWarn(jid = null, user = null) {
 
   if (uyarı.length === 0) return false;
 
-  const deleted = await WarnLog.destroy({
+  const deleted = await UyariKayit.destroy({
     where: { id: uyarı[0].id },
   });
 
@@ -119,7 +119,7 @@ async function decrementWarn(jid = null, user = null) {
 async function getAllWarns(jid = null) {
   if (!jid) return [];
 
-  const uyarı = await WarnLog.findAll({
+  const uyarı = await UyariKayit.findAll({
     where: { groupId: jid },
     order: [["createdAt", "DESC"]],
   });
@@ -248,7 +248,7 @@ const antilinkConfig = {
   checkAllowed: checkAllowed
 };
 
-// antiSpam — antiSpamDB tablosunu kullanır (GroupSettings ile uyumsuzluk giderildi)
+// antiSpam — antiSpamDB tablosunu kullanır (GrupAyar ile uyumsuzluk giderildi)
 async function getAntiSpam() {
   return await antiSpamDB.findAll();
 }

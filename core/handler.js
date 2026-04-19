@@ -12,12 +12,12 @@ const fs = require("fs");
 const { logger, ...config } = require("../config");
 const runtime = require("./runtime");
 const { getGroupSettings } = require("./db-cache");
-const { isGroup, getGroupAdmins, getMessageText, getMentioned, getQuotedMsg, loadBaileys } = require("./helpers");
+const { isGroup, getGroupAdmins, getMessageText, getMentioned, getQuotedMsg, loadBaileys } = require("./yardimcilar");
 const { getMessageByKey, fetchGroupMeta } = require("./store");
 const { LRUCache } = require("lru-cache");
-const { BotMetric, CommandStat, CommandRegistry, UserData, GroupSettings, MessageStats: MsgStats, Op, sequelize } = require("./database");
+const { BotMetrik, KomutIstatistik, KomutKayit, KullaniciVeri, GrupAyar, MesajIstatistik: MsgStats, Op, sequelize } = require("./database");
 const { antidelete } = require("../plugins/utils/db/functions");
-const { resolveLidToPn, isBotIdentifier } = require("./lid-helper"); // Moved to top-level
+const { resolveLidToPn, isBotIdentifier } = require("./yardimcilar"); // Moved to top-level
 
 // ── PERFORMANS: ownerNum bir kez hesaplanır, her mesajda regex yok
 const _cachedOwnerNum = (config.OWNER_NUMBER || '').replace(/[^0-9]/g, '');
@@ -59,10 +59,10 @@ async function migrateJsonToSql() {
     if (fs.existsSync(RUNTIME_STATS_FILE)) {
       const data = JSON.parse(fs.readFileSync(RUNTIME_STATS_FILE, 'utf8'));
       if (data.totalMessages) {
-        await BotMetric.upsert({ key: 'total_messages', value: data.totalMessages });
+        await BotMetrik.upsert({ key: 'total_messages', value: data.totalMessages });
       }
       if (data.totalCommands) {
-        await BotMetric.upsert({ key: 'total_commands', value: data.totalCommands });
+        await BotMetrik.upsert({ key: 'total_commands', value: data.totalCommands });
       }
       fs.renameSync(RUNTIME_STATS_FILE, RUNTIME_STATS_FILE + '.bak');
     }
@@ -71,7 +71,7 @@ async function migrateJsonToSql() {
     if (fs.existsSync(STATS_FILE)) {
       const data = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
       for (const [pattern, stat] of Object.entries(data)) {
-        await CommandStat.upsert({
+        await KomutIstatistik.upsert({
           pattern: pattern,
           status: stat.status || 'success',
           runs: stat.runs || 0,
@@ -93,7 +93,7 @@ async function migrateJsonToSql() {
 // ─────────────────────────────────────────────────────────
 const metricsBatch = { total_messages: 0, total_commands: 0 };
 
-const scheduler = require("./scheduler");
+const scheduler = require("./zamanlayici").scheduler;
 
 // Antidelete cache: başlangıçta ve 60s'de bir yenile
 scheduler.register('antidelete_cache_refresh', _refreshAntideleteCache, 60000, { runImmediately: true });
@@ -107,12 +107,12 @@ scheduler.register('metrics_batch_flush', async () => {
   try {
     // Dialect-agnostic ORM approach (works with SQLite, PostgreSQL, Neon, Supabase, Render)
     if (currentBatch.total_messages > 0) {
-      await BotMetric.findOrCreate({ where: { key: 'total_messages' }, defaults: { value: 0 } });
-      await BotMetric.increment('value', { by: currentBatch.total_messages, where: { key: 'total_messages' } });
+      await BotMetrik.findOrCreate({ where: { key: 'total_messages' }, defaults: { value: 0 } });
+      await BotMetrik.increment('value', { by: currentBatch.total_messages, where: { key: 'total_messages' } });
     }
     if (currentBatch.total_commands > 0) {
-      await BotMetric.findOrCreate({ where: { key: 'total_commands' }, defaults: { value: 0 } });
-      await BotMetric.increment('value', { by: currentBatch.total_commands, where: { key: 'total_commands' } });
+      await BotMetrik.findOrCreate({ where: { key: 'total_commands' }, defaults: { value: 0 } });
+      await BotMetrik.increment('value', { by: currentBatch.total_commands, where: { key: 'total_commands' } });
     }
   } catch (e) {
     logger.debug({ err: e.message }, "Metric batch flush failed");
@@ -140,10 +140,10 @@ async function getRuntimeStats() {
   }
   try {
     const [msgMetric, cmdMetric, userCount, groupCount] = await Promise.all([
-      BotMetric.findByPk('total_messages'),
-      BotMetric.findByPk('total_commands'),
+      BotMetrik.findByPk('total_messages'),
+      BotMetrik.findByPk('total_commands'),
       require('./store').getTotalUserCount(),
-      GroupSettings.count()
+      GrupAyar.count()
     ]);
 
     _runtimeStatsCache = {
@@ -204,14 +204,14 @@ scheduler.register('command_metrics_flush', async () => {
       lastRun: new Date(),
       lastError: stat.lastError || null,
     }));
-    await CommandStat.bulkCreate(records, {
+    await KomutIstatistik.bulkCreate(records, {
       updateOnDuplicate: ['runs', 'avgMs', 'status', 'lastRun', 'lastError', 'updatedAt'],
     });
   } catch (e) {
     // Fallback: SQLite eski sürümde updateOnDuplicate yoksa N+1 yöntemi
     try {
       for (const [key, stat] of currentBatch.entries()) {
-        const [record, created] = await CommandStat.findOrCreate({
+        const [record, created] = await KomutIstatistik.findOrCreate({
           where: { pattern: key },
           defaults: { runs: stat.runs, avgMs: stat.avgMs, status: stat.status, lastError: stat.lastError, lastRun: new Date() }
         });
@@ -234,7 +234,7 @@ scheduler.register('command_metrics_flush', async () => {
  * Function factory to build the handler objects consistently.
  */
 async function getStats() {
-  const rows = await CommandStat.findAll();
+  const rows = await KomutIstatistik.findAll();
   const stats = {};
   rows.forEach(r => {
     stats[r.pattern] = {
@@ -334,7 +334,7 @@ class ReplyMessage {
       const rawMsg = { key: this.key, message: this.message };
       const { downloadMediaMessage } = await loadBaileys();
       const buf = await downloadMediaMessage(rawMsg, "buffer", {});
-      const { getTempPath } = require("./helpers");
+      const { getTempPath } = require("./yardimcilar");
       const ext = this._guessExt();
       const outPath = getTempPath(ext);
       const fs = require("fs").promises;
@@ -342,6 +342,17 @@ class ReplyMessage {
       if (type === "buffer") return buf;
       return outPath;
     } catch (e) {
+      // Eski/silinmiş mesajlarda Baileys medya anahtarı boş olabilir
+      if (
+        e.message?.includes("empty media key") ||
+        e.message?.includes("Cannot derive") ||
+        e.message?.includes("media key") ||
+        e.message?.includes("decrypt")
+      ) {
+        const err = new Error("MEDIA_KEY_EXPIRED: Medya çok eski veya silinmiş, tekrar gönderilmesi gerekiyor.");
+        err.code = "MEDIA_KEY_EXPIRED";
+        throw err;
+      }
       logger.debug({ err: e.message }, "ReplyMessage.download error");
       throw e;
     }
@@ -592,7 +603,7 @@ class BaseMessage {
     try {
       const { downloadMediaMessage } = await loadBaileys();
       const buf = await downloadMediaMessage(this.data, "buffer", {});
-      const { getTempPath } = require("./helpers");
+      const { getTempPath } = require("./yardimcilar");
       const ext = this.mimetype.split("/")[1]?.split(";")[0] || "bin";
       const tmpPath = getTempPath(`media_${Date.now()}.${ext}`);
 
@@ -773,9 +784,9 @@ async function loadPlugins(pluginsDir) {
       seen.add(c.pattern);
       return true;
     });
-    await CommandRegistry.destroy({ where: {} });
+    await KomutKayit.destroy({ where: {} });
     if (uniqueCmds.length > 0) {
-      await CommandRegistry.bulkCreate(uniqueCmds, { ignoreDuplicates: true });
+      await KomutKayit.bulkCreate(uniqueCmds, { ignoreDuplicates: true });
     }
 
     // Eski JSON dosyasını temizle (istenirse silinebilir)
@@ -783,7 +794,7 @@ async function loadPlugins(pluginsDir) {
     if (fs.existsSync(activeCommandsPath)) fs.unlinkSync(activeCommandsPath);
 
   } catch (err) {
-    logger.error("Failed to update CommandRegistry", err.message);
+    logger.error("Failed to update KomutKayit", err.message);
   }
 
   logger.info(`Plugins loaded: ${loaded} files, ${commands.length} commands, ${onCount} event handlers`);
@@ -1107,6 +1118,21 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
       if (isGroup) {
         runtime.metrics.groups.set(jid, true);
       }
+
+      // ── KULLANICI İSTATİSTİKLERİ — DB'ye batch olarak yaz (60s flush) ──
+      // incrementStats() eksikliği nedeniyle getTotalUserCount() her zaman 0 dönüyordu.
+      // Artık her mesajı MesajIstatistik tablosuna yazıyoruz.
+      try {
+        const msgType = rawMsg.message
+          ? (rawMsg.message.imageMessage ? 'image'
+            : rawMsg.message.videoMessage ? 'video'
+            : rawMsg.message.audioMessage ? 'audio'
+            : rawMsg.message.stickerMessage ? 'sticker'
+            : 'text')
+          : 'text';
+        const { incrementStats } = require('./store');
+        incrementStats(jid, resolvedSenderJid || senderJid, msgType);
+      } catch (_) { /* İstatistik hatası asıl akışı engellememeli */ }
     }
 
     // ── OTO-TEPKİ (AUTO-REACT) — Grup bazlı izolasyon ──────────────────────

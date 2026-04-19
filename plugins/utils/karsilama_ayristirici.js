@@ -1,4 +1,4 @@
-const { getBuffer } = require("./misc");
+const { getBuffer } = require('./genel_araclar');
 
 /**
  * Parse welcome/goodbye message with placeholders

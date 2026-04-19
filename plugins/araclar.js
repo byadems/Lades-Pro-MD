@@ -16,10 +16,10 @@
   const path = require("path");
   const fs = require("fs");
   const axios = require("axios");
-  const { uploadToImgbb } = require("./utils/upload");
+  const { uploadToImgbb } = require('./utils/dosya_yukleme');
   const { setVar } = require("./manage");
   const { getTotalUserCount } = require("../core/store");
-  const { parseAliveMessage, sendAliveMessage } = require("./utils/alive-parser");
+  const { parseAliveMessage, sendAliveMessage } = require('./utils/sistem_durum_ayristirici');
   const { badWords, censorBadWords } = require("./utils/censor");
   const { nxTry } = require("./utils");
 
@@ -370,8 +370,10 @@ _Merhaba $user!_
       }
 
       let cmdmenu = final.trim();
-      const used = bytesToSize(process.memoryUsage().rss); // Northflank Container RAM Usage Fix
-      const total = bytesToSize(os.totalmem());
+      const usedRssBytes = process.memoryUsage().rss;
+      const used = bytesToSize(usedRssBytes); // Northflank: process RSS = gerçek container kullanımı
+      const totalRamBytes = os.totalmem();
+      const total = bytesToSize(totalRamBytes);
       const totalUsers = await require("../core/store").getTotalUserCount();
       const botInfo = config.BOT_INFO || "Lades-Pro;Lades-Pro;";
       const infoParts = botInfo.split(";");
@@ -385,8 +387,23 @@ _Merhaba $user!_
       const botImageUrl = (imagePart || "").trim();
 
       if (botImageUrl && botImageUrl.startsWith("http")) {
-        imgContent = { url: botImageUrl };
-      } else {
+        // Northflank/container ortamında Baileys'e doğrudan URL vermek bazen başarısız olur;
+        // axios ile buffer'a çekip geçirmek daha güvenilir.
+        try {
+          const response = await axios.get(botImageUrl, { responseType: 'arraybuffer', timeout: 8000 });
+          imgContent = Buffer.from(response.data);
+          // Content-Type'tan mime'ı tespit et
+          const ct = response.headers['content-type'] || '';
+          if (ct.includes('png')) imgMimeType = 'image/png';
+          else if (ct.includes('webp')) imgMimeType = 'image/webp';
+          else imgMimeType = 'image/jpeg';
+        } catch (urlErr) {
+          config.logger.warn(`[Menu] Logo URL indirilemedi (${botImageUrl}): ${urlErr.message}`);
+          imgContent = null; // Yerel logo'ya düşecek
+        }
+      }
+      // URL olmadığında ya da URL başarısız olduğunda yerel dosyayı dene
+      if (!imgContent) {
         const imagesDir = path.join(__dirname, "utils", "images");
         const localCandidates = ["logo.jpg", "logo.png"];
         const localFile = localCandidates.find((f) => fs.existsSync(path.join(imagesDir, f)));
@@ -410,7 +427,7 @@ _Merhaba $user!_
 ┃${star}│ _*\`Üye\`*_ : ${senderName}
 ┃${star}│ _*\`Mod\`*_ : ${MODE === "private" ? "Sadece Yönetici" : "Herkese Açık"}
 ┃${star}│ _*\`Sunucu\`*_ : ${{ "win32": "Windows", "linux": "Linux", "darwin": "MacOS", "android": "Android" }[os.platform()] || os.platform()}
-┃${star}│ _*\`Kullanılabilir RAM\`*_ : ${used} / ${total}
+┃${star}│ _*\`Kullanılan RAM\`*_ : ${used} / ${total}
 ┃${star}│ _*\`Toplam Kullanıcı\`*_ : ${totalUsers}
 ┃${star}│ _*\`Versiyon\`*_ : ${botVersion}
 ┃${star}│

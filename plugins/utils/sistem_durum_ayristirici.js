@@ -1,4 +1,4 @@
-const { getBuffer } = require("./misc");
+const { getBuffer } = require('./genel_araclar');
 const { getTotalUserCount } = require("../../core/store");
 const config = require("../../config");
 const os = require("os");
@@ -13,7 +13,7 @@ async function parseAliveMessage(template, messageObject) {
   if (!template || !messageObject) return null;
 
   try {
-    const used = bytesToSize(os.freemem());
+    const used = bytesToSize(process.memoryUsage().rss); // Betik RSS belleği (container gerçek kullanımı)
     const total = bytesToSize(os.totalmem());
     const totalUsers = await getTotalUserCount();
     const infoParts = config.BOT_INFO.split(";");

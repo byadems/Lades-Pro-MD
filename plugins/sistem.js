@@ -32,7 +32,7 @@
   const git = simpleGit();
   const { Module } = require("../main");
   // const { update } = require('./misc/koyeb');
-  const renderDeploy = require("./utils/render-api");
+  const renderDeploy = require('./utils/render_api_baglantisi');
   const config = require("../config");
   const fs = require("fs").promises;
   const axios = require("axios");
@@ -618,7 +618,7 @@
   const fs = require("fs");
   const { PluginDB, installPlugin } = require("./sql/plugin");
   const handler = config.HANDLER_PREFIX;
-  const { extractUrls, validateUrl } = require("../core/helpers");
+  const { extractUrls, validateUrl } = require("../core/yardimcilar");
   const crypto = require("crypto");
   const vm = require("vm");
 

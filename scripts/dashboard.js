@@ -13,7 +13,7 @@ const pino = require('pino');
 const app = express();
 const PORT = process.env.PORT || 3001;
 const envPath = path.join(__dirname, "../config.env");
-const { BotMetric, CommandStat, CommandRegistry, UserData, GroupSettings } = require('../core/database');
+const { BotMetrik, KomutIstatistik, KomutKayit, KullaniciVeri, GrupAyar } = require('../core/database');
 const runtime = require('../core/runtime');
 
 // Prevent Baileys unhandled promise rejections / connection timeouts from crashing the Dashboard
@@ -187,10 +187,10 @@ app.get('/api/status', async (req, res) => {
 
   try {
     const [msgM, cmdM, uCount, gCount] = await Promise.all([
-      BotMetric.findByPk('total_messages'),
-      BotMetric.findByPk('total_commands'),
+      BotMetrik.findByPk('total_messages'),
+      BotMetrik.findByPk('total_commands'),
       require('../core/store').getTotalUserCount(),
-      GroupSettings.count()
+      GrupAyar.count()
     ]);
     totalMessages = msgM ? parseInt(msgM.value) : 0;
     totalCommands = cmdM ? parseInt(cmdM.value) : 0;
@@ -379,7 +379,7 @@ app.post('/api/system/broadcast', (req, res) => {
 // ─── Commands list ───────────────────────────────────────
 async function loadStats() {
   try {
-    const rows = await CommandStat.findAll();
+    const rows = await KomutIstatistik.findAll();
     const stats = {};
     rows.forEach(r => {
       stats[r.pattern] = {
@@ -397,10 +397,10 @@ async function loadStats() {
 async function loadRuntimeStats() {
   try {
     const [msgM, cmdM, uCount, gCount] = await Promise.all([
-      BotMetric.findByPk('total_messages'),
-      BotMetric.findByPk('total_commands'),
-      UserData.count(),
-      GroupSettings.count()
+      BotMetrik.findByPk('total_messages'),
+      BotMetrik.findByPk('total_commands'),
+      KullaniciVeri.count(),
+      GrupAyar.count()
     ]);
     return {
       totalMessages: msgM ? parseInt(msgM.value) : 0,
@@ -424,7 +424,7 @@ app.get('/api/commands', async (req, res) => {
     const stats = await loadStats();
     
     // SQL tabanlı registry'den komutları çek
-    const commands = await CommandRegistry.findAll();
+    const commands = await KomutKayit.findAll();
     
     const allModules = commands.map(cmd => {
       const stat = stats[cmd.statKey] || null;

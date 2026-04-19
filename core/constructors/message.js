@@ -6,7 +6,7 @@
  * Makes plugin writing much simpler.
  */
 
-const { getTempPath, cleanTempFile, getGroupAdmins, loadBaileys } = require("../helpers");
+const { getTempPath, cleanTempFile, getGroupAdmins, loadBaileys } = require("../yardimcilar");
 const fs = require("fs");
 
 /**

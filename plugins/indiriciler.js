@@ -13,9 +13,9 @@
   const config = require("../config");
   const { setVar } = require("./manage");
   const { downloadGram, pinterestDl, tiktok, fb } = require("./utils");
-  const { getVideoInfo, downloadAudio, convertM4aToMp3, searchYoutube } = require("./utils/yt");
-  const { saveToDisk, getTempPath, cleanTempFile, isMediaImage, readMp4Dimensions } = require("../core/helpers");
-  const nexray = require("./utils/nexray");
+  const { getVideoInfo, downloadAudio, convertM4aToMp3, searchYoutube } = require('./utils/youtube_araclari');
+  const { saveToDisk, getTempPath, cleanTempFile, isMediaImage, readMp4Dimensions } = require("../core/yardimcilar");
+  const nexray = require('./utils/nexray_api');
   const axios = require("axios");
   const fs = require("fs");
 
@@ -810,10 +810,10 @@
     fmtCount,
     censorBadWords,
   } = require("./utils");
-  const nexray = require("./utils/nexray");
+  const nexray = require('./utils/nexray_api');
   const botConfig = require("../config");
   const axios = require("axios");
-  const { saveToDisk, getTempPath, cleanTempFile, extractUrls, validateUrl, isMediaImage, readMp4Dimensions } = require("../core/helpers");
+  const { saveToDisk, getTempPath, cleanTempFile, extractUrls, validateUrl, isMediaImage, readMp4Dimensions } = require("../core/yardimcilar");
 
   const SIPUTZX_BASE = "https://api.siputzx.my.id";
 
@@ -1659,13 +1659,13 @@
     searchYoutube,
     getVideoInfo,
     convertM4aToMp3,
-  } = require("./utils/yt");
+  } = require('./utils/youtube_araclari');
   const { censorBadWords } = require("./utils");
-  const nexray = require("./utils/nexray");
+  const nexray = require('./utils/nexray_api');
 
   const config = require("../config");
   const { bytesToSize: formatBytes } = require("./utils");
-  const { extractUrls, validateUrl } = require("../core/helpers");
+  const { extractUrls, validateUrl } = require("../core/yardimcilar");
 
   const SIPUTZX_BASE = "https://api.siputzx.my.id";
 
@@ -2840,7 +2840,7 @@
    */
   const { Module } = require("../main");
   const axios = require("axios");
-  const { extractUrls } = require("../core/helpers");
+  const { extractUrls } = require("../core/yardimcilar");
 
   const SIPUTZX_BASE = "https://api.siputzx.my.id";
   const TIMEOUT = 30000;

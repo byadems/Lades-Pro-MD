@@ -298,7 +298,7 @@ function createLinkPatterns() {
 }
 
 /**
- * Filter detected links to remove false positives
+ * Filtre detected links to remove false positives
  * @param {string} link - The link to validate
  * @returns {boolean} True if link should be kept
  */
