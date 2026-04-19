@@ -1,8 +1,4 @@
-const {
-  UyariKayit,
-  Filtre,
-  GrupAyar,
-} = require("../../../core/database");
+const { UyariKayit } = require("../../../core/database");
 
 const { 
   getGroupSettings, 
@@ -543,19 +539,35 @@ const filterRegexCache = new Map();
 async function checkFilterMatch(text, jid) {
   if (!text) return null;
 
-  const filters = await getFilters(jid); // Use cached filters
+  // FilterDB (trigger/jid/scope şeması) kullanılır — core Filtre modeli değil
+  const { Op } = require("sequelize");
+  let filters;
+  try {
+    filters = await FilterDB.findAll({
+      where: {
+        [Op.or]: [
+          { jid: jid, scope: "chat" },
+          { jid: null, scope: "global" },
+          { jid: null, scope: jid && jid.includes("@g.us") ? "group" : "dm" },
+        ],
+        enabled: true,
+      },
+    });
+  } catch (e) {
+    return null;
+  }
 
   for (const filter of filters) {
-    const isExact = filter.exactMatch;
-    const isCase = filter.caseSensitive;
-    const cacheKey = `${filter.trigger}:${isExact}:${isCase}`;
+    const f = filter.get ? filter.get({ plain: true }) : filter;
+    const isExact = f.exactMatch;
+    const isCase = f.caseSensitive;
+    const cacheKey = `${f.trigger}:${isExact}:${isCase}`;
     
     let regex = filterRegexCache.get(cacheKey);
     if (!regex) {
-      const escaped = filter.trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escaped = f.trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const pattern = isExact ? `^${escaped}$` : escaped;
       regex = new RegExp(pattern, isCase ? "" : "i");
-      // Size cap: en eski entry'i sil (LRU-lite davranışı)
       if (filterRegexCache.size >= FILTER_REGEX_CACHE_MAX) {
         filterRegexCache.delete(filterRegexCache.keys().next().value);
       }
@@ -563,7 +575,7 @@ async function checkFilterMatch(text, jid) {
     }
 
     if (regex.test(text)) {
-      return filter;
+      return f;
     }
   }
 

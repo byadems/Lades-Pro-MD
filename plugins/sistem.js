@@ -617,7 +617,9 @@
   const axios = require("axios");
   const fs = require("fs");
   const { PluginDB } = require('./utils/db/modeller');
-const installPlugin = async () => {}; // Stub for removed installer
+  const installPlugin = async (url, name) => {
+    await PluginDB.findOrCreate({ where: { name }, defaults: { name, url } });
+  };
   const handler = config.HANDLER_PREFIX;
   const { extractUrls, validateUrl } = require("../core/yardimcilar");
   const crypto = require("crypto");

@@ -1,32 +1,6 @@
 const { DataTypes, sequelize } = require("../../../core/database");
 const { logger, ...config } = require("../../../config");
 
-const warnDB = sequelize.define("_warn", {
-  chat: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  user: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  reason: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-    defaultValue: "Sebep belirtilmedi",
-  },
-  warnedBy: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  timestamp: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW,
-  },
-}, {
-  indexes: [{ fields: ['chat'] }, { fields: ['user'] }]
-});
-
 const FakeDB = sequelize.define("fake", {
   jid: {
     type: DataTypes.TEXT,
@@ -211,10 +185,7 @@ const PluginDB = sequelize.define("Plugin", {
   },
 }, { indexes: [{ fields: ['url'] }] });
 
-// We no longer override sync since we removed statement_timeout from config.js
-// so PostgreSQL index metadata query will not timeout.
 module.exports = {
-  warnDB,
   FakeDB,
   AntilinkConfigDB,
   antiSpamDB,
