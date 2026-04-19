@@ -1,5 +1,15 @@
-const {LANGUAGE} = require('../../config');
+const config = require('../../config');
+const LANGUAGE = config.LANGUAGE || 'turkish';
 const {existsSync,readFileSync} = require('fs');
-const json = existsSync(__dirname+'/lang/' + LANGUAGE + '.json') ? JSON.parse(readFileSync(__dirname+'/lang/' + LANGUAGE + '.json')) : JSON.parse(readFileSync(__dirname+'/lang/english.json'));
-function getString(file) { return json['STRINGS'][file]; }
-module.exports = {language: json, getString: getString }
+
+const langFile = __dirname + '/lang/' + LANGUAGE + '.json';
+const defaultLangFile = __dirname + '/lang/turkish.json';
+const json = existsSync(langFile) 
+  ? JSON.parse(readFileSync(langFile, 'utf8')) 
+  : JSON.parse(readFileSync(defaultLangFile, 'utf8'));
+
+function getString(file) { 
+  return json['STRINGS']?.[file] || file; 
+}
+
+module.exports = { language: json, getString };

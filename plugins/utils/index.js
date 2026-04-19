@@ -161,6 +161,7 @@ module.exports = {
   // Küfür sansürü (tüm pluginlerden erişilebilir)
   censorBadWords,
   containsBadWord,
+  containsDisallowedWords: containsBadWord, // Geriye uyumluluk
   badWords,
   BAD_WORD_REGEX,
 

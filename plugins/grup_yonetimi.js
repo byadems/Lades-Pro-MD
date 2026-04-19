@@ -2720,15 +2720,15 @@
   }, 60 * 60 * 1000);
 
   function tConvert(time) {
-    time = time.toString().match(/^([01]\d|2[0-3])( )([0-5]\d)(:[0-5]\d)?$/) || [
-      time,
-    ];
+    // Desteklenen formatlar: "22 45", "22:45", "22 45 00"
+    time = time.toString().match(/^([01]\d|2[0-3])[: ]?([0-5]\d)/) || [time, time];
     if (time.length > 1) {
-      time = time.slice(1);
-      time[5] = +time[0] < 12 ? " AM" : " PM";
-      time[0] = +time[0] % 12 || 12;
+      const hour = time[1];
+      const min = time[2];
+      const h = parseInt(hour);
+      return `${h > 12 ? h - 12 : h}:${min}${h >= 12 ? " PM" : " AM"}`;
     }
-    return time.join("").replace(" ", ":");
+    return time[0] || time;
   }
 
   async function extractData(message) {
@@ -2834,8 +2834,7 @@
       if (message.fromOwner || adminAccesValidated) {
         match = match[1]?.toLowerCase();
         if (!match)
-          return await message.sendReply("*✨ Yanlış format!*\n*.otosohbetkapat 22 00 (Saat 22:00 için)*\n*.otosohbetkapat 06 00 (Saat 06:00 için)*\n*.otosohbetkapat kapat*"
-          );
+          return await message.sendReply("*✨ Yanlış format!*\n\nDesteklenen formatlar:\n• .otosohbetkapat 22 45\n• .otosohbetkapat 22:45\n• .otosohbetkapat 22.45\n• .otosohbetkapat kapat");
         if (match.includes("am") || match.includes("pm"))
           return await message.sendReply("⏰ *Zaman SS DD (24 saat) formatında olmalıdır! (Örn: 22 00)*"
           );
@@ -2844,19 +2843,19 @@
           return await message.sendReply("📴 *Otomatik sohbet kapatma devre dışı bırakıldı ❗*"
           );
         }
-        const mregex = /[0-2][0-9] [0-5][0-9]/;
-        if (!mregex.test(match?.match(/(\d+)/g)?.join(" "))) {
-          return await message.sendReply("⚠️ *Yanlış format!* \n\n💬 *.otosohbetkapat 22 00* _(Saat 22:00 için)_\n💬 *.otosohbetkapat 06 00* _(Saat 06:00 için)_");
+        const timeMatch = match?.match(/^([0-2][0-9])[:. ]?([0-5][0-9])$/);
+        if (!timeMatch) {
+          return await message.sendReply("⚠️ *Yanlış format!*\n\nDesteklenen formatlar:\n• .otosohbetkapat 22 45\n• .otosohbetkapat 22:45\n• .otosohbetkapat 22.45\n• .otosohbetkapat kapat");
         }
 
-        // Çift isAdmin() kontrolüne gerek yok, zaten en başta adminAccesValidated ile kontrol ettik
         if (!message.isBotAdmin) {
           return await message.sendReply("*❌ İşlemi yapabilmem için lütfen benim grubunuzda _yönetici_ olduğuma emin olun!*");
         }
 
-        await automute.set(message.jid, match.match(/(\d+)/g)?.join(" "));
+        const time = timeMatch[1] + " " + timeMatch[2];
+        await automute.set(message.jid, time);
         await message.sendReply(
-          `⏰ *Grup ${tConvert(match.match(/(\d+)/g).join(" "))} saatinde otomatik susturulacak.*`
+          `⏰ *Grup ${tConvert(time)} saatinde otomatik susturulacak.*`
         );
       }
     }
@@ -2883,17 +2882,17 @@
           await autounmute.delete(message.jid);
           return await message.sendReply("❌ *Otomatik sohbet açma devre dışı bırakıldı!*");
         }
-        const mregex2 = /[0-2][0-9] [0-5][0-9]/;
-        if (mregex2.test(match?.match(/(\d+)/g)?.join(" ")) === false)
-          return await message.sendReply("⚠️ *Yanlış format!* \n\n💬 *.otosohbetaç 22 00* _(Saat 22:00 için)_\n💬 *.otosohbetaç 06 00* _(Saat 06:00 için)_"
-          );
+        const timeMatch2 = match?.match(/^([0-2][0-9])[:. ]?([0-5][0-9])$/);
+        if (!timeMatch2) {
+          return await message.sendReply("⚠️ *Yanlış format!*\n\nDesteklenen formatlar:\n• .otosohbetaç 22 45\n• .otosohbetaç 22:45\n• .otosohbetaç 22.45\n• .otosohbetaç kapat");
+        }
         const admin2 = await isAdmin(message);
         if (!admin2) return await message.sendReply("*❌ Yönetici değilim!*");
-        await autounmute.set(message.jid, match?.match(/(\d+)/g)?.join(" "));
+        const time2 = timeMatch2[1] + " " + timeMatch2[2];
+        await autounmute.set(message.jid, time2);
         await message.sendReply(
-          `⏰ *Grup ${tConvert(match)} saatinde otomatik açılacak!*\n\nℹ️ _Sistemi yeniden başlatıyorum..._`
+          `⏰ *Grup ${tConvert(time2)} saatinde otomatik açılacak!*`
         );
-        process.exit(0);
       }
     }
   );
@@ -3377,14 +3376,14 @@
                 if (uploadResult && uploadResult.url) {
                   mentionData.type = mediaType;
                   mentionData.url = uploadResult.url;
-                  mentionData.caption = replyMsg.text || "";
+                  mentionData.caption = censorBadWords(replyMsg.text || "");
                 } else {
                   return await message.sendReply("⚠️ *Medya yüklenemedi! Lütfen tekrar deneyin.*"
                   );
                 }
               } else if (replyMsg.text) {
                 mentionData.type = "text";
-                mentionData.content = replyMsg.text;
+                mentionData.content = censorBadWords(replyMsg.text);
               } else {
                 return await message.sendReply("❌ *Bahsetme mesajı için desteklenmeyen mesaj türü!*"
                 );
@@ -3407,7 +3406,7 @@
           if (input && input.trim()) {
             const mentionData = {
               type: "text",
-              content: input.trim(),
+              content: censorBadWords(input.trim()),
               caption: "",
               url: "",
               timestamp: new Date().toISOString(),
@@ -3512,14 +3511,14 @@ _ℹ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
         switch (mentionData.type) {
           case "text":
             if (mentionData.content) {
-              await message.sendReply(mentionData.content);
+              await message.sendReply(censorBadWords(mentionData.content));
             }
             break;
 
           case "image":
             if (mentionData.url) {
               await message.sendReply({ url: mentionData.url }, "image", {
-                caption: mentionData.caption || "",
+                caption: censorBadWords(mentionData.caption || ""),
               });
             }
             break;
@@ -3527,7 +3526,7 @@ _ℹ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
           case "video":
             if (mentionData.url) {
               await message.sendReply({ url: mentionData.url }, "video", {
-                caption: mentionData.caption || "",
+                caption: censorBadWords(mentionData.caption || ""),
               });
             }
             break;
@@ -3550,7 +3549,7 @@ _ℹ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
           case "document":
             if (mentionData.url) {
               await message.sendReply({ url: mentionData.url }, "document", {
-                caption: mentionData.caption || "",
+                caption: censorBadWords(mentionData.caption || ""),
               });
             }
             break;

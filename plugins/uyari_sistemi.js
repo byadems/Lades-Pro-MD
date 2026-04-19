@@ -194,6 +194,14 @@ Module({
     }
     targetUser = await resolveTargetUser(targetUser);
 
+    // Üyelik kontrolü: Kullanıcı grupta mı?
+    const groupMetadata = await message.client.groupMetadata(message.jid);
+    const isParticipant = groupMetadata.participants.some(p => p.id === targetUser);
+    if (!isParticipant) {
+      const targetNumericId = getNumericId(targetUser);
+      return await message.sendReply(`❌ *İşlem Başarısız!* \n\n👤 Üye: *@${targetNumericId}*\nℹ️ Durum: \`Grupta bulunmuyor\`\n\n_Grupta olmayan birine nasıl uyarı verebilirim?_`, { mentions: [targetUser] });
+    }
+
     const isTargetAdmin = message.groupAdmins.includes(targetUser);
     if (isTargetAdmin) return await message.sendReply("❗ _OPS! Yöneticiler uyarılamaz._");
 
@@ -205,6 +213,25 @@ Module({
     const reason = censorBadWords(rawReason.replace(mentionRegex, "").trim() || "Sebep belirtilmedi");
 
     try {
+      // Ön-limit kontrolü: Yeni uyarı eklemeden önce mevcut durumu kontrol et
+      const currentCountBefore = await uyariSayisiAl(message.jid, targetUser);
+      if (currentCountBefore >= warnLimit) {
+        if (isBotIdentifier(targetUser, message.client)) return await message.sendReply("❌ *Kendimi atacak kadar delirmedim. 😉*");
+
+        await message.client.sendMessage(message.jid, {
+          text: `⚠️ *LİMİT ZATEN DOLMUŞ!*\n\n👤 Üye: *@${targetNumericId}*\n🔢 Mevcut Uyarı: \`${currentCountBefore}/${warnLimit}\`\n\n_Bu üye zaten sınırda. Tekrardan gruptan çıkarma işlemi deneniyor..._`,
+          mentions: [targetUser],
+        });
+
+        try {
+          await message.client.groupParticipantsUpdate(message.jid, [targetUser], "remove");
+          await sendBanAudio(message);
+          return;
+        } catch (e) {
+          return await message.sendReply("❌ *Üye zaten limiti doldurmuş fakat gruptan atılamamış!* _Lütfen yönetici yetkimi kontrol edin._");
+        }
+      }
+
       // message.sender boş olabilir, fallback uygula
       const warnedBy = message.sender || message.jid || "system";
       const setResult = await uyariEkle(message.jid, targetUser, reason, warnedBy);

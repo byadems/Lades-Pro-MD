@@ -55,4 +55,10 @@ function containsBadWord(text) {
   return BAD_WORD_REGEX.test(text);
 }
 
-module.exports = { censorBadWords, containsBadWord, badWords: uniqueBadWords, BAD_WORD_REGEX };
+module.exports = { 
+  censorBadWords, 
+  containsBadWord, 
+  containsDisallowedWords: containsBadWord, // Geriye uyumluluk
+  badWords: uniqueBadWords, 
+  BAD_WORD_REGEX 
+};

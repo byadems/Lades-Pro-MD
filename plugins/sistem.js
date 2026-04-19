@@ -981,11 +981,16 @@
   );
   Module({
     pattern: "vv ?(.*)",
-    fromMe: true,
+    fromMe: false,
     desc: "Tek gösterimlik mesajları yakalar",
     use: "araçlar",
   },
     async (m, match) => {
+      const adminAccesValidated = await isAdmin(m);
+      if (!m.fromOwner && !adminAccesValidated) {
+        return await m.sendReply("❌ *Bu komutu sadece yöneticiler kullanabilir!*");
+      }
+
       const quoted = m.quoted?.message,
         realQuoted = m.quoted;
 

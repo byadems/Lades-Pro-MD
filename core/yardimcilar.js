@@ -11,7 +11,8 @@ const os = require("os");
 const pLimit = require("p-limit");
 const { getCachedAdmins, setCachedAdmins } = require("./db-cache");
 const axios = require("axios");
-const { logger } = require("../config");
+const config = require("../config");
+const { logger } = config;
 
 const ffmpegLimit = pLimit(3); // Global FFmpeg concurrency limit
 const fsp = fs.promises;

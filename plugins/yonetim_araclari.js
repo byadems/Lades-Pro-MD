@@ -1,4 +1,4 @@
-const { badWords: globalBadWords, containsBadWord, BAD_WORD_REGEX } = require("./utils");
+const { badWords: globalBadWords, containsBadWord, BAD_WORD_REGEX, containsDisallowedWords } = require("./utils/index");
 
 /**
  * Metindeki yasaklı kelimeyi bulur ve döndürür.
