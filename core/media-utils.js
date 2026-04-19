@@ -81,6 +81,8 @@ async function toMp4Audio(buffer) {
           .audioBitrate("128k")
           .outputOptions([
             "-avoid_negative_ts make_zero",
+            "-map_metadata -1",        // Gereksiz/bozuk metadata'yı temizle
+            "-movflags +faststart",     // iOS için kritik: MP4 atom'larını başa taşı
           ])
           .toFormat("mp4")
           .on("end", async () => {

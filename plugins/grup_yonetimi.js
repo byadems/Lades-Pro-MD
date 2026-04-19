@@ -3613,12 +3613,9 @@ _ℹ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
         console.error("Ban sesi dosyası bulunamadı:", audioPath);
         return;
       }
-      const stream = fs.createReadStream(audioPath);
-      try {
-        await message.send({ stream }, "audio");
-      } finally {
-        stream.destroy();
-      }
+      // Buffer olarak oku: bot.js interceptor'ı OGG/Opus'a dönüştürebilsin
+      const audioBuffer = fs.readFileSync(audioPath);
+      await message.sendMessage(audioBuffer, "audio", { ptt: true });
     } catch (err) {
       console.error("Ban sesini gönderirken hata:", err);
     }
