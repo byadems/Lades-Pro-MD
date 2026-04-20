@@ -988,14 +988,30 @@
     }
   );
   const getJoinErrorMessage = (error) => {
-    const msg = error?.message || "";
-    if (msg.includes("401")) return "⛔ Bağlantı geçersiz veya süresi dolmuş!";
-    if (msg.includes("403")) return "🔒 Gruba katılım kısıtlanmış!";
-    if (msg.includes("404")) return "🔍 Grup bulunamadı!";
-    if (msg.includes("408")) return "✋ Zaten bu grubun üyesisiniz!";
-    if (msg.includes("500")) return "🔧 WhatsApp sunucu hatası!";
-    if (msg.includes("rate")) return "⏳ Rate limit - çok hızlı istek! Biraz yavaşlayın.";
-    return `❓ ${msg || "Bilinmeyen hata!"}`;
+    const msg = (error?.message || "").toLowerCase();
+
+    if (msg.includes("401") || msg.includes("not-authorized"))
+      return "⛔ Bağlantı geçersiz veya gruptan atılmış olabilirim!";
+
+    if (msg.includes("403") || msg.includes("forbidden"))
+      return "🔒 Gruba katılım kısıtlanmış! (Sadece yöneticiler ekleyebilir)";
+
+    if (msg.includes("404") || msg.includes("item-not-found"))
+      return "🔍 Grup bulunamadı veya bağlantı hatalı!";
+
+    if (msg.includes("406") || msg.includes("not-acceptable"))
+      return "⛔ Gruptan yeni atıldım/çıkarıldım veya grup dolu! Bir süre bekleyip tekrar deneyin.";
+
+    if (msg.includes("408") || msg.includes("conflict"))
+      return "✋ Zaten bu grubun üyesiyim!";
+
+    if (msg.includes("500"))
+      return "🔧 WhatsApp sunucu hatası! Lütfen daha sonra tekrar deneyin.";
+
+    if (msg.includes("rate") || msg.includes("429"))
+      return "⏳ Rate limit - çok hızlı işlem yaptınız! Biraz yavaşlayın.";
+
+    return `❓ ${error?.message || "Bilinmeyen hata!"}`;
   };
 
   Module({

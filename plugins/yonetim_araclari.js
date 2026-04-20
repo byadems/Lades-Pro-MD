@@ -1526,29 +1526,40 @@ Module({
             senderName = message.senderName || senderNumber;
           }
 
-          const infoMessage =
-            `*${groupMetadata.subject}* grubunda ` +
-            `şu şahsı *${senderName}* (+${senderNumber}) suçüstü yakaladım. 😈
+          if (!global.antilink_warned_senders) global.antilink_warned_senders = new Set();
+          const senderKey = message.jid + "_" + message.sender;
+          const shouldWarn = !global.antilink_warned_senders.has(senderKey);
 
-🔗 ${message.text}`;
+          if (shouldWarn) {
+            global.antilink_warned_senders.add(senderKey);
+            setTimeout(() => global.antilink_warned_senders.delete(senderKey), 60000);
 
-          const adminGroupJid = config.ADMIN_GROUP_JID;
-          if (adminGroupJid) {
-            try {
-              await message.client.sendMessage(adminGroupJid, {
-                text: infoMessage,
-              });
-            } catch (_) { /* admin grubuna gönderilemedi, devam et */ }
+            const infoMessage =
+              `*${groupMetadata.subject}* grubunda ` +
+              `şu şahsı *${senderName}* (+${senderNumber}) suçüstü yakaladım. 😈\n\n🔗 ${message.text}`;
+
+            const adminGroupJid = config.ADMIN_GROUP_JID;
+            if (adminGroupJid) {
+              try {
+                await message.client.sendMessage(adminGroupJid, {
+                  text: infoMessage,
+                });
+              } catch (_) { /* admin grubuna gönderilemedi, devam et */ }
+            }
+            await message.send("🚨 *Hey! Grup reklamı yapmamalısın.* 🤐");
           }
-          await message.send("🚨 *Hey! Grup reklamı yapmamalısın.* 🤐");
+          
           try {
             await message.client.sendMessage(message.jid, { delete: message.data.key });
           } catch { /* mesaj silme başarısız, devam et */ }
-          await message.client.groupParticipantsUpdate(
-            message.jid,
-            [message.sender],
-            "remove"
-          );
+          
+          if (shouldWarn) {
+            await message.client.groupParticipantsUpdate(
+              message.jid,
+              [message.sender],
+              "remove"
+            );
+          }
           return;
         }
       }

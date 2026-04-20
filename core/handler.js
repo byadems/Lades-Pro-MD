@@ -1082,6 +1082,11 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
       }
     }
 
+    // ── PM_BLOCK (Özel Mesajları Engelleme) ──
+    if (config.PM_BLOCK && !isGroup && !isChannel && !fromMe && !isOwnerOrSudo(resolvedSenderJid, senderJid, client)) {
+      return; // Özel mesajlar (DM) kapalıysa atla
+    }
+
     // Rate limit kontrolü (Grup için sender+jid, DM için jid)
     // Kanallar (isChannel) için rate limit atla — kanal adminleri engellenemez
     const rateLimitKey = isGroup ? `${jid}:${resolvedSenderJid}` : jid;

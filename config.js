@@ -47,6 +47,7 @@ const config = {
   ANTI_LINK: process.env.ANTI_LINK === "true" || false,
   ANTI_SPAM: process.env.ANTI_SPAM === "true" || true,
   REJECT_CALLS: process.env.REJECT_CALLS === "true" || true,
+  PM_BLOCK: process.env.PM_BLOCK === "true" || true,
   SEND_REACTIONS: process.env.SEND_REACTIONS !== "false",
   REACTION_SAMPLING: parseInt(process.env.REACTION_SAMPLING || "100", 10),
   PUBLIC_MODE: process.env.PUBLIC_MODE !== "false", // Default true
@@ -86,7 +87,7 @@ const config = {
   ACR_A: process.env.ACR_A || "",
   ACR_S: process.env.ACR_S || "",
   PORT: process.env.PORT || 3000,
-  
+
   // Database instance (core/database.js tarafından ayağa kaldırılır)
   DATABASE_URL: process.env.DATABASE_URL || null,
   logger,

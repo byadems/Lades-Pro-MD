@@ -1981,14 +1981,36 @@
 
       let downloadMsg;
       let videoPath;
+      let targetUrl = normalizedUrl;
+
+      if (!targetUrl) {
+        try {
+          downloadMsg = await message.sendReply("🔍 _Video aranıyor..._");
+          const results = await nexray.searchYoutube(input);
+
+          if (!results || results.length === 0) {
+            return await message.edit("❌ *Sonuç bulunamadı!*", message.jid, downloadMsg.key);
+          }
+
+          targetUrl = results[0].url;
+        } catch (err) {
+          console.error("Video arama hatası:", err);
+          return await message.sendReply("❌ *Arama başarısız oldu!*");
+        }
+      }
 
       try {
-        if (normalizedUrl) {
-          downloadMsg = await message.sendReply("⏳ _Video bilgileri alınıyor..._");
+        if (targetUrl) {
+          if (!downloadMsg) {
+            downloadMsg = await message.sendReply("⏳ _Video bilgileri alınıyor..._");
+          } else {
+            await message.edit("⏳ _Video bilgileri alınıyor..._", message.jid, downloadMsg.key);
+          }
 
           let highestQuality = "360p";
+          let info;
           try {
-            const info = await getVideoInfo(normalizedUrl);
+            info = await getVideoInfo(targetUrl);
             const videoFormats = info.formats
               .filter((f) => f.type === "video" && f.quality)
               .sort((a, b) => {
@@ -2004,7 +2026,7 @@
           } catch (_) { }
 
           await message.edit(`_⬇️ Video indiriliyor..._ (\`${highestQuality}\`)`, message.jid, downloadMsg.key);
-          const result = await downloadVideo(normalizedUrl, highestQuality);
+          const result = await downloadVideo(targetUrl, highestQuality);
           videoPath = result.path;
 
           await message.edit("_📤 Video yükleniyor..._", message.jid, downloadMsg.key);
@@ -2014,7 +2036,9 @@
 
           let metadataStr = "";
           try {
-            metadataStr = `_Kanal:_ ${info.channel || "Bilinmiyor"}\n_Süre:_ \`${info.duration || "Bilinmiyor"}\` | _Görüntülenme:_ \`${info.views || "Bilinmiyor"}\`\n\n`;
+            if (info) {
+              metadataStr = `_Kanal:_ ${info.channel || "Bilinmiyor"}\n_Süre:_ \`${info.duration || "Bilinmiyor"}\` | _Görüntülenme:_ \`${info.views || "Bilinmiyor"}\`\n\n`;
+            }
           } catch (_) { }
 
           if (stats.size > VIDEO_SIZE_LIMIT) {
@@ -2039,27 +2063,11 @@
           if (fs.existsSync(videoPath)) {
             fs.unlinkSync(videoPath);
           }
-        } else {
-          downloadMsg = await message.sendReply("🔍 _Video aranıyor..._");
-          const result = await nexray.ytPlayVid(input);
-
-          if (!result || !result.url) {
-            return await message.edit("❌ *Sonuç bulunamadı!*", message.jid, downloadMsg.key);
-          }
-
-          const safeTitle = censorBadWords(result.title || input);
-          await message.edit(`_🔻 İndirilip yükleniyor..._ *${safeTitle}*`, message.jid, downloadMsg.key);
-
-          await message.sendReply({ url: result.url }, "video", {
-            caption: `_*${safeTitle}*_`,
-          });
-
-          await message.edit(`✅ *Hazır!* *${safeTitle}*`, message.jid, downloadMsg.key);
         }
       } catch (error) {
-        if (normalizedUrl) {
+        if (targetUrl) {
           try {
-            const fallback = await nexray.downloadYtMp4(normalizedUrl);
+            const fallback = await nexray.downloadYtMp4(targetUrl);
             if (fallback?.url) {
               if (!downloadMsg) {
                 downloadMsg = await message.sendReply("_🔎 Alternatif yöntemle aranıyor..._");
