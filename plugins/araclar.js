@@ -1079,18 +1079,40 @@ ${cmdmenu}`;
         if (r.cara || r.instructions || r.steps) caption += `👨‍🍳 *Hazırlanışı:*\n${r.cara || r.instructions || r.steps}`;
 
         await message.edit("✅ _Bulundu!_", message.jid, wait.key);
-        const channelOpts = {
-          contextInfo: {
-            isForwarded: true,
-            forwardingScore: 999,
-            forwardedNewsletterMessageInfo: {
-              newsletterJid: process.env.CHANNEL_JID || "120363427366763599@newsletter",
-              newsletterName: "📢 " + (process.env.BOT_NAME || "Güncellemeler"),
-              serverMessageId: -1
-            }
-          }
-        };
+        return await message.client.sendMessage(message.jid, {
+          image: { url: thumb },
+          caption: caption
+        }, { quoted: message.data });
+      } catch (e) {
+        await message.sendReply(`❌ *Yemek tarifi bulamadım!* \n\n*Hata:* ${e.message}`);
+      }
+    }
+  );
 
+  Module({
+    pattern: "komutlar ?(.*)",
+    fromMe: false,
+    desc: "Tüm komutları listeler veya belirli bir komutun detaylarını gösterir.",
+    usage: ".komutlar [komut adı]",
+    use: "kullanici",
+  },
+    async (m, match) => {
+      const arg = match[1]?.trim();
+
+      const channelOpts = {
+        contextInfo: {
+          isForwarded: true,
+          forwardingScore: 999,
+          forwardedNewsletterMessageInfo: {
+            newsletterJid: process.env.CHANNEL_JID || "120363427366763599@newsletter",
+            newsletterName: "📢 " + (process.env.BOT_NAME || "Güncellemeler"),
+            serverMessageId: -1,
+            isVerified: true
+          }
+        }
+      };
+
+      if (!arg || arg.toLowerCase() === "all" || arg.toLowerCase() === "liste") {
         return await m.client.sendMessage(m.jid, {
           text: "📋 *GENEL KOMUTLAR*\n" +
             "🧑 .uzakta\nSizi AFK (Uzakta) yapar. Etiketlenirseniz Bot sizin yerinize cevap verir.\n\n" +
@@ -1377,8 +1399,9 @@ ${cmdmenu}`;
             "🎬 .ytsesb\nYouTube'dan ses indirir.\n\n" +
             "🔎 .ytara\nYouTube kanal bilgisi.\n\n" +
             "🎞️ .mp4\nVideoya çevirir.\n\n" +
-            "⏫ .url\nGörseli yükler.\n"
-        );
+            "⏫ .url\nGörseli yükler.\n",
+          ...channelOpts
+        });
         return;
       }
 
@@ -1416,33 +1439,11 @@ ${cmdmenu}`;
           infoMessage += `\n⚠️ *BİLGİ:* _${commandDetails.warn}_\n`;
         }
 
-        const channelOpts = {
-          contextInfo: {
-            isForwarded: true,
-            forwardingScore: 999,
-            forwardedNewsletterMessageInfo: {
-              newsletterJid: process.env.CHANNEL_JID || "120363427366763599@newsletter",
-              newsletterName: "📢 " + (process.env.BOT_NAME || "Güncellemeler"),
-              serverMessageId: -1,
-              isVerified: true
-            }
-          }
-        };
+
         return await m.client.sendMessage(m.jid, { text: infoMessage, ...channelOpts });
       }
 
-      const channelOpts = {
-        contextInfo: {
-          isForwarded: true,
-          forwardingScore: 999,
-          forwardedNewsletterMessageInfo: {
-            newsletterJid: process.env.CHANNEL_JID || "120363427366763599@newsletter",
-            newsletterName: "📢 " + (process.env.BOT_NAME || "Güncellemeler"),
-            serverMessageId: -1,
-            isVerified: true
-          }
-        }
-      };
+
 
       // Hiçbir şey yazılmamışsa kullanım hatırlatıcısı ver
       await m.client.sendMessage(m.jid, {
