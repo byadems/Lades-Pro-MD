@@ -182,7 +182,7 @@ Module({
  
        return await message.sendReply(`✅ *AFK modu başarıyla aktif edildi!*\n\n` +
          `📝 _Sebep:_ \`${reason}\`\n` +
-         `⏰ _Başlangıç:_ \`${new Date().toLocaleTimeString('tr-TR')}\`\n\n` +
+         `⏰ _Başlangıç:_ \`${new Date().toLocaleTimeString('tr-TR', { hour12: false })}\`\n\n` +
          `ℹ️ _Biri size mesaj attığında veya sizi etiketlediğinde otomatik yanıt vereceğim._\n` +
          `ℹ️ _Çevrimiçi olmak için herhangi bir mesaj yazın._`
        );

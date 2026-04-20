@@ -28,7 +28,7 @@ async function parseWelcomeMessage(template, messageObject, participants = []) {
         .replace(/\$desc/g, groupMetadata.desc || "Açıklama yok")
       .replace(/\$count/g, participantCount.toString())
       .replace(/\$date/g, new Date().toLocaleDateString('tr-TR'))
-      .replace(/\$time/g, new Date().toLocaleTimeString('tr-TR'));
+      .replace(/\$time/g, new Date().toLocaleTimeString('tr-TR', { hour12: false }));
     let profilePicBuffer = null;
     let groupPicBuffer = null;
     if (template.includes("$pp") && participant) {

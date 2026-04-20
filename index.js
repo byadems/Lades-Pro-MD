@@ -72,7 +72,7 @@ scheduler.register('memory_check', () => {
   // RSS = gerçek işletim sistemi belleği (Northflank bu değeri gösterir)
   if (mem.rss > PM2_RESTART_MB * 1024 * 1024) {
     logger.warn(`Bellek sınırı (${PM2_RESTART_MB}MB RSS) aşıldı. Otomatik yeniden başlatılıyor...`);
-    process.exit(1);
+    shutdown("MEMORY_LIMIT_EXCEEDED");
   }
 }, 30000); // 10s → 30s: OS çağrısı sayısı 3'te bire düştü
 
@@ -343,6 +343,6 @@ async function startSessionCleanup() {
     logger.info("Lades-Pro Aktif!");
   } catch (err) {
     logger.error(err, "Kritik Hata");
-    process.exit(1);
+    await shutdown("STARTUP_CRASH");
   }
 })();

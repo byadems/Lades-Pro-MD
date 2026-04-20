@@ -315,17 +315,15 @@ async function initializeDatabase() {
 // ─────────────────────────────────────────────────────────
 //  BotVariable helper (backward compat alias → BotAyar)
 // ─────────────────────────────────────────────────────────
-const BotVariable = {
-  get: async (key, defaultVal = null) => {
-    const row = await BotAyar.findByPk(key);
-    return row ? row.value : defaultVal;
-  },
-  set: async (key, value) => {
-    await BotAyar.upsert({ key, value: String(value) });
-  },
-  upsert: async (data) => BotAyar.upsert(data),
-  findAll: async () => BotAyar.findAll(),
-  findByPk: async (key) => BotAyar.findByPk(key),
+const BotVariable = BotAyar;
+
+BotVariable.get = async (key, defaultVal = null) => {
+  const row = await BotAyar.findByPk(key);
+  return row ? row.value : defaultVal;
+};
+
+BotVariable.set = async (key, value) => {
+  await BotAyar.upsert({ key, value: String(value) });
 };
 
 module.exports = {

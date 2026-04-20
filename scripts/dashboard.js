@@ -82,7 +82,7 @@ process.on('message', (msg) => {
     isParentReady = true;
   } else if (msg.type === 'log') {
     const logEntry = {
-      time: new Date().toLocaleTimeString(),
+      time: new Date().toLocaleTimeString('tr-TR', { hour12: false }),
       data: msg.data.replace(/\x1B\[[0-9;]*[mK]/g, '') // Strip ANSI codes for now
     };
     logBuffer.push(logEntry);

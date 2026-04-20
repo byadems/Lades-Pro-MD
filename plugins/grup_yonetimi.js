@@ -17,8 +17,8 @@
       ({ delay, generateWAMessageFromContent, proto } = baileys);
     })
     .catch((err) => {
-      console.error("Baileys yüklenemedi:", err.message);
-      process.exit(1);
+      console.error("Baileys yüklenemedi (Eklenti Hatası):", err.message);
+      console.log("⚠️ Bot çalışmaya devam edecek ancak grup yönetimi eklentisi stabil olmayabilir.");
     });
   const { isNumeric, mentionjid, censorBadWords, isAdmin } = require("./utils");
   const config = require("../config");
@@ -37,16 +37,16 @@
 
 
   async function sendBanAudio(message) {
-const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
+    const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
 
-  try {
-    if (!fs.existsSync(audioPath)) return;
+    try {
+      if (!fs.existsSync(audioPath)) return;
 
-    // Send as voice note (PTT) for a more premium experience
-    await message.sendMessage(fs.readFileSync(audioPath), "audio", { ptt: true });
-  } catch (err) {
-    console.error("Ban sesini gönderirken hata:", err);
-  }
+      // Send as voice note (PTT) for a more premium experience
+      await message.sendMessage(fs.readFileSync(audioPath), "audio", { ptt: true });
+    } catch (err) {
+      console.error("Ban sesini gönderirken hata:", err);
+    }
   }
 
 
@@ -987,6 +987,17 @@ const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
       await message.client.updateBlockStatus(user, "block");
     }
   );
+  const getJoinErrorMessage = (error) => {
+    const msg = error?.message || "";
+    if (msg.includes("401")) return "⛔ Bağlantı geçersiz veya süresi dolmuş!";
+    if (msg.includes("403")) return "🔒 Gruba katılım kısıtlanmış!";
+    if (msg.includes("404")) return "🔍 Grup bulunamadı!";
+    if (msg.includes("408")) return "✋ Zaten bu grubun üyesisiniz!";
+    if (msg.includes("500")) return "🔧 WhatsApp sunucu hatası!";
+    if (msg.includes("rate")) return "⏳ Rate limit - çok hızlı istek! Biraz yavaşlayın.";
+    return `❓ ${msg || "Bilinmeyen hata!"}`;
+  };
+
   Module({
     pattern: "katıl ?(.*)",
     fromMe: false,
@@ -995,12 +1006,19 @@ const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
     usage: ".katıl [link]",
   },
     async (message, match) => {
-      let rgx =
-        /^(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]{22})(?:\?.*)?$/;
-      let matchResult = match[1] && match[1].match(rgx);
-      if (!matchResult) return await message.sendReply("⚠️ *Grup bağlantısı gerekli!*");
-      let inviteCode = matchResult[1];
-      await message.client.groupAcceptInvite(inviteCode);
+      const linkRegex = /(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]+)/;
+      const input = match[1] || message.reply_message?.text || "";
+      const matchResult = input.match(linkRegex);
+
+      if (!matchResult) return await message.sendReply("⚠️ *Grup bağlantısı gerekli!* (Bağlantıya da yanıtlayabilirsiniz)");
+
+      const inviteCode = matchResult[1];
+      try {
+        await message.client.groupAcceptInvite(inviteCode);
+        return await message.sendReply("✅ *Gruba başarıyla katıldım!*");
+      } catch (error) {
+        return await message.sendReply(`❌ *Hata:* ${getJoinErrorMessage(error)}`);
+      }
     }
   );
   Module({
@@ -1053,16 +1071,18 @@ const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
   },
     async (message, match) => {
       const rgx = /(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]+)(?:\?[^\s,]*)*/g;
-      if (!match[1] || !match[1].trim()) {
+      const input = match[1] || message.reply_message?.text || "";
+
+      if (!input.trim()) {
         return await message.sendReply(
-          `❌ *Lütfen grup bağlantısı girin!*\n\n` +
+          `❌ *Lütfen grup bağlantısı girin veya bağlantı içeren bir mesajı yanıtlayın!*\n\n` +
           `*Kullanımı:*\n` +
-          `› .toplukatıl link1 link2\n` +
-          `› .toplukatıl link1, link2, link3\n` +
-          `› .toplukatıl link1,link2,link3`
+          `› .toplukatıl bağlantı1 bağlantı2\n` +
+          `› .toplukatıl (bağlantıya yanıtlayarak)`
         );
       }
-      let rawInput = match[1]
+
+      let rawInput = input
         .replace(/,\s*/g, " ")
         .replace(/\s+/g, " ")
         .trim();
@@ -1079,16 +1099,7 @@ const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
         const delay = Math.floor(Math.random() * (DELAY_MAX - DELAY_MIN + 1)) + DELAY_MIN;
         return new Promise((resolve) => setTimeout(resolve, delay));
       };
-      const getErrorMessage = (error) => {
-        const msg = error?.message || "";
-        if (msg.includes("401")) return "⛔ Bağlantı geçersiz veya süresi dolmuş";
-        if (msg.includes("403")) return "🔒 Gruba katılım kısıtlanmış";
-        if (msg.includes("404")) return "🔍 Grup bulunamadı";
-        if (msg.includes("408")) return "✋ Zaten bu grubun üyesisiniz";
-        if (msg.includes("500")) return "🔧 WhatsApp sunucu hatası";
-        if (msg.includes("rate")) return "⏳ Rate limit - çok hızlı istek";
-        return `❓ ${msg || "Bilinmeyen hata"}`;
-      };
+      const getErrorMessage = getJoinErrorMessage;
 
       let successCount = 0;
       let failCount = 0;
@@ -2721,14 +2732,11 @@ const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
 
   function tConvert(time) {
     // Desteklenen formatlar: "22 45", "22:45", "22 45 00"
-    time = time.toString().match(/^([01]\d|2[0-3])[: ]?([0-5]\d)/) || [time, time];
-    if (time.length > 1) {
-      const hour = time[1];
-      const min = time[2];
-      const h = parseInt(hour);
-      return `${h > 12 ? h - 12 : h}:${min}${h >= 12 ? " PM" : " AM"}`;
+    const match = time.toString().match(/^([01]\d|2[0-3])[: ]?([0-5]\d)/);
+    if (match) {
+      return `${match[1]}:${match[2]}`;
     }
-    return time[0] || time;
+    return time.toString();
   }
 
   async function extractData(message) {

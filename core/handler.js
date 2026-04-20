@@ -734,7 +734,7 @@ function getCommands() { return commands; }
 let _pluginsLoaded = false;
 let _lastPluginHash = "";
 
-async function loadPlugins(pluginsDir) {
+async function loadPlugins(pluginsDir, force = false) {
   const pluginFiles = [];
 
   // Point 4: Async FS scan for performance
@@ -751,9 +751,9 @@ async function loadPlugins(pluginsDir) {
   await scan(pluginsDir);
 
   // Point 5: Hash-based cold-start optimization
-  // Only reload if file list changed OR first load
+  // Only reload if file list changed OR first load OR force = true
   const currentHash = pluginFiles.sort().join("|");
-  if (_pluginsLoaded && currentHash === _lastPluginHash) {
+  if (!force && _pluginsLoaded && currentHash === _lastPluginHash) {
     logger.debug("Plugins already loaded and unchanged. Skipping reload.");
     return;
   }

@@ -691,8 +691,7 @@ Module({
       });
 
       const { BotVariable } = require("../core/database");
-      const existingLimit = await BotVariable.findOne({ where: { key: `SPAMLIMIT_${message.jid}` } });
-      const currentLimit = existingLimit ? existingLimit.value : "10";
+      const currentLimit = await BotVariable.get(`SPAMLIMIT_${message.jid}`, "10");
 
       if (command === "aç") {
         if (!message.isBotAdmin)

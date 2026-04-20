@@ -19,7 +19,37 @@
   },
     async (m) => {
       await m.sendReply("🔄 *Bot yeniden başlatılıyor...*");
-      process.exit(0);
+      process.emit("SIGINT");
+    }
+  );
+
+  Module({
+    pattern: "yinele",
+    fromMe: true,
+    desc: "Sistemi kapatmadan tüm eklentileri yeniler & günceller.",
+    use: "sistem",
+  },
+    async (m) => {
+      const handler = require("../core/handler");
+      const path = require("path");
+      const { logger } = require("../config");
+
+      await m.sendReply("⏳ *Eklentiler yenileniyor...*");
+      try {
+        const pluginsDir = path.join(__dirname, "../plugins");
+        const { loaded, failed } = await handler.loadPlugins(pluginsDir, true);
+
+        let msg = `✅ *Eklentiler başarıyla yenilendi!*\n\n`;
+        msg += `• Toplam Dosya: *${loaded}*\n`;
+        if (failed > 0) msg += `• ⚠️ Hatalı: *${failed}* (Konsolu kontrol edin)\n`;
+        msg += `• Komut Sayısı: *${handler.commands.length}*\n\n`;
+        msg += `_Bağlantı kesilmeden sıcak yenileme tamamlandı._`;
+
+        await m.sendReply(msg);
+        logger.info(`Hot-reload triggered by ${m.pushName}`);
+      } catch (err) {
+        await m.sendReply(`❌ *Yenileme sırasında hata oluştu:* ${err.message}`);
+      }
     }
   );
 })();
@@ -181,7 +211,7 @@
               message.jid,
               processingMsg.key
             );
-            process.exit(0);
+            process.emit("SIGINT");
           } else {
             return await message.edit(
               "_Güncellemek için barındırma platformunu ziyaret edip dağıtımı başlatın._",
@@ -232,7 +262,7 @@
               message.jid,
               processingMsg.key
             );
-            process.exit(0);
+            process.emit("SIGINT");
           } else {
             return await message.edit(
               "_Güncellemek için barındırma platformunu ziyaret edip dağıtımı başlatın._",
@@ -821,7 +851,7 @@
       }
       await PluginDB.update({ code: pluginHash }, { where: { name: plugin } });
       await m.send("✅ *Eklenti '{}' güncellendi!*".format(plugin) + `\n\n*🔒 Yeni Hash:* \`${pluginHash.slice(0, 8)}\``);
-      process.exit(0);
+      process.emit("SIGINT");
       return;
     }
   );
@@ -1006,10 +1036,33 @@
         "viewOnceMessageV2Extension",
       ].find((key) => quoted.hasOwnProperty(key));
 
+      const { resolveLidToPn } = require("../core/yardimcilar");
+      const fixMentions = async (msgBody) => {
+        const type = Object.keys(msgBody)[0];
+        if (msgBody[type] && msgBody[type].contextInfo && msgBody[type].contextInfo.mentionedJid) {
+          const mentions = msgBody[type].contextInfo.mentionedJid;
+          const resolved = [];
+          for (let jid of mentions) {
+            const resolvedJid = await resolveLidToPn(m.client, jid);
+            resolved.push(resolvedJid);
+            if (jid.includes("@lid") && msgBody[type].caption) {
+              const lidNum = jid.split("@")[0];
+              const pnNum = resolvedJid.split("@")[0];
+              msgBody[type].caption = msgBody[type].caption.replace(
+                new RegExp("@" + lidNum, "g"),
+                "@" + pnNum
+              );
+            }
+          }
+          msgBody[type].contextInfo.mentionedJid = resolved;
+        }
+      };
+
       if (viewOnceKey) {
         const realMessage = quoted[viewOnceKey].message;
         const msgType = Object.keys(realMessage)[0];
         if (realMessage[msgType]?.viewOnce) realMessage[msgType].viewOnce = false;
+        await fixMentions(realMessage);
         m.quoted.message = realMessage;
         return await m.forwardMessage(m.jid, m.quoted, {
           contextInfo: { isForwarded: false },
@@ -1026,6 +1079,7 @@
 
       if (directType && quoted[directType]?.viewOnce) {
         quoted[directType].viewOnce = false;
+        await fixMentions(quoted);
         return await m.forwardMessage(m.jid, m.quoted, {
           contextInfo: { isForwarded: false },
         });

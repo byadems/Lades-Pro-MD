@@ -286,7 +286,7 @@ async function runSelfTest(sock) {
   logger.info(`🧪 Self-test başladı: ${queue.length} eşsiz komut test edilecek`);
 
   process.emit('dashboard_activity', {
-    time: new Date().toLocaleTimeString(),
+    time: new Date().toLocaleTimeString('tr-TR', { hour12: false }),
     sender: 'Sistem',
     type: 'Sistem Testi',
     content: `Genel-test başladı: ${queue.length} komut taranacak...`,
@@ -346,7 +346,7 @@ async function runSelfTest(sock) {
 
     if (i % 15 === 0) {
       process.emit('dashboard_activity', {
-        time: new Date().toLocaleTimeString(),
+        time: new Date().toLocaleTimeString('tr-TR', { hour12: false }),
         sender: 'Sistem',
         type: 'Sistem Nabzı',
         content: `Test devam ediyor... (${Math.min(i + batch.length, queue.length)}/${queue.length})`,
@@ -393,7 +393,7 @@ async function runSelfTest(sock) {
   process.env.IS_SELF_TEST = 'false';
 
   process.emit('dashboard_activity', {
-    time: new Date().toLocaleTimeString(),
+    time: new Date().toLocaleTimeString('tr-TR', { hour12: false }),
     sender: 'Sistem',
     type: 'Sistem Testi',
     content: isSuiteTimedOut ? `Genel-test ZAMAN AŞIMINA uğradı. ${ok} BAŞARILI.` : `Genel-test bitti: ${ok} BAŞARILI, ${err} HATA.`,
