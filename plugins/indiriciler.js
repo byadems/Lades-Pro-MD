@@ -2252,13 +2252,32 @@
           : extractedUrl)
         : null;
 
-      try {
-        if (normalizedUrl) {
-          downloadMsg = await message.client.sendMessage(message.jid, { text: "🔻 _İndirilip yükleniyor..._" });
-          const result = await nexray.downloadYtMp3(normalizedUrl);
-          if (!result || !result.url) throw new Error("Nexray failed");
+      let targetUrl = normalizedUrl;
 
-          const safeTitle = censorBadWords(result.title);
+      try {
+        if (!targetUrl) {
+          downloadMsg = await message.client.sendMessage(message.jid, { text: "🔍 _Aranıyor..._" });
+          const results = await nexray.searchYoutube(input);
+
+          if (!results || results.length === 0) {
+            return await message.edit("❌ *Sonuç bulunamadı!*", message.jid, downloadMsg.key);
+          }
+
+          targetUrl = results[0].url;
+        }
+
+        if (targetUrl) {
+          if (!downloadMsg) {
+            downloadMsg = await message.client.sendMessage(message.jid, { text: "🔻 _İndirilip yükleniyor..._" });
+          } else {
+            await message.edit("🔻 _İndirilip yükleniyor..._", message.jid, downloadMsg.key);
+          }
+
+          const result = await nexray.downloadYtMp3(targetUrl);
+          if (!result || !result.url) throw new Error("İndirme bağlantısı alınamadı");
+
+          const safeTitle = censorBadWords(result.title || input);
+
           await message.client.sendMessage(message.jid, {
             audio: { url: result.url },
             mimetype: "audio/mpeg",
@@ -2266,24 +2285,6 @@
           }, { quoted: message.data });
 
           return await message.edit(`✅ *Hazır!* *${safeTitle}*`, message.jid, downloadMsg.key);
-        } else {
-          downloadMsg = await message.client.sendMessage(message.jid, { text: "🔍 _Aranıyor..._" });
-          const result = await nexray.ytPlayAud(input);
-          if (!result || !result.url) {
-            return await message.edit("❌ *Sonuç bulunamadı!*", message.jid, downloadMsg.key);
-          }
-
-          const safeTitle = censorBadWords(result.title || input);
-
-          await message.edit(`_🔻 İndirilip yükleniyor..._ *${safeTitle}*`, message.jid, downloadMsg.key);
-
-          await message.client.sendMessage(message.jid, {
-            audio: { url: result.url },
-            mimetype: "audio/mpeg",
-            fileName: `${safeTitle}.mp3`,
-          }, { quoted: message.data });
-
-          return await message.edit(`_✅ Hazır!_ *${safeTitle}*`, message.jid, downloadMsg.key);
         }
       } catch (error) {
         if (config.DEBUG) console.error("Çalma hatası, yedek yöntem deneniyor:", error.message);
@@ -2295,16 +2296,12 @@
             await message.edit("_🔎 Alternatif yöntemle aranıyor..._", message.jid, downloadMsg.key);
           }
 
-          let result;
-          if (normalizedUrl) {
-            result = await nexray.downloadYtMp3(normalizedUrl);
-          } else {
-            result = await nexray.ytPlayAud(input);
-          }
+          if (!targetUrl) throw new Error("Geçerli bir bağlantı veya sonuç yok");
+          
+          const result = await nexray.downloadYtMp3(targetUrl);
+          if (!result || !result.url) throw new Error("Yedek indirme başarısız");
 
-          if (!result || !result.url) throw new Error("Nexray failed");
-
-          const safeTitle = censorBadWords(result.title);
+          const safeTitle = censorBadWords(result.title || input);
           await message.edit(`_🔻 İndirilip yükleniyor..._ *${safeTitle}*`, message.jid, downloadMsg.key);
 
           await message.client.sendMessage(message.jid, {

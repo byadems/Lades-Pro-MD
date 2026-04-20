@@ -685,7 +685,7 @@ ${cmdmenu}`;
       }
 
       const { emoji, label } = KATEGORILER[kategoriKey];
-      const gonderenJid = message.sender || message.jid;
+      const gonderenJid = message.participant || message.key?.participant || message.sender || message.jid;
       const tarih = new Date().toLocaleString("tr-TR", {
         day: "2-digit",
         month: "2-digit",
