@@ -9,7 +9,8 @@
 const { logger } = require("../config");
 
 class Scheduler {
-  constructor(tickMs = 10000) {
+  constructor(tickMs = 15000) { // 10s → 15s: Northflank 0.2 CPU i\u00e7in tick azalt\u0131ld\u0131
+
     this.tasks = [];
     this._tickMs = tickMs;
     this._interval = null;

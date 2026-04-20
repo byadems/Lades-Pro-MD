@@ -24,6 +24,7 @@
   const config = require("../config");
   const { ADMIN_ACCESS, MODE } = config;
   const { Module } = require("../main");
+  const { getBinaryNodeChild, getBinaryNodeChildren, proto } = require("@whiskeysockets/baileys");
   const fs = require("fs");
   const path = require("path");
   const axios = require("axios");
@@ -1435,23 +1436,80 @@
 
       let announceText = input;
       let pinDuration = null;
-      const pipeIndex = input.lastIndexOf("-");
-      if (pipeIndex !== -1) {
-        const after = input.slice(pipeIndex + 1).trim().toLowerCase();
-        const pinMatch = after.match(/^sabitle:(24s|7g|30g)$/);
-        if (pinMatch) {
-          pinDuration = PIN_DURATIONS[pinMatch[1]];
-          announceText = input.slice(0, pipeIndex).trim();
+      let isKanalForward = false;
+      let reconstructedMsg = null;
+
+      if (arg.startsWith("kanal")) {
+        const channelJid = process.env.CHANNEL_JID;
+        if (!channelJid) {
+          return await message.sendReply("❌ *Kanal JID'si (.env içinde CHANNEL_JID) ayarlanmamış!*");
+        }
+
+        try {
+          const fetchRes = await message.client.newsletterFetchMessages(channelJid, 1);
+          const messageUpdates = getBinaryNodeChild(fetchRes, "message_updates");
+          const msgsNodes = getBinaryNodeChildren(messageUpdates, "message");
+
+          if (!msgsNodes || msgsNodes.length === 0) {
+            return await message.sendReply("❌ *Kanaldan mesaj çekilemedi (veya kanal boş).*");
+          }
+
+          const lastMsgNode = msgsNodes[msgsNodes.length - 1];
+          const msgTimestamp = parseInt(lastMsgNode.attrs.t) || Math.floor(Date.now() / 1000);
+          const currentTimestamp = Math.floor(Date.now() / 1000);
+
+          // 24 hours check
+          if (currentTimestamp - msgTimestamp > 86400) {
+            return await message.sendReply("⚠️ *Kanaldaki son mesaj 24 saatten daha eski olduğu için iletilemiyor.*");
+          }
+
+          const plaintextNode = getBinaryNodeChild(lastMsgNode, "plaintext");
+          if (!plaintextNode || !plaintextNode.content) {
+            return await message.sendReply("❌ *Kanaldaki mesaj metin okunamadı veya desteklenmiyor.*");
+          }
+
+          const contentBuf = typeof plaintextNode.content === 'string'
+            ? Buffer.from(plaintextNode.content, 'binary')
+            : Buffer.from(plaintextNode.content);
+
+          const messageProto = proto.Message.decode(contentBuf);
+
+          // Mesaj objesini reconstruct ediyoruz (forward için)
+          reconstructedMsg = {
+            key: {
+              remoteJid: channelJid,
+              id: lastMsgNode.attrs.server_id || lastMsgNode.attrs.message_id,
+              fromMe: false
+            },
+            message: messageProto,
+            messageTimestamp: msgTimestamp
+          };
+
+          isKanalForward = true;
+        } catch (err) {
+          console.error("[Duyuru] Kanal mesajı çekilirken hata:", err);
+          return await message.sendReply("❌ *Kanal mesajı çekilirken bir hata oluştu!*\n_Baileys bağlantısını veya CHANNEL_JID değerini kontrol edin._");
+        }
+      } else {
+        const pipeIndex = input.lastIndexOf("-");
+        if (pipeIndex !== -1) {
+          const after = input.slice(pipeIndex + 1).trim().toLowerCase();
+          const pinMatch = after.match(/^sabitle:(24s|7g|30g)$/);
+          if (pinMatch) {
+            pinDuration = PIN_DURATIONS[pinMatch[1]];
+            announceText = input.slice(0, pipeIndex).trim();
+          }
         }
       }
 
       const hasReply = !!message.reply_message;
       const hasText = announceText.length > 0;
-      if (!hasText && !hasReply) {
+      if (!isKanalForward && !hasText && !hasReply) {
         return message.sendReply(
           `📢 _Bot'un bulunduğu tüm gruplara duyuru iletir._\n\n` +
           `*Kullanım:*\n` +
           `• \`.duyuru <mesaj>\` - sadece gönder\n` +
+          `• \`.duyuru kanal\` - Bot kanalından son mesajı gruplara ilet\n` +
           `• \`.duyuru <mesaj> - sabitle:24s\` - gönder ve 24 saat sabitle\n` +
           `• \`.duyuru <mesaj> - sabitle:7g\` - gönder ve 7 gün sabitle\n` +
           `• \`.duyuru <mesaj> - sabitle:30g\` - gönder ve 30 gün sabitle\n` +
@@ -1502,7 +1560,11 @@
       for (const jid of groupJids) {
         try {
           let sentMsg;
-          if (hasReply) {
+          if (isKanalForward) {
+            sentMsg = await message.client.sendMessage(jid, {
+              forward: reconstructedMsg
+            });
+          } else if (hasReply) {
             sentMsg = await message.client.sendMessage(jid, {
               forward: message.quoted,
             });

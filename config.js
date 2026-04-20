@@ -68,9 +68,9 @@ const config = {
 
   // ── Bellek & Sistem ──
   HEAP_LIMIT_MB: parseInt(process.env.HEAP_LIMIT_MB || "250", 10),
-  PM2_RESTART_LIMIT_MB: parseInt(process.env.PM2_RESTART_LIMIT_MB || "400", 10),
-  DEBUG: process.env.DEBUG === "true" || true,
-  SELF_TEST: process.env.SELF_TEST === "true" || true,
+  PM2_RESTART_LIMIT_MB: parseInt(process.env.PM2_RESTART_LIMIT_MB || "450", 10), // index.js ile uyumlu
+  DEBUG: process.env.DEBUG === "true", // Production'da false — console spam önlenir
+  SELF_TEST: process.env.SELF_TEST === "true", // Production'da false — başlangıç bellek tepesi azalır
   NODE_ENV: process.env.NODE_ENV || "production",
 
   // ── Medya Sınırları ──

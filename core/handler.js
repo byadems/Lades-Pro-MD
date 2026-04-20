@@ -832,9 +832,10 @@ async function loadPlugins(pluginsDir, force = false) {
 
 //  Rate limiting (Memory leak prevention with LRUCache)
 // ─────────────────────────────────────────────────────────
-const rateLimit = new LRUCache({ max: 1000 }); // En son aktif 1000 kullanıcıyı tutar
 const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX || "8", 10);
 const RATE_LIMIT_WINDOW = parseInt(process.env.RATE_LIMIT_WINDOW || "10000", 10);
+// TTL = window süresi: pencere dolunca entry otomatik silinir — stale kayıt birikimi engellenir
+const rateLimit = new LRUCache({ max: 500, ttl: RATE_LIMIT_WINDOW * 3 }); // 500 kullanıcı, 30s TTL
 
 function checkRateLimit(jid) {
   const now = Date.now();
@@ -1121,14 +1122,9 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     message.fromSudo = sudoCheck;
 
     if (config.DEBUG) {
-      console.log(`\n--- [NEW MESSAGE] ---`);
-      console.log(`| Text: "${text.slice(0, 50)}"`);
-      console.log(`| From (resolved): ${resolvedSenderJid}`);
-      console.log(`| From (original): ${senderJid}`);
-      console.log(`| participantPn: ${rawMsg?.key?.participantPn || 'N/A'}`);
-      console.log(`| Auth: Owner=${ownerCheck}, Sudo=${sudoCheck}, Public=${publicMode}`);
-      console.log(`--------------------\n`);
+      logger.debug({ text: text.slice(0, 50), from: resolvedSenderJid, orig: senderJid, pn: rawMsg?.key?.participantPn, owner: ownerCheck, sudo: sudoCheck }, '[MSG]');
     }
+
 
     logger.debug({ jid, sender: resolvedSenderJid, text: text.slice(0, 50) }, "Processing message");
 

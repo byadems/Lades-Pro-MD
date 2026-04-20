@@ -2255,6 +2255,7 @@
       let targetUrl = normalizedUrl;
 
       try {
+        let videoInfo = null;
         if (!targetUrl) {
           downloadMsg = await message.client.sendMessage(message.jid, { text: "🔍 _Aranıyor..._" });
           const results = await nexray.searchYoutube(input);
@@ -2264,6 +2265,7 @@
           }
 
           targetUrl = results[0].url;
+          videoInfo = results[0];
         }
 
         if (targetUrl) {
@@ -2273,15 +2275,29 @@
             await message.edit("🔻 _İndirilip yükleniyor..._", message.jid, downloadMsg.key);
           }
 
-          const result = await nexray.downloadYtMp3(targetUrl);
-          if (!result || !result.url) throw new Error("İndirme bağlantısı alınamadı");
+          const result = await downloadAudio(targetUrl);
+          if (!result || !result.path) throw new Error("İndirme bağlantısı alınamadı");
 
-          const safeTitle = censorBadWords(result.title || input);
+          const safeTitle = censorBadWords(result.title || videoInfo?.title || input);
+          let thumbUrl = videoInfo?.image_url || videoInfo?.thumbnail || "";
+          if (!thumbUrl) {
+            const match = targetUrl.match(/[?&]v=([^&]+)/) || targetUrl.match(/youtu\.be\/([^?]+)/);
+            if (match) thumbUrl = `https://i.ytimg.com/vi/${match[1]}/hqdefault.jpg`;
+          }
 
           await message.client.sendMessage(message.jid, {
-            audio: { url: result.url },
-            mimetype: "audio/mpeg",
-            fileName: `${safeTitle}.mp3`,
+            audio: { url: result.path },
+            mimetype: "audio/mp4",
+            ptt: false,
+            contextInfo: {
+              externalAdReply: {
+                title: safeTitle,
+                body: "Lades-Pro|Bot",
+                mediaType: 2,
+                thumbnailUrl: thumbUrl,
+                sourceUrl: targetUrl
+              }
+            }
           }, { quoted: message.data });
 
           return await message.edit(`✅ *Hazır!* *${safeTitle}*`, message.jid, downloadMsg.key);
@@ -2297,7 +2313,7 @@
           }
 
           if (!targetUrl) throw new Error("Geçerli bir bağlantı veya sonuç yok");
-          
+
           const result = await nexray.downloadYtMp3(targetUrl);
           if (!result || !result.url) throw new Error("Yedek indirme başarısız");
 
@@ -2307,7 +2323,14 @@
           await message.client.sendMessage(message.jid, {
             audio: { url: result.url },
             mimetype: "audio/mpeg",
-            fileName: `${safeTitle}.mp3`,
+            contextInfo: {
+              externalAdReply: {
+                title: safeTitle,
+                body: "Lades-Pro|Bot",
+                mediaType: 2,
+                sourceUrl: targetUrl
+              }
+            }
           }, { quoted: message.data });
 
           return await message.edit(`✅ *Hazır!* *${safeTitle}*`, message.jid, downloadMsg.key);

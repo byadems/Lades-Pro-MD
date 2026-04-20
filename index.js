@@ -66,15 +66,18 @@ try {
 suppressLibsignalLogs();
 runtime.startTime = Date.now();
 
-const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 500; // 450 → 500 (gereksiz restart önlenir)
+const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 450; // Northflank hard limit tipik 512MB; 450'de graceful restart
+let _isShuttingDown = false; // Çift shutdown guard
+
 scheduler.register('memory_check', () => {
+  if (_isShuttingDown) return; // Zaten kapanıyorsa tekrar tetikleme
   const mem = process.memoryUsage();
   // RSS = gerçek işletim sistemi belleği (Northflank bu değeri gösterir)
   if (mem.rss > PM2_RESTART_MB * 1024 * 1024) {
     logger.warn(`Bellek sınırı (${PM2_RESTART_MB}MB RSS) aşıldı. Otomatik yeniden başlatılıyor...`);
     shutdown("MEMORY_LIMIT_EXCEEDED");
   }
-}, 30000); // 10s → 30s: OS çağrısı sayısı 3'te bire düştü
+}, 30000); // Her 30s'de bir kontrol
 
 
 function startKeepAlive() {
@@ -242,14 +245,19 @@ function startKeepAlive() {
 }
 
 async function shutdown(signal) {
+  if (_isShuttingDown) {
+    logger.debug(`[Shutdown] '${signal}' sinyali alındı fakat zaten kapanış sürecindeyiz. Atlanıyor.`);
+    return;
+  }
+  _isShuttingDown = true;
   logger.info(`${signal} sinyali alındı. Kapatılıyor...`);
   scheduler.stop();
 
   if (runtime.manager) {
-    // Wait for all sessions to close (max 10s)
+    // Wait for all sessions to close (max 8s — production'da uzun bekleme gereksiz)
     await Promise.race([
       runtime.manager.stopAll(),
-      new Promise(r => setTimeout(r, 10000))
+      new Promise(r => setTimeout(r, 8000))
     ]);
   }
 

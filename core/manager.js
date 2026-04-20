@@ -104,7 +104,11 @@ class BotManager extends EventEmitter {
         await sock.logout().catch(() => {});
       } else {
         logger.info(`Stopping session (connection only): ${sessionId}`);
-        if (sock.ws) sock.ws.close();
+        // 1. Önce Baileys event pipeline'ı kes — bekleyen ACK/receipt handler'ları iptal et
+        //    Bu adım atlanırsa kapanan WS üzerinden sendMessageAck çağrısı yapılır → "Connection Closed" spam
+        try { sock.ev?.removeAllListeners(); } catch { }
+        // 2. Hard-terminate: .close() graceful handshake bekler, .terminate() anında keser
+        try { sock.ws?.terminate(); } catch { try { sock.ws?.close(); } catch { } }
       }
       this.bots.delete(sessionId);
       this.states.delete(sessionId);

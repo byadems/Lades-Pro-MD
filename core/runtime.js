@@ -19,8 +19,9 @@ const state = {
   metrics: {
     messages: 0,
     commands: 0,
-    users: new LRUCache({ max: 2000 }),
-    groups: new LRUCache({ max: 500 }),
+    // TTL ile stale JID'ler otomatik siliniyor: bellek birikimini engeller
+    users: new LRUCache({ max: 1000, ttl: 2 * 60 * 60 * 1000 }),  // 2h TTL, max 1000
+    groups: new LRUCache({ max: 300, ttl: 24 * 60 * 60 * 1000 }), // 24h TTL, max 300
     /** Global group cache */
     allGroupsCache: null,
     allGroupsLastFetch: 0,
@@ -33,8 +34,8 @@ const state = {
   /** Cached parsed SUDO_MAP (Set for O(1) matching) */
   sudoSet: new Set(),
 
-  /** LRU cache for LID -> PN resolutions (Avoid redundant auth-state queries) */
-  lidCache: new LRUCache({ max: 5000, ttl: 1000 * 60 * 60 * 24 }), // 24h cache
+  /** LRU cache for LID -> PN resolutions — boyut 5000→2000, TTL 24h */
+  lidCache: new LRUCache({ max: 2000, ttl: 1000 * 60 * 60 * 24 }), // 24h cache
 
   /** Batch for command performance metrics — plain Map prevents data loss from LRU eviction before flush */
   // PERFORMANS: 5000 giriş FIFO sınırı — yoğun trafikte bellek birikmesini önler

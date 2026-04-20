@@ -7,11 +7,12 @@ const { logger } = require("../config");
 // ─────────────────────────────────────────────────────────
 //  LRU Cache instances per data domain
 // ─────────────────────────────────────────────────────────
-const groupCache = new LRUCache({ max: 500, ttl: 5 * 60 * 1000 });   // 5 min TTL
-const userCache  = new LRUCache({ max: 2000, ttl: 10 * 60 * 1000 }); // 10 min TTL
-const configCache = new LRUCache({ max: 100, ttl: 15 * 60 * 1000 }); // 15 min TTL
-const filterCache = new LRUCache({ max: 300, ttl: 5 * 60 * 1000 });
-const adminCache  = new LRUCache({ max: 500, ttl: 2 * 60 * 1000 });  // 2 min TTL for admins
+// LRU Cache boyutları: Northflank 0.2 CPU / ~512 MB RAM ortamı için optimize edildi
+const groupCache  = new LRUCache({ max: 200, ttl: 3 * 60 * 1000 });   // 3 min TTL (admin değişikliği hızlı algılanır)
+const userCache   = new LRUCache({ max: 500,  ttl: 10 * 60 * 1000 }); // 10 min TTL
+const configCache = new LRUCache({ max: 50,   ttl: 15 * 60 * 1000 }); // 15 min TTL
+const filterCache = new LRUCache({ max: 100,  ttl: 5 * 60 * 1000 });  // 5 min TTL
+const adminCache  = new LRUCache({ max: 200,  ttl: 2 * 60 * 1000 });  // 2 min TTL
 
 // ─────────────────────────────────────────────────────────
 //  Group settings helpers

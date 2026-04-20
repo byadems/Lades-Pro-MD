@@ -19,7 +19,7 @@ const { logger } = require("../config");
 // ─────────────────────────────────────────────────────────
 async function useDbAuthState(sessionId) {
   const { makeCacheableSignalKeyStore, BufferJSON } = await loadBaileys();
-  
+
   const deepRevive = (obj) => {
     if (obj && typeof obj === 'object') {
       if (obj.type === 'Buffer' && (typeof obj.data === 'string' || Array.isArray(obj.data))) {
@@ -35,8 +35,8 @@ async function useDbAuthState(sessionId) {
   function getState() {
     if (!sessionRow || !sessionRow.sessionData) return {};
     try {
-      const data = typeof sessionRow.sessionData === 'string' 
-        ? JSON.parse(sessionRow.sessionData) 
+      const data = typeof sessionRow.sessionData === 'string'
+        ? JSON.parse(sessionRow.sessionData)
         : sessionRow.sessionData;
       return deepRevive(data) || {};
     } catch (e) {
@@ -51,6 +51,31 @@ async function useDbAuthState(sessionId) {
   const modifiedKeys = new Set();
   let saveThrottle = null;
 
+  // ── Signal Key Store Bellek Koruyucu ──
+  // preKey'ler tek kullanımlık el sıkışma anahtarlarıdır. Üretildikten sonra birikebilirler.
+  // sessions ise WhatsApp'a bağlı cihaz oturumlarıdır; stale olanları sil.
+  const MAX_PREKEYS = 200;   // ~200 preKey ÷ ~0.5 KB = ~100 KB RAM
+  const MAX_SESSIONS = 100;  // WhatsApp MultiDevice'ta tipik build ~20-50 oturum
+
+  function pruneOldKeys() {
+    try {
+      const prekeys = storedKeys.preKey;
+      if (prekeys && Object.keys(prekeys).length > MAX_PREKEYS) {
+        const keys = Object.keys(prekeys).map(Number).sort((a, b) => a - b);
+        const toDelete = keys.slice(0, keys.length - MAX_PREKEYS);
+        for (const k of toDelete) delete prekeys[k];
+        logger.debug(`[Auth] ${toDelete.length} eski preKey temizlendi.`);
+      }
+      const sessions = storedKeys.session;
+      if (sessions && Object.keys(sessions).length > MAX_SESSIONS) {
+        const skeys = Object.keys(sessions);
+        const toDelete = skeys.slice(0, skeys.length - MAX_SESSIONS);
+        for (const k of toDelete) delete sessions[k];
+        logger.debug(`[Auth] ${toDelete.length} eski session key temizlendi.`);
+      }
+    } catch { }
+  }
+
   let writePromise = Promise.resolve();
   const saveCreds = async (force = false) => {
     if (!force) {
@@ -58,7 +83,7 @@ async function useDbAuthState(sessionId) {
       saveThrottle = setTimeout(() => {
         saveThrottle = null;
         saveCreds(true);
-      }, 5000); // 5s throttle
+      }, 10000); // 10s throttle (5s'den çıkarıldı — DB yazış sıklığı yarıya düştü)
       return;
     }
 
@@ -108,7 +133,10 @@ async function useDbAuthState(sessionId) {
           changed = true;
         }
       }
-      if (changed) await saveCreds();
+      if (changed) {
+        pruneOldKeys(); // Birikmiş preKey/session key'leri periyodik temizle
+        await saveCreds();
+      }
     },
   }, logger.child({ module: "signal", level: "error" }));
 
@@ -169,7 +197,7 @@ async function useSessionStringAuthState(sessionString) {
     },
   }, logger.child({ module: "signal", level: "error" }));
 
-  return { state: { creds: state.creds || {}, keys }, saveCreds, clearState: async () => {} };
+  return { state: { creds: state.creds || {}, keys }, saveCreds, clearState: async () => { } };
 }
 
 // ─────────────────────────────────────────────────────────
@@ -192,7 +220,7 @@ async function getAuthState(config, sessionId = "lades-session") {
     path.join(__dirname, "..", "sessions", "lades-session"),
     path.join(__dirname, "..", "sessions", sessionId),
   ];
-  
+
   for (const sessionPath of possiblePaths) {
     const credsFile = path.join(sessionPath, "creds.json");
     if (fs.existsSync(credsFile)) {

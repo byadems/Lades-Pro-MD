@@ -23,6 +23,8 @@ const { runSelfTest } = require("./self-test");
 // ── PQueue: module-level başlat (lazy async init overhead'i önce)
 let _queue = null;
 let _queueReady = false;
+let _firstConnectDone = false; // loadPlugins + startSchedulers sadece 1 kez çalışsın
+
 // Pre-warm: Bot başlar başlamaz queue'yu hazırla
 import('p-queue').then(({ default: PQueue }) => {
   _queue = new PQueue({ concurrency: 5 });
@@ -516,10 +518,14 @@ async function createBot(sessionId = "lades-session", options = {}) {
       }
       // ── PLANLI MESAJ GÖNDERİCİSİ SONU ──────────────────────
 
-      // Load plugins and schedulers on first connect
-      const pluginsDir = path.join(__dirname, "..", "plugins");
-      await loadPlugins(pluginsDir);
-      await startSchedulers(sock);
+      // Load plugins and schedulers — SADECE ilk bağlantıda yükle
+      // Reconnect'lerde sadece credential'lar yenilenir, plugin'ler zaten hazır
+      if (!_firstConnectDone) {
+        _firstConnectDone = true;
+        const pluginsDir = path.join(__dirname, "..", "plugins");
+        await loadPlugins(pluginsDir);
+        await startSchedulers(sock);
+      }
 
       // Self-test: tüm komutları ilk bağlantıda test et
       if (process.env.SELF_TEST !== 'false' && !selfTestRan) {
@@ -591,6 +597,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
       if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
       if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
       stopTempCleanup();
+      // Bağlantı kapanınca bekleyen mesaj işlemleri temizle (bellek aşımı engellenir)
+      if (_queue) { try { _queue.clear(); } catch { } }
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
       logger.warn({ statusCode, shouldReconnect }, `Bağlantı kesildi.`);

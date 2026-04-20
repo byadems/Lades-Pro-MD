@@ -14,9 +14,10 @@ const { WhatsappOturum, BotMetrik, MesajIstatistik, KullaniciVeri, sequelize } =
 const scheduler = require("./zamanlayici").scheduler;
 
 // Message store: jid → Map<msgId, msg>
+// Northflank için optimize: 30 aktif grup, 60 mesaj/grup
 const messageStore = new LRUCache({
-  max: 50,   // max 50 active groups/chats in memory
-  ttl: 4 * 60 * 60 * 1000, // 4h TTL
+  max: 30,   // max 30 aktif grup/sohbet (50'den düşürüldü)
+  ttl: 3 * 60 * 60 * 1000, // 3h TTL (4h'ten düşürüldü)
   dispose: (bucket, jid) => {
     // Clean reverse index when LRU evicts a bucket
     if (bucket instanceof Map) {
@@ -27,8 +28,8 @@ const messageStore = new LRUCache({
 
 // Reverse index: msgId → jid (O(1) lookup for getFullMessage)
 const msgIdIndex = new Map();
-const MAX_MSGS_PER_JID = 100;
-const MAX_MSGID_INDEX = 50000; // Memory leak koruğucu: global index sınırı
+const MAX_MSGS_PER_JID = 60;    // 100'den düşürüldü
+const MAX_MSGID_INDEX = 20000;  // 50000'den düşürüldü — her entry ~100 byte = max ~2 MB
 
 function storeMessage(jid, message) {
   if (!jid || !message || !message.key) return;
@@ -62,9 +63,10 @@ function getMessageByKey(key) {
 // ─────────────────────────────────────────────────────────
 //  Group metadata
 // ─────────────────────────────────────────────────────────
+// Group metadata cache: Northflank için optimize edildi
 const groupMetaCache = new LRUCache({
-  max: 500,
-  ttl: 5 * 60 * 1000, // 5 dakika — admin değişikliklerinin anında algılanması için kısaltıldı
+  max: 200, // 500'den düşürüldü
+  ttl: 3 * 60 * 1000, // 3 dakika (5'ten kısaltıldı — admin değişikliklerini daha hızlı algıla)
 });
 
 function setGroupMeta(groupId, meta) {
@@ -94,12 +96,14 @@ function invalidateGroupMeta(groupId) {
 
 async function getAllGroups(sock) {
   const now = Date.now();
-  if (runtime.metrics.allGroupsCache && (now - runtime.metrics.allGroupsLastFetch < 10 * 60 * 1000)) { // 10 min cache
+  if (runtime.metrics.allGroupsCache && (now - runtime.metrics.allGroupsLastFetch < 15 * 60 * 1000)) { // 15 min cache
     return runtime.metrics.allGroupsCache;
   }
 
   try {
     const chats = await sock.groupFetchAllParticipating();
+    // Eski cache'i serbest bırak (GC anında çalışabilsin)
+    runtime.metrics.allGroupsCache = null;
     runtime.metrics.allGroupsCache = chats;
     runtime.metrics.allGroupsLastFetch = now;
 
@@ -114,6 +118,7 @@ async function getAllGroups(sock) {
     return runtime.metrics.allGroupsCache || {};
   }
 }
+
 
 // ─────────────────────────────────────────────────────────
 //  Baileys store event binder
