@@ -676,6 +676,22 @@ async function downloadYtMp3(url, options = {}) {
     if (process.env.DEBUG) console.error("[Nexray ytmp3]", e?.message);
   }
 
+  // 1b. Nexray API v1
+  try {
+    const res = await axios.get(`${BASE}/downloader/v1/ytmp3`, withSignal({
+      params: { url },
+      timeout: 90000,
+    }, options.signal));
+    const data = res.data;
+    if (data?.status && data?.result) {
+      const r = data.result;
+      const dl = r.url || r.download_url;
+      if (dl) return { url: dl, title: r.title };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Nexray v1/ytmp3]", e?.message);
+  }
+
   // 2. EliteProTech API
   try {
     const res = await axios.get("https://eliteprotech-apis.zone.id/ytdown", {

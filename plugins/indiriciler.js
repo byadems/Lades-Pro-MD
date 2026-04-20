@@ -2320,6 +2320,10 @@
           const safeTitle = censorBadWords(result.title || input);
           await message.edit(`_🔻 İndirilip yükleniyor..._ *${safeTitle}*`, message.jid, downloadMsg.key);
 
+          let thumbUrl = "";
+          const match = targetUrl.match(/[?&]v=([^&]+)/) || targetUrl.match(/youtu\.be\/([^?]+)/);
+          if (match) thumbUrl = `https://i.ytimg.com/vi/${match[1]}/hqdefault.jpg`;
+
           await message.client.sendMessage(message.jid, {
             audio: { url: result.url },
             mimetype: "audio/mpeg",
@@ -2328,6 +2332,7 @@
                 title: safeTitle,
                 body: "Lades-Pro|Bot",
                 mediaType: 2,
+                thumbnailUrl: thumbUrl,
                 sourceUrl: targetUrl
               }
             }
