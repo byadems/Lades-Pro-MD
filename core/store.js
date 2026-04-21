@@ -105,15 +105,28 @@ async function getAllGroups(sock) {
     const chats = await sock.groupFetchAllParticipating();
     // Eski cache'i serbest bırak (GC anında çalışabilsin)
     runtime.metrics.allGroupsCache = null;
-    runtime.metrics.allGroupsCache = chats;
-    runtime.metrics.allGroupsLastFetch = now;
 
-    // Also populate individual meta cache
+    // RAM OPT CRITICAL: Tüm grup katılımcılarını (binlerce obje) bellekte tutmak 
+    // Out Of Memory (OOM) hatasının en büyük sebebidir. Yalnızca gerekli kısımları alıyoruz.
+    const simplifiedChats = {};
     for (const jid in chats) {
-      setGroupMeta(jid, chats[jid]);
+      const g = chats[jid];
+      simplifiedChats[jid] = {
+        id: g.id,
+        subject: g.subject,
+        owner: g.owner,
+        // Sadece length lazım, gerçek obje listesi devasa RAM tüketir.
+        participants: g.participants ? new Array(g.participants.length) : [], 
+      };
+      // DİKKAT: Burada setGroupMeta(jid, chats[jid]) ÇAĞRILMAMALIDIR!
+      // LRU cache kapasitesi 80 olduğu için 3000 grubu döngüyle eklemek, 
+      // cache'i saniyede 3000 kez boşaltıp yenilemek demektir (Trashing).
     }
 
-    return chats;
+    runtime.metrics.allGroupsCache = simplifiedChats;
+    runtime.metrics.allGroupsLastFetch = now;
+
+    return simplifiedChats;
   } catch (err) {
     logger.debug({ err: err.message }, "getAllGroups failed");
     return runtime.metrics.allGroupsCache || {};
