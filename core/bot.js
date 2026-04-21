@@ -209,10 +209,9 @@ async function createBot(sessionId = "lades-session", options = {}) {
 
   // ── Baileys Özel Log Filtresi (Stream) ──
   // Baileys alt-log (child) üretse bile tüm loglar bu akıştan (stream) geçmek zorundadır.
-  const stream = require('stream');
-  class BaileysLogStream extends stream.Writable {
-    write(chunk, enc, next) {
-      if (!chunk) return next();
+  const baileysLogDestination = {
+    write(chunk) {
+      if (!chunk) return;
       const raw = chunk.toString();
       try {
         const logData = JSON.parse(raw);
@@ -244,13 +243,13 @@ async function createBot(sessionId = "lades-session", options = {}) {
           }
           
           // UYARI EKRANINI KİRLETMEMEK İÇİN BU LOGU SESSİZCE YUT
-          return next(); 
+          return; 
         }
 
         // Lades-Pro'nun diğer gereksiz Baileys loglarını engelleme (konsol spam engeli)
         const strLog = JSON.stringify(logData);
         if (strLog.includes("signalstore") || strLog.includes("libsignal") || strLog.includes("SessionEntry")) {
-           return next();
+           return;
         }
 
         // Normal logları (eğer çok düşük seviyeli değilse) ana logger'a pasla veya stdout'a bas
@@ -263,16 +262,15 @@ async function createBot(sessionId = "lades-session", options = {}) {
         // Parse hatası olsa da ekrana bas
         process.stdout.write(raw + '\n');
       }
-      next();
     }
-  }
+  };
 
   // Özel pino instance'ını stream ile oluştur
   const pino = require('pino');
   const baileysLogger = pino({ 
     level: config.DEBUG ? "debug" : "warn",
     name: "baileys"
-  }, new BaileysLogStream());
+  }, baileysLogDestination);
 
 
   const sock = makeWASocket({
