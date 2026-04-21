@@ -1439,10 +1439,7 @@
       let reconstructedMsg = null;
 
       if (arg.startsWith("kanal")) {
-        const channelJid = process.env.CHANNEL_JID;
-        if (!channelJid) {
-          return await message.sendReply("❌ *Kanal JID'si (.env içinde CHANNEL_JID) ayarlanmamış!*");
-        }
+        const channelJid = config.CHANNEL_JID;
 
         try {
           const fetchRes = await message.client.newsletterFetchMessages(channelJid, 1);

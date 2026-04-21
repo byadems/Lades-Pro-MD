@@ -87,6 +87,7 @@ const config = {
   ACR_A: process.env.ACR_A || "",
   ACR_S: process.env.ACR_S || "",
   PORT: process.env.PORT || 3000,
+  CHANNEL_JID: process.env.CHANNEL_JID || "120363427366763599@newsletter",
 
   // Database instance (core/database.js tarafından ayağa kaldırılır)
   DATABASE_URL: process.env.DATABASE_URL || null,

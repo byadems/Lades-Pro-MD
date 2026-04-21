@@ -151,7 +151,7 @@
           isForwarded: true,
           forwardingScore: 999,
           forwardedNewsletterMessageInfo: {
-            newsletterJid: process.env.CHANNEL_JID || "120363427366763599@newsletter",
+            newsletterJid: config.CHANNEL_JID,
             newsletterName: "📢 " + (process.env.BOT_NAME || "Güncellemeler"),
             serverMessageId: -1,
             isVerified: true
@@ -462,7 +462,7 @@ ${cmdmenu}`;
             isForwarded: true,
             forwardingScore: 999,
             forwardedNewsletterMessageInfo: {
-              newsletterJid: process.env.CHANNEL_JID || "120363427366763599@newsletter",
+              newsletterJid: config.CHANNEL_JID,
               newsletterName: "📢 " + (process.env.BOT_NAME || "Güncellemeler"),
               serverMessageId: -1,
               isVerified: true
