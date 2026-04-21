@@ -520,10 +520,10 @@ class BaseMessage {
 
     // 1. Direct Baileys generic signature: sendMessage(jid, content, options)
     const isJid = typeof arg1 === "string" && !arg1.includes(" ") && (
-      arg1.endsWith("@s.whatsapp.net") || 
-      arg1.endsWith("@g.us") || 
-      arg1.endsWith("@lid") || 
-      arg1.endsWith("@newsletter") || 
+      arg1.endsWith("@s.whatsapp.net") ||
+      arg1.endsWith("@g.us") ||
+      arg1.endsWith("@lid") ||
+      arg1.endsWith("@newsletter") ||
       arg1 === "status@broadcast"
     );
     if (isJid) {
@@ -1156,9 +1156,9 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
         const msgType = rawMsg.message
           ? (rawMsg.message.imageMessage ? 'image'
             : rawMsg.message.videoMessage ? 'video'
-            : rawMsg.message.audioMessage ? 'audio'
-            : rawMsg.message.stickerMessage ? 'sticker'
-            : 'text')
+              : rawMsg.message.audioMessage ? 'audio'
+                : rawMsg.message.stickerMessage ? 'sticker'
+                  : 'text')
           : 'text';
         const { incrementStats } = require('./store');
         incrementStats(jid, resolvedSenderJid || senderJid, msgType);
@@ -1442,15 +1442,25 @@ function notifyHandlerError(h, e, message) {
   logger.warn({ err: e.message, pattern: h.on, count: h._errorCount }, "on-event handler error");
 
   if (h._errorCount >= 3) {
-    h._disabled = true;
-    logger.error({ pattern: h.on }, "Handler devredışı bırakıldı (3 ardışık hata)");
-    const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, "");
-    if (ownerNum && message.client) {
-      try {
-        message.client.sendMessage(ownerNum + "@s.whatsapp.net", {
-          text: `🚨 *Kritik Hata Uyarısı*\nBir \`on:\` event handler 3 ardışık hata nedeniyle devredışı bırakıldı.\n\n*Type:* ${h.on || "Bilinmiyor"}\n*Son Hata:* ${e.message}`
-        });
-      } catch (_) { }
+    if (!h._disabled) {
+      h._disabled = true;
+      logger.error({ pattern: h.on }, "Önek devredışı bırakıldı (3 ardışık hata) - 2 Dakika sonra kendi kendine onarılacak.");
+
+      // Auto-heal özelliği: Veritabanı gecikmeleri yüzünden botun işlevlerini tamamen kaybetmesini önler
+      setTimeout(() => {
+        h._disabled = false;
+        h._errorCount = 0;
+        logger.info({ pattern: h.on }, "Zaman aşımı doldu, önek tekrardan devreye alındı!");
+      }, 120000); // 2 dakika
+
+      const ownerNum = (config.OWNER_NUMBER || "").replace(/[^0-9]/g, "");
+      if (ownerNum && message.client) {
+        try {
+          message.client.sendMessage(ownerNum + "@s.whatsapp.net", {
+            text: `🚨 *Geçici Sistem Uyarısı*\n\nBir \`on:\` event handler (örn. grup yönetimi) 3 ardışık hata nedeniyle koruma moduna alındı. Sistem *2 dakika içinde* kendi kendini onaracaktır.\n\n*Type:* ${h.on || "Bilinmiyor"}\n*Son Hata:* ${e.message}`
+          });
+        } catch (_) { }
+      }
     }
   }
 }

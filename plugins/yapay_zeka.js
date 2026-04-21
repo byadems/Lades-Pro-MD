@@ -73,10 +73,15 @@
         console.warn("⚠️ API geçerli model döndürmedi.");
       }
     } catch (err) {
-      console.error(
-        "❌ Gemini model listesi alınamadı:",
-        err.response?.data || err.message
-      );
+      const status = err.response?.status;
+      const errMsg = err.response?.data?.error?.message || err.message;
+      
+      if (status === 403 && errMsg.includes('leaked')) {
+        console.error("❌ [GÜVENLİK] Gemini API anahtarınız Google tarafından sızdırılmış (leaked) olarak işaretlenmiş ve engellenmiş!");
+        console.error("👉 ÇÖZÜM: https://aistudio.google.com/app/apikey adresinden YENİ bir anahtar alıp .setvar GEMINI_API_KEY <anahtar> ile güncelleyin.");
+      } else {
+        console.error("❌ Gemini model listesi alınamadı:", errMsg);
+      }
     }
   }
 
@@ -319,8 +324,13 @@
       let retryAfterMs = retryAfterRaw ? (parseInt(retryAfterRaw, 10) * 1000) : 2000;
 
       if (status && [401, 403].includes(status)) {
+        const errMsg = error.response?.data?.error?.message || "";
+        if (status === 403 && errMsg.includes('leaked')) {
+          return "❌ *KRİTİK GÜVENLİK HATASI:* _Gemini API anahtarınız sızdırılmış (leaked) olarak raporlanmış ve engellenmiş._\n\n" +
+                 "🔓 *Çözüm:* _Lütfen Google AI Studio'dan yeni bir anahtar alıp bot ayarlarından güncelleyin._";
+        }
         console.error("YZ yanıtı alınırken hata (auth):", status, error.response?.data || error.message);
-        return `❌ *API Yetkilendirme Hatası:* _${error.response?.data?.error?.message || "Yetkilendirme hatası."}_`;
+        return `❌ *API Yetkilendirme Hatası (${status}):* _${errMsg || "Yetkilendirme başarısız."}_`;
       }
 
       console.warn("YZ isteği başarısız oldu:", status || error.message, error.isMaxAttempts ? "(isMaxAttempts)" : "");

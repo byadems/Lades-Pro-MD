@@ -83,7 +83,7 @@ async function useDbAuthState(sessionId) {
       saveThrottle = setTimeout(() => {
         saveThrottle = null;
         saveCreds(true);
-      }, 10000); // 10s throttle (5s'den çıkarıldı — DB yazış sıklığı yarıya düştü)
+      }, 2000); // 2s throttle (reduced from 10s for better session sync)
       return;
     }
 

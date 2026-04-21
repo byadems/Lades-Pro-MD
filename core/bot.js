@@ -204,9 +204,44 @@ async function createBot(sessionId = "lades-session", options = {}) {
     };
   };
 
+  let decryptionErrorCount = 0;
+  let lastDecryptionErrorAt = 0;
+
+  const baileysLogger = logger.child({ module: "baileys", level: config.DEBUG ? "debug" : "warn" });
+  const originalBaileysError = baileysLogger.error.bind(baileysLogger);
+  
+  baileysLogger.error = (...args) => {
+    const logData = args[0];
+    if (logData && typeof logData === 'object') {
+      const isDecryptionError = logData.err?.type === 'MessageCounterError' || 
+                                (logData.msg && logData.msg.includes('failed to decrypt'));
+      
+      if (isDecryptionError) {
+        decryptionErrorCount++;
+        const now = Date.now();
+        lastDecryptionErrorAt = now;
+
+        // RAM OPT: Sadece kritik eşikte uyarı ver
+        if (decryptionErrorCount === 5) {
+          logger.warn(`[SENKRONİZE] ${sessionId} için deşifre hataları artıyor. 10. hatada otomatik yenileme yapılacak.`);
+        }
+
+        if (decryptionErrorCount >= 10) {
+          logger.error(`[KRİTİK] ${sessionId} oturumunda 10 adet deşifre hatası! Oturum tamiri için yeniden bağlanılıyor...`);
+          decryptionErrorCount = 0;
+          // Yarım saniye sonra bağlantıyı kopar ki Baileys reconnect döngüsü tetiklensin
+          setTimeout(() => {
+            try { if (sock && sock.ws) sock.ws.close(); } catch { }
+          }, 500);
+        }
+      }
+    }
+    return originalBaileysError(...args);
+  };
+
   const sock = makeWASocket({
     version,
-    logger: logger.child({ module: "baileys", level: config.DEBUG ? "debug" : "warn" }),
+    logger: baileysLogger,
     printQRInTerminal: false, // We handle QR ourselves
     auth: {
       creds: state.creds,

@@ -8,7 +8,7 @@ const { badWords: globalBadWords, containsBadWord, BAD_WORD_REGEX, containsDisal
  */
 function findDisallowedWord(str, disallowedWords) {
   if (!str) return null;
-  
+
   // Eğer özel bir liste verilmişse onu kullan, yoksa global listeyi/regex'i kullan
   if (disallowedWords && Array.isArray(disallowedWords) && disallowedWords.length > 0) {
     const escaped = disallowedWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
@@ -16,7 +16,7 @@ function findDisallowedWord(str, disallowedWords) {
     const match = str.match(customRegex);
     return match ? match[0] : null;
   }
-  
+
   const match = str.match(BAD_WORD_REGEX);
   return match ? match[0] : null;
 }
@@ -1408,292 +1408,232 @@ Module({
   fromMe: false,
 },
   async (message, match) => {
-    const configs = settingsMenu;
-    const sMatch = message.text?.trim().match(/^\d+$/);
-    const settingsMatch =
-      sMatch &&
-      message.reply_message?.text &&
-      message.reply_message.text
-        .toLowerCase()
-        .includes("ayarlar yapılandırma menüsü") &&
-      message.quoted.key.fromMe;
-    if (settingsMatch) {
-      const optionNumber = parseInt(sMatch[0]);
-      if (optionNumber > 0 && optionNumber <= configs.length) {
-        const setting = configs[optionNumber - 1];
-        let msg = `*_${setting.title}_*\n1. Açık\n2. Kapalı`;
-        return await message.sendReply(msg);
-      }
-    } else if (
-      message.text?.match(/^(1|2)$/) &&
-      message.reply_message?.text?.includes("1. Açık") &&
-      message.quoted.key.fromMe
-    ) {
-      const quotedMsg = message.reply_message.text;
-      const option = parseInt(message.text);
-      for (const setting of configs) {
-        if (quotedMsg.includes(setting.title)) {
-          const value = option === 1 ? "true" : "false";
-          await setVar(setting.env_var, value);
-          await message.sendReply(`✅ *${setting.title} ${value} olarak ayarlandı!*`);
-          return;
+    try {
+      const configs = settingsMenu;
+      const sMatch = message.text?.trim().match(/^\d+$/);
+      const settingsMatch =
+        sMatch &&
+        message.reply_message?.text &&
+        message.reply_message.text
+          .toLowerCase()
+          .includes("ayarlar yapılandırma menüsü") &&
+        message.quoted.key.fromMe;
+
+      if (settingsMatch) {
+        const optionNumber = parseInt(sMatch[0]);
+        if (optionNumber > 0 && optionNumber <= configs.length) {
+          const setting = configs[optionNumber - 1];
+          let msg = `*_${setting.title}_*\n1. Açık\n2. Kapalı`;
+          return await message.sendReply(msg);
+        }
+      } else if (
+        message.text?.match(/^(1|2)$/) &&
+        message.reply_message?.text?.includes("1. Açık") &&
+        message.quoted.key.fromMe
+      ) {
+        const quotedMsg = message.reply_message.text;
+        const option = parseInt(message.text);
+        for (const setting of configs) {
+          if (quotedMsg.includes(setting.title)) {
+            const value = option === 1 ? "true" : "false";
+            await setVar(setting.env_var, value);
+            await message.sendReply(`✅ *${setting.title} ${value} olarak ayarlandı!*`);
+            return;
+          }
         }
       }
-    }
 
-    const antiwordjids = await getCachedAntiwordJids();
-    const antiwordWarn = config.ANTIWORD_WARN?.split(",") || [];
+      // --- 1. LİNK/REKLAM KORUMASI (ÖNCELİKLİ VE DB BEKLEMEDEN) ---
+      const foundLinks = linkDetector.detectLinks(message.text);
 
-    if (!message.isAdmin) {
-      let disallowedWords = null;
-      if (config.ANTI_WORDS && config.ANTI_WORDS !== "auto") {
-        disallowedWords = config.ANTI_WORDS.split(",").map(w => w.trim()).filter(Boolean);
-      }
+      if (foundLinks.length > 0) {
+        const isAutoDelActive = !process.env.AUTO_DEL
+          ? true
+          : process.env.AUTO_DEL.split(",").includes(message.jid);
 
-      let thatWord = findDisallowedWord(message.text, disallowedWords);
-
-      if (thatWord) {
-        const isKickMode = antiwordjids.has(message.jid);
-        const isWarnMode = antiwordWarn.includes(message.jid);
-
-        if (isKickMode) {
-          await message.sendReply(`🤬 *'${thatWord}' kelimesi bu grupta yasaklanmıştır!* @${message.sender.split("@")[0]} uzaklaştırılıyor...`, { mentions: [message.sender] });
-
-          try {
-            await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove");
-          } catch (e) {
-            console.error("Antiword kick hatası:", e);
+        if (isAutoDelActive) {
+          let currentGroupCode = null;
+          if (message.isGroup) {
+            try {
+              currentGroupCode = await message.client.groupInviteCode(message.jid);
+            } catch (_) { }
           }
 
-          return await message.client.sendMessage(message.jid, { delete: message.data.key });
-        } else if (isWarnMode) {
-          const { WARN } = require("../config");
-          const warnLimit = parseInt(WARN || "3");
-
-          await uyariEkle(message.jid, message.sender, `Yasaklı kelime kullanımı: ${thatWord}`, message.client.user.id);
-          const warnData = await uyariGetir(message.jid, message.sender, warnLimit);
-
-          if (warnData.exceeded) {
-            await message.sendReply(`🤬 *Yasaklı kelime kullanımı nedeniyle sınır aşıldı!* @${message.sender.split("@")[0]} gruptan uzaklaştırılıyor.`, { mentions: [message.sender] });
-            await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove");
-          } else {
-            await message.sendReply(`⚠️ @${message.sender.split("@")[0]}, *bu grupta yasaklı kelime kullanmamalısınız!*\n\n*Kelime:* ${thatWord}\n*Uyarı:* ${warnData.current}/${warnLimit}`, { mentions: [message.sender] });
-          }
-
-          return await message.client.sendMessage(message.jid, { delete: message.data.key });
-        }
-      }
-    }
-
-    const foundLinks = linkDetector.detectLinks(message.text);
-
-    if (foundLinks.length > 0) {
-      const isAutoDelActive = !process.env.AUTO_DEL
-        ? true
-        : process.env.AUTO_DEL.split(",").includes(message.jid);
-
-      if (isAutoDelActive) {
-        let currentGroupCode = null;
-        if (message.isGroup) {
-          try {
-            currentGroupCode = await message.client.groupInviteCode(message.jid);
-          } catch (_) { }
-        }
-
-        for (const link of foundLinks) {
-          const inviteMatch = (link || "").match(
-            /^(https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]+)(\?.*)?$/i
-          );
-          if (!inviteMatch) continue;
-
-          const botIsAdmin = message.isBotAdmin;
-          const senderIsAdmin = message.isAdmin;
-          if (!botIsAdmin || senderIsAdmin) return;
-
-          if (currentGroupCode && inviteMatch[2] === currentGroupCode) continue;
-
-          const groupMetadata = await message.client.groupMetadata(message.jid);
-
-          let senderNumber = message.sender.split("@")[0];
-          let senderName = senderNumber;
-          try {
-            const contact = await message.client.getContact(message.sender);
-            senderName = contact.name || contact.notify || senderNumber;
-            if (contact.number) {
-              senderNumber = contact.number;
-            }
-          } catch {
-            senderName = message.senderName || senderNumber;
-          }
-
-          if (!global.antilink_warned_senders) global.antilink_warned_senders = new Set();
-          const senderKey = message.jid + "_" + message.sender;
-          const shouldWarn = !global.antilink_warned_senders.has(senderKey);
-
-          if (shouldWarn) {
-            global.antilink_warned_senders.add(senderKey);
-            setTimeout(() => global.antilink_warned_senders.delete(senderKey), 60000);
-
-            const infoMessage =
-              `*${groupMetadata.subject}* grubunda ` +
-              `şu şahsı *${senderName}* (+${senderNumber}) suçüstü yakaladım. 😈\n\n🔗 ${message.text}`;
-
-            const adminGroupJid = config.ADMIN_GROUP_JID;
-            if (adminGroupJid) {
-              try {
-                await message.client.sendMessage(adminGroupJid, {
-                  text: infoMessage,
-                });
-              } catch (_) { /* admin grubuna gönderilemedi, devam et */ }
-            }
-            await message.send("🚨 *Hey! Grup reklamı yapmamalısın.* 🤐");
-          }
-          
-          try {
-            await message.client.sendMessage(message.jid, { delete: message.data.key });
-          } catch { /* mesaj silme başarısız, devam et */ }
-          
-          if (shouldWarn) {
-            await message.client.groupParticipantsUpdate(
-              message.jid,
-              [message.sender],
-              "remove"
+          for (const link of foundLinks) {
+            const inviteMatch = (link || "").match(
+              /^(https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]+)(\?.*)?$/i
             );
-          }
-          return;
-        }
-      }
+            if (!inviteMatch) continue;
 
-      const antilinkConf = await getCachedAntilinkConfig(message.jid);
+            const botIsAdmin = message.isBotAdmin;
+            const senderIsAdmin = message.isAdmin;
+            if (!botIsAdmin || senderIsAdmin) return;
 
-      if (antilinkConf && antilinkConf.enabled) {
-        let linkBlocked = false;
-        const whatsappInviteMatch = /chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]+)/i;
-        let currentGroupCode = null;
-        if (message.isGroup) {
-          try {
-            currentGroupCode = await message.client.groupInviteCode(message.jid);
-          } catch (_) {
-            /* Bot yönetici değilse kod alınamaz */
-          }
-        }
+            if (currentGroupCode && inviteMatch[2] === currentGroupCode) continue;
 
-        for (const link of foundLinks) {
-          const inviteMatch = (link || "").match(whatsappInviteMatch);
-          if (inviteMatch && currentGroupCode && inviteMatch[1] === currentGroupCode) {
-            continue;
-          }
-          if (!antilinkConfig.checkAllowed(link, antilinkConf)) {
-            linkBlocked = true;
-            break;
-          }
-        }
+            const groupMetadata = await message.client.groupMetadata(message.jid).catch(() => ({ subject: "Grup" }));
 
-        if (linkBlocked && !message.isAdmin) {
-          const usr = message.sender;
+            let senderNumber = message.sender.split("@")[0];
+            let senderName = senderNumber;
+            try {
+              const contact = await message.client.getContact(message.sender);
+              senderName = contact.name || contact.notify || senderNumber;
+              if (contact.number) senderNumber = contact.number;
+            } catch {
+              senderName = message.senderName || senderNumber;
+            }
 
-          await message.client.sendMessage(message.jid, {
-            delete: message.data.key,
-          });
-          const customMessage =
-            antilinkConf.customMessage ||
-            `⚠️ *Bağlantı Algılandı!*\n\n_Bu grupta bağlantılara izin verilmiyor._`;
+            if (!global.antilink_warned_senders) global.antilink_warned_senders = new Set();
+            const senderKey = message.jid + "_" + message.sender;
+            const shouldWarn = !global.antilink_warned_senders.has(senderKey);
 
-          if (antilinkConf.mode === "delete") {
-            await message.sendMessage(customMessage, "text", {
-              mentions: [usr],
-            });
-          } else if (antilinkConf.mode === "warn") {
-            const { WARN } = require("../config");
-            const warnLimit = parseInt(WARN || "4");
-            const targetNumericId = usr?.split("@")[0];
+            // Kritik mesaj işlemleri (Ban / Uyarı / Silme) try/catch içerisine alındı ve hatalar loglanarak bloke edildi
+            if (shouldWarn) {
+              global.antilink_warned_senders.add(senderKey);
+              // Spamları ve patlamaları önlemek için 60 saniye beklet
+              setTimeout(() => global.antilink_warned_senders.delete(senderKey), 60000);
+
+              const infoMessage =
+                `*${groupMetadata.subject}* grubunda ` +
+                `şu şahsı *${senderName}* (+${senderNumber}) suçüstü yakaladım. 😈\n\n🔗 ${message.text}`;
+
+              const adminGroupJid = config.ADMIN_GROUP_JID;
+              if (adminGroupJid) {
+                try {
+                  await message.client.sendMessage(adminGroupJid, { text: infoMessage });
+                } catch (_) { }
+              }
+              try { await message.send("🚨 *Hey! Grup reklamı yapmamalısın.* 🤐"); } catch (_) { }
+            }
 
             try {
-              await uyariEkle(
-                message.jid,
-                usr,
-                "İzinsiz bağlantı gönderme",
-                message.client.user.id
-              );
+              await message.client.sendMessage(message.jid, { delete: message.data.key });
+            } catch (e) { console.error("Link Silme Hatası:", e.message); }
 
-              const warnData = await uyariGetir(message.jid, usr, warnLimit);
-              const currentWarns = warnData.current;
-              const kalan = warnData.kalan;
+            if (shouldWarn) {
+              try {
+                await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove");
+              } catch (e) { console.error("Kullanıcı Çıkarma Hatası:", e.message); }
+            }
+            return; // AUTO_DEL tespit edildi, kelime kontrolü yapmaya gerek yok
+          }
+        }
+
+        // --- 2. GRUBA ÖZEL ANTİLİNK (DB GEREKTİRİR) ---
+        try {
+          const antilinkConf = await getCachedAntilinkConfig(message.jid);
+
+          if (antilinkConf && antilinkConf.enabled) {
+            let linkBlocked = false;
+            const whatsappInviteMatch = /chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]+)/i;
+            let currentGroupCode = null;
+            if (message.isGroup) {
+              try {
+                currentGroupCode = await message.client.groupInviteCode(message.jid);
+              } catch (_) { }
+            }
+
+            for (const link of foundLinks) {
+              const inviteMatch = (link || "").match(whatsappInviteMatch);
+              if (inviteMatch && currentGroupCode && inviteMatch[1] === currentGroupCode) continue;
+              if (!antilinkConfig.checkAllowed(link, antilinkConf)) {
+                linkBlocked = true;
+                break;
+              }
+            }
+
+            if (linkBlocked && !message.isAdmin) {
+              const usr = message.sender;
+
+              try { await message.client.sendMessage(message.jid, { delete: message.data.key }); } catch (_) { }
+              const customMessage = antilinkConf.customMessage || `⚠️ *Bağlantı Algılandı!*\n\n_Bu grupta bağlantılara izin verilmiyor._`;
+
+              if (antilinkConf.mode === "delete") {
+                await message.sendMessage(customMessage, "text", { mentions: [usr] });
+              } else if (antilinkConf.mode === "warn") {
+                const { WARN } = require("../config");
+                const warnLimit = parseInt(WARN || "4");
+
+                try {
+                  await uyariEkle(message.jid, usr, "İzinsiz bağlantı gönderdi", message.client.user.id);
+                  const warnData = await uyariGetir(message.jid, usr, warnLimit);
+
+                  if (warnData.exceeded) {
+                    try {
+                      await message.client.groupParticipantsUpdate(message.jid, [usr], "remove");
+                      await message.sendMessage(`${customMessage}\n\n*İşlem:* Uyarı sınırını aştığı için kullanıcı atıldı\n*Uyarılar:* ${warnData.current}/${warnLimit}`, "text", { mentions: [usr] });
+                    } catch (kickError) {
+                      await message.sendMessage(`${customMessage}\n\n*Uyarılar:* ${warnData.current}/${warnLimit}\n*Hata:* Kullanıcı atılamadı`, "text", { mentions: [usr] });
+                    }
+                  } else {
+                    await message.sendMessage(`${customMessage}\n\n*Uyarılar:* ${warnData.current}/${warnLimit}\n*Kalan:* ${warnData.kalan}\n\n${warnData.kalan === 1 ? "⚠️ *Sonraki ihlal atılmayla sonuçlanacak!*" : `⚠️ *${warnData.kalan} uyarı daha kaldı.*`}`, "text", { mentions: [usr] });
+                  }
+                } catch (error) {
+                  console.error("Antilink uyarı hatası:", error);
+                  await message.sendMessage(customMessage, "text", { mentions: [usr] });
+                }
+              } else if (antilinkConf.mode === "kick") {
+                try {
+                  await message.client.groupParticipantsUpdate(message.jid, [usr], "remove");
+                  await message.sendMessage(`${customMessage}\n\n🧹 *İşlem:* İzinsiz bağlantı gönderdiği için kullanıcı atıldı!`, "text", { mentions: [usr] });
+                } catch (kickError) {
+                  await message.sendMessage(`${customMessage}\n\n❌ *Hata:* Kullanıcı atılamadı!`, "text", { mentions: [usr] });
+                }
+              }
+              return; // Gruba özel antilink tespit edildi, çık.
+            }
+          }
+        } catch (linkDbErr) {
+          console.error("Antilink özel logiğinde DB Hatası (Geçici):", linkDbErr.message);
+        }
+      }
+
+      // --- 3. YASAKLI KELİME KORUMASI (DB GEREKTİRİR) ---
+      if (!message.isAdmin) {
+        try {
+          const antiwordjids = await getCachedAntiwordJids();
+          const antiwordWarn = config.ANTIWORD_WARN?.split(",") || [];
+
+          let disallowedWords = null;
+          if (config.ANTI_WORDS && config.ANTI_WORDS !== "auto") {
+            disallowedWords = config.ANTI_WORDS.split(",").map(w => w.trim()).filter(Boolean);
+          }
+
+          let thatWord = findDisallowedWord(message.text, disallowedWords);
+
+          if (thatWord) {
+            const isKickMode = antiwordjids.has(message.jid);
+            const isWarnMode = antiwordWarn.includes(message.jid);
+
+            if (isKickMode) {
+              await message.sendReply(`🤬 *'${thatWord}' kelimesi bu grupta yasaklanmıştır!* @${message.sender.split("@")[0]} uzaklaştırılıyor...`, { mentions: [message.sender] });
+
+              try { await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove"); } catch (e) { }
+              try { return await message.client.sendMessage(message.jid, { delete: message.data.key }); } catch (_) { }
+            } else if (isWarnMode) {
+              const { WARN } = require("../config");
+              const warnLimit = parseInt(WARN || "3");
+
+              await uyariEkle(message.jid, message.sender, `Yasaklı kelime kullanımı: ${thatWord}`, message.client.user.id);
+              const warnData = await uyariGetir(message.jid, message.sender, warnLimit);
 
               if (warnData.exceeded) {
-                try {
-                  await message.client.groupParticipantsUpdate(
-                    message.jid,
-                    [usr],
-                    "remove"
-                  );
-                  await message.sendMessage(
-                    `${customMessage}\n\n` +
-                    `*İşlem:* Uyarı sınırını aştığı için kullanıcı atıldı\n` +
-                    `*Uyarılar:* ${currentWarns}/${warnLimit}`,
-                    "text",
-                    {
-                      mentions: [usr],
-                    }
-                  );
-                } catch (kickError) {
-                  await message.sendMessage(
-                    `${customMessage}\n\n` +
-                    `*Uyarılar:* ${currentWarns}/${warnLimit}\n` +
-                    `*Hata:* Kullanıcı atılamadı`,
-                    "text",
-                    {
-                      mentions: [usr],
-                    }
-                  );
-                }
+                await message.sendReply(`🤬 *Yasaklı kelime kullanımı nedeniyle sınır aşıldı!* @${message.sender.split("@")[0]} gruptan uzaklaştırılıyor.`, { mentions: [message.sender] });
+                try { await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove"); } catch (e) { }
               } else {
-                await message.sendMessage(
-                  `${customMessage}\n\n` +
-                  `*Uyarılar:* ${currentWarns}/${warnLimit}\n` +
-                  `*Kalan:* ${kalan}\n\n` +
-                  `${kalan === 1
-                    ? "⚠️ *Sonraki ihlal atılmayla sonuçlanacak!*"
-                    : `⚠️ *${kalan} uyarı daha kaldı.*`
-                  }`,
-                  "text",
-                  {
-                    mentions: [usr],
-                  }
-                );
+                await message.sendReply(`⚠️ @${message.sender.split("@")[0]}, *bu grupta yasaklı kelime kullanmamalısınız!*\n\n*Kelime:* ${thatWord}\n*Uyarı:* ${warnData.current}/${warnLimit}`, { mentions: [message.sender] });
               }
-            } catch (error) {
-              console.error("Antilink uyarı hatası:", error);
-              await message.sendMessage(customMessage, "text", {
-                mentions: [usr],
-              });
-            }
-          } else if (antilinkConf.mode === "kick") {
-            try {
-              await message.client.groupParticipantsUpdate(
-                message.jid,
-                [usr],
-                "remove"
-              );
-              await message.sendMessage(
-                `${customMessage}\n\n🧹 *İşlem:* İzinsiz bağlantı gönderdiği için kullanıcı atıldı!`,
-                "text",
-                {
-                  mentions: [usr],
-                }
-              );
-            } catch (kickError) {
-              await message.sendMessage(
-                `${customMessage}\n\n❌ *Hata:* Kullanıcı atılamadı!`,
-                "text",
-                {
-                  mentions: [usr],
-                }
-              );
+              try { return await message.client.sendMessage(message.jid, { delete: message.data.key }); } catch (e) { }
             }
           }
+        } catch (antiWordErr) {
+          console.error("Antiword veritabanı logunda Geçici Hata:", antiWordErr.message);
         }
       }
+
+    } catch (criticalErr) {
+      // En dış sönümleyici: Bot eventinin devredışı (disabled) kalmasını ve çökmesini engeller.
+      console.error("[TEXT EVENT] Bastırılan Kritik Hata:", criticalErr.message);
     }
   }
 );
