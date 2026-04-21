@@ -1052,31 +1052,7 @@
       await message.client.updateBlockStatus(user, "unblock");
     }
   );
-  const MEMORY_FILE = path.join(__dirname, "visitedLinks.json");
-  const loadVisitedLinks = async () => {
-    try {
-      const fsPromises = require("fs").promises;
-      if (fs.existsSync(MEMORY_FILE)) {
-        const data = await fsPromises.readFile(MEMORY_FILE, "utf-8");
-        return new Set(JSON.parse(data));
-      }
-    } catch {
-      return new Set();
-    }
-    return new Set();
-  };
-  const saveVisitedLinks = async (set) => {
-    try {
-      const fsPromises = require("fs").promises;
-      await fsPromises.writeFile(MEMORY_FILE, JSON.stringify([...set]), "utf-8");
-    } catch (e) {
-      console.error("Hafıza kaydedilemedi:", e);
-    }
-  };
-  let visitedLinks = new Set();
-  (async () => {
-    visitedLinks = await loadVisitedLinks();
-  })();
+  // ESKİ visitedLinks.json sistemi yerine artık veritabanı logları kullanılıyor.
 
   Module({
     pattern: "toplukatıl(?:\\s+([\\s\\S]*))?",
@@ -1117,30 +1093,37 @@
       };
       const getErrorMessage = getJoinErrorMessage;
 
+      const { GrupKatilimLog } = require("../core/database");
       let successCount = 0;
       let failCount = 0;
       let skipCount = 0;
       let memorySkipCount = 0;
       let results = [];
       const filteredLinks = [];
+      
       for (let link of links) {
         const codeMatch = link.match(
           /(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]+)/
         );
         if (!codeMatch || !codeMatch[1]) continue;
         const code = codeMatch[1];
-        if (visitedLinks.has(code)) {
-          memorySkipCount++;
-        } else {
-          filteredLinks.push({ link, code });
-        }
+        
+        try {
+          const logEntry = await GrupKatilimLog.findOne({ where: { inviteCode: code } });
+          if (logEntry) {
+            memorySkipCount++;
+            continue;
+          }
+        } catch(e) { } // DB hatası olursa yine de listeye al
+
+        filteredLinks.push({ link, code });
       }
       const totalBatches = Math.ceil(filteredLinks.length / BATCH_SIZE);
       let startMsg =
         `🔄 *İşlem Başlatıldı*\n\n` +
         `📋 Toplam bağlantı: *${links.length}*\n`;
       if (memorySkipCount > 0) {
-        startMsg += `🧠 Hafızadan atlanan: *${memorySkipCount}*\n`;
+        startMsg += `🧠 Veritabanından atlanan: *${memorySkipCount}*\n`;
       }
       startMsg +=
         `🔗 İşlenecek bağlantı: *${filteredLinks.length}*\n` +
@@ -1151,21 +1134,48 @@
       await message.sendReply(startMsg);
       for (let i = 0; i < filteredLinks.length; i++) {
         const { link, code } = filteredLinks[i];
+        let groupName = null;
+        
+        try {
+          const inviteInfo = await message.client.groupGetInviteInfo(code);
+          groupName = inviteInfo.subject || "Bilinmeyen Grup";
+        } catch(e) {
+          // İptal edilmiş link veya fetch hatası
+        }
+
         try {
           await message.client.groupAcceptInvite(code);
-          visitedLinks.add(code);
-          saveVisitedLinks(visitedLinks);
+          
+          await GrupKatilimLog.create({
+            inviteCode: code,
+            groupName: groupName,
+            status: "success"
+          }).catch(()=>{});
+
           successCount++;
-          results.push(`✅ [${i + 1}] başarıyla girildi`);
+          results.push(`✅ [${i + 1}] başarıyla girildi${groupName ? ` (${groupName})` : ''}`);
         } catch (error) {
           if (error?.message?.includes("408")) {
-            visitedLinks.add(code);
-            saveVisitedLinks(visitedLinks);
+            await GrupKatilimLog.create({
+              inviteCode: code,
+              groupName: groupName,
+              status: "success",
+              reason: "Zaten üyesiniz"
+            }).catch(()=>{});
+
             skipCount++;
-            results.push(`♻ [${i + 1}] zaten üyesiniz`);
+            results.push(`♻ [${i + 1}] zaten üyesiniz${groupName ? ` (${groupName})` : ''}`);
           } else {
+            const reason = getErrorMessage(error);
+            await GrupKatilimLog.create({
+              inviteCode: code,
+              groupName: groupName,
+              status: "failed",
+              reason: reason
+            }).catch(()=>{});
+            
             failCount++;
-            results.push(`❌ [${i + 1}] ${getErrorMessage(error)}`);
+            results.push(`❌ [${i + 1}] ${reason}${groupName ? ` (${groupName})` : ''}`);
           }
         }
         const isLastLink = i === filteredLinks.length - 1;

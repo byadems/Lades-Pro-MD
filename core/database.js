@@ -217,6 +217,14 @@ const KomutKayit = sequelize.define("KomutKayit", {
   usage: { type: DataTypes.STRING(64), allowNull: true },
 }, { tableName: "komut_kayitlar", timestamps: false });
 
+/** Mass group join tracking logs */
+const GrupKatilimLog = sequelize.define("GrupKatilimLog", {
+  inviteCode: { type: DataTypes.STRING(128), primaryKey: true, allowNull: false },
+  groupName: { type: DataTypes.STRING(256), allowNull: true },
+  status: { type: DataTypes.STRING(32), allowNull: false },
+  reason: { type: DataTypes.TEXT, allowNull: true },
+}, { tableName: "grup_katilim_loglari", timestamps: true });
+
 // Associations
 MesajIstatistik.belongsTo(KullaniciVeri, { foreignKey: "userJid", targetKey: "jid", as: "User" });
 
@@ -263,7 +271,7 @@ async function initializeDatabase() {
   const models = [
     WhatsappOturum, BotAyar, GrupAyar, KullaniciVeri,
     UyariKayit, Filtre, Zamanlama, HariciEklenti, YapayZekaKomut,
-    MesajIstatistik, BotMetrik, KomutIstatistik, KomutKayit,
+    MesajIstatistik, BotMetrik, KomutIstatistik, KomutKayit, GrupKatilimLog,
   ];
 
   // Eski Lades-Pro eklentilerinden gelen (SQLite'ta hata veren) tabloları da senkronize et
@@ -349,6 +357,7 @@ module.exports = {
   BotMetrik,
   KomutIstatistik,
   KomutKayit,
+  GrupKatilimLog,
   initializeDatabase,
   Op,
   DataTypes,

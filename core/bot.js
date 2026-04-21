@@ -207,37 +207,73 @@ async function createBot(sessionId = "lades-session", options = {}) {
   let decryptionErrorCount = 0;
   let lastDecryptionErrorAt = 0;
 
-  const baileysLogger = logger.child({ module: "baileys", level: config.DEBUG ? "debug" : "warn" });
-  const originalBaileysError = baileysLogger.error.bind(baileysLogger);
-  
-  baileysLogger.error = (...args) => {
-    const logData = args[0];
-    if (logData && typeof logData === 'object') {
-      const isDecryptionError = logData.err?.type === 'MessageCounterError' || 
-                                (logData.msg && logData.msg.includes('failed to decrypt'));
-      
-      if (isDecryptionError) {
-        decryptionErrorCount++;
-        const now = Date.now();
-        lastDecryptionErrorAt = now;
+  // ── Baileys Özel Log Filtresi (Stream) ──
+  // Baileys alt-log (child) üretse bile tüm loglar bu akıştan (stream) geçmek zorundadır.
+  const stream = require('stream');
+  class BaileysLogStream extends stream.Writable {
+    write(chunk, enc, next) {
+      if (!chunk) return next();
+      const raw = chunk.toString();
+      try {
+        const logData = JSON.parse(raw);
+        
+        // Şifre çözme veya oturum hatalarını yakala
+        const isDecryptionError = 
+           logData.err?.type === 'MessageCounterError' || 
+           logData.err?.type === 'SessionError' ||
+           (logData.msg && logData.msg.includes('failed to decrypt')) ||
+           (logData.err?.message && logData.err.message.includes('No session'));
 
-        // RAM OPT: Sadece kritik eşikte uyarı ver
-        if (decryptionErrorCount === 5) {
-          logger.warn(`[SENKRONİZE] ${sessionId} için deşifre hataları artıyor. 10. hatada otomatik yenileme yapılacak.`);
+        if (isDecryptionError) {
+          decryptionErrorCount++;
+          const now = Date.now();
+          lastDecryptionErrorAt = now;
+
+          // Hataları sadece 5. denemede göster uyarısı yap
+          if (decryptionErrorCount === 5) {
+            logger.warn(`[SENKRONİZE] ${sessionId} için deşifre hataları artıyor. 10. hatada otomatik yenileme yapılacak.`);
+          }
+
+          if (decryptionErrorCount >= 10) {
+            logger.error(`[KRİTİK] ${sessionId} oturumunda 10 adet deşifre hatası! Oturum tamiri için yeniden bağlanılıyor...`);
+            decryptionErrorCount = 0;
+            // Bağlantıyı kopar ki Baileys reconnect döngüsü tetiklensin
+            setTimeout(() => {
+              try { if (sock && sock.ws) sock.ws.close(); } catch { }
+            }, 500);
+          }
+          
+          // UYARI EKRANINI KİRLETMEMEK İÇİN BU LOGU SESSİZCE YUT
+          return next(); 
         }
 
-        if (decryptionErrorCount >= 10) {
-          logger.error(`[KRİTİK] ${sessionId} oturumunda 10 adet deşifre hatası! Oturum tamiri için yeniden bağlanılıyor...`);
-          decryptionErrorCount = 0;
-          // Yarım saniye sonra bağlantıyı kopar ki Baileys reconnect döngüsü tetiklensin
-          setTimeout(() => {
-            try { if (sock && sock.ws) sock.ws.close(); } catch { }
-          }, 500);
+        // Lades-Pro'nun diğer gereksiz Baileys loglarını engelleme (konsol spam engeli)
+        const strLog = JSON.stringify(logData);
+        if (strLog.includes("signalstore") || strLog.includes("libsignal") || strLog.includes("SessionEntry")) {
+           return next();
         }
+
+        // Normal logları (eğer çok düşük seviyeli değilse) ana logger'a pasla veya stdout'a bas
+        if (config.DEBUG) {
+          process.stdout.write(raw + '\n');
+        } else if (logData.level >= 40) { // Warn veya daha yüksek
+          process.stdout.write(raw + '\n');
+        }
+      } catch (e) {
+        // Parse hatası olsa da ekrana bas
+        process.stdout.write(raw + '\n');
       }
+      next();
     }
-    return originalBaileysError(...args);
-  };
+  }
+
+  // Özel pino instance'ını stream ile oluştur
+  const pino = require('pino');
+  const baileysLogger = pino({ 
+    level: config.DEBUG ? "debug" : "warn",
+    name: "baileys"
+  }, new BaileysLogStream());
+
 
   const sock = makeWASocket({
     version,
