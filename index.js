@@ -66,18 +66,34 @@ try {
 suppressLibsignalLogs();
 runtime.startTime = Date.now();
 
-const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 450; // Northflank hard limit tipik 512MB; 450'de graceful restart
+const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 350; // RAM OPT: 450→350MB (daha erken graceful restart)
 let _isShuttingDown = false; // Çift shutdown guard
 
 scheduler.register('memory_check', () => {
-  if (_isShuttingDown) return; // Zaten kapanıyorsa tekrar tetikleme
+  if (_isShuttingDown) return;
   const mem = process.memoryUsage();
   // RSS = gerçek işletim sistemi belleği (Northflank bu değeri gösterir)
   if (mem.rss > PM2_RESTART_MB * 1024 * 1024) {
     logger.warn(`Bellek sınırı (${PM2_RESTART_MB}MB RSS) aşıldı. Otomatik yeniden başlatılıyor...`);
     shutdown("MEMORY_LIMIT_EXCEEDED");
   }
+  // RAM OPT: Her kontrolünde GC'yi önerilirse tetikle
+  // --expose-gc flag'i ile çalıştırılıyorsa manual GC mümkün
+  if (typeof global.gc === 'function') {
+    global.gc();
+  }
 }, 30000); // Her 30s'de bir kontrol
+
+// RAM OPT: Periyodik agresif GC (her 5 dakikada bir tam temizlik)
+// Node.js'i --expose-gc ile çalıştırınca aktif olur
+scheduler.register('periodic_gc', () => {
+  if (typeof global.gc === 'function') {
+    global.gc();
+    const mem = process.memoryUsage();
+    const toMB = (b) => Math.round(b / 1024 / 1024);
+    logger.debug(`[GC] Bellek: RSS=${toMB(mem.rss)}MB Heap=${toMB(mem.heapUsed)}/${toMB(mem.heapTotal)}MB`);
+  }
+}, 5 * 60 * 1000); // Her 5 dakika
 
 
 function startKeepAlive() {

@@ -2057,7 +2057,7 @@
             stream.destroy();
           }
 
-          await message.edit("✅ *Hazır!*", message.jid, downloadMsg.key);
+          await message.edit("✅ _Hazır!_", message.jid, downloadMsg.key);
 
           await new Promise((resolve) => setTimeout(resolve, 100));
           if (fs.existsSync(videoPath)) {
@@ -2081,7 +2081,7 @@
               await message.sendReply({ url: fallback.url }, "video", {
                 caption: `_*${safeTitle}*_`,
               });
-              await message.edit(`✅ *Hazır!* *${safeTitle}*`, message.jid, downloadMsg.key);
+              await message.edit(`✅ _Hazır!_ *${safeTitle}*`, message.jid, downloadMsg.key);
               return;
             }
           } catch (_) { }
@@ -2135,7 +2135,14 @@
         const result = await downloadAudio(url);
         audioPath = result.path;
 
-        const mp3Path = await convertM4aToMp3(audioPath);
+        const match = url.match(/[?&]v=([^&]+)/) || url.match(/youtu\.be\/([^?]+)/);
+        const thumbUrl = match ? `https://i.ytimg.com/vi/${match[1]}/hqdefault.jpg` : '';
+
+        const mp3Path = await convertM4aToMp3(audioPath, {
+          title: result.title,
+          artist: "YouTube",
+          imageUrl: thumbUrl
+        });
         audioPath = mp3Path;
 
         await message.edit("_📤 Ses gönderiliyor..._", message.jid, downloadMsg.key);
@@ -2149,7 +2156,7 @@
         });
         stream.destroy();
 
-        await message.edit("✅ *Hazır!*", message.jid, downloadMsg.key);
+        await message.edit("✅ _Hazır!_", message.jid, downloadMsg.key);
 
         await new Promise((resolve) => setTimeout(resolve, 100));
         if (fs.existsSync(audioPath)) {
@@ -2181,7 +2188,7 @@
             fileName: `${safeTitle}.mp3`,
           }, { quoted: message.data });
 
-          await message.edit("✅ *Hazır!*", message.jid, downloadMsg.key);
+          await message.edit("✅ _Hazır!_", message.jid, downloadMsg.key);
         } catch (fallbackErr) {
           console.error("YouTube ses API fallback hatası:", fallbackErr?.message);
           if (downloadMsg) {
@@ -2285,14 +2292,20 @@
             if (match) thumbUrl = `https://i.ytimg.com/vi/${match[1]}/hqdefault.jpg`;
           }
 
+          const mp3Path = await convertM4aToMp3(result.path, {
+            title: safeTitle,
+            artist: videoInfo?.channel?.name || videoInfo?.author?.name || videoInfo?.channel || "Lades-Pro | Bot",
+            imageUrl: thumbUrl
+          });
+
           await message.client.sendMessage(message.jid, {
-            audio: { url: result.path },
-            mimetype: "audio/mp4",
+            audio: { url: mp3Path },
+            mimetype: "audio/mpeg",
             ptt: false,
             contextInfo: {
               externalAdReply: {
                 title: safeTitle,
-                body: "Lades-Pro|Bot",
+                body: "Lades-Pro | Bot",
                 mediaType: 2,
                 thumbnailUrl: thumbUrl,
                 sourceUrl: targetUrl
@@ -2300,7 +2313,7 @@
             }
           }, { quoted: message.data });
 
-          return await message.edit(`✅ *Hazır!* *${safeTitle}*`, message.jid, downloadMsg.key);
+          return await message.edit(`✅ _Hazır!_ *${safeTitle}*`, message.jid, downloadMsg.key);
         }
       } catch (error) {
         if (config.DEBUG) console.error("Çalma hatası, yedek yöntem deneniyor:", error.message);
@@ -2338,7 +2351,7 @@
             }
           }, { quoted: message.data });
 
-          return await message.edit(`✅ *Hazır!* *${safeTitle}*`, message.jid, downloadMsg.key);
+          return await message.edit(`✅ _Hazır!_ *${safeTitle}*`, message.jid, downloadMsg.key);
         } catch (fallbackError) {
           console.error("Yedek yöntem hatası:", fallbackError.message);
           if (downloadMsg) {
@@ -2418,12 +2431,12 @@
 
             if (canEditQuotedList) {
               await message.edit(
-                `✅ *Hazır!* *${safeTitle}*`,
+                `✅ _Hazır!_ *${safeTitle}*`,
                 message.jid,
                 quotedListKey
               );
             } else {
-              await message.sendReply(`✅ *Hazır!* *${safeTitle}*`);
+              await message.sendReply(`✅ _Hazır!_ *${safeTitle}*`);
             }
           } catch (error) {
             console.error("Şarkı indirme hatası:", error);
@@ -2524,7 +2537,7 @@
               }, { quoted: message.data });
 
               await message.edit(
-                "✅ *Hazır!*",
+                "✅ _Hazır!_",
                 message.jid,
                 downloadMsg.key
               );
@@ -2559,7 +2572,7 @@
               }, { quoted: message.data });
 
               await message.edit(
-                "✅ *Hazır!*",
+                "✅ _Hazır!_",
                 message.jid,
                 downloadMsg.key
               );

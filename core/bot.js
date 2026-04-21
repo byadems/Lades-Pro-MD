@@ -27,14 +27,14 @@ let _firstConnectDone = false; // loadPlugins + startSchedulers sadece 1 kez ça
 
 // Pre-warm: Bot başlar başlamaz queue'yu hazırla
 import('p-queue').then(({ default: PQueue }) => {
-  _queue = new PQueue({ concurrency: 5 });
+  _queue = new PQueue({ concurrency: 3 }); // 5→3: Paralel işleme azaltıldı (RAM piki düşer)
   _queueReady = true;
 }).catch(() => { /* fallback: create on demand */ });
 
 async function getMessageQueue() {
   if (_queue) return _queue;
   const { default: PQueue } = await import('p-queue');
-  _queue = new PQueue({ concurrency: 5 });
+  _queue = new PQueue({ concurrency: 3 }); // 5→3
   _queueReady = true;
   return _queue;
 }
@@ -214,8 +214,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
       // Çift önbellekleme (double-cache) durumunu ve bellek sızıntısını önlemek için direkt kullanıyoruz:
       keys: state.keys, 
     },
-    msgRetryCounterCache: createNodeCacheAdapter(500, 5 * 60 * 1000), // Max 500 mesaj, 5 dk
-    userDevicesCache: createNodeCacheAdapter(500, 5 * 60 * 1000), // Max 500 cihaz, 5 dk
+    msgRetryCounterCache: createNodeCacheAdapter(100, 5 * 60 * 1000), // 500→100 mesaj, 5 dk
+    userDevicesCache: createNodeCacheAdapter(100, 5 * 60 * 1000), // 500→100 cihaz, 5 dk
     browser: Browsers.ubuntu("Chrome"),
     getMessage: async (key) => {
       const { getMessageByKey } = require("./store");

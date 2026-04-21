@@ -147,6 +147,10 @@ async function callGenerativeAI(prompt, imageParts, message, sentMsg) {
       "gemini-2.5-flash-lite",
       "gemini-2.5-flash",
     ];
+    // Sistem talimatı: kısa, öz, Türkçe
+    const systemInstruction = {
+      parts: [{ text: "Sen Lades'sin; zeki ve sıcak bir WhatsApp asistanısın. Kısa ve öz yaz, konuya uygun emoji kullan ama bunu açıklama. Yalnızca Türkçe konuş." }]
+    };
     for (const model of models) {
       try {
         const contents = [{ role: "user", parts: [] }];
@@ -158,8 +162,9 @@ async function callGenerativeAI(prompt, imageParts, message, sentMsg) {
         }
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
         const response = await axios.post(apiUrl, {
+          systemInstruction, // OPT: Resmi sistem talimatı alanı
           contents,
-          generationConfig: { maxOutputTokens: 4096, temperature: 0.7 },
+          generationConfig: { maxOutputTokens: 800, temperature: 0.7 }, // 4096→800: öz yanıtlar
         }, { timeout: 20000 });
 
         if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {

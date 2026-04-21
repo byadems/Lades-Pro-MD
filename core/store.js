@@ -14,10 +14,10 @@ const { WhatsappOturum, BotMetrik, MesajIstatistik, KullaniciVeri, sequelize } =
 const scheduler = require("./zamanlayici").scheduler;
 
 // Message store: jid → Map<msgId, msg>
-// Northflank için optimize: 30 aktif grup, 60 mesaj/grup
+// RAM OPT: 30→15 aktif grup, TTL 3h→45min
 const messageStore = new LRUCache({
-  max: 30,   // max 30 aktif grup/sohbet (50'den düşürüldü)
-  ttl: 3 * 60 * 60 * 1000, // 3h TTL (4h'ten düşürüldü)
+  max: 15,   // 30→15 aktif grup/sohbet
+  ttl: 45 * 60 * 1000, // 45 dakika TTL (3h→45min: RAM tasarrufu)
   dispose: (bucket, jid) => {
     // Clean reverse index when LRU evicts a bucket
     if (bucket instanceof Map) {
@@ -28,8 +28,8 @@ const messageStore = new LRUCache({
 
 // Reverse index: msgId → jid (O(1) lookup for getFullMessage)
 const msgIdIndex = new Map();
-const MAX_MSGS_PER_JID = 60;    // 100'den düşürüldü
-const MAX_MSGID_INDEX = 20000;  // 50000'den düşürüldü — her entry ~100 byte = max ~2 MB
+const MAX_MSGS_PER_JID = 20;   // 60→20: Grup başına daha az mesaj
+const MAX_MSGID_INDEX = 3000;  // 20000→3000: her entry ~150 byte = max ~450 KB
 
 function storeMessage(jid, message) {
   if (!jid || !message || !message.key) return;
@@ -63,10 +63,10 @@ function getMessageByKey(key) {
 // ─────────────────────────────────────────────────────────
 //  Group metadata
 // ─────────────────────────────────────────────────────────
-// Group metadata cache: Northflank için optimize edildi
+// Group metadata cache: RAM OPT edildi
 const groupMetaCache = new LRUCache({
-  max: 200, // 500'den düşürüldü
-  ttl: 3 * 60 * 1000, // 3 dakika (5'ten kısaltıldı — admin değişikliklerini daha hızlı algıla)
+  max: 80,  // 200→80: 2133 grup için aktif 80 yeterli (LRU en az kullanılanı siler)
+  ttl: 5 * 60 * 1000, // 5 dakika (aynı kalıyor — admin değişikliği algısı)
 });
 
 function setGroupMeta(groupId, meta) {
@@ -96,7 +96,8 @@ function invalidateGroupMeta(groupId) {
 
 async function getAllGroups(sock) {
   const now = Date.now();
-  if (runtime.metrics.allGroupsCache && (now - runtime.metrics.allGroupsLastFetch < 15 * 60 * 1000)) { // 15 min cache
+  // RAM OPT: allGroupsCache TTL 15min→8min
+  if (runtime.metrics.allGroupsCache && (now - runtime.metrics.allGroupsLastFetch < 8 * 60 * 1000)) {
     return runtime.metrics.allGroupsCache;
   }
 

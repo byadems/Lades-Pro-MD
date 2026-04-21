@@ -128,10 +128,10 @@ function recordCommand() {
   metricsBatch.total_commands++;
 }
 
-// getRuntimeStats — 15 saniye cache (dashboard her yüklemesinde 4 DB sorgusu atmayı önler)
+// getRuntimeStats — 45 saniye cache (15s→45s: daha az DB sorgusu = daha az PG bağlantısı = RAM tasarrufu)
 let _runtimeStatsCache = null;
 let _runtimeStatsCacheAt = 0;
-const RUNTIME_STATS_CACHE_MS = 15000;
+const RUNTIME_STATS_CACHE_MS = 45000; // 15s→45s
 
 async function getRuntimeStats() {
   const now = Date.now();
@@ -179,8 +179,8 @@ async function recordStat(pattern, status, durationMs, error = null, isTest = fa
   }
 
   currentBatch.set(key, entry);
-  // commandStatsBatch sınırsız büyümeyi önle (max 2000 komut)
-  if (runtime.commandStatsBatch.size > 2000) {
+  // commandStatsBatch sınırsız büyümeyi önle (max 500 komut) — 2000→500
+  if (runtime.commandStatsBatch.size > 500) {
     const firstKey = runtime.commandStatsBatch.keys().next().value;
     runtime.commandStatsBatch.delete(firstKey);
   }
@@ -834,8 +834,8 @@ async function loadPlugins(pluginsDir, force = false) {
 // ─────────────────────────────────────────────────────────
 const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX || "8", 10);
 const RATE_LIMIT_WINDOW = parseInt(process.env.RATE_LIMIT_WINDOW || "10000", 10);
-// TTL = window süresi: pencere dolunca entry otomatik silinir — stale kayıt birikimi engellenir
-const rateLimit = new LRUCache({ max: 500, ttl: RATE_LIMIT_WINDOW * 3 }); // 500 kullanıcı, 30s TTL
+// RAM OPT: 500→200 kullanıcı, TTL aynı
+const rateLimit = new LRUCache({ max: 200, ttl: RATE_LIMIT_WINDOW * 3 }); // 200 kullanıcı, 30s TTL
 
 function checkRateLimit(jid) {
   const now = Date.now();

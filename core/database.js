@@ -25,18 +25,23 @@ if (isMongoDB) {
 let sequelize;
 if (isPostgres && !isMongoDB) {
   // PostgreSQL: Neon, Supabase, Render Database, standart PostgreSQL
+  // BELLEK OPTİMİZASYONU: Pool max 20→3. Her PG bağlantısı ~10MB RAM tüketir.
+  // 20 bağlantı = ~200MB, 3 bağlantı = ~30MB → ~170MB tasarruf!
   sequelize = new Sequelize(DATABASE_URL, {
     dialect: "postgres",
     logging: false,
     pool: {
-      max: parseInt(process.env.DB_POOL_MAX || "20", 10),
-      min: parseInt(process.env.DB_POOL_MIN || "2", 10),
+      max: parseInt(process.env.DB_POOL_MAX || "3", 10),   // 20 → 3 (kritik RAM tasarrufu)
+      min: parseInt(process.env.DB_POOL_MIN || "1", 10),   // 2  → 1
       acquire: 60000,
-      idle: 30000,
+      idle: 10000,  // 30s → 10s: Boş bağlantıları daha hızlı bırak
+      evict: 5000,  // 5s'de bir boş bağlantıları kontrol et
     },
     dialectOptions: {
       ssl: process.env.DB_SSL === "false" ? false : { require: true, rejectUnauthorized: false },
       connectTimeout: 60000,
+      // statement_timeout: Her sorgu max 30 saniye (sonsuz beklemeler engellenir)
+      statement_timeout: 30000,
     },
     retry: {
       max: 5,
@@ -47,7 +52,7 @@ if (isPostgres && !isMongoDB) {
       ],
     },
   });
-  logger.info(`[DB] PostgreSQL bağlantısı hazırlanıyor (${DATABASE_URL.split('@')[1] || 'host gizli'})`);
+  logger.info(`[DB] PostgreSQL bağlantısı hazırlanıyor — pool: max=3 (${DATABASE_URL.split('@')[1] || 'host gizli'})`);
 } else {
   // SQLite (varsayılan — yerel geliştirme ve MongoDB URL fallback)
   sequelize = new Sequelize({
@@ -237,13 +242,13 @@ async function initializeDatabase() {
         await sequelize.query("PRAGMA journal_mode = WAL;");         // Concurrent reads
         await sequelize.query("PRAGMA busy_timeout = 5000;");         // Retry on lock
         await sequelize.query("PRAGMA synchronous = NORMAL;");        // Safe + fast
-        await sequelize.query("PRAGMA cache_size = -16000;");         // 16MB page cache (disk I/O azalt)
+        await sequelize.query("PRAGMA cache_size = -8000;");          // 8MB page cache (16MB→8MB: RAM tasarrufu)
         await sequelize.query("PRAGMA temp_store = FILE;");           // Temp tablolar diske (RAM koruma!)
-        await sequelize.query("PRAGMA mmap_size = 33554432;");        // 32MB mmap (256MB → 32MB)
-        await sequelize.query("PRAGMA wal_autocheckpoint = 500;");    // WAL dosyasını kontrol altında tut
+        await sequelize.query("PRAGMA mmap_size = 16777216;");        // 16MB mmap (32MB → 16MB: RAM tasarrufu)
+        await sequelize.query("PRAGMA wal_autocheckpoint = 200;");    // Daha sık checkpoint (500→200: WAL dosyasını küçük tut)
         await sequelize.query("PRAGMA optimize;");                    // Sorgu planlamasını optimize et
         await sequelize.query("PRAGMA foreign_keys = OFF;");          // FK kontrolü gereksiz overhead
-        logger.info("SQLite pragmaları ayarlandı (WAL, cache=16MB, temp=FILE, mmap=32MB, checkpoint=500).");
+        logger.info("SQLite pragmaları ayarlandı (WAL, cache=8MB, temp=FILE, mmap=16MB, checkpoint=200).");
       }
 
       break;

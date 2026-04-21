@@ -3,10 +3,12 @@ module.exports = {
     {
       name: "lades-pro",
       script: "index.js",
-      node_args: "--max-old-space-size=256",
+      // RAM OPT: --expose-gc: manuel GC çağrısına izin ver (index.js'de scheduler kullanır)
+      // --max-old-space-size=300: Heap büyüyünce GC daha sık tetiklenir
+      node_args: "--max-old-space-size=300 --expose-gc",
       watch: false,
       ignore_watch: ["node_modules", "sessions", "plugins/ai-generated", "*.log"],
-      max_memory_restart: "400M",
+      max_memory_restart: "380M", // 400M→380M: daha erken restart
       restart_delay: 5000,
       max_restarts: 10,
       min_uptime: "15s",

@@ -10,11 +10,11 @@
 // ==========================================
 (function () {
   const { loadBaileys } = require("../core/yardimcilar");
-  let delay, generateWAMessageFromContent, proto;
+  let delay, generateWAMessageFromContent, proto, getBinaryNodeChild, getBinaryNodeChildren;
 
   const baileysPromise = loadBaileys()
     .then((baileys) => {
-      ({ delay, generateWAMessageFromContent, proto } = baileys);
+      ({ delay, generateWAMessageFromContent, proto, getBinaryNodeChild, getBinaryNodeChildren } = baileys);
     })
     .catch((err) => {
       console.error("Baileys yüklenemedi (Eklenti Hatası):", err.message);
@@ -24,7 +24,6 @@
   const config = require("../config");
   const { ADMIN_ACCESS, MODE } = config;
   const { Module } = require("../main");
-  const { getBinaryNodeChild, getBinaryNodeChildren, proto } = require("@whiskeysockets/baileys");
   const fs = require("fs");
   const path = require("path");
   const axios = require("axios");

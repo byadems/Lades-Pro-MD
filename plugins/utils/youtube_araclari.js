@@ -23,13 +23,50 @@ try {
  * Clean, readable, and open-source.
  */
 
-async function convertM4aToMp3(inputPath) {
+async function convertM4aToMp3(inputPath, metadata = null) {
   const outputPath = getTempPath(`converted_${Date.now()}.mp3`);
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .audioCodec('libmp3lame')
       .save(outputPath)
-      .on('end', () => resolve(outputPath))
+      .on('end', async () => {
+        if (metadata) {
+          try {
+            const NodeID3 = require('node-id3');
+            let tags = {
+              title: metadata.title || 'Bilinmeyen Başlık',
+              artist: metadata.artist || 'Bilinmeyen Sanatçı',
+              album: 'Lades-Pro|Bot'
+            };
+
+            if (metadata.imageBuffer) {
+              tags.image = {
+                mime: 'image/jpeg',
+                type: { id: 3, name: 'front cover' },
+                description: 'Cover',
+                imageBuffer: metadata.imageBuffer
+              };
+            } else if (metadata.imageUrl) {
+              const axios = require('axios');
+              try {
+                const response = await axios.get(metadata.imageUrl, { responseType: 'arraybuffer' });
+                tags.image = {
+                  mime: 'image/jpeg',
+                  type: { id: 3, name: 'front cover' },
+                  description: 'Cover',
+                  imageBuffer: response.data
+                };
+              } catch (imgErr) {
+                console.error("Cover image fetch error:", imgErr.message);
+              }
+            }
+            NodeID3.write(tags, outputPath);
+          } catch (e) {
+            console.error("ID3 Tag error:", e);
+          }
+        }
+        resolve(outputPath);
+      })
       .on('error', (err) => reject(err));
   });
 }

@@ -22,7 +22,10 @@
   const { parseAliveMessage, sendAliveMessage } = require('./utils/sistem_durum_ayristirici');
   const { badWords, censorBadWords } = require("./utils/sansur");
   const { nxTry } = require("./utils");
-  const { getBinaryNodeChild, getBinaryNodeChildren, proto } = require("@whiskeysockets/baileys");
+  let getBinaryNodeChild, getBinaryNodeChildren, proto;
+  require("../core/yardimcilar").loadBaileys().then(b => {
+    ({ getBinaryNodeChild, getBinaryNodeChildren, proto } = b);
+  }).catch(() => {});
 
   const getCategoryPriority = (category) => {
     const cat = (category || "").toLowerCase();
