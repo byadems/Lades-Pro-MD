@@ -256,14 +256,14 @@ async function testCommand(cmd, prefix, ownJid) {
 }
 
 async function runSelfTest(sock) {
-  const { logger } = require("../config");
+  const { logger, SELF_TEST } = require("../config");
   const handler = require("./handler");
 
   process.env.IS_SELF_TEST = 'true';
 
   // 100% KALICI ÇÖZÜM: Devre dışı bırakma kontrolü
-  if (process.env.SELF_TEST === "false") {
-    logger.info("🧪 Self-test 'SELF_TEST=false' nedeniyle atlandı.");
+  if (!SELF_TEST) {
+    logger.info("🧪 Self-test 'SELF_TEST=false' (veya kapalı) nedeniyle atlandı.");
     return;
   }
 

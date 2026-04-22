@@ -597,7 +597,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
       }
 
       // Self-test: tüm komutları ilk bağlantıda test et
-      if (process.env.SELF_TEST !== 'false' && !selfTestRan) {
+      if (config.SELF_TEST && !selfTestRan) {
         selfTestRan = true;
         setTimeout(async () => {
           try {

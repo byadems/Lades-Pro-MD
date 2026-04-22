@@ -70,7 +70,7 @@ const config = {
   HEAP_LIMIT_MB: parseInt(process.env.HEAP_LIMIT_MB || "250", 10),
   PM2_RESTART_LIMIT_MB: parseInt(process.env.PM2_RESTART_LIMIT_MB || "450", 10), // index.js ile uyumlu
   DEBUG: process.env.DEBUG === "true", // Production'da false — console spam önlenir
-  SELF_TEST: process.env.SELF_TEST === "false", // Production'da false — başlangıç bellek tepesi azalır
+  SELF_TEST: process.env.SELF_TEST === "true", // Default: false. Testleri açmak için "true" yapın.
   NODE_ENV: process.env.NODE_ENV || "production",
 
   // ── Medya Sınırları ──
