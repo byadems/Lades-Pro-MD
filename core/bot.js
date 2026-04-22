@@ -27,14 +27,17 @@ let _firstConnectDone = false; // loadPlugins + startSchedulers sadece 1 kez ça
 
 // Pre-warm: Bot başlar başlamaz queue'yu hazırla
 import('p-queue').then(({ default: PQueue }) => {
-  _queue = new PQueue({ concurrency: 3 }); // 5→3: Paralel işleme azaltıldı (RAM piki düşer)
+  // concurrency: 3 — Paralel işleme
+  // intervalCap + interval: saniyede max 30 mesaj işle (burst engeli)
+  // throwOnTimeout: false — timeout'da hata fırlatma, sessizce geç
+  _queue = new PQueue({ concurrency: 3, intervalCap: 30, interval: 1000, throwOnTimeout: false });
   _queueReady = true;
 }).catch(() => { /* fallback: create on demand */ });
 
 async function getMessageQueue() {
   if (_queue) return _queue;
   const { default: PQueue } = await import('p-queue');
-  _queue = new PQueue({ concurrency: 3 }); // 5→3
+  _queue = new PQueue({ concurrency: 3, intervalCap: 30, interval: 1000, throwOnTimeout: false });
   _queueReady = true;
   return _queue;
 }
@@ -161,30 +164,33 @@ async function createBot(sessionId = "lades-session", options = {}) {
 
   const { state, saveCreds, clearState } = await getAuthState(config, sessionId);
   
-  // CRITICAL: Validate session before attempting connection.
-  // If creds are empty or missing cryptographic keys, do NOT connect - let the dashboard handle login.
-  const hasValidSession = state.creds 
-    && state.creds.me 
-    && state.creds.signedPreKey
-    && state.creds.signedPreKey.keyPair;
+  // SESSION VALIDATION: Sadece 'me' (bağlı telefon) varlığını kontrol et.
+  // signedPreKey gibi kriptografik alanları zorunlu kılmıyoruz — deploy sonrası
+  // DB'den yüklenen session'da bu alanlar geçici olarak eksik gelebilir ve
+  // Baileys bunları handshake sırasında kendisi yeniler.
+  // KURAL: Eğer 'me' yoksa (hiç giriş yapılmamış), o zaman QR/pair code iste.
+  const hasValidSession = !!(state.creds && state.creds.me);
     
   if (!hasValidSession) {
-    logger.info(`[${sessionId}] Geçerli oturum bulunamadı. Dashboard üzerinden giriş yapılması bekleniyor...`);
-    // Return a minimal fake socket so manager doesn't crash
-    // The dashboard will handle the actual login flow
+    logger.info(`[${sessionId}] Kayıtlı oturum bulunamadı. Dashboard üzerinden giriş yapılması bekleniyor...`);
     const fakeSock = createFakeSocket(sessionId);
-    // Emit events that manager needs
     setTimeout(() => {
       fakeSock.ev.emit('connection.update', { connection: 'waiting_for_login' });
     }, 100);
     return fakeSock;
   }
 
-  // 2. Health Check: Detect corrupted registered=false state
+  // HEALTH CHECK 1: registered:false durumunu onar
   if (state.creds && state.creds.me && state.creds.registered === false) {
-    logger.warn(`[Sağlık Kontrolü] Oturum 'kayıtlı değil' (registered: false) olarak işaretlenmiş. Onarılıyor...`);
-    state.creds.registered = true; // Attempt fix
-    await saveCreds(); 
+    logger.warn(`[Sağlık] registered:false tespit edildi, onarılıyor...`);
+    state.creds.registered = true;
+    await saveCreds(true); // force=true: hemen kaydet, throttle bekleme
+  }
+
+  // HEALTH CHECK 2: signedPreKey eksikse uyar ama bağlanmaya devam et
+  // Baileys handshake sırasında sunucudan prekey'leri senkronize edecek
+  if (state.creds && state.creds.me && !state.creds.signedPreKey) {
+    logger.warn(`[Sağlık] signedPreKey eksik — Baileys handshake sırasında senkronize edecek.`);
   }
 
   const { version } = await fetchLatestBaileysVersion().catch(() => ({
@@ -206,6 +212,29 @@ async function createBot(sessionId = "lades-session", options = {}) {
 
   let decryptionErrorCount = 0;
   let lastDecryptionErrorAt = 0;
+  let _isClosing = false; // Çift kapatma koruması
+
+  /**
+   * Zombie socket bırakmadan bağlantıyı kapat.
+   * sock.end() yerine ws.terminate() kullanır — graceful handshake beklemiyor.
+   */
+  function gracefulClose(reason = 'Manual close') {
+    if (_isClosing) return;
+    _isClosing = true;
+    logger.debug(`[GracefulClose] ${reason}`);
+    try {
+      // 1. Event pipeline'ı kes — pending ACK/receipt handler'ları iptal et
+      // NOT: removeAllListeners ÇAĞIRILMIYOR — connection.update'in çalışması gerekiyor
+      // sock.ev.removeAllListeners(); // Bu satır kasıtlı yorum satırı!
+      
+      // 2. WebSocket'i anında kapat (terminate = graceful handshake yok = hızlı)
+      if (sock.ws && sock.ws.readyState !== 3 /* CLOSED */) {
+        try { sock.ws.terminate(); } catch { try { sock.ws.close(); } catch { } }
+      }
+    } catch (e) {
+      logger.debug(`[GracefulClose] Hata: ${e.message}`);
+    }
+  }
 
   // ── Baileys Özel Log Filtresi (Stream) ──
   // Baileys alt-log (child) üretse bile tüm loglar bu akıştan (stream) geçmek zorundadır.
@@ -232,18 +261,19 @@ async function createBot(sessionId = "lades-session", options = {}) {
           decryptionErrorCount++;
           lastDecryptionErrorAt = now;
 
-          // Hataları sadece 50. denemede göster uyarısı yap
-          if (decryptionErrorCount === 50) {
-            logger.warn(`[SENKRONİZE] ${sessionId} için deşifre hataları artıyor. 100. hatada otomatik yenileme yapılacak.`);
+          // İlk 10 hata: sessizce say, 10. hatada uyar
+          if (decryptionErrorCount === 10) {
+            logger.warn(`[Şifre] ${sessionId}: 10 deşifre hatası birikti. 25'te otomatik onarım başlayacak.`);
           }
 
-          if (decryptionErrorCount >= 100) {
-            logger.error(`[KRİTİK] ${sessionId} oturumunda 100 adet deşifre hatası! Oturum tamiri için yeniden bağlanılıyor...`);
+          // 25 hata eşiğinde graceful reconnect (100 çok geç kalıyordu)
+          if (decryptionErrorCount >= 25) {
+            logger.error(`[KRİTİK] ${sessionId}: 25 deşifre hatası aşıldı! Oturum onarımı için yeniden bağlanılıyor...`);
             decryptionErrorCount = 0;
-            // Bağlantıyı kopar ki Baileys reconnect döngüsü tetiklensin
+            // Zombie socket önleyici: sock.end() yerine gracefulClose() kullan
             setTimeout(() => {
-              try { if (sock) sock.end(new Error("Deşifre hatası limiti aşıldı")); } catch { }
-            }, 500);
+              try { gracefulClose("Decryption error threshold"); } catch { }
+            }, 300);
           }
           
           // UYARI EKRANINI KİRLETMEMEK İÇİN BU LOGU SESSİZCE YUT
@@ -640,13 +670,13 @@ async function createBot(sessionId = "lades-session", options = {}) {
       _ntpTimer = setInterval(async () => {
         if (!sock.user) return;
         try {
-          const hasDrift = await checkTimeDrift(3000); // 3s eşik (5s → 3s)
+          const hasDrift = await checkTimeDrift(3000);
           if (hasDrift) {
-            logger.warn('[NTP] Saat kayması kritik seviyede. Bağlantı yenileniyor...');
+            logger.warn('[NTP] Saat kayması kritik. Graceful reconnect başlatılıyor...');
             if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
             if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
             if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
-            sock.end(new Error("NTP Time Drift"));
+            gracefulClose("NTP Time Drift");
           }
         } catch {
           // Güvenli geç
@@ -655,11 +685,11 @@ async function createBot(sessionId = "lades-session", options = {}) {
 
       _proactiveTimer = setInterval(async () => {
         if (!sock.user) return;
-        logger.info('[Proaktif] 6 saatlik oturum yenileme tetiklendi...');
+        logger.info('[Proaktif] 6 saatlik oturum yenileme...');
         if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
         if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
         if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
-        sock.end(new Error("Proactive reconnect"));
+        gracefulClose("Proactive 6h reconnect");
       }, PROACTIVE_RECONNECT_MS);
       // ── SAAT KAYMA ENGELLEYİCİ SONU ────────────────────
     }
@@ -692,7 +722,10 @@ async function createBot(sessionId = "lades-session", options = {}) {
         }
 
         setTimeout(async () => {
-          sock.ev.removeAllListeners(); // Temizlik
+          // Event listener'ları temizle (memory leak önlemi)
+          // NOT: Bu noktada connection.update artık gelmeyecek (bağlantı zaten kapandı)
+          try { sock.ev.removeAllListeners(); } catch { }
+          _isClosing = false; // Yeni socket için sıfırla
           const newSock = await createBot(sessionId, { ...options, reconnectCount });
           if (options.manager) {
             options.manager.updateSocket(sessionId, newSock);
@@ -750,6 +783,10 @@ async function createBot(sessionId = "lades-session", options = {}) {
   });
 
   // ── Message events ───────────────────────────────────
+  // RAM KORUMA: Queue doluysa (200+ bekleyen görev) yeni mesajları düşür.
+  // 60+ grupta burst mesajlarda heap'in sonsuz büyümesini engeller.
+  const MAX_QUEUE_SIZE = 200;
+
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify" && type !== "append") return;
     for (const msg of messages) {
@@ -757,29 +794,40 @@ async function createBot(sessionId = "lades-session", options = {}) {
       const jid = msg.key.remoteJid;
       if (!jid) continue;
 
-      const fromMe = msg.key.fromMe;
-      const text = getMessageText(msg.message);
       const isChannelJid = jid.endsWith('@newsletter');
 
-      // Use p-queue to prevent memory spikes in large groups (Point 5 & 17)
       try {
         const q = await getMessageQueue();
+
+        // BACKPRESSURE: Queue çok doluysa yeni mesajı kuyruğa alma
+        if (q.size >= MAX_QUEUE_SIZE) {
+          logger.warn(`[Queue] Kuyruk dolu (${q.size}/${MAX_QUEUE_SIZE}). Mesaj düşürüldü: ${jid}`);
+          continue;
+        }
+
+        // Mesaj referansını kopyala (closure leak önlemi)
+        const msgCopy = msg;
+        const jidCopy = jid;
+        const isGroupJid = isGroup(jid);
+
         q.add(async () => {
           try {
-            if (config.DEBUG) console.log(`[RAW UPSERT] JID: ${jid} | Channel: ${isChannelJid} | Text: "${text?.slice(0, 30)}..."`);
-            let groupMeta = null;
-            // Grup metadatası yalnızca @g.us grupları için çekilir
-            // Kanallar (@newsletter) için null kalır — handler.js bunu zaten destekliyor
-            if (isGroup(jid)) {
-              groupMeta = await fetchGroupMeta(sock, jid);
+            if (config.DEBUG) {
+              const text = getMessageText(msgCopy.message);
+              console.log(`[UPSERT] JID: ${jidCopy} | Channel: ${isChannelJid} | Text: "${text?.slice(0, 30)}..."`);
             }
-            await handleMessage(sock, msg, groupMeta);
+            let groupMeta = null;
+            if (isGroupJid) {
+              // fetchGroupMeta önce cache'e bakar — 5dk TTL içinde DB/WA isteği yok
+              groupMeta = await fetchGroupMeta(sock, jidCopy);
+            }
+            await handleMessage(sock, msgCopy, groupMeta);
           } catch (err) {
-            logger.error({ err, jid }, "Mesaj işleme hatası (upsert)");
+            logger.error({ err: err?.message, jid: jidCopy }, "Mesaj işleme hatası");
           }
         });
       } catch (err) {
-        // Fallback or early error
+        // Queue hazır değilse fallback
         handleMessage(sock, msg).catch(() => {});
       }
     }

@@ -66,34 +66,41 @@ try {
 suppressLibsignalLogs();
 runtime.startTime = Date.now();
 
-const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 350; // RAM OPT: 450→350MB (daha erken graceful restart)
-let _isShuttingDown = false; // Çift shutdown guard
+const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 420; // 350→420MB (Dockerfile limit 400MB)
+let _isShuttingDown = false;
 
 scheduler.register('memory_check', () => {
   if (_isShuttingDown) return;
   const mem = process.memoryUsage();
-  // RSS = gerçek işletim sistemi belleği (Northflank bu değeri gösterir)
-  if (mem.rss > PM2_RESTART_MB * 1024 * 1024) {
-    logger.warn(`Bellek sınırı (${PM2_RESTART_MB}MB RSS) aşıldı. Otomatik yeniden başlatılıyor...`);
+  const rssMB = mem.rss / (1024 * 1024);
+  const heapMB = mem.heapUsed / (1024 * 1024);
+
+  // Hem RSS hem heap ayrı ayrı kontrol et
+  const rssOver   = rssMB  > PM2_RESTART_MB;
+  const heapOver  = heapMB > PM2_RESTART_MB * 0.85; // heap, RSS'nin %85'ini aşınca uyar
+
+  if (rssOver || heapOver) {
+    logger.warn(`Bellek sınırı aşıldı (RSS=${Math.round(rssMB)}MB Heap=${Math.round(heapMB)}MB). Yeniden başlatılıyor...`);
     shutdown("MEMORY_LIMIT_EXCEEDED");
+    return;
   }
-  // RAM OPT: Her kontrolünde GC'yi önerilirse tetikle
-  // --expose-gc flag'i ile çalıştırılıyorsa manual GC mümkün
+
+  // Her kontrolde GC öner
   if (typeof global.gc === 'function') {
     global.gc();
+    logger.debug(`[GC] Bellek: RSS=${Math.round(rssMB)}MB Heap=${Math.round(heapMB)}MB`);
   }
-}, 30000); // Her 30s'de bir kontrol
+}, 30000);
 
-// RAM OPT: Periyodik agresif GC (her 5 dakikada bir tam temizlik)
-// Node.js'i --expose-gc ile çalıştırınca aktif olur
+// Periyodik agresif GC (her 2 dakikada bir — 60+ grupta heap hızlı birikir)
 scheduler.register('periodic_gc', () => {
   if (typeof global.gc === 'function') {
     global.gc();
     const mem = process.memoryUsage();
     const toMB = (b) => Math.round(b / 1024 / 1024);
-    logger.debug(`[GC] Bellek: RSS=${toMB(mem.rss)}MB Heap=${toMB(mem.heapUsed)}/${toMB(mem.heapTotal)}MB`);
+    logger.debug(`[GC-2m] RSS=${toMB(mem.rss)}MB Heap=${toMB(mem.heapUsed)}/${toMB(mem.heapTotal)}MB`);
   }
-}, 5 * 60 * 1000); // Her 5 dakika
+}, 2 * 60 * 1000); // 5 dk →2 dk
 
 
 function startKeepAlive() {
@@ -292,8 +299,28 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 // ── Global hata yakalama — Bot çökmesini engeller ─────────────────────────
 const FATAL_ERRORS = ["ERR_OUT_OF_MEMORY", "ENOMEM", "SQLITE_CORRUPT"];
 
+// Baileys'in bilinen geçici hataları — reconnect mekanizması bunları zaten ele alıyor.
+// Bu hatalar uncaughtException/unhandledRejection'da botu çökermaniyor.
+const KNOWN_RECOVERABLE = [
+  "Bad MAC", "Bad error", "Connection Closed", "Connection Reset",
+  "ETIMEDOUT", "ECONNRESET", "ENOTFOUND", "Socket closed",
+  "Timed Out", "Stream Errored", "boom", "not-authorized",
+];
+
+function isRecoverableError(err) {
+  if (!err) return false;
+  const msg = String(err.message || err || '');
+  return KNOWN_RECOVERABLE.some(s => msg.includes(s));
+}
+
 process.on("uncaughtException", (err) => {
   if (err.code === "ERR_IPC_DISCONNECTED") return;
+
+  // Bilinen geçici Baileys hatalarını sessizce logla — bot çökmesin
+  if (isRecoverableError(err)) {
+    logger.warn(`[Baileys] Geçici hata (bot devam ediyor): ${err.message}`);
+    return;
+  }
 
   logger.error(err, "[KRİTİK] Uncaught Exception");
   runtime.metrics.errors++;
@@ -308,10 +335,15 @@ process.on("uncaughtException", (err) => {
 process.on("unhandledRejection", (reason, promise) => {
   if (reason?.code === "ERR_IPC_DISCONNECTED") return;
 
+  // Bilinen geçici Baileys hatalarını sessizce logla
+  if (isRecoverableError(reason)) {
+    logger.warn(`[Baileys] Geçici rejection (bot devam ediyor): ${reason?.message || reason}`);
+    return;
+  }
+
   logger.error({
     reason: String(reason),
     stack: reason?.stack,
-    promise
   }, "[KRİTİK] Unhandled Rejection");
 
   runtime.metrics.errors++;

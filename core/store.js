@@ -28,7 +28,7 @@ const messageStore = new LRUCache({
 
 // Reverse index: msgId → jid (O(1) lookup for getFullMessage)
 const msgIdIndex = new Map();
-const MAX_MSGS_PER_JID = 20;   // 60→20: Grup başına daha az mesaj
+const MAX_MSGS_PER_JID = 10;   // 20→10: 60 grup × 10 mesaj = 600 entry (RAM dostu)
 const MAX_MSGID_INDEX = 3000;  // 20000→3000: her entry ~150 byte = max ~450 KB
 
 function storeMessage(jid, message) {
@@ -257,11 +257,19 @@ async function getGlobalTopUsers(limit = 10) {
  * @param {string} type - Message type (text, image, video, audio, sticker, other)
  */
 // stats batch: plain Map (LRUCache'den daha hafif; TTL auto-expiry gereksiz — flush zaten 60s'de yapılıyor)
+// RAM KORU: Max 500 girdi — 60+ grupta her saniye mesaj yagımuru olunca bu Map sonsuz büyüyüdek
 const statsBatch = new Map();
+const MAX_STATS_BATCH = 500; // Her entry ~200 byte = max ~100 KB
+
+// Guard: scheduler.register tekrar çağırılmamasını sağla
+let _statsFlusherRegistered = false;
+
+if (!_statsFlusherRegistered) {
+  _statsFlusherRegistered = true;
 
 scheduler.register('message_stats_flush', async () => {
   if (statsBatch.size === 0) return;
-  // Mevcut batch'i kopyala ve temizle
+  // Mevcut batch'ı kopyala ve temizle
   const currentBatch = Array.from(statsBatch.entries());
   statsBatch.clear();
 
@@ -308,8 +316,24 @@ scheduler.register('message_stats_flush', async () => {
   }
 }, 60000);
 
+} // end _statsFlusherRegistered guard
+
 async function incrementStats(jid, userJid, type = "text") {
   const key = `${jid}:${userJid}`;
+
+  // RAM KORU: Max 500 girdi aşılmadan önce en eski girdileri temizle
+  if (statsBatch.size >= MAX_STATS_BATCH) {
+    // En eski N girdinin üzerinden geç ve sil (FIFO)
+    const toDelete = Math.floor(MAX_STATS_BATCH * 0.2); // %20 temizle
+    let deleted = 0;
+    for (const k of statsBatch.keys()) {
+      if (deleted >= toDelete) break;
+      statsBatch.delete(k);
+      deleted++;
+    }
+    logger.debug(`[Stats] statsBatch limit aşıldı. ${deleted} eski girdi temizlendi.`);
+  }
+
   if (!statsBatch.has(key)) {
     statsBatch.set(key, { jid, userJid, data: { totalMessages: 0, textMessages: 0, imageMessages: 0, videoMessages: 0, audioMessages: 0, stickerMessages: 0, otherMessages: 0 } });
   }

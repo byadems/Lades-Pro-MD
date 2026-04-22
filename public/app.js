@@ -243,7 +243,10 @@ async function startPair(phone) {
       const leftSec = Math.ceil(leftMs / 1000);
       const expired = leftSec <= 0;
       const safePhone = esc(d.phone || phone);
-      disp.innerHTML = `<h2>${d.code}</h2><p>WhatsApp → Telefon Numarasıyla Bağla → Bu kodu girin</p><p style="font-size:12px;color:var(--text3);margin-top:8px">Numara: +${safePhone} · Deneme: #${d.attempt || '-'}</p><p style="font-size:12px;color:${expired ? 'var(--red)' : 'var(--green)'};margin-top:4px">${expired ? 'Kodun süresi doldu, yeni kod üretin.' : `Kalan süre: ${leftSec}sn`}</p>`;
+      // Format code as XXXX-XXXX
+      const rawCode = (d.code || '').replace(/-/g, '');
+      const formattedCode = rawCode.length === 8 ? rawCode.slice(0, 4) + '-' + rawCode.slice(4) : (d.code || '');
+      disp.innerHTML = `<h2 style="letter-spacing:4px;font-size:28px">${formattedCode}</h2><p>WhatsApp → Bağlı Cihazlar → Cihaz Bağla → Telefon Numarası Kullanarak Bağlayın → Bu kodu girin</p><p style="font-size:12px;color:var(--text3);margin-top:8px">Numara: +${safePhone} · Deneme: #${d.attempt || '-'}</p><p style="font-size:12px;color:${expired ? 'var(--red)' : 'var(--green)'};margin-top:4px">${expired ? 'Kodun süresi doldu, yeni kod üretin.' : `Kalan süre: ${leftSec}sn`}</p>`;
       if (expired && pairCountdownTimer) {
         clearInterval(pairCountdownTimer);
         pairCountdownTimer = null;
@@ -268,11 +271,23 @@ function pollAuth() {
       const d = await r.json();
       if (d.status === 'connected') {
         clearInterval(pollT);
+        pollT = null;
+        // Stop pair countdown
+        if (pairCountdownTimer) { clearInterval(pairCountdownTimer); pairCountdownTimer = null; }
         toast('✅ WhatsApp başarıyla bağlandı!', 'success');
         fetchStatus();
+        // Update QR visual
         const visual = document.getElementById('qrVisual');
         if (visual) visual.innerHTML = `<div style="text-align:center;color:var(--green);padding:20px"><div style="font-size:32px">✅</div><div style="font-size:14px;margin-top:8px;font-weight:600">Başarıyla Bağlandı!</div></div>`;
-      } else if (d.status === 'error') { clearInterval(pollT); }
+        // Update Pair display
+        const pairDisp = document.getElementById('pairDisplay');
+        if (pairDisp && !pairDisp.classList.contains('hidden')) {
+          pairDisp.innerHTML = `<div style="text-align:center;color:var(--green);padding:20px"><div style="font-size:32px">✅</div><div style="font-size:14px;margin-top:8px;font-weight:600">Başarıyla Bağlandı!</div></div>`;
+        }
+        // Re-enable pair button
+        const pBtn = document.getElementById('btnPair');
+        if (pBtn) { pBtn.disabled = false; pBtn.style.opacity = '1'; }
+      } else if (d.status === 'error') { clearInterval(pollT); pollT = null; }
     } catch { }
   }, 2000);
 }
@@ -298,24 +313,24 @@ async function loadCommands() {
     const timeout = S.commands.filter(c => c.stat?.status === 'timeout').length;
     const skipped = S.commands.filter(c => c.stat?.status === 'skipped').length;
     const banner = document.getElementById('cmdTestBanner');
-      if (banner) {
-        // If test is currently running, show current command
-        if (progressData && progressData.status === 'testing' && progressData.currentCommand) {
-          const current = progressData.currentIndex;
-          const total = progressData.totalCommands;
-          banner.innerHTML = `🧪 Test devam ediyor: <b>.${progressData.currentCommand}</b> (${current}/${total})`;
-          banner.className = 'cmd-banner pending';
-        } else if (tested === 0) {
-          banner.innerHTML = '⏳ Bot henüz test çalıştırmadı. Bot bağlanınca otomatik başlar.';
-          banner.className = 'cmd-banner pending';
-        } else {
-          banner.innerHTML = `🧪 Son test sonuçları: <span style="margin-left:8px">✅ <b>${ok}</b> başarılı</span> <span style="margin-left:12px">❌ <b>${errored}</b> hatalı</span> <span style="margin-left:12px">⏱ <b>${timeout}</b> zaman aşımı</span> <span style="margin-left:12px">⏭ <b>${skipped}</b> atlandı</span>`;
-          banner.className = `cmd-banner ${errored > 0 ? 'has-error' : 'all-ok'}`;
-        }
-        banner.style.display = 'block';
+    if (banner) {
+      // If test is currently running, show current command
+      if (progressData && progressData.status === 'testing' && progressData.currentCommand) {
+        const current = progressData.currentIndex;
+        const total = progressData.totalCommands;
+        banner.innerHTML = `🧪 Test devam ediyor: <b>.${progressData.currentCommand}</b> (${current}/${total})`;
+        banner.className = 'cmd-banner pending';
+      } else if (tested === 0) {
+        banner.innerHTML = '⏳ Bot henüz test çalıştırmadı. Bot bağlanınca otomatik başlar.';
+        banner.className = 'cmd-banner pending';
+      } else {
+        banner.innerHTML = `🧪 Son test sonuçları: <span style="margin-left:8px">✅ <b>${ok}</b> başarılı</span> <span style="margin-left:12px">❌ <b>${errored}</b> hatalı</span> <span style="margin-left:12px">⏱ <b>${timeout}</b> zaman aşımı</span> <span style="margin-left:12px">⏭ <b>${skipped}</b> atlandı</span>`;
+        banner.className = `cmd-banner ${errored > 0 ? 'has-error' : 'all-ok'}`;
       }
-      renderCommands();
-      setupCommandFilters();
+      banner.style.display = 'block';
+    }
+    renderCommands();
+    setupCommandFilters();
 
     // If test is active, set up polling to update banner in real-time
     if (progressData && progressData.status === 'testing') {
@@ -535,7 +550,7 @@ function setupBroadcast() {
     btn.onclick = () => {
       const mode = btn.dataset.bcMode;
       S.activeBroadcastMode = mode;
-      
+
       document.querySelectorAll('.bc-mode-btn').forEach(b => {
         b.classList.remove('active');
         b.style.background = 'var(--bg2)';
@@ -553,11 +568,11 @@ function setupBroadcast() {
 
       const msgArea = document.getElementById('bc_message');
       if (msgArea) {
-        msgArea.placeholder = mode === 'text' 
-          ? 'Tüm alıcılara gönderilecek mesajı buraya yazın...' 
+        msgArea.placeholder = mode === 'text'
+          ? 'Tüm alıcılara gönderilecek mesajı buraya yazın...'
           : 'Seçilen gruplarda çalıştırılacak komutu yazın (Örn: .menu)...';
       }
-      
+
       const submitSpan = document.querySelector('#bcSubmit span');
       if (submitSpan) {
         submitSpan.textContent = mode === 'text' ? 'YAYINI BAŞLAT' : 'TOPLU KOMUT ÇALIŞTIR';
@@ -577,7 +592,7 @@ function setupBroadcast() {
     let minD = parseInt(getVal('bc_min_delay')) || 2;
     let maxD = parseInt(getVal('bc_max_delay')) || 5;
     if (minD > maxD) [minD, maxD] = [maxD, minD];
-    
+
     const btn = document.getElementById('bcSubmit');
     const progBox = document.getElementById('bcProgressBox');
     const progFill = document.getElementById('bcProgressBarFill');
@@ -617,7 +632,7 @@ function setupBroadcast() {
     btn.disabled = false;
     progTxt.innerHTML = `<span style="color:var(--green); font-weight:bold;">TAMAMLANDI</span><br>${successCount}/${total} başarılı işlem.`;
     toast(`${successCount} işlem başarıyla tamamlandı!`, 'success');
-    
+
     setTimeout(() => {
       progBox.style.display = 'none';
       progFill.style.width = '0%';
@@ -924,7 +939,7 @@ function setupSettings() {
       ALIVE: getVal('s_ALIVE'),
       BOT_INFO: getVal('s_BOT_INFO'),
       STICKER_DATA: getVal('s_STICKER_DATA'),
-      
+
       PUBLIC_MODE: getChk('s_PUBLIC_MODE') ? 'true' : 'false',
       AUTO_READ: getChk('s_AUTO_READ') ? 'true' : 'false',
       AUTO_TYPING: getChk('s_AUTO_TYPING') ? 'true' : 'false',
@@ -974,7 +989,7 @@ function toast(msg, type = 'info') {
   t.className = `toast ${type}`;
   t.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
   box.appendChild(t);
-  
+
   // Slide out and remove
   setTimeout(() => {
     t.classList.add('removing');
@@ -1132,7 +1147,7 @@ function renderSingleTargetGroups(filter = '') {
   const container = document.getElementById('groupList');
   if (!container) return;
   const filtered = filter ? S.remoteGroups.filter(g => (g.subject || g.name || '').toLowerCase().includes(filter.toLowerCase())) : S.remoteGroups;
-  
+
   if (!filtered.length) {
     container.innerHTML = '<p style="color:var(--text3); padding:20px;">Grup bulunamadı.</p>';
     return;
@@ -1165,7 +1180,7 @@ async function loadGroupAvatars() {
     const jid = el.dataset.avatarJid || el.dataset.jid;
     // Special: if it already has an img, skip
     if (el.querySelector('img')) continue;
-    
+
     try {
       const res = await fetch(`/api/group-pp?jid=${encodeURIComponent(jid)}`);
       const data = await res.json();
@@ -1185,11 +1200,11 @@ function selectSingleTarget(jid, name) {
   const group = S.remoteGroups.find(g => (g.jid || g.id) === jid);
   S.activeSingleTarget = { jid, name, imgUrl: group?.imgUrl };
   document.getElementById('remoteJid').value = jid;
-  
+
   const header = document.getElementById('activeTargetHeader');
   const nameEl = document.getElementById('activeTargetName');
   const jidEl = document.getElementById('activeTargetJid');
-  
+
   // Update header avatar
   const avatarContainer = header.querySelector('.target-avatar-mini');
   if (avatarContainer) {
@@ -1205,7 +1220,7 @@ function selectSingleTarget(jid, name) {
           avatarContainer.innerHTML = `<img src="${esc(data.imgUrl)}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
           <svg viewBox="0 0 24 24" fill="none" width="20" height="20" stroke="var(--accent)" style="display:none;"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke-width="2"/></svg>`;
         }
-      }).catch(()=>{});
+      }).catch(() => { });
     }
   }
 
@@ -1236,7 +1251,7 @@ async function sendRemoteCommand() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Hata');
-    
+
     resultDiv.style.display = 'block';
     resultDiv.innerHTML = `<span style="color:var(--green)">[TAMAMLANDI]</span> ${esc(cmd)} -> Bot içinde yürütüldü.`;
     toast('Komut başarıyla yürütüldü.', 'success');
@@ -1285,20 +1300,20 @@ async function loadCategorizedCommands() {
 function renderCmdLibrary(query = '') {
   const container = document.getElementById('categorizedCommands');
   if (!container) return;
-  
+
   let html = '';
   const cats = S.allCategorizedCmds || {};
   let found = 0;
 
   for (const [cat, cmds] of Object.entries(cats)) {
-    const filtered = query ? cmds.filter(c => 
-      c.command.toLowerCase().includes(query.toLowerCase()) || 
+    const filtered = query ? cmds.filter(c =>
+      c.command.toLowerCase().includes(query.toLowerCase()) ||
       (c.desc && c.desc.toLowerCase().includes(query.toLowerCase()))
     ) : cmds;
 
     if (filtered.length === 0) continue;
     found += filtered.length;
-    
+
     html += `<div style="margin-bottom:20px;">
       <div class="op-cat-header">
         <div class="op-cat-line"></div>
@@ -1339,7 +1354,7 @@ window.addEventListener('load', () => {
 // ══════════════════════════════
 //  STAT MODAL
 // ══════════════════════════════
-window.openStatModal = async function(type) {
+window.openStatModal = async function (type) {
   const overlay = document.getElementById('statModalOverlay');
   const title = document.getElementById('smTitle');
   const sub = document.getElementById('smSub');
@@ -1352,13 +1367,13 @@ window.openStatModal = async function(type) {
 
   let themeColor = 'var(--blue)';
   let iconHtml = '';
-  
+
   if (type === 'messages') {
     themeColor = 'var(--blue)';
     iconHtml = '<svg viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" stroke-width="2"/></svg>';
     title.textContent = 'Toplam Mesaj Analizi';
     sub.textContent = 'Sistem kurulduğundan beri işlenen veriler';
-    
+
     body.innerHTML = `
       <div class="sm-stat-box" style="align-items:center; border-color:rgba(0,225,255,0.3); background:rgba(0,225,255,0.05);">
         <span class="sm-sb-lbl" style="color:var(--blue);">TÜM İŞLENEN MESAJLAR</span>
@@ -1380,7 +1395,7 @@ window.openStatModal = async function(type) {
         const d = await r.json();
         S.commands = d.commands || [];
       }
-      
+
       let totalRuns = 0; let okCount = 0; let errCount = 0;
       S.commands.forEach(c => {
         if (c.stat) {
@@ -1389,7 +1404,7 @@ window.openStatModal = async function(type) {
           if (c.stat.status === 'error') errCount++;
         }
       });
-      
+
       body.innerHTML = `
         <div class="sm-stat-grid">
           <div class="sm-stat-box">
@@ -1418,7 +1433,7 @@ window.openStatModal = async function(type) {
     iconHtml = '<svg viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" stroke-width="2"/></svg>';
     title.textContent = 'Aktif Kullanıcılar';
     sub.textContent = 'Sistemle etkileşime geçen kişi sayısı';
-    
+
     body.innerHTML = `
       <div class="sm-stat-box" style="align-items:center; border-color:rgba(0,255,163,0.3); background:rgba(0,255,163,0.05);">
         <span class="sm-sb-lbl" style="color:var(--green);">BENZERSİZ KULLANICI</span>
@@ -1440,14 +1455,14 @@ window.openStatModal = async function(type) {
         const data = await res.json();
         S.remoteGroups = data.groups || [];
       }
-      
+
       if (S.remoteGroups.length === 0) {
-         body.innerHTML = '<p style="color:var(--text3);">Bot henüz hiçbir grupta değil.</p>';
+        body.innerHTML = '<p style="color:var(--text3);">Bot henüz hiçbir grupta değil.</p>';
       } else {
-         const groupHtml = S.remoteGroups.map(g => {
-           let jid = g.jid || g.id;
-           let name = g.subject || g.name || jid;
-           return `
+        const groupHtml = S.remoteGroups.map(g => {
+          let jid = g.jid || g.id;
+          let name = g.subject || g.name || jid;
+          return `
              <div class="modal-list-item">
                <div data-avatar-jid="${esc(jid)}" style="width:36px; height:36px; border-radius:50%; background:var(--surface3); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                  ${g.imgUrl ? `<img src="${esc(g.imgUrl)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">` : `<svg viewBox="0 0 24 24" fill="none" width="18" height="18" stroke="var(--text2)" style="opacity:0.5;"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke-width="2"/></svg>`}
@@ -1458,16 +1473,16 @@ window.openStatModal = async function(type) {
                </div>
              </div>
            `;
-         }).join('');
-         
-         body.innerHTML = `
+        }).join('');
+
+        body.innerHTML = `
            <div style="font-size:12px; font-weight:700; color:var(--text3); margin-bottom:4px;">TOPLAM ${S.remoteGroups.length} GRUP</div>
            <div style="display:flex; flex-direction:column; gap:8px;">
              ${groupHtml}
            </div>
          `;
-         // Trigger lazy loader for avatars
-         setTimeout(loadGroupAvatars, 100);
+        // Trigger lazy loader for avatars
+        setTimeout(loadGroupAvatars, 100);
       }
     } catch {
       body.innerHTML = '<p style="color:var(--red);">Grup verileri alınamadı.</p>';

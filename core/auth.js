@@ -20,6 +20,7 @@ const { logger } = require("../config");
 async function useDbAuthState(sessionId) {
   const { makeCacheableSignalKeyStore, BufferJSON } = await loadBaileys();
 
+  // ── Deep Buffer Reviver: DB'den JSON olarak okunan Buffer'ları geri çevir ──
   const deepRevive = (obj) => {
     if (obj && typeof obj === 'object') {
       if (obj.type === 'Buffer' && (typeof obj.data === 'string' || Array.isArray(obj.data))) {
@@ -30,7 +31,17 @@ async function useDbAuthState(sessionId) {
     return obj;
   };
 
-  let sessionRow = await WhatsappOturum.findByPk(sessionId);
+  // ── Session yükleme: DB bağlantısı geçici kopuksa retry yap ──
+  let sessionRow = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      sessionRow = await WhatsappOturum.findByPk(sessionId);
+      break;
+    } catch (e) {
+      logger.warn(`[Auth] DB session yükleme denemesi ${attempt}/3: ${e.message}`);
+      if (attempt < 3) await new Promise(r => setTimeout(r, 1500 * attempt));
+    }
+  }
 
   function getState() {
     if (!sessionRow || !sessionRow.sessionData) return {};
@@ -40,7 +51,7 @@ async function useDbAuthState(sessionId) {
         : sessionRow.sessionData;
       return deepRevive(data) || {};
     } catch (e) {
-      logger.error({ err: e.message, sessionId }, "Failed to parse session data from DB");
+      logger.error({ err: e.message, sessionId }, "[Auth] DB session parse hatası — temiz state döndürülüyor");
       return {};
     }
   }
@@ -53,7 +64,6 @@ async function useDbAuthState(sessionId) {
 
   // ── Signal Key Store Bellek Koruyucu ──
   // preKey'ler tek kullanımlık el sıkışma anahtarlarıdır. Üretildikten sonra birikebilirler.
-  // sessions ise WhatsApp'a bağlı cihaz oturumlarıdır; stale olanları sil.
   const MAX_PREKEYS = 200;   // ~200 preKey ÷ ~0.5 KB = ~100 KB RAM
   const MAX_SESSIONS = 100;  // WhatsApp MultiDevice'ta tipik build ~20-50 oturum
 
@@ -76,24 +86,31 @@ async function useDbAuthState(sessionId) {
     } catch { }
   }
 
+  // ── Write Queue: Race condition engelleyici zincir ──
   let writePromise = Promise.resolve();
+  let _lastSaveData = null; // Duplicate save önleyici
+
   const saveCreds = async (force = false) => {
     if (!force) {
+      // Throttle: 500ms (2s'den kısa — deploy sonrası hızlı DB senkronizasyonu için)
       if (saveThrottle) return;
       saveThrottle = setTimeout(() => {
         saveThrottle = null;
         saveCreds(true);
-      }, 2000); // 2s throttle (reduced from 10s for better session sync)
+      }, 500);
       return;
     }
 
-    // Chain writes to avoid race conditions (Write Queue)
     writePromise = writePromise.then(async () => {
       const { sequelize } = require("./database");
       try {
+        const sessionData = JSON.stringify({ creds, keys: storedKeys }, BufferJSON.replacer);
+        
+        // Duplicate save önleyici: veri değişmediyse DB'ye yazma
+        if (sessionData === _lastSaveData) return;
+        _lastSaveData = sessionData;
+
         await sequelize.transaction(async (t) => {
-          // Serialize current state
-          const sessionData = JSON.stringify({ creds, keys: storedKeys }, BufferJSON.replacer);
           if (!sessionRow) {
             sessionRow = await WhatsappOturum.create({ sessionId, sessionData }, { transaction: t });
           } else {
@@ -101,8 +118,11 @@ async function useDbAuthState(sessionId) {
           }
           modifiedKeys.clear();
         });
+        logger.debug(`[Auth] Session ${sessionId} DB'ye kaydedildi.`);
       } catch (err) {
-        logger.error({ err: err.message, sessionId }, "Failed to save session data to DB");
+        logger.error({ err: err.message, sessionId }, "[Auth] Session DB kayıt hatası");
+        // Throttle'ı sıfırla ki bir sonraki değişiklikte tekrar denensin
+        _lastSaveData = null;
       }
     });
     return writePromise;
@@ -134,19 +154,24 @@ async function useDbAuthState(sessionId) {
         }
       }
       if (changed) {
-        pruneOldKeys(); // Birikmiş preKey/session key'leri periyodik temizle
+        pruneOldKeys();
         await saveCreds();
       }
     },
   }, logger.child({ module: "signal", level: "error" }));
 
   const clearState = async () => {
+    _lastSaveData = null; // Duplicate önleyiciyi sıfırla
     if (sessionRow) {
-      await sessionRow.update({ sessionData: null });
-      // NEW: Clear local memory to prevent accidental re-save of corrupted data
+      try {
+        await sessionRow.update({ sessionData: null });
+      } catch (e) {
+        logger.warn({ err: e.message }, "[Auth] clearState DB güncellemesi başarısız");
+      }
+      // Bellekteki creds ve keys'i temizle
       for (const k in creds) delete creds[k];
       for (const k in storedKeys) delete storedKeys[k];
-      logger.info(`Session ${sessionId} data cleared from database and memory.`);
+      logger.info(`[Auth] Session ${sessionId} DB ve bellekten temizlendi.`);
     }
   };
 
