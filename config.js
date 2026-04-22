@@ -83,7 +83,7 @@ const config = {
   VERSION: "1.0.0",
   BOT_INFO: process.env.BOT_INFO || "Lades-Pro;Lades Yönetimi;",
   STICKER_DATA: process.env.STICKER_DATA || "Lades-Pro;Lades-Pro;😂",
-  TIKWM_API_KEY: process.env.TIKWM_API_KEY || "",
+  TIKWM_API_KEY: process.env.TIKWM_API_KEY || "bee06ff010bb0987fc949c0e676450b7",
   ACR_A: process.env.ACR_A || "",
   ACR_S: process.env.ACR_S || "",
   PORT: process.env.PORT || 3000,
