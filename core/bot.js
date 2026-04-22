@@ -224,21 +224,25 @@ async function createBot(sessionId = "lades-session", options = {}) {
            (logData.err?.message && logData.err.message.includes('No session'));
 
         if (isDecryptionError) {
-          decryptionErrorCount++;
           const now = Date.now();
+          if (now - lastDecryptionErrorAt > 30000) {
+            // Eğer son hatadan bu yana 30 saniye geçtiyse sayacı sıfırla
+            decryptionErrorCount = 0;
+          }
+          decryptionErrorCount++;
           lastDecryptionErrorAt = now;
 
-          // Hataları sadece 5. denemede göster uyarısı yap
-          if (decryptionErrorCount === 5) {
-            logger.warn(`[SENKRONİZE] ${sessionId} için deşifre hataları artıyor. 10. hatada otomatik yenileme yapılacak.`);
+          // Hataları sadece 50. denemede göster uyarısı yap
+          if (decryptionErrorCount === 50) {
+            logger.warn(`[SENKRONİZE] ${sessionId} için deşifre hataları artıyor. 100. hatada otomatik yenileme yapılacak.`);
           }
 
-          if (decryptionErrorCount >= 10) {
-            logger.error(`[KRİTİK] ${sessionId} oturumunda 10 adet deşifre hatası! Oturum tamiri için yeniden bağlanılıyor...`);
+          if (decryptionErrorCount >= 100) {
+            logger.error(`[KRİTİK] ${sessionId} oturumunda 100 adet deşifre hatası! Oturum tamiri için yeniden bağlanılıyor...`);
             decryptionErrorCount = 0;
             // Bağlantıyı kopar ki Baileys reconnect döngüsü tetiklensin
             setTimeout(() => {
-              try { if (sock && sock.ws) sock.ws.close(); } catch { }
+              try { if (sock) sock.end(new Error("Deşifre hatası limiti aşıldı")); } catch { }
             }, 500);
           }
           
@@ -642,7 +646,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
             if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
             if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
             if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
-            sock.ws?.close();
+            sock.end(new Error("NTP Time Drift"));
           }
         } catch {
           // Güvenli geç
@@ -655,7 +659,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
         if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
         if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
         if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
-        sock.ws?.close();
+        sock.end(new Error("Proactive reconnect"));
       }, PROACTIVE_RECONNECT_MS);
       // ── SAAT KAYMA ENGELLEYİCİ SONU ────────────────────
     }
