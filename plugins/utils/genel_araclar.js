@@ -125,78 +125,22 @@ module.exports = {
   getBuffer,
   lyrics,
   pinterestSearch,
-  callGenerativeAI,
+  mentionjid,
+  parseUptime,
+  bytesToSize,
+  isFake,
+  processOnwa,
+  findMusic: (url) => nx.nx(`/tools/acrcloud?url=${url}`),
+  searchYT,
+  downloadGram,
+  pinterestDl,
+  fb,
+  igStalk,
+  tiktok,
+  story,
+  getThumb: (url) => nx.getBuffer(url),
+  gtts,
+  getBuffer,
+  lyrics,
+  pinterestSearch,
 };
-
-/**
- * callGenerativeAI - AI metin üretimi (Siputzx fallback + Google API)
- * @param {string} prompt - Sistem + kullanıcı prompt
- * @param {Array} imageParts - Görsel parçaları (base64)
- * @param {object} message - Bot mesaj nesnesi
- * @param {object} sentMsg - Gönderilmiş mesaj referansı
- * @returns {string|null} - AI yanıtı
- */
-async function callGenerativeAI(prompt, imageParts, message, sentMsg) {
-  const config = require("../../config");
-  const axios = require("axios");
-  const apiKey = config.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-
-  // Try Google Generative AI with API key first
-  if (apiKey) {
-    const models = [
-      "gemini-2.5-flash-lite",
-      "gemini-2.5-flash",
-    ];
-    // Sistem talimatı: kısa, öz, Türkçe
-    const systemInstruction = {
-      parts: [{ text: "Sen Lades'sin; zeki ve sıcak bir WhatsApp asistanısın. Kısa ve öz yaz, konuya uygun emoji kullan ama bunu açıklama. Yalnızca Türkçe konuş." }]
-    };
-    for (const model of models) {
-      try {
-        const contents = [{ role: "user", parts: [] }];
-        contents[0].parts.push({ text: prompt });
-        if (imageParts && imageParts.length > 0) {
-          for (const img of imageParts) {
-            contents[0].parts.push(img);
-          }
-        }
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-        const response = await axios.post(apiUrl, {
-          systemInstruction, // OPT: Resmi sistem talimatı alanı
-          contents,
-          generationConfig: { maxOutputTokens: 800, temperature: 0.7 }, // 4096→800: öz yanıtlar
-        }, { timeout: 20000 });
-
-        if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-          return response.data.candidates[0].content.parts[0].text;
-        }
-      } catch (e) {
-        continue;
-      }
-    }
-  }
-
-  // Fallback to Siputzx DuckAI (free, no key)
-  try {
-    const res = await axios.get("https://api.siputzx.my.id/api/ai/duckai", {
-      params: { message: prompt },
-      timeout: 25000,
-    });
-    if (res.data?.status && res.data?.data?.message) {
-      return res.data.data.message;
-    }
-  } catch (e) { }
-
-  // Fallback to DeepSeek
-  try {
-    const res = await axios.get("https://api.siputzx.my.id/api/ai/deepseekr1", {
-      params: { prompt },
-      timeout: 25000,
-    });
-    if (res.data?.status && res.data?.data?.response) {
-      return res.data.data.response;
-    }
-  } catch (e) { }
-
-  return null;
-}

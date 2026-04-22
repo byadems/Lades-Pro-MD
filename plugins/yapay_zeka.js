@@ -16,11 +16,9 @@
   const fs = require("fs");
   const { getBuffer, uploadToImgbb } = require("./utils");
   const nexray = require('./utils/nexray_api');
-  const { callGenerativeAI } = require('./utils/genel_araclar');
 
   const API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/";
   const models = [
-    "gemini-3.1-flash-lite-preview",
     "gemini-3-flash-preview",
     "gemini-2.5-flash-lite",
     "gemini-2.5-flash",
@@ -75,7 +73,7 @@
     } catch (err) {
       const status = err.response?.status;
       const errMsg = err.response?.data?.error?.message || err.message;
-      
+
       if (status === 403 && errMsg.includes('leaked')) {
         console.error("❌ [GÜVENLİK] Gemini API anahtarınız Google tarafından sızdırılmış (leaked) olarak işaretlenmiş ve engellenmiş!");
         console.error("👉 ÇÖZÜM: https://aistudio.google.com/app/apikey adresinden YENİ bir anahtar alıp .setvar GEMINI_API_KEY <anahtar> ile güncelleyin.");
@@ -83,6 +81,68 @@
         console.error("❌ Gemini model listesi alınamadı:", errMsg);
       }
     }
+  }
+
+  async function callGenerativeAI(prompt, imageParts, message, sentMsg) {
+    const apiKey = config.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+
+    // Try Google Generative AI with API key first
+    if (apiKey) {
+      // Sistem talimatı: kısa, öz, Türkçe
+      const systemInstruction = {
+        parts: [{ text: "Sen Lades'sin; zeki ve sıcak bir WhatsApp asistanısın. Kısa ve öz yaz, konuya uygun emoji kullan ama bunu açıklama. Yalnızca Türkçe konuş." }]
+      };
+
+      let lastErr = null;
+      const solverModels = ["gemini-3-flash-preview", "gemini-2.5-pro"];
+      for (const model of solverModels) {
+        try {
+          const contents = [{ role: "user", parts: [] }];
+          contents[0].parts.push({ text: prompt });
+          if (imageParts && imageParts.length > 0) {
+            for (const img of imageParts) {
+              contents[0].parts.push(img);
+            }
+          }
+          const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+          const response = await axios.post(apiUrl, {
+            system_instruction: systemInstruction, // OPT: Resmi sistem talimatı alanı
+            contents,
+            generationConfig: { temperature: 0.7 }, // Removed maxOutputTokens to prevent cutoff
+          }, { timeout: 180000 });
+
+          if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+            return response.data.candidates[0].content.parts[0].text;
+          }
+        } catch (e) {
+          lastErr = e;
+          const status = e.response?.status;
+          const errMsg = e.response?.data?.error?.message || "";
+
+          if (status === 403 && errMsg.includes('leaked')) {
+            return "❌ *KRİTİK GÜVENLİK HATASI:* _Gemini API anahtarınız sızdırılmış (leaked) olarak raporlanmış ve engellenmiş._\n\n🔓 *Çözüm:* _Lütfen Google AI Studio'dan yeni bir anahtar alıp `.setvar GEMINI_API_KEY yeni_anahtar` komutuyla güncelleyin._";
+          }
+          if (status === 429) {
+            continue; // Diğer modele geçmeyi dene
+          }
+          continue;
+        }
+      }
+
+      if (lastErr) {
+        const status = lastErr.response?.status;
+        if (status === 429) {
+          return "❌ *Kota Aşıldı:* _Gemini API kullanım limitiniz doldu. Lütfen daha sonra tekrar deneyin veya API anahtarınızı değiştirin._";
+        }
+        return `❌ *API Hatası:* _Gemini API şu anda kullanılamıyor (${status || lastErr.message})._`;
+      }
+    } else {
+      return "❌ *API Anahtarı Eksik:* _Lütfen `.setvar GEMINI_API_KEY yeni_anahtar` komutuyla Gemini API anahtarınızı ayarlayın._";
+    }
+
+    return null;
+
+    return null;
   }
 
   async function initChatbotData() {
@@ -268,7 +328,7 @@
 
     const payload = {
       // systemInstruction: Gemini'nin resmi sistem talimatı alanı — user turn'den ayrı işlenir
-      systemInstruction: {
+      system_instruction: {
         parts: [{ text: globalSystemPrompt }],
       },
       contents: contents,
@@ -327,7 +387,7 @@
         const errMsg = error.response?.data?.error?.message || "";
         if (status === 403 && errMsg.includes('leaked')) {
           return "❌ *KRİTİK GÜVENLİK HATASI:* _Gemini API anahtarınız sızdırılmış (leaked) olarak raporlanmış ve engellenmiş._\n\n" +
-                 "🔓 *Çözüm:* _Lütfen Google AI Studio'dan yeni bir anahtar alıp bot ayarlarından güncelleyin._";
+            "🔓 *Çözüm:* _Lütfen Google AI Studio'dan yeni bir anahtar alıp bot ayarlarından güncelleyin._";
         }
         console.error("YZ yanıtı alınırken hata (auth):", status, error.response?.data || error.message);
         return `❌ *API Yetkilendirme Hatası (${status}):* _${errMsg || "Yetkilendirme başarısız."}_`;
@@ -560,10 +620,80 @@
   );
 
   Module({
+    pattern: "soruçöz ?(.*)",
+    fromMe: false,
+    desc: "Sınav sorusunu adım adım çözer.",
+    usage: ".soruçöz (görsele yanıt vererek)",
+    use: "ai",
+  },
+    async (message, match) => {
+      let extra = match[1]?.trim() || "";
+      let imageParts = [];
+
+      let basePrompt =
+        "Şimdi gönderilen sınav sorusunu adım adım çözelim. " +
+        "Önce soruyu analiz et, sonra çözüm yolunu açık ve mantıklı bir şekilde adım adım göster. " +
+        "En sonunda ise net cevabı yaz. " +
+        "Yanıtında uygun emojiler kullanarak adımları daha anlaşılır ve görsel olarak zengin hale getir " +
+        "(örneğin ✅ doğru cevap, 📌 önemli not, 🔍 analiz, 📝 çözüm adımı, 💡 ipucu, ⚠️ dikkat gibi).";
+
+      if (extra) {
+        basePrompt += "\n\nEk not: " + extra;
+      }
+
+      if (message.reply_message) {
+        if (message.reply_message.image) {
+          try {
+            const buffer = await message.reply_message.download("buffer");
+            const part = await imageToGenerativePart(buffer);
+            if (part) imageParts.push(part);
+          } catch (err) {
+            console.error("Görsel indirilemedi:", err);
+            return await message.sendReply("❌ *Görsel yüklenemedi!* _Lütfen tekrar deneyin._");
+          }
+        } else if (message.reply_message.album) {
+          try {
+            const album = await message.reply_message.download();
+            for (const img of album.images) {
+              const buffer = fs.readFileSync(img);
+              const part = await imageToGenerativePart(buffer);
+              if (part) imageParts.push(part);
+            }
+          } catch (err) {
+            console.error("Albüm indirilemedi:", err);
+            return await message.sendReply("❌ *Medya yüklenemedi!* _Lütfen tekrar deneyin._");
+          }
+        }
+      }
+
+      if (!imageParts.length && !message.reply_message?.text) {
+        return await message.sendReply("⚠️ *Lütfen bir sınav sorusuna yanıtlayarak* \`.soruçöz\` *yazın!*");
+      }
+
+      let sent;
+      try {
+        sent = await message.sendReply("🧐 _Soruya bakıyorum..._");
+        const result = await callGenerativeAI(basePrompt, imageParts, message, sent);
+        if (!result) {
+          return await message.edit("❌ YZ boş yanıt gönderdi.", message.jid, sent.key);
+        }
+        await message.edit(result, message.jid, sent.key);
+      } catch (err) {
+        console.error("SORU ÇÖZME HATASI:", err);
+        if (sent) {
+          await message.edit("❌ İşlemde hata oluştu. Tekrar deneyiniz.", message.jid, sent.key);
+        } else {
+          await message.sendReply("❌ Yapay Zeka hatası!");
+        }
+      }
+    }
+  );
+
+  Module({
     pattern: "yz ?(.*)",
     fromMe: false,
     desc: "Yapay zeka komutları. .yz yazarak tüm alt komutları görebilirsiniz.",
-    usage: ".yz <soru> | .yz görsel <açıklama> | .yz düzenle <talimat> | .yz anime | .yz soruçöz | .yz ayar",
+    usage: ".yz <soru> | .yz görsel <açıklama> | .yz düzenle <talimat> | .yz anime | .yz ayar",
     type: "ai",
   },
     async (message, match) => {
@@ -698,68 +828,7 @@
           break;
         }
 
-        case "soruçöz": {
-          let extra = subArgs || "";
-          let imageParts = [];
 
-          let basePrompt =
-            "Şimdi gönderilen sınav sorusunu adım adım çözelim. " +
-            "Önce soruyu analiz et, sonra çözüm yolunu açık ve mantıklı bir şekilde adım adım göster. " +
-            "En sonunda ise net cevabı yaz. " +
-            "Yanıtında uygun emojiler kullanarak adımları daha anlaşılır ve görsel olarak zengin hale getir " +
-            "(örneğin ✅ doğru cevap, 📌 önemli not, 🔍 analiz, 📝 çözüm adımı, 💡 ipucu, ⚠️ dikkat gibi).";
-
-          if (extra) {
-            basePrompt += "\n\nEk not: " + extra;
-          }
-
-          if (message.reply_message) {
-            if (message.reply_message.image) {
-              try {
-                const buffer = await message.reply_message.download("buffer");
-                const part = await imageToGenerativePart(buffer);
-                if (part) imageParts.push(part);
-              } catch (err) {
-                console.error("Görsel indirilemedi:", err);
-                return await message.sendReply("❌ *Görsel yüklenemedi!* _Lütfen tekrar deneyin._");
-              }
-            } else if (message.reply_message.album) {
-              try {
-                const album = await message.reply_message.download();
-                for (const img of album.images) {
-                  const buffer = fs.readFileSync(img);
-                  const part = await imageToGenerativePart(buffer);
-                  if (part) imageParts.push(part);
-                }
-              } catch (err) {
-                console.error("Albüm indirilemedi:", err);
-                return await message.sendReply("❌ *Medya yüklenemedi!* _Lütfen tekrar deneyin._");
-              }
-            }
-          }
-
-          if (!imageParts.length && !message.reply_message?.text) {
-            return await message.sendReply("⚠️ *Lütfen bir sınav sorusuna yanıtlayarak* \`.yz soruçöz\` *yazın!*");
-          }
-
-          let sent;
-          try {
-            sent = await message.sendReply("🧐 _Düşünüyorum..._");
-            const result = await callGenerativeAI(basePrompt, imageParts, message, sent);
-            if (!result) {
-              return await message.edit("❌ YZ boş yanıt gönderdi.", message.jid, sent.key);
-            }
-            await message.edit(result, message.jid, sent.key);
-          } catch (err) {
-            console.error("SORU ÇÖZME HATASI:", err);
-            if (sent) {
-              await message.edit("❌ İşlemde hata oluştu. Tekrar deneyiniz.", message.jid, sent.key);
-            } else {
-              await message.sendReply("❌ Yapay Zeka hatası!");
-            }
-          }
-          break;
-        }
 
         case "ayar": {
           const input = subArgs || "";
@@ -1022,8 +1091,6 @@
               "└ .yz düzenle gökyüzünü mor yap — Görsele YZ düzenleme\n\n" +
               "🎭 *Anime Dönüşüm:*\n" +
               "└ .yz anime (görsele yanıt) — Fotoğrafı anime yap\n\n" +
-              "📝 *Soru Çözme:*\n" +
-              "└ .yz soruçöz (soruya yanıt) — Sınav sorusunu çöz\n\n" +
               "⚙️ *Ayarlar:*\n" +
               "└ .yz ayar — Yapılandırma menüsü\n" +
               "└ .yz ayar aç/kapat — Sohbet aç/kapat\n" +

@@ -62,9 +62,9 @@ const config = {
   // NOT: GitHub güvenliği için gerçek anahtarlarınızı buraya doğrudan yazmak yerine
   // .env dosyasında tutmanız veya push sonrası manuel eklemeniz önerilir.
   AI_MODEL: process.env.AI_MODEL || "gemini",
-  GEMINI_API_KEY: process.env.GEMINI_API_KEY || "AIzaSyDQfM1eLqkpxyrZoYcRbCsBN5_CypKhNKo",
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY || "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",
-  GROQ_API_KEY: process.env.GROQ_API_KEY || "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",
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
+  GROQ_API_KEY: process.env.GROQ_API_KEY || "",
 
   // ── Bellek & Sistem ──
   HEAP_LIMIT_MB: parseInt(process.env.HEAP_LIMIT_MB || "250", 10),
@@ -83,7 +83,7 @@ const config = {
   VERSION: "1.0.0",
   BOT_INFO: process.env.BOT_INFO || "Lades-Pro;Lades Yönetimi;",
   STICKER_DATA: process.env.STICKER_DATA || "Lades-Pro;Lades-Pro;😂",
-  TIKWM_API_KEY: process.env.TIKWM_API_KEY || "bee06ff010bb0987fc949c0e676450b7",
+  TIKWM_API_KEY: process.env.TIKWM_API_KEY || "",
   ACR_A: process.env.ACR_A || "",
   ACR_S: process.env.ACR_S || "",
   PORT: process.env.PORT || 3000,

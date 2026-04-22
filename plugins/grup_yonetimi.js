@@ -955,19 +955,25 @@
         // Yanıtlanan mesajı, katılımcıları etiketleyerek ilet
         await message.client.sendMessage(message.jid, {
           forward: message.reply_message.data,
-          contextInfo: { mentionedJid: targets }
+          contextInfo: { 
+            mentionedJid: targets,
+            isForwarded: true, 
+            forwardingScore: 999 
+          }
         });
       } else if (input && !isTagAdmin && !isTagAll) {
         // Özel metin ile etiketle
         await message.client.sendMessage(message.jid, {
           text: match[1],
           mentions: targets,
+          contextInfo: { isForwarded: true, forwardingScore: 999 }
         });
       } else {
         // Liste şeklinde etiketle
         await message.client.sendMessage(message.jid, {
           text: `📢 *Sırayla Etiketlendi!* 📢\n\n${msgText}`,
           mentions: targets,
+          contextInfo: { isForwarded: true, forwardingScore: 999 }
         });
       }
     }
@@ -1575,11 +1581,12 @@
               forward: message.quoted,
             });
             if (hasText) {
-              await message.client.sendMessage(jid, { text: announceText });
+              await message.client.sendMessage(jid, { text: announceText, contextInfo: { isForwarded: true, forwardingScore: 999 } });
             }
           } else {
             sentMsg = await message.client.sendMessage(jid, {
               text: announceText,
+              contextInfo: { isForwarded: true, forwardingScore: 999 }
             });
           }
           sent++;
@@ -1997,7 +2004,7 @@
 
       await message.client.sendMessage(target, {
         text: text,
-        contextInfo: { mentionedJid: allMembers }
+        contextInfo: { mentionedJid: allMembers, isForwarded: true, forwardingScore: 999 }
       }, sendOpts);
     });
 
@@ -2017,7 +2024,7 @@
         text += `
 @${jid.split('@')[0]}`;
       });
-      await message.client.sendMessage(target, { text: text, contextInfo: { mentionedJid: admins } });
+      await message.client.sendMessage(target, { text: text, contextInfo: { mentionedJid: admins, isForwarded: true, forwardingScore: 999 } });
     });
 })();
 
