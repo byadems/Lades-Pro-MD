@@ -179,8 +179,8 @@ async function recordStat(pattern, status, durationMs, error = null, isTest = fa
   }
 
   currentBatch.set(key, entry);
-  // commandStatsBatch sınırsız büyümeyi önle (max 500 komut) — 2000→500
-  if (runtime.commandStatsBatch.size > 500) {
+  // commandStatsBatch sınırsız büyümeyi önle
+  if (runtime.commandStatsBatch.size > runtime.MAX_STATS_BATCH) {
     const firstKey = runtime.commandStatsBatch.keys().next().value;
     runtime.commandStatsBatch.delete(firstKey);
   }
@@ -292,6 +292,7 @@ class ReplyMessage {
     this.caption = msg.imageMessage?.caption || msg.videoMessage?.caption || msg.documentMessage?.caption || msg.documentWithCaptionMessage?.message?.documentMessage?.caption || "";
 
     // Media flags (Lades-Pro style)
+    this.album = !!msg.albumMessage;
     this.image = !!msg.imageMessage;
     this.video = !!msg.videoMessage;
     this.audio = !!msg.audioMessage || !!msg.audioMessage?.ptt;
@@ -331,15 +332,79 @@ class ReplyMessage {
    */
   async download(type = "path") {
     try {
+      if (this.album) {
+        const { getAlbumMessages } = require("./store");
+        const children = getAlbumMessages(this.remoteJid, this.id);
+        const { downloadMediaMessage } = await loadBaileys();
+        const { getTempPath } = require("./yardimcilar");
+        const fs = require("fs").promises;
+        
+        const result = { images: [], videos: [] };
+        if (!children || children.length === 0) return result;
+        
+        for (const child of children) {
+          try {
+            const childMsg = { key: child.key, message: child.message };
+            const stream = await downloadMediaMessage(
+              childMsg, 
+              "stream", 
+              {}, 
+              { 
+                reuploadRequest: this.client.updateMediaMessage,
+                logger: this.client.logger 
+              }
+            );
+            
+            const msgObj = child.message || {};
+            const mime = msgObj.imageMessage?.mimetype || msgObj.videoMessage?.mimetype || "";
+            let ext = ".bin";
+            if (mime.includes("image")) ext = ".jpg";
+            else if (mime.includes("video")) ext = ".mp4";
+            
+            const outPath = getTempPath(ext);
+            const outStream = require("fs").createWriteStream(outPath);
+            await new Promise((resolve, reject) => {
+              stream.pipe(outStream);
+              stream.on("end", resolve);
+              stream.on("error", reject);
+              outStream.on("error", reject);
+            });
+            
+            if (mime.includes("image")) result.images.push(outPath);
+            else if (mime.includes("video")) result.videos.push(outPath);
+          } catch (e) {
+            logger.error({ err: e.message }, "Error downloading album child");
+          }
+        }
+        return result;
+      }
+
       const rawMsg = { key: this.key, message: this.message };
       const { downloadMediaMessage } = await loadBaileys();
-      const buf = await downloadMediaMessage(rawMsg, "buffer", {});
+      const stream = await downloadMediaMessage(
+        rawMsg, 
+        "stream", 
+        {},
+        { 
+          reuploadRequest: this.client.updateMediaMessage,
+          logger: this.client.logger 
+        }
+      );
       const { getTempPath } = require("./yardimcilar");
       const ext = this._guessExt();
       const outPath = getTempPath(ext);
-      const fs = require("fs").promises;
-      await fs.writeFile(outPath, buf);
-      if (type === "buffer") return buf;
+      
+      const outStream = require("fs").createWriteStream(outPath);
+      await new Promise((resolve, reject) => {
+        stream.pipe(outStream);
+        stream.on("end", resolve);
+        stream.on("error", reject);
+        outStream.on("error", reject);
+      });
+
+      if (type === "buffer") {
+        return await require("fs").promises.readFile(outPath);
+      }
       return outPath;
     } catch (e) {
       // Eski/silinmiş mesajlarda Baileys medya anahtarı boş olabilir
@@ -437,6 +502,7 @@ class BaseMessage {
       (ownerNum && ownerNum !== "905XXXXXXXXX" && senderNum === ownerNum);
 
     const msg = rawMsg.message || {};
+    this.album = !!msg.albumMessage;
     this.image = !!msg.imageMessage;
     this.video = !!msg.videoMessage;
     this.audio = !!msg.audioMessage;
@@ -630,14 +696,77 @@ class BaseMessage {
    */
   async download(type = "path") {
     try {
+      if (this.album) {
+        const { getAlbumMessages } = require("./store");
+        const children = getAlbumMessages(this.jid, this.id);
+        const { downloadMediaMessage } = await loadBaileys();
+        const { getTempPath } = require("./yardimcilar");
+        
+        const result = { images: [], videos: [] };
+        if (!children || children.length === 0) return result;
+        
+        for (const child of children) {
+          try {
+            const childMsg = { key: child.key, message: child.message };
+            const stream = await downloadMediaMessage(
+              childMsg, 
+              "stream", 
+              {}, 
+              { 
+                reuploadRequest: this.client.updateMediaMessage,
+                logger: this.client.logger 
+              }
+            );
+            
+            const msgObj = child.message || {};
+            const mime = msgObj.imageMessage?.mimetype || msgObj.videoMessage?.mimetype || "";
+            let ext = ".bin";
+            if (mime.includes("image")) ext = ".jpg";
+            else if (mime.includes("video")) ext = ".mp4";
+            
+            const outPath = getTempPath(ext);
+            const outStream = require("fs").createWriteStream(outPath);
+            await new Promise((resolve, reject) => {
+              stream.pipe(outStream);
+              stream.on("end", resolve);
+              stream.on("error", reject);
+              outStream.on("error", reject);
+            });
+            
+            if (mime.includes("image")) result.images.push(outPath);
+            else if (mime.includes("video")) result.videos.push(outPath);
+          } catch (e) {
+            console.error("Error downloading album child:", e);
+          }
+        }
+        return result;
+      }
+
       const { downloadMediaMessage } = await loadBaileys();
-      const buf = await downloadMediaMessage(this.data, "buffer", {});
+      const stream = await downloadMediaMessage(
+        this.data, 
+        "stream", 
+        {},
+        { 
+          reuploadRequest: this.client.updateMediaMessage,
+          logger: this.client.logger 
+        }
+      );
       const { getTempPath } = require("./yardimcilar");
       const ext = this.mimetype.split("/")[1]?.split(";")[0] || "bin";
       const tmpPath = getTempPath(`media_${Date.now()}.${ext}`);
 
-      if (type === "buffer") return buf;
-      await fs.promises.writeFile(tmpPath, buf);
+      const outStream = require("fs").createWriteStream(tmpPath);
+      await new Promise((resolve, reject) => {
+        stream.pipe(outStream);
+        stream.on("end", resolve);
+        stream.on("error", reject);
+        outStream.on("error", reject);
+      });
+
+      if (type === "buffer") {
+        return await require("fs").promises.readFile(tmpPath);
+      }
       return tmpPath;
     } catch (e) {
       console.error("BaseMessage.download hatası:", e);

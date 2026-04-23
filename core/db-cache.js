@@ -8,11 +8,11 @@ const { logger } = require("../config");
 //  LRU Cache instances per data domain
 // ─────────────────────────────────────────────────────────
 // RAM OPT: 200 grup / 512 MB ortamına göre kalibre edildi
-const groupCache  = new LRUCache({ max: 200, ttl: 5 * 60 * 1000 });    // 80→200, 3→5 min TTL (DB çarpmasını önler)
-const userCache   = new LRUCache({ max: 300, ttl: 5 * 60 * 1000 });    // 150→300, 5 min TTL
+const groupCache  = new LRUCache({ max: 50, ttl: 5 * 60 * 1000 });     // 200→50 (Aşırı RAM koruma, Disk kullanımı)
+const userCache   = new LRUCache({ max: 100, ttl: 5 * 60 * 1000 });    // 300→100, 5 min TTL
 const configCache = new LRUCache({ max: 30,  ttl: 15 * 60 * 1000 });   // 30, 15 min TTL
-const filterCache = new LRUCache({ max: 100, ttl: 5 * 60 * 1000 });    // 50→100, 5 min TTL
-const adminCache  = new LRUCache({ max: 200, ttl: 2 * 60 * 1000 });    // 80→200, 2 min TTL
+const filterCache = new LRUCache({ max: 50, ttl: 5 * 60 * 1000 });     // 100→50, 5 min TTL
+const adminCache  = new LRUCache({ max: 50, ttl: 2 * 60 * 1000 });     // 200→50, 2 min TTL
 
 // ─────────────────────────────────────────────────────────
 //  Group settings helpers

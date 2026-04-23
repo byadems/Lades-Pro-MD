@@ -16,7 +16,7 @@ const scheduler = require("./zamanlayici").scheduler;
 // Message store: jid → Map<msgId, msg>
 // RAM OPT: 60 aktif grup, TTL 30min (Antidelete için daha geniş coverage)
 const messageStore = new LRUCache({
-  max: 60,   // 15→60 aktif grup/sohbet
+  max: 15,   // 60→15 aktif grup/sohbet (512MB RAM disk offload)
   ttl: 30 * 60 * 1000, // 30 dakika TTL
   dispose: (bucket, jid) => {
     // Clean reverse index when LRU evicts a bucket
@@ -28,8 +28,8 @@ const messageStore = new LRUCache({
 
 // Reverse index: msgId → jid (O(1) lookup for getFullMessage)
 const msgIdIndex = new Map();
-const MAX_MSGS_PER_JID = 10;   // 20→10: 60 grup × 10 mesaj = 600 entry (RAM dostu)
-const MAX_MSGID_INDEX = 3000;  // 20000→3000: her entry ~150 byte = max ~450 KB
+const MAX_MSGS_PER_JID = 30;   // 120→30: Bellek kısıtı için albüm limitinden feragat edildi
+const MAX_MSGID_INDEX = 2000;  // 8000→2000: İndeks boyutu azaltıldı
 
 function storeMessage(jid, message) {
   if (!jid || !message || !message.key) return;
@@ -60,12 +60,29 @@ function getMessageByKey(key) {
   return getMessage(key.remoteJid, key.id);
 }
 
+function getAlbumMessages(jid, albumId) {
+  const bucket = messageStore.get(jid);
+  if (!bucket) return [];
+  const children = [];
+  for (const msg of bucket.values()) {
+    const parentId = msg.message?.messageContextInfo?.messageAssociation?.parentMessageKey?.id;
+    if (parentId === albumId) {
+      children.push(msg);
+    }
+  }
+  return children.sort((a, b) => {
+    const idxA = a.message?.messageContextInfo?.messageAssociation?.messageIndex || 0;
+    const idxB = b.message?.messageContextInfo?.messageAssociation?.messageIndex || 0;
+    return idxA - idxB;
+  });
+}
+
 // ─────────────────────────────────────────────────────────
 //  Group metadata
 // ─────────────────────────────────────────────────────────
 // Group metadata cache: RAM OPT edildi (200 grup)
 const groupMetaCache = new LRUCache({
-  max: 200,  // 80→200: 200 aktif grup için yeterli kapasite
+  max: 50,  // 200→50: aktif grup meta sayısı kısıtlandı
   ttl: 5 * 60 * 1000, // 5 dakika (aynı kalıyor — admin değişikliği algısı)
 });
 
@@ -96,8 +113,8 @@ function invalidateGroupMeta(groupId) {
 
 async function getAllGroups(sock) {
   const now = Date.now();
-  // RAM OPT: allGroupsCache TTL 15min→8min
-  if (runtime.metrics.allGroupsCache && (now - runtime.metrics.allGroupsLastFetch < 8 * 60 * 1000)) {
+  // RAM OPT: allGroupsCache TTL 8min→5min
+  if (runtime.metrics.allGroupsCache && (now - runtime.metrics.allGroupsLastFetch < 5 * 60 * 1000)) {
     return runtime.metrics.allGroupsCache;
   }
 
@@ -348,7 +365,7 @@ async function incrementStats(jid, userJid, type = "text") {
 }
 
 module.exports = {
-  storeMessage, getMessage, getMessageByKey,
+  storeMessage, getMessage, getMessageByKey, getAlbumMessages,
   setGroupMeta, getGroupMeta, fetchGroupMeta, invalidateGroupMeta,
   bindToSocket, getStoreStats,
   getTotalUserCount, getFullMessage, fetchRecentChats,

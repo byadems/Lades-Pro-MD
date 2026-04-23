@@ -250,13 +250,13 @@ async function initializeDatabase() {
         await sequelize.query("PRAGMA journal_mode = WAL;");         // Concurrent reads
         await sequelize.query("PRAGMA busy_timeout = 5000;");         // Retry on lock
         await sequelize.query("PRAGMA synchronous = NORMAL;");        // Safe + fast
-        await sequelize.query("PRAGMA cache_size = -8000;");          // 8MB page cache (16MB→8MB: RAM tasarrufu)
+        await sequelize.query("PRAGMA cache_size = -2000;");          // 2MB page cache (RAM tasarrufu)
         await sequelize.query("PRAGMA temp_store = FILE;");           // Temp tablolar diske (RAM koruma!)
-        await sequelize.query("PRAGMA mmap_size = 16777216;");        // 16MB mmap (32MB → 16MB: RAM tasarrufu)
+        await sequelize.query("PRAGMA mmap_size = 0;");               // Mmap kapalı (tamamen diske güven, RAM koru)
         await sequelize.query("PRAGMA wal_autocheckpoint = 200;");    // Daha sık checkpoint (500→200: WAL dosyasını küçük tut)
         await sequelize.query("PRAGMA optimize;");                    // Sorgu planlamasını optimize et
         await sequelize.query("PRAGMA foreign_keys = OFF;");          // FK kontrolü gereksiz overhead
-        logger.info("SQLite pragmaları ayarlandı (WAL, cache=8MB, temp=FILE, mmap=16MB, checkpoint=200).");
+        logger.info("SQLite pragmaları ayarlandı (WAL, cache=2MB, temp=FILE, mmap=0MB, checkpoint=200).");
       }
 
       break;

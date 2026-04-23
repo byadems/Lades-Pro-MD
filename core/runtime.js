@@ -20,9 +20,8 @@ const state = {
     messages: 0,
     commands: 0,
     // RAM OPT: TTL kısaltıldı, max düşürüldü — stale JID'ler daha hızlı siliniyor
-    users: new LRUCache({ max: 500,  ttl: 45 * 60 * 1000 }),   // 2h→45min TTL, 1000→500 max
-    groups: new LRUCache({ max: 100, ttl: 6 * 60 * 60 * 1000 }), // 24h→6h TTL, 300→100 max
-    /** Global group cache */
+    users: new LRUCache({ max: 150,  ttl: 30 * 60 * 1000 }),   // 500→150 max
+    groups: new LRUCache({ max: 50, ttl: 2 * 60 * 60 * 1000 }), // 100→50 max
     allGroupsCache: null,
     allGroupsLastFetch: 0,
     errors: 0,
@@ -34,14 +33,14 @@ const state = {
   /** Cached parsed SUDO_MAP (Set for O(1) matching) */
   sudoSet: new Set(),
 
-  /** LRU cache for LID -> PN resolutions — RAM OPT: 2000→500, TTL 24h→6h */
-  lidCache: new LRUCache({ max: 500, ttl: 6 * 60 * 60 * 1000 }), // 24h→6h, 2000→500
+  /** LRU cache for LID -> PN resolutions — RAM OPT: 500→150, TTL 6h→2h */
+  lidCache: new LRUCache({ max: 150, ttl: 2 * 60 * 60 * 1000 }),
 
   /** Batch for command performance metrics — plain Map prevents data loss from LRU eviction before flush */
-  // RAM OPT: 5000→1000 giriş FIFO sınırı
+  // RAM OPT: 1000→200 giriş FIFO sınırı
   commandStatsBatch: new Map(),
   /** Max entries for commandStatsBatch before FIFO eviction */
-  MAX_STATS_BATCH: 1000, // 5000→1000
+  MAX_STATS_BATCH: 200, // 1000→200
 
   /** Self-test progress (moved from global namespace) */
   testProgress: { status: 'idle', currentIndex: 0, totalCommands: 0, currentCommand: '' },
