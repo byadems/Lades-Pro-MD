@@ -106,6 +106,8 @@ const RECONNECT_MAX_MS = 60000;
 let _presenceTimer = null;
 let _ntpTimer = null;
 let _proactiveTimer = null;
+let _watchdogTimer = null;
+let _lastActivity = Date.now();
 
 // scheduled_message_sender ve otomasyonun tekrar kayıt olmamasını sağlayan guardlar
 let _scheduledMsgRegistered = false;
@@ -526,6 +528,11 @@ async function createBot(sessionId = "lades-session", options = {}) {
   // Credential updates → save to DB/file
   sock.ev.on("creds.update", saveCreds);
 
+  // Watchdog için aktivite takibi
+  sock.ev.on("messages.upsert", () => {
+    _lastActivity = Date.now();
+  });
+
   // ── Connection events ────────────────────────────────
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr, isNewLogin } = update;
@@ -694,6 +701,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
       if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
       if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
       if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
+      if (_watchdogTimer) { clearInterval(_watchdogTimer); _watchdogTimer = null; }
+      _lastActivity = Date.now();
 
       // 1) Periyodik presence güncellemesi (her 4 dakikada bir)
       const PRESENCE_INTERVAL_MS = 4 * 60 * 1000;
@@ -734,8 +743,24 @@ async function createBot(sessionId = "lades-session", options = {}) {
         if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
         if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
         if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
+        if (_watchdogTimer) { clearInterval(_watchdogTimer); _watchdogTimer = null; }
         gracefulClose("Proactive 6h reconnect");
       }, PROACTIVE_RECONNECT_MS);
+
+      // 3) Watchdog Timer (Zombie socket koruması)
+      const WATCHDOG_INTERVAL = 5 * 60 * 1000; // Her 5 dk kontrol et
+      const WATCHDOG_TIMEOUT_MS = 30 * 60 * 1000; // 30 dk hareketsizlik
+      _watchdogTimer = setInterval(() => {
+        if (!sock.user) return;
+        if (Date.now() - _lastActivity > WATCHDOG_TIMEOUT_MS && sock.ws?.readyState === 1) {
+          logger.warn('[Watchdog] 30 dakikadır hareket yok (Zombie socket). Zorla reconnect başlatılıyor...');
+          if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
+          if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
+          if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
+          if (_watchdogTimer) { clearInterval(_watchdogTimer); _watchdogTimer = null; }
+          gracefulClose("Watchdog timeout (Inactive)");
+        }
+      }, WATCHDOG_INTERVAL);
       // ── SAAT KAYMA ENGELLEYİCİ SONU ────────────────────
     }
 
@@ -744,12 +769,21 @@ async function createBot(sessionId = "lades-session", options = {}) {
       if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
       if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
       if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
+      if (_watchdogTimer) { clearInterval(_watchdogTimer); _watchdogTimer = null; }
       stopTempCleanup();
       // Bağlantı kapanınca bekleyen mesaj işlemleri temizle (bellek aşımı engellenir)
       if (_queue) { try { _queue.clear(); } catch { } }
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-      logger.warn({ statusCode, shouldReconnect }, `Bağlantı kesildi.`);
+      
+      // Geçici ağ hataları (stream hataları vb.) için sessiz reconnect loglaması
+      if (statusCode === 515 || statusCode === 503 || statusCode === 408) {
+        logger.warn(`Bağlantı kesildi (${statusCode} Stream Hatası). Yeniden bağlanılıyor...`);
+      } else if (statusCode === 428) {
+        logger.warn(`Bağlantı kesildi (428 Precondition Required). Kapanan bağlantı yenileniyor...`);
+      } else {
+        logger.warn({ statusCode, shouldReconnect }, `Bağlantı kesildi.`);
+      }
 
       if (shouldReconnect) {
         reconnectCount++;

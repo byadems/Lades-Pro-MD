@@ -17,7 +17,8 @@ const { getMessageByKey, fetchGroupMeta } = require("./store");
 const { LRUCache } = require("lru-cache");
 const { BotMetrik, KomutIstatistik, KomutKayit, KullaniciVeri, GrupAyar, MesajIstatistik: MsgStats, Op, sequelize } = require("./database");
 const { antidelete } = require("../plugins/utils/db/fonksiyonlar");
-const { resolveLidToPn, isBotIdentifier } = require("./yardimcilar"); // Moved to top-level
+const { resolveLidToPn, isBotIdentifier, mentionjid } = require("./yardimcilar"); // Moved to top-level
+const { containsBadWord } = require("../plugins/utils/sansur");
 
 // ── PERFORMANS: ownerNum bir kez hesaplanır, her mesajda regex yok
 const _cachedOwnerNum = (config.OWNER_NUMBER || '').replace(/[^0-9]/g, '');
@@ -1331,6 +1332,26 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
 
     message.isAdmin = isAdmin;
     message.isBotAdmin = isBotAdmin;
+
+    // ── PROFANITY FILTER (Anti-Toxic) ──
+    if (isGroup && !fromMe && !(ownerCheck || sudoCheck) && text) {
+      try {
+        const groupSettings = await getGroupSettings(jid);
+        if (groupSettings.antiToxic) {
+          if (containsBadWord(text)) {
+            // Delete message if bot is admin
+            if (isBotAdmin) {
+              await message.delete();
+            }
+            // Send warning
+            await message.sendReply(`⚠️ *Yasaklı kelime kullanımı tespit edildi!* @${senderJid.split('@')[0]}`, { mentions: [senderJid] });
+            return; // Stop further processing
+          }
+        }
+      } catch (err) {
+        logger.debug({ err: err.message }, "Profanity filter error");
+      }
+    }
 
     // ── on:"text" / on:"message" event handler'ları — prefix gerekmez ──────
     // Cache kullan: her mesajda spread/concat yapma (O(1) lookup)

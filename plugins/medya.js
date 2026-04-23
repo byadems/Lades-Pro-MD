@@ -79,10 +79,10 @@
       const voiceMsg = targetMessage || message;
       // .dinle komutu ile explicitly bir targetMessage (reply_message) paslanmışsa onu kontrol et
       // Değilse (otomatik tetikleme) sadece asıl mesajı kontrol et
-      const isVoice = voiceMsg.audio || 
-                      voiceMsg.ptt || 
-                      voiceMsg.data?.message?.audioMessage;
-      
+      const isVoice = voiceMsg.audio ||
+        voiceMsg.ptt ||
+        voiceMsg.data?.message?.audioMessage;
+
       if (!isVoice) {
         return;
       }
@@ -272,7 +272,7 @@
         }
 
         if (!hasApi) return;
-        
+
         // Yalnızca mikrofon ile kaydedilmiş sesli mesajlarda (PTT) otomatik çeviri yap.
         // Paylaşılan şarkı / müzik / ses dosyası (ptt: false) otomatik analize dahil değil.
         const isPtt = message.ptt || audioMsg?.ptt === true;
@@ -1116,7 +1116,7 @@
       await message.edit("❌ *Efekt şu anda uygulanamıyor. API sunucuları geçici olarak yanıt vermiyor.*", message.jid, wait.key);
     } catch (e) {
       if (wait) {
-        await message.edit(`❌ *Efekt uygulanamadı!* \n\n*Hata:* ${e.message}`, message.jid, wait.key).catch(() => {});
+        await message.edit(`❌ *Efekt uygulanamadı!* \n\n*Hata:* ${e.message}`, message.jid, wait.key).catch(() => { });
       } else {
         await message.sendReply(`❌ *Efekt uygulanamadı!* \n\n*Hata:* ${e.message}`);
       }
