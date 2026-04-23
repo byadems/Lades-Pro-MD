@@ -255,51 +255,66 @@ async function createBot(sessionId = "lades-session", options = {}) {
       try {
         const logData = JSON.parse(raw);
         
-        // Şifre çözme veya oturum hatalarını yakala
-        // "Bad MAC" Baileys logger üzerinden de gelebilir (session_cipher hata yaydığında)
-        const isDecryptionError = 
-           logData.err?.type === 'MessageCounterError' || 
-           logData.err?.type === 'SessionError' ||
-           (logData.msg && (
-             logData.msg.includes('failed to decrypt') ||
-             logData.msg.includes('Bad MAC') ||
-             logData.msg.includes('Session error') ||
-             logData.msg.includes('Closing open session') ||
-             logData.msg.includes('Decrypted message with closed session')
-           )) ||
-           (logData.err?.message && (
-             logData.err.message.includes('No session') ||
-             logData.err.message.includes('Bad MAC')
-           ));
+        // ── Şifre çözme hatalarını ikiye ayır ──────────────────────────────────────
+        // TİP 1 — "No session found": YENİ CİHAZ NORMAL DAVRANIŞI
+        //   Sebebi: Bot yeni giriş yapınca grup üyeleri mesajlarını ESKİ session
+        //   key'leriyle şifrelemiş. Bot'un bu keyleri yok → açamaz.
+        //   Çözümü: Baileys retry receipt gönderir, karşı taraf yeniden şifreler.
+        //   clearSessions() çağırmak YANLIŞ — elindeki yeni keyleri de silersin!
+        //
+        // TİP 2 — "Bad MAC" / "SessionError": GERÇEK BOZUKLUK
+        //   Sebebi: Var olan session key'i bozuk/eskimiş → şifre doğrulaması başarısız.
+        //   Çözümü: clearSessions() ile bozuk keyleri temizle, yeniden müzakere başlasın.
+        const isNoSessionError = !!(
+          logData.err?.message?.includes('No session found') ||
+          logData.err?.message?.includes('No SenderKey found')
+        );
+
+        const isRealDecryptionError = !!(
+          logData.err?.type === 'MessageCounterError' ||
+          logData.err?.type === 'SessionError' ||
+          (logData.msg && (
+            logData.msg.includes('Bad MAC') ||
+            logData.msg.includes('Session error') ||
+            logData.msg.includes('Closing open session') ||
+            logData.msg.includes('Decrypted message with closed session')
+          )) ||
+          (logData.err?.message && logData.err.message.includes('Bad MAC'))
+        );
+
+        const isDecryptionError = isNoSessionError || isRealDecryptionError ||
+          (logData.msg && logData.msg.includes('failed to decrypt'));
 
         if (isDecryptionError) {
           const now = Date.now();
+
+          // TİP 1: "No session found" — sadece sessizce say, clearSessions ASLA tetikleme
+          if (isNoSessionError) {
+            // Bu tamamen normaldir: yeni girişten sonra ~2-5 dakika içinde kendiliğinden düzelir.
+            // Baileys kendi retry mekanizmasıyla karşı tarafa yeniden şifreleme isteği gönderir.
+            return; // Sayaca ekleme, ekrana basma, hiçbir şey yapma
+          }
+
+          // TİP 2: Gerçek bozukluk — sayaca ekle, eşikte clearSessions çalıştır
           if (now - lastDecryptionErrorAt > 30000) {
-            // Eğer son hatadan bu yana 30 saniye geçtiyse sayacı sıfırla
             decryptionErrorCount = 0;
           }
           decryptionErrorCount++;
           lastDecryptionErrorAt = now;
 
-          // İlk 20 hata: sessizce say, 20. hatada uyar
           if (decryptionErrorCount === 20) {
-            logger.warn(`[Şifre] ${sessionId}: 20 deşifre hatası birikti. 100'de onarım denenecek.`);
+            logger.warn(`[Şifre] ${sessionId}: 20 gerçek şifre bozukluğu (Bad MAC/SessionError) birikti.`);
           }
 
-          // ── SONSUZ DÖNGÜ ÖNLEYICI ────────────────────────────────────────────
-          // NEDEN 100: Bot yeni başladığında sunucu onlarca bekleyen mesaj gönderir.
-          // Eski session key'leri geçersiz olduğundan bunlar decryption hatası üretir.
-          // Bu tamamen NORMALDIR ve socket'i kapatmayı gerektirmez.
-          // NEDEN SOCKET KAPATILMIYOR: Kapatmak → yeni socket → aynı mesajlar tekrar →
-          // aynı hatalar → sonsuz döngü. Tek doğru çözüm: session cache temizle, devam et.
+          // ── SONSUZ DÖNGÜ ÖNLEYICI ─────────────────────────────────────────────
+          // Sadece TİP 2 (gerçek bozukluk) 100 kez birikirse session cache temizle.
           if (decryptionErrorCount >= 100) {
             decryptionErrorCount = 0;
 
-            // Startup grace period: bağlandıktan sonraki 60sn onarım yapma
-            // (Bu sürede sunucu bekleyen mesajları toplu olarak gönderir)
+            // Startup grace period: yeni giriş sonrası 120sn onarım yapma
             const timeSinceConnect = _connectedAt > 0 ? now - _connectedAt : Infinity;
-            if (timeSinceConnect < 60000) {
-              logger.warn(`[Şifre] ${sessionId}: Startup grace period (${Math.round(timeSinceConnect/1000)}sn). Onarım ertelendi.`);
+            if (timeSinceConnect < 120000) {
+              logger.warn(`[Şifre] ${sessionId}: Startup grace (${Math.round(timeSinceConnect/1000)}sn/120sn). Onarım ertelendi.`);
               return;
             }
 
