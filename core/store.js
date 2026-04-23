@@ -201,9 +201,34 @@ async function getFullMessage(msgId) {
   }
 }
 
-async function fetchRecentChats() {
-  // Mock recent chats from in-memory store
-  return Array.from(messageStore.keys()).map(jid => ({ id: jid }));
+async function fetchRecentChats(limit = 100) {
+  const jids = Array.from(messageStore.keys());
+  const chats = [];
+
+  for (const jid of jids) {
+    const bucket = messageStore.get(jid);
+    let lastMessageTime = Date.now();
+
+    if (bucket && bucket.size > 0) {
+      const msgs = Array.from(bucket.values());
+      const lastMsg = msgs[msgs.length - 1];
+      if (lastMsg && lastMsg.messageTimestamp) {
+        const ts = lastMsg.messageTimestamp;
+        lastMessageTime = (typeof ts === "object" ? ts.low : ts) * 1000;
+      }
+    }
+
+    chats.push({
+      id: jid,
+      jid: jid,
+      type: jid.endsWith("@g.us") ? "group" : "private",
+      lastMessageTime: lastMessageTime,
+      name: "Bilinmiyor"
+    });
+  }
+
+  chats.sort((a, b) => b.lastMessageTime - a.lastMessageTime);
+  return chats.slice(0, limit);
 }
 
 async function getTotalUserCount() {

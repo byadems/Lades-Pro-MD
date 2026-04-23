@@ -147,7 +147,7 @@ const Zamanlama = sequelize.define("Zamanlama", {
   message: { type: DataTypes.TEXT, allowNull: false },
   active: { type: DataTypes.BOOLEAN, defaultValue: true },
   createdBy: { type: DataTypes.STRING(64), allowNull: true },
-}, { tableName: "zamanlamalar", timestamps: true });
+}, { tableName: "planlamalar", timestamps: true });
 
 /** External plugins */
 const HariciEklenti = sequelize.define("HariciEklenti", {

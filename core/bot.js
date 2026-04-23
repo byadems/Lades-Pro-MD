@@ -266,6 +266,13 @@ async function createBot(sessionId = "lades-session", options = {}) {
       try {
         const logData = JSON.parse(raw);
         
+        // ── STREAM HATASI YAKALAMA (503 vb.) ──
+        if (logData.msg === "stream errored out" || (logData.node && logData.node.tag === "stream:error")) {
+          logger.warn(`[Bağlantı] WhatsApp stream hatası tespit edildi (${logData.node?.attrs?.code || 'bilinmiyor'}). Zorla yeniden bağlanılıyor...`);
+          gracefulClose("Stream Errored Out");
+          return;
+        }
+
         // ── Şifre çözme hatalarını ikiye ayır ──────────────────────────────────────
         // TİP 1 — "No session found": YENİ CİHAZ NORMAL DAVRANIŞI
         //   Sebebi: Bot yeni giriş yapınca grup üyeleri mesajlarını ESKİ session
@@ -278,7 +285,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
         //   Çözümü: clearSessions() ile bozuk keyleri temizle, yeniden müzakere başlasın.
         const isNoSessionError = !!(
           logData.err?.message?.includes('No session found') ||
-          logData.err?.message?.includes('No SenderKey found')
+          logData.err?.message?.includes('No SenderKey found') ||
+          (logData.msg && logData.msg.includes('Failed to decrypt message with any known session'))
         );
 
         const isRealDecryptionError = !!(

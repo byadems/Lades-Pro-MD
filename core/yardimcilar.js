@@ -247,6 +247,7 @@ function suppressLibsignalLogs() {
     "Session error:",
     "Closing open session in favor of",
     "Decrypted message with closed session",
+    "Failed to decrypt message with any known session",
     "at Object.verifyMAC",
     "at SessionCipher.",
     "at async _asyncQueueExecutor",

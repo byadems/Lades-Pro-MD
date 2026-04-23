@@ -10,7 +10,7 @@ const FakeDB = sequelize.define("fake", {
     type: DataTypes.TEXT,
     allowNull: true,
   }
-}, { indexes: [{ fields: ['jid'] }] });
+}, { tableName: "sahte_numaralar", indexes: [{ fields: ['jid'] }] });
 
 // Advanced antilink system
 const AntilinkConfigDB = sequelize.define("antilink_config", {
@@ -57,56 +57,56 @@ const AntilinkConfigDB = sequelize.define("antilink_config", {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW,
   },
-});
+}, { tableName: "antibaglanti_ayarlari" });
 
 const antiSpamDB = sequelize.define("antispam", {
   jid: {
     type: DataTypes.TEXT,
     allowNull: false,
   },
-}, { indexes: [{ fields: ['jid'] }] });
+}, { tableName: "antispam_ayarlari", indexes: [{ fields: ['jid'] }] });
 
 const PDMDB = sequelize.define("pdm", {
   jid: {
     type: DataTypes.TEXT,
     allowNull: false,
   },
-}, { indexes: [{ fields: ['jid'] }] });
+}, { tableName: "antipdm_ayarlari", indexes: [{ fields: ['jid'] }] });
 
 const antiDemote = sequelize.define("antidemote", {
   jid: {
     type: DataTypes.TEXT,
     allowNull: false,
   },
-}, { indexes: [{ fields: ['jid'] }] });
+}, { tableName: "antiyetkial_ayarlari", indexes: [{ fields: ['jid'] }] });
 
 const antiPromote = sequelize.define("antipromote", {
   jid: {
     type: DataTypes.TEXT,
     allowNull: false,
   },
-}, { indexes: [{ fields: ['jid'] }] });
+}, { tableName: "antiyetkiver_ayarlari", indexes: [{ fields: ['jid'] }] });
 
 const antiBotDB = sequelize.define("antibot", {
   jid: {
     type: DataTypes.TEXT,
     allowNull: false,
   },
-}, { indexes: [{ fields: ['jid'] }] });
+}, { tableName: "antibot_ayarlari", indexes: [{ fields: ['jid'] }] });
 
 const antiWordDB = sequelize.define("antiword", {
   jid: {
     type: DataTypes.TEXT,
     allowNull: false,
   },
-}, { indexes: [{ fields: ['jid'] }] });
+}, { tableName: "antikelime_ayarlari", indexes: [{ fields: ['jid'] }] });
 
 const antiDeleteDB = sequelize.define("antidelete", {
   jid: {
     type: DataTypes.TEXT,
     allowNull: false,
   },
-}, { indexes: [{ fields: ['jid'] }] });
+}, { tableName: "antisilme_ayarlari", indexes: [{ fields: ['jid'] }] });
 
 const WelcomeDB = sequelize.define("welcome", {
   jid: {
@@ -121,7 +121,7 @@ const WelcomeDB = sequelize.define("welcome", {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
   },
-}, { indexes: [{ fields: ['jid'] }] });
+}, { tableName: "karsilama_ayarlari", indexes: [{ fields: ['jid'] }] });
 
 const GoodbyeDB = sequelize.define("goodbye", {
   jid: {
@@ -136,7 +136,7 @@ const GoodbyeDB = sequelize.define("goodbye", {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
   },
-}, { indexes: [{ fields: ['jid'] }] });
+}, { tableName: "veda_ayarlari", indexes: [{ fields: ['jid'] }] });
 
 const FilterDB = sequelize.define("filter", {
   trigger: {
@@ -172,7 +172,7 @@ const FilterDB = sequelize.define("filter", {
     type: DataTypes.STRING,
     allowNull: false,
   },
-}, { indexes: [{ fields: ['jid'] }, { fields: ['trigger'] }] });
+}, { tableName: "sohbet_filtreleri", indexes: [{ fields: ['jid'] }, { fields: ['trigger'] }] });
 
 const PluginDB = sequelize.define("Plugin", {
   name: {
@@ -188,7 +188,7 @@ const PluginDB = sequelize.define("Plugin", {
     allowNull: true,
     comment: "SHA-256 hash of last installed plugin code",
   },
-}, { indexes: [{ fields: ['url'] }] });
+}, { tableName: "eklenti_verileri", indexes: [{ fields: ['url'] }] });
 
 module.exports = {
   FakeDB,
