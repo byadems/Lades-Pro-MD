@@ -105,7 +105,7 @@ async function useDbAuthState(sessionId) {
       const { sequelize } = require("./database");
       try {
         const sessionData = JSON.stringify({ creds, keys: storedKeys }, BufferJSON.replacer);
-        
+
         // Duplicate save önleyici: veri değişmediyse DB'ye yazma
         if (sessionData === _lastSaveData) return;
         _lastSaveData = sessionData;
@@ -254,107 +254,133 @@ async function getAuthState(config, sessionId = "lades-session") {
   const sessionPath = path.join(__dirname, "..", "sessions", sessionId);
   const credsFile = path.join(sessionPath, "creds.json");
 
-  // 1. SESSION env varsa HER ZAMAN işle (ephemeral restart sonrası creds.json silinmiş olabilir)
-  //    Northflank gibi ephemeral ortamlarda container her başlatıldığında dosya sistemi temizlenir.
-  //    Bu yüzden DB'ye de yazıyoruz — dosya sistemi güvenilmez, DB güvenilir.
-  if (config.SESSION && config.SESSION.length > 20 && !config.SESSION.startsWith("path:")) {
-    logger.info("[SESSION] Ortam değişkeni algılandı, oturum yeniden yapılandırılıyor...");
+  // ════════════════════════════════════════════════════════
+  //  ADIM 1: SESSION env varsa bootstrap yap + DB üzerinden çalış
+  // ════════════════════════════════════════════════════════
+  //  SORUN: SESSION env'den creds.json oluşturup useMultiFileAuthState
+  //  kullansaydık, saveCreds() sadece DOSYAYA yazardı. Northflank
+  //  restart sonrası dosya silinince SESSION env'deki STALE veri yeniden
+  //  yüklenir → WA handshake'ten alınan güncel keyler KAYBOLUR → bot bağlanmaz.
+  //
+  //  ÇÖZÜM: SESSION env varsa bootstrap sonrası DOĞRUDAN useDbAuthState kullan.
+  //  Bu sayede saveCreds() her zaman DB'yi günceller. Bir sonraki restart'ta
+  //  DB'deki güncel oturum kullanılır — SESSION env artık sadece ilk kurulum içindir.
+  // ════════════════════════════════════════════════════════
+  const hasSessionEnv = !!(
+    config.SESSION &&
+    config.SESSION.length > 20 &&
+    !config.SESSION.startsWith("path:")
+  );
+
+  if (hasSessionEnv) {
+    logger.info("[SESSION] Ortam değişkeni algılandı → DB önyükleme başlatılıyor...");
     try {
       let b64 = config.SESSION;
-      // Prefix destekleri (KnightBot!, Hermit~, Lades~ vb.)
-      if (b64.includes("!")) {
-        b64 = b64.split("!")[1];
-      } else if (b64.includes("~")) {
-        b64 = b64.split("~")[1];
-      }
+      // Prefix destekleri: KnightBot!, Hermit~, Lades~ vb.
+      if (b64.includes("!"))      b64 = b64.split("!").slice(1).join("!");
+      else if (b64.includes("~")) b64 = b64.split("~").slice(1).join("~");
 
       let decoded = "";
       try {
-        // Gzip sıkıştırması kullanılmış olabilir (KnightBot stili)
-        const compressedData = Buffer.from(b64.replace(/\.\.\.$/g, ''), 'base64');
-        const zlib = require('zlib');
-        decoded = zlib.gunzipSync(compressedData).toString('utf-8');
+        // Gzip sıkıştırması dene (KnightBot stili)
+        const compressed = Buffer.from(b64.replace(/\.\.\.$/g, ""), "base64");
+        decoded = require("zlib").gunzipSync(compressed).toString("utf-8");
       } catch {
-        // Gzip değilse düz base64
+        // Düz base64
         decoded = Buffer.from(b64, "base64").toString("utf-8");
       }
 
-      const parsed = JSON.parse(decoded);
-      // { creds, keys } veya salt creds formatını destekle
+      const parsed    = JSON.parse(decoded);
       const credsData = parsed.creds || parsed;
       const keysData  = parsed.keys  || {};
 
-      // ── Yerel dosyaya yaz (mevcut değilse) ──────────────────────────────
-      if (!fs.existsSync(credsFile)) {
-        if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
-        fs.writeFileSync(credsFile, JSON.stringify(credsData, null, 2), "utf-8");
-        logger.info("[SESSION] Yerel creds.json oluşturuldu.");
-      }
+      // ── DB'de güncel kayıt var mı? ─────────────────────────────────────
+      // Varsa → DB'deki veri SESSION env'den DAHA GÜNCELDİR (WA handshake
+      // sırasında güncellendi). SESSION env'i atla, DB'yi kullan.
+      // Yoksa → İlk kurulum: SESSION env'den DB'ye aktar.
+      const { WhatsappOturum } = require("./database");
+      const existing = await WhatsappOturum.findByPk(sessionId).catch(() => null);
 
-      // ── DB'ye her zaman upsert et (kalıcı depolama garantisi) ──────────
-      // Northflank restart'larında dosya sistemi sıfırlanır ama DB kalır.
-      // SESSION string'den elde ettiğimiz veriyi DB'ye yazarak çift güvence sağlıyoruz.
-      try {
-        const { WhatsappOturum } = require('./database');
+      if (!existing || !existing.sessionData) {
+        // İlk kurulum: SESSION env → DB
         const sessionData = JSON.stringify({ creds: credsData, keys: keysData });
         await WhatsappOturum.upsert({ sessionId, sessionData });
-        logger.info("[SESSION] ✅ Oturum DB'ye başarıyla senkronize edildi.");
-      } catch (dbErr) {
-        logger.warn({ err: dbErr.message }, "[SESSION] DB senkronizasyonu başarısız, sadece dosya kullanılacak.");
+        logger.info("[SESSION] ✅ İlk kurulum: Oturum DB'ye aktarıldı.");
+      } else {
+        // DB zaten güncel — SESSION env'i yoksay
+        logger.info("[SESSION] ✅ DB'de güncel oturum mevcut, SESSION env atlandı.");
       }
 
+      // Her iki durumda da DB auth state döndür (saveCreds → DB)
+      logger.info("[SESSION] DB auth state etkinleştiriliyor (ephemeral-safe mod)...");
+      return await useDbAuthState(sessionId);
+
     } catch (e) {
-      logger.warn({ err: e.message }, "[SESSION] Ayrıştırma hatası, mevcut oturuma dönülüyor.");
+      logger.warn({ err: e.message }, "[SESSION] Önyükleme hatası, dosya tabanlı auth deneniyor...");
+      // Hata durumunda aşağıdaki dosya kontrolüne düş
     }
   }
 
-  // 2. Check for local session files first (dashboard-auth or lades-session)
+  // ════════════════════════════════════════════════════════
+  //  ADIM 2: SESSION env yoksa yerel dosyaları kontrol et
+  //           (Dashboard QR girişi veya yerel geliştirme)
+  // ════════════════════════════════════════════════════════
   const possiblePaths = [
     path.join(__dirname, "..", "sessions", "dashboard-auth"),
     path.join(__dirname, "..", "sessions", "lades-session"),
-    path.join(__dirname, "..", "sessions", sessionId),
   ];
-
-  for (const sessionPath of possiblePaths) {
-    const credsFile = path.join(sessionPath, "creds.json");
-    if (fs.existsSync(credsFile)) {
-      logger.info(`Yerel oturum dosyası bulundu: ${sessionPath}`);
-      const { useMultiFileAuthState } = await loadBaileys();
-      const auth = await useMultiFileAuthState(sessionPath);
-      if (!auth.clearState) {
-        auth.clearState = async () => {
-          try {
-            if (fs.existsSync(sessionPath)) {
-              fs.rmSync(sessionPath, { recursive: true, force: true });
-              logger.info(`Lokal oturum dizini temizlendi: ${sessionPath}`);
-            }
-          } catch (e) {
-            logger.error({ err: e.message }, "Lokal oturum temizleme hatası");
-          }
-        };
-      }
-      if (!auth.clearSessions) {
-        auth.clearSessions = async () => {
-          try {
-             // For multi-file auth, we can delete the relevant files
-             const files = fs.readdirSync(sessionPath);
-             for (const file of files) {
-               if (file.startsWith("session-") || file.startsWith("sender-key-") || file.startsWith("sender-key-memory-")) {
-                 fs.unlinkSync(path.join(sessionPath, file));
-               }
-             }
-             logger.info(`[Auth] Oturum onarımı: session ve senderKey dosyaları temizlendi.`);
-          } catch (e) {
-            logger.warn({ err: e.message }, "[Auth] clearSessions başarısız");
-          }
-        };
-      }
-      return auth;
-    }
+  if (sessionId !== "lades-session") {
+    possiblePaths.push(path.join(__dirname, "..", "sessions", sessionId));
   }
 
-  // 3. Fallback to DB auth state (SQLite or Postgres)
-  logger.info(`[${sessionId}] Yerel oturum dosyası bulunamadı, veritabanına bakılıyor...`);
+  for (const sp of possiblePaths) {
+    const cf = path.join(sp, "creds.json");
+    if (!fs.existsSync(cf)) continue;
+
+    logger.info(`Yerel oturum dosyası bulundu: ${sp}`);
+    const { useMultiFileAuthState } = await loadBaileys();
+    const auth = await useMultiFileAuthState(sp);
+
+    if (!auth.clearState) {
+      auth.clearState = async () => {
+        try {
+          if (fs.existsSync(sp)) {
+            fs.rmSync(sp, { recursive: true, force: true });
+            logger.info(`Lokal oturum dizini temizlendi: ${sp}`);
+          }
+        } catch (e) {
+          logger.error({ err: e.message }, "Lokal oturum temizleme hatası");
+        }
+      };
+    }
+
+    if (!auth.clearSessions) {
+      auth.clearSessions = async () => {
+        try {
+          const files = fs.readdirSync(sp);
+          for (const file of files) {
+            if (
+              file.startsWith("session-") ||
+              file.startsWith("sender-key-") ||
+              file.startsWith("sender-key-memory-")
+            ) {
+              fs.unlinkSync(path.join(sp, file));
+            }
+          }
+          logger.info(`[Auth] Oturum onarımı: session ve senderKey dosyaları temizlendi.`);
+        } catch (e) {
+          logger.warn({ err: e.message }, "[Auth] clearSessions başarısız");
+        }
+      };
+    }
+
+    return auth;
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  ADIM 3: Dosya da yoksa DB'ye bak (SQLite / Postgres)
+  // ════════════════════════════════════════════════════════
+  logger.info(`[${sessionId}] Yerel oturum dosyası bulunamadı → veritabanına bakılıyor...`);
   return await useDbAuthState(sessionId);
 }
 
