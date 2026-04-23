@@ -1,6 +1,47 @@
 const { getBuffer } = require('./genel_araclar');
 
 /**
+ * Checks if the client's WebSocket is currently open/connected.
+ * Prevents "Connection Closed" errors when calling groupMetadata
+ * during reconnect windows.
+ */
+function isClientConnected(client) {
+  try {
+    // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
+    return client?.ws?.readyState === 1;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Safely fetch group metadata — tries live socket first,
+ * falls back to store cache, then returns a minimal stub.
+ * Never throws "Connection Closed".
+ */
+async function safeGroupMetadata(client, jid) {
+  // 1. Try live socket (only when WS is actually OPEN)
+  if (isClientConnected(client)) {
+    try {
+      return await client.groupMetadata(jid);
+    } catch (e) {
+      // Non-fatal: connection may have just dropped — fall through to cache
+    }
+  }
+
+  // 2. Fallback: store cache (fetchGroupMeta from store)
+  try {
+    const { fetchGroupMeta } = require('../../core/store');
+    // fetchGroupMeta returns cached value without hitting network
+    const cached = await fetchGroupMeta(client, jid).catch(() => null);
+    if (cached && cached.id) return cached;
+  } catch { }
+
+  // 3. Minimal stub — prevents template replace from crashing
+  return { id: jid, subject: '', desc: '', participants: [] };
+}
+
+/**
  * Parse welcome/goodbye message with placeholders
  * @param {string} template - Message template with placeholders
  * @param {Object} messageObject - WhatsApp message object
@@ -10,9 +51,10 @@ const { getBuffer } = require('./genel_araclar');
 async function parseWelcomeMessage(template, messageObject, participants = []) {
   if (!template || !messageObject) return null;
   try {
-    const groupMetadata = await messageObject.client.groupMetadata(
-      messageObject.jid
-    );
+    // ── BAĞLANTI KOPUKKEN ÇÖKME ÖNLEYİCİ ────────────────────────────────────
+    // groupMetadata() WebSocket kapalıyken "Connection Closed" fırlatır.
+    // safeGroupMetadata: önce canlı socket dener, başarısız olursa cache/stub kullanır.
+    const groupMetadata = await safeGroupMetadata(messageObject.client, messageObject.jid);
     const participantCount = groupMetadata.participants.length;
     const participant = participants[0]?.id;
     let participantNumber = "";
@@ -24,8 +66,8 @@ async function parseWelcomeMessage(template, messageObject, participants = []) {
     let parsedMessage = template
       .replace(/\$mention/g, `@${participantNumber}`)
       .replace(/\$user/g, participantName)
-.replace(/\$group/g, groupMetadata.subject || "Bilinmeyen Grup")
-        .replace(/\$desc/g, groupMetadata.desc || "Açıklama yok")
+      .replace(/\$group/g, groupMetadata.subject || "Bilinmeyen Grup")
+      .replace(/\$desc/g, groupMetadata.desc || "Açıklama yok")
       .replace(/\$count/g, participantCount.toString())
       .replace(/\$date/g, new Date().toLocaleDateString('tr-TR'))
       .replace(/\$time/g, new Date().toLocaleTimeString('tr-TR', { hour12: false }));
@@ -41,20 +83,15 @@ async function parseWelcomeMessage(template, messageObject, participants = []) {
           profilePicBuffer = await getBuffer(ppUrl);
         }
       } catch (error) {
-        console.log("Profil resmi alınamadı:", error);
         try {
-          console.log("Grup resmine yedek geçiliyor...");
           const gppUrl = await messageObject.client.profilePictureUrl(
             messageObject.jid,
             "image"
           );
           if (gppUrl) {
             profilePicBuffer = await getBuffer(gppUrl);
-            console.log("Grup resmi yedek olarak kullanıldı");
           }
-        } catch (fallbackError) {
-          console.log("Grup resmine yedek geçiş de başarısız:", fallbackError);
-        }
+        } catch { }
       }
       parsedMessage = parsedMessage.replace(/\$pp/g, "").trim();
     }
@@ -67,9 +104,7 @@ async function parseWelcomeMessage(template, messageObject, participants = []) {
         if (gppUrl) {
           groupPicBuffer = await getBuffer(gppUrl);
         }
-      } catch (error) {
-        console.log("Grup resmi alınamadı:", error);
-      }
+      } catch { }
       parsedMessage = parsedMessage.replace(/\$gpp/g, "").trim();
     }
     return {
@@ -79,7 +114,10 @@ async function parseWelcomeMessage(template, messageObject, participants = []) {
       groupPic: groupPicBuffer,
     };
   } catch (error) {
-    console.error("Hoş geldin mesajı ayrıştırma hatası:", error);
+    // Hata logla ama fırlatma — çağıran taraf null'ı işleyebilir
+    if (!error.message?.includes('Connection Closed')) {
+      console.error("Hoş geldin mesajı ayrıştırma hatası:", error.message);
+    }
     return null;
   }
 }

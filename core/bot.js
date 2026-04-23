@@ -33,17 +33,17 @@ let _firstConnectDone = false; // loadPlugins + startSchedulers sadece 1 kez ça
 
 // Pre-warm: Bot başlar başlamaz queue'yu hazırla
 import('p-queue').then(({ default: PQueue }) => {
-  // concurrency: 5  — I/O-bound işler için güvenli (0.2 vCPU'da CPU değil I/O bekler)
-  // intervalCap: 60  — Saniyede max 60 mesaj işle (30 gruptan 2/s = yeterli burst emici)
+  // concurrency: 3  — I/O-bound işler için güvenli (Aşırı I/O RAM tüketimini dizginler)
+  // intervalCap: 30  — Saniyede max 30 mesaj işle (Burst anında RAM şişmesini önler)
   // throwOnTimeout: false — timeout'da hata fırlatma, sessizce geç
-  _queue = new PQueue({ concurrency: 5, intervalCap: 60, interval: 1000, throwOnTimeout: false });
+  _queue = new PQueue({ concurrency: 3, intervalCap: 30, interval: 1000, throwOnTimeout: false });
   _queueReady = true;
 }).catch(() => { /* fallback: create on demand */ });
 
 async function getMessageQueue() {
   if (_queue) return _queue;
   const { default: PQueue } = await import('p-queue');
-  _queue = new PQueue({ concurrency: 5, intervalCap: 60, interval: 1000, throwOnTimeout: false });
+  _queue = new PQueue({ concurrency: 3, intervalCap: 30, interval: 1000, throwOnTimeout: false });
   _queueReady = true;
   return _queue;
 }
@@ -219,6 +219,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
   let decryptionErrorCount = 0;
   let lastDecryptionErrorAt = 0;
   let _isClosing = false; // Çift kapatma koruması
+  let _lastRepairAt = 0;  // Onarım cooldown — art arda onarım döngüsünü önler
+  let _connectedAt = 0;   // Bağlantı zamanı — startup grace period için
 
   /**
    * Zombie socket bırakmadan bağlantıyı kapat.
@@ -277,24 +279,44 @@ async function createBot(sessionId = "lades-session", options = {}) {
           decryptionErrorCount++;
           lastDecryptionErrorAt = now;
 
-          // İlk 10 hata: sessizce say, 10. hatada uyar
-          if (decryptionErrorCount === 10) {
-            logger.warn(`[Şifre] ${sessionId}: 10 deşifre hatası birikti. 25'te otomatik onarım başlayacak.`);
+          // İlk 20 hata: sessizce say, 20. hatada uyar
+          if (decryptionErrorCount === 20) {
+            logger.warn(`[Şifre] ${sessionId}: 20 deşifre hatası birikti. 100'de onarım denenecek.`);
           }
 
-          // 25 hata eşiğinde graceful reconnect
-          if (decryptionErrorCount >= 25) {
-            logger.error(`[KRİTİK] ${sessionId}: 25 deşifre hatası aşıldı! Oturum onarımı için yeniden bağlanılıyor...`);
+          // ── SONSUZ DÖNGÜ ÖNLEYICI ────────────────────────────────────────────
+          // NEDEN 100: Bot yeni başladığında sunucu onlarca bekleyen mesaj gönderir.
+          // Eski session key'leri geçersiz olduğundan bunlar decryption hatası üretir.
+          // Bu tamamen NORMALDIR ve socket'i kapatmayı gerektirmez.
+          // NEDEN SOCKET KAPATILMIYOR: Kapatmak → yeni socket → aynı mesajlar tekrar →
+          // aynı hatalar → sonsuz döngü. Tek doğru çözüm: session cache temizle, devam et.
+          if (decryptionErrorCount >= 100) {
             decryptionErrorCount = 0;
-            
-            // Repair the session by clearing corrupted session caches
+
+            // Startup grace period: bağlandıktan sonraki 60sn onarım yapma
+            // (Bu sürede sunucu bekleyen mesajları toplu olarak gönderir)
+            const timeSinceConnect = _connectedAt > 0 ? now - _connectedAt : Infinity;
+            if (timeSinceConnect < 60000) {
+              logger.warn(`[Şifre] ${sessionId}: Startup grace period (${Math.round(timeSinceConnect/1000)}sn). Onarım ertelendi.`);
+              return;
+            }
+
+            // Cooldown: Son onarımdan bu yana 5 dakika geçmediyse tekrar onarım yapma
+            const timeSinceRepair = now - _lastRepairAt;
+            if (_lastRepairAt > 0 && timeSinceRepair < 5 * 60 * 1000) {
+              logger.warn(`[Şifre] ${sessionId}: Onarım cooldown aktif (${Math.round(timeSinceRepair/1000)}sn / 300sn). Atlandı.`);
+              return;
+            }
+
+            _lastRepairAt = now;
+            logger.warn(`[Şifre] ${sessionId}: 100 deşifre hatası — session cache temizleniyor (bağlantı KORUNUYOR)...`);
+
+            // Sadece bozuk session cache'ini temizle — SOCKET'İ ASLA KAPATMA
+            // Socket kapatmak sonsuz döngüye girer.
             if (clearSessions) {
               clearSessions().catch(() => {});
             }
-
-            setTimeout(() => {
-              try { gracefulClose("Decryption error threshold"); } catch { }
-            }, 500);
+            // NOT: gracefulClose() ÇAĞIRILMIYOR — bu kasıtlı tasarım kararıdır.
           }
           
           // UYARI EKRANINI KİRLETMEMEK İÇİN BU LOGU SESSİZCE YUT
@@ -338,8 +360,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
       // Çift önbellekleme (double-cache) durumunu ve bellek sızıntısını önlemek için direkt kullanıyoruz:
       keys: state.keys, 
     },
-    msgRetryCounterCache: createNodeCacheAdapter(100, 5 * 60 * 1000), // 500→100 mesaj, 5 dk
-    userDevicesCache: createNodeCacheAdapter(100, 5 * 60 * 1000), // 500→100 cihaz, 5 dk
+    msgRetryCounterCache: createNodeCacheAdapter(50, 5 * 60 * 1000), // 100→50 mesaj, 5 dk
+    userDevicesCache: createNodeCacheAdapter(50, 5 * 60 * 1000), // 100→50 cihaz, 5 dk
     browser: Browsers.ubuntu("Chrome"),
     getMessage: async (key) => {
       const { getMessageByKey } = require("./store");
@@ -541,6 +563,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
       reconnectCount = 0;
       if (options.manager) options.manager.reconnectCount = 0;
       pairCodeRequested = false;
+      _connectedAt = Date.now(); // Startup grace period başlangıcı
+      decryptionErrorCount = 0;  // Yeni bağlantıda sayacı sıfırla
       logger.info(`✅ Bot bağlandı! JID: ${sock.user?.id}`);
       if (process.send) process.send({ type: 'bot_status', data: { connected: true, phone: sock.user.id } });
       
