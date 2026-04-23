@@ -776,13 +776,17 @@ async function createBot(sessionId = "lades-session", options = {}) {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       // ── LOGOUT KORUMA ─────────────────────────────────────────────────────────
       // WA sunucusu zaman zaman geçici 401 (loggedOut) sinyali gönderebilir.
-      // SESSION env varsa veya kasıtlı logout değilse oturumu ASLA silme.
-      // Sadece 'sock.__intentionalLogout = true' set edilmişse (dashboard stop/logout)
-      // oturumu temizle. Diğer tüm durumlarda yeniden bağlan.
+      // Koşullardan HERHANGİ BİRİ sağlanıyorsa oturumu ASLA silme, yeniden bağlan:
+      //   a) SESSION env mevcutsa (cloud ephemeral ortam)
+      //   b) DB'den yüklenen geçerli oturum varsa (hasValidSession = creds.me mevcut)
+      //   c) Kasıtlı logout DEĞİLSE (sock.__intentionalLogout !== true)
+      // Sadece kasıtlı logout VE (SESSION env YOK VE DB oturumu YOK) durumunda sil.
       const isIntentionalLogout = sock.__intentionalLogout === true;
       const hasSessionEnv = !!(config.SESSION && config.SESSION.length > 20);
+      // hasValidSession: createBot başında set edildi — creds.me varsa true
+      const hasPersistedSession = hasValidSession || hasSessionEnv;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut ||
-                              (!isIntentionalLogout && hasSessionEnv);
+                              (!isIntentionalLogout && hasPersistedSession);
       
       // Geçici ağ hataları (stream hataları vb.) için sessiz reconnect loglaması
       if (statusCode === 515 || statusCode === 503 || statusCode === 408) {
@@ -790,9 +794,11 @@ async function createBot(sessionId = "lades-session", options = {}) {
       } else if (statusCode === 428) {
         logger.warn(`Bağlantı kesildi (428 Precondition Required). Kapanan bağlantı yenileniyor...`);
       } else if (statusCode === DisconnectReason.loggedOut && !isIntentionalLogout) {
-        logger.warn(`[KORUMA] WhatsApp 401 (loggedOut) gönderdi ama kasıtlı logout değil. SESSION${hasSessionEnv ? ' env var' : ' yok'} → ${
-          hasSessionEnv ? 'yeniden bağlanılıyor (oturum KORUNUYOR).' : 'oturum geçersiz sayılıyor.'
-        }`);
+        logger.warn(
+          `[KORUMA] WhatsApp 401 (loggedOut) gönderdi ama kasıtlı logout değil. ` +
+          `Kalıcı oturum: ${hasPersistedSession ? 'VAR (SESSION env veya DB)' : 'YOK'} → ` +
+          `${hasPersistedSession ? 'Yeniden bağlanılıyor (oturum KORUNUYOR).' : 'Oturum geçersiz sayılıyor.'}`
+        );
       } else {
         logger.warn({ statusCode, shouldReconnect }, `Bağlantı kesildi.`);
       }
