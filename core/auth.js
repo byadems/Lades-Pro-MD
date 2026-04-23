@@ -251,13 +251,50 @@ async function useSessionStringAuthState(sessionString) {
 //  Get auth state - pick method based on config
 // ─────────────────────────────────────────────────────────
 async function getAuthState(config, sessionId = "lades-session") {
-  // 1. If SESSION env contains a base64 string
+  const sessionPath = path.join(__dirname, "..", "sessions", sessionId);
+  const credsFile = path.join(sessionPath, "creds.json");
+
+  // 1. If SESSION env contains a base64 string (Northflank/Heroku ephemeral storage workaround)
   if (config.SESSION && config.SESSION.length > 20 && !config.SESSION.startsWith("path:")) {
-    logger.info("Oturum metni (session string) kimlik doğrulaması kullanılıyor.");
+    logger.info("Oturum kimliği (SESSION) algılandı, yerel dosyaya aktarılıyor...");
     try {
-      return await useSessionStringAuthState(config.SESSION);
+      // Sadece creds.json yoksa (yeni başlatma veya ephemeral restart)
+      if (!fs.existsSync(credsFile)) {
+        if (!fs.existsSync(sessionPath)) {
+          fs.mkdirSync(sessionPath, { recursive: true });
+        }
+        
+        let b64 = config.SESSION;
+        // Prefix destekleri (KnightBot, Hermit, Lades vb.)
+        if (b64.includes("!")) {
+          b64 = b64.split("!")[1]; 
+        } else if (b64.includes("~")) {
+          b64 = b64.split("~")[1];
+        }
+        
+        let decoded = "";
+        try {
+           // Gzip sıkıştırması kullanılmış olabilir (KnightBot stili)
+           const compressedData = Buffer.from(b64.replace(/\.\.\.$/, ''), 'base64');
+           const zlib = require('zlib');
+           decoded = zlib.gunzipSync(compressedData).toString('utf-8');
+        } catch(e) {
+           // Gzip değilse düz base64
+           decoded = Buffer.from(b64, "base64").toString("utf-8");
+        }
+
+        const parsed = JSON.parse(decoded);
+        let credsData = parsed;
+        // Eğer veride { creds: {...}, keys: {...} } varsa sadece creds kısmını al
+        if (parsed.creds) credsData = parsed.creds;
+        
+        fs.writeFileSync(credsFile, JSON.stringify(credsData, null, 2), "utf-8");
+        logger.info(`✅ SESSION başarıyla yerel dosya sistemine aktarıldı. Bot kesintisiz başlayacak!`);
+      } else {
+         logger.info(`ℹ️ Yerel creds.json zaten mevcut, SESSION değişkeni atlandı.`);
+      }
     } catch (e) {
-      logger.warn("Oturum metni ayrıştırma hatası, yerel dosyaya dönülüyor.");
+      logger.warn({ err: e.message }, "SESSION ayrıştırma hatası, standart oturuma dönülüyor.");
     }
   }
 

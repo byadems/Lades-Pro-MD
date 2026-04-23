@@ -77,11 +77,8 @@
     let processingMsg;
     try {
       const voiceMsg = targetMessage || message;
-      // .dinle komutu ile explicitly bir targetMessage (reply_message) paslanmışsa onu kontrol et
-      // Değilse (otomatik tetikleme) sadece asıl mesajı kontrol et
-      const isVoice = voiceMsg.audio ||
-        voiceMsg.ptt ||
-        voiceMsg.data?.message?.audioMessage;
+      // Sadece mikrofonla kaydedilmiş (ptt) sesleri kabul et
+      const isVoice = voiceMsg.ptt || voiceMsg.data?.message?.audioMessage?.ptt === true;
 
       if (!isVoice) {
         return;
@@ -103,6 +100,13 @@
       }
       processingMsg = await message.send("🎙️ _Ses analiz ediliyor..._");
       const audioBuffer = await voiceMsg.download("buffer");
+      const mime = voiceMsg.mimetype || voiceMsg.data?.message?.audioMessage?.mimetype || "audio/ogg";
+      let ext = "ogg";
+      if (mime.includes("mp4")) ext = "m4a";
+      else if (mime.includes("mpeg")) ext = "mp3";
+      else if (mime.includes("webm")) ext = "webm";
+      else if (mime.includes("wav")) ext = "wav";
+
       const boundary = `----WebKitFormBoundary${Date.now()}`;
       const buildBody = (modelName) => {
         const c = [];
@@ -113,8 +117,8 @@
         c.push(Buffer.from(`Content-Disposition: form-data; name="language"\r\n\r\n`));
         c.push(Buffer.from(`tr\r\n`));
         c.push(Buffer.from(`--${boundary}\r\n`));
-        c.push(Buffer.from(`Content-Disposition: form-data; name="file"; filename="audio.ogg"\r\n`));
-        c.push(Buffer.from(`Content-Type: audio/ogg; codecs=opus\r\n\r\n`));
+        c.push(Buffer.from(`Content-Disposition: form-data; name="file"; filename="audio.${ext}"\r\n`));
+        c.push(Buffer.from(`Content-Type: ${mime.split(';')[0]}\r\n\r\n`));
         c.push(audioBuffer);
         c.push(Buffer.from(`\r\n`));
         c.push(Buffer.from(`--${boundary}--\r\n`));
@@ -242,8 +246,8 @@
   },
     async (message, match) => {
       const replied = message.reply_message;
-      if (!replied || (!replied.audio && !replied.ptt)) {
-        return await message.sendReply("❌ *Lütfen bir ses mesajına yanıtlayarak yazın!*");
+      if (!replied || !replied.ptt) {
+        return await message.sendReply("❌ *Lütfen sadece mikrofonla kaydedilmiş bir sesli mesaja (ses kaydına) yanıt verin! (Şarkı veya müzik desteklenmez)*");
       }
       return await transcribeVoiceMessage(message, replied);
     });
