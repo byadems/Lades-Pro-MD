@@ -113,7 +113,7 @@ Module(
         `\`\`\`${sessionStr}\`\`\``;
 
       // Güvenlik: gruplarda gruba değil, bota DM olarak gönder
-      await message.client.sendMessage(message.user, { text: infoText });
+      await message.client.sendMessage(message.sender, { text: infoText });
 
       if (message.isGroup) {
         await message.sendReply("✅ _Oturum kimliğiniz güvenliğiniz için *Özel Mesaj (DM)* üzerinden gönderildi._");

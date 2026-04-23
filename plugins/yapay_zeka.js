@@ -1298,9 +1298,11 @@
       const data = await siputGet("/api/ai/gemini-lite", { prompt: text });
       const result = data.data || data.result;
       if (!result) return await message.sendReply("❌ *Yanıt alınamadı!*");
-      const answer = typeof result === "string" ? result : result.text || result.answer || JSON.stringify(result);
+      
+      const answer = (result.parts && result.parts[0]?.text) || result.text || result.answer || (typeof result === "string" ? result : JSON.stringify(result));
       await message.sendReply(`🤖 *Gemini Lite*\n\n${answer}`);
     } catch (e) {
+      // Fallback or better error message
       await message.sendReply(`❌ *Hata:* _YZ yanıtı alınamadı:_ ${e.message}`);
     }
   });
@@ -1323,7 +1325,14 @@
       const data = await siputGet("/api/ai/qwq32b", { prompt: text });
       const result = data.data || data.result;
       if (!result) return await message.sendReply("❌ *Yanıt alınamadı!*");
-      const answer = typeof result === "string" ? result : result.text || result.answer || JSON.stringify(result);
+      
+      let answer = result.response || result.text || result.answer || (typeof result === "string" ? result : JSON.stringify(result));
+      
+      // Remove <think> tags if present
+      if (answer.includes("<think>")) {
+        answer = answer.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+      }
+      
       await message.sendReply(`🤖 *QwQ 32B*\n\n${answer}`);
     } catch (e) {
       await message.sendReply(`❌ *Hata:* _YZ yanıtı alınamadı:_ ${e.message}`);

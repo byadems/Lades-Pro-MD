@@ -797,8 +797,8 @@
         await plugin[0].destroy();
         const Message = `*✅ Modül başarıyla silindi! (${safePluginName})*`;
         await message.sendReply(Message);
-        try { delete require.cache[require.resolve("./" + safePluginName + ".js")]; } catch (_) {}
-        try { if (fs.existsSync("./plugins/" + safePluginName + ".js")) fs.unlinkSync("./plugins/" + safePluginName + ".js"); } catch (_) {}
+        try { delete require.cache[require.resolve("./" + safePluginName + ".js")]; } catch (_) { }
+        try { if (fs.existsSync("./plugins/" + safePluginName + ".js")) fs.unlinkSync("./plugins/" + safePluginName + ".js"); } catch (_) { }
       }
     }
   );
@@ -1453,10 +1453,26 @@
     use: "eglence",
   }, async (message) => {
     try {
-      const buf = await siputGetBuffer("/api/r/cats");
+      let buf;
+      try {
+        buf = await siputGetBuffer("/api/r/cats");
+      } catch (e) {
+        // Fallback: TheCatAPI
+        const res = await axios.get("https://api.thecatapi.com/v1/images/search");
+        const url = res.data?.[0]?.url;
+        if (url) {
+          const imgRes = await axios.get(url, { responseType: "arraybuffer", timeout: 15000 });
+          buf = Buffer.from(imgRes.data);
+        } else {
+          throw new Error("Görsel URL bulunamadı");
+        }
+      }
+
+      if (!buf || buf.length < 500) throw new Error("Geçersiz görsel verisi");
+
       await message.client.sendMessage(message.jid, {
         image: buf,
-        caption: "*Miyav!*"
+        caption: "*Miyav!* 🐾"
       }, { quoted: message.data });
     } catch (e) {
       await message.sendReply(`❌ *Kedi fotoğrafı alınamadı!* \n\n*Hata:* ${e.message}`);
@@ -1475,11 +1491,11 @@
   }, async (message) => {
     try {
       const data = await siputGet("/api/r/quotesanime");
-      const r = data.data || data.result;
+      const r = Array.isArray(data.data) ? data.data[0] : (data.data || data.result);
       if (!r) return await message.sendReply("❌ *Söz bulunamadı!*");
 
-      const quote = typeof r === "string" ? r : r.quote || r.text || JSON.stringify(r);
-      const char = r.character || r.anime || "";
+      const quote = r.quotes || r.quote || r.text || (typeof r === "string" ? r : JSON.stringify(r));
+      const char = r.karakter || r.character || r.anime || "";
       await message.sendReply(`*Anime Sözü*\n\n_"${quote}"_${char ? `\n\n— ${char}` : ""}`);
     } catch (e) {
       await message.sendReply(`❌ *Anime sözü alınamadı!* \n\n*Hata:* ${e.message}`);
