@@ -170,6 +170,17 @@ async function createBot(sessionId = "lades-session", options = {}) {
     }
   }
 
+  // ── PLUGİNLERİ ÖNCEDEN YÜKLE ───────────────────────────────────────────
+  // NEDEN BURADA: loadPlugins socket'ten ÖNCE çağrılmalı.
+  // connection.update içinde await loadPlugins() yaparsak, messages.upsert
+  // aynı anda tetiklenebilir ve commands[] hâlâ boşken komutlar işlenemez.
+  // Socket oluşmadan önce yüklersek, ilk mesaj geldiğinde komutlar hazırdır.
+  if (!_firstConnectDone) {
+    const pluginsDir = path.join(__dirname, "..", "plugins");
+    await loadPlugins(pluginsDir);
+    logger.info(`[Init] Pluginler socket öncesinde yüklendi — komutlar hazır.`);
+  }
+
   const { state, saveCreds, clearState, clearSessions } = await getAuthState(config, sessionId);
   
   // SESSION VALIDATION: Sadece 'me' (bağlı telefon) varlığını kontrol et.
@@ -688,12 +699,10 @@ async function createBot(sessionId = "lades-session", options = {}) {
       }
       // ── PLANLI MESAJ GÖNDERİCİSİ SONU ──────────────────────
 
-      // Load plugins and schedulers — SADECE ilk bağlantıda yükle
-      // Reconnect'lerde sadece credential'lar yenilenir, plugin'ler zaten hazır
+      // startSchedulers: socket gerektirir, burada çalışması doğru.
+      // loadPlugins: socket öncesinde (yukarıda) zaten çağrıldı.
       if (!_firstConnectDone) {
         _firstConnectDone = true;
-        const pluginsDir = path.join(__dirname, "..", "plugins");
-        await loadPlugins(pluginsDir);
         await startSchedulers(sock);
       }
 
