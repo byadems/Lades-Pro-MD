@@ -175,7 +175,19 @@ async function useDbAuthState(sessionId) {
     }
   };
 
-  return { state: { creds, keys }, saveCreds, clearState };
+  const clearSessions = async () => {
+    try {
+      if (storedKeys.session) delete storedKeys.session;
+      if (storedKeys.senderKey) delete storedKeys.senderKey;
+      if (storedKeys.senderKeyMemory) delete storedKeys.senderKeyMemory;
+      logger.info(`[Auth] Oturum onarımı: session ve senderKey verileri temizlendi.`);
+      await saveCreds(true);
+    } catch (e) {
+      logger.warn({ err: e.message }, "[Auth] clearSessions başarısız");
+    }
+  };
+
+  return { state: { creds, keys }, saveCreds, clearState, clearSessions };
 }
 
 // ─────────────────────────────────────────────────────────
@@ -222,7 +234,17 @@ async function useSessionStringAuthState(sessionString) {
     },
   }, logger.child({ module: "signal", level: "error" }));
 
-  return { state: { creds: state.creds || {}, keys }, saveCreds, clearState: async () => { } };
+  const clearSessions = async () => {
+    try {
+      if (state.keys.session) delete state.keys.session;
+      if (state.keys.senderKey) delete state.keys.senderKey;
+      if (state.keys.senderKeyMemory) delete state.keys.senderKeyMemory;
+      logger.info(`[Auth] Oturum onarımı: session ve senderKey verileri temizlendi.`);
+      await saveCreds();
+    } catch (e) { }
+  };
+
+  return { state: { creds: state.creds || {}, keys }, saveCreds, clearState: async () => { }, clearSessions };
 }
 
 // ─────────────────────────────────────────────────────────
@@ -264,12 +286,28 @@ async function getAuthState(config, sessionId = "lades-session") {
           }
         };
       }
+      if (!auth.clearSessions) {
+        auth.clearSessions = async () => {
+          try {
+             // For multi-file auth, we can delete the relevant files
+             const files = fs.readdirSync(sessionPath);
+             for (const file of files) {
+               if (file.startsWith("session-") || file.startsWith("sender-key-") || file.startsWith("sender-key-memory-")) {
+                 fs.unlinkSync(path.join(sessionPath, file));
+               }
+             }
+             logger.info(`[Auth] Oturum onarımı: session ve senderKey dosyaları temizlendi.`);
+          } catch (e) {
+            logger.warn({ err: e.message }, "[Auth] clearSessions başarısız");
+          }
+        };
+      }
       return auth;
     }
   }
 
   // 3. Fallback to DB auth state (SQLite or Postgres)
-  logger.info(`[${sessionId}] Geçerli oturum bulunamadı. Dashboard üzerinden giriş yapılması bekleniyor...`);
+  logger.info(`[${sessionId}] Yerel oturum dosyası bulunamadı, veritabanına bakılıyor...`);
   return await useDbAuthState(sessionId);
 }
 

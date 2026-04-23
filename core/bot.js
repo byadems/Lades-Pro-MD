@@ -168,7 +168,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
     }
   }
 
-  const { state, saveCreds, clearState } = await getAuthState(config, sessionId);
+  const { state, saveCreds, clearState, clearSessions } = await getAuthState(config, sessionId);
   
   // SESSION VALIDATION: Sadece 'me' (bağlı telefon) varlığını kontrol et.
   // signedPreKey gibi kriptografik alanları zorunlu kılmıyoruz — deploy sonrası
@@ -286,9 +286,15 @@ async function createBot(sessionId = "lades-session", options = {}) {
           if (decryptionErrorCount >= 25) {
             logger.error(`[KRİTİK] ${sessionId}: 25 deşifre hatası aşıldı! Oturum onarımı için yeniden bağlanılıyor...`);
             decryptionErrorCount = 0;
+            
+            // Repair the session by clearing corrupted session caches
+            if (clearSessions) {
+              clearSessions().catch(() => {});
+            }
+
             setTimeout(() => {
               try { gracefulClose("Decryption error threshold"); } catch { }
-            }, 300);
+            }, 500);
           }
           
           // UYARI EKRANINI KİRLETMEMEK İÇİN BU LOGU SESSİZCE YUT

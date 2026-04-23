@@ -20,10 +20,20 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 startup_error.txt
+pkey2.log
+out.txt
+
+# Python
+__pycache__/
+*.pyc
 
 # Geçici & medya dosyaları
 temp/
 scratch/
+scripts/dev/api_output.json
+scripts/dev/out2.json
+scripts/dev/speedtest
+scripts/dev/dasu.response
 *.webp
 *.png
 *.jpg
@@ -47,3 +57,4 @@ bot.pid
 # Misc
 *-player-script.js
 config.env
+dasu.response
