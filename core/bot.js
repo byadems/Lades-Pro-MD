@@ -808,6 +808,14 @@ async function createBot(sessionId = "lades-session", options = {}) {
         logger.warn(`Bağlantı kesildi (${statusCode} Stream Hatası). Yeniden bağlanılıyor...`);
       } else if (statusCode === 428) {
         logger.warn(`Bağlantı kesildi (428 Precondition Required). Kapanan bağlantı yenileniyor...`);
+      } else if (statusCode === 440) {
+        // 440 = conflict/replaced: Başka bir bağlantı bu oturumun yerini aldı.
+        // Bu genellikle birden fazla socket aynı anda bağlanmaya çalıştığında olur.
+        // Agresif reconnect YANLIŞ — daha fazla conflict üretir.
+        // Çözüm: Eski soketi temizle, 5sn bekle, SADECE BİR KEZ yeniden bağlan.
+        logger.warn(`[Conflict] Bağlantı 440 (replaced) ile kesildi. 5sn sonra tek seferlik reconnect...`);
+        // reconnectCount'u sıfırla — bu bir conflict, art arda hata değil
+        if (reconnectCount > 1) reconnectCount = 1;
       } else if (statusCode === DisconnectReason.loggedOut && !isIntentionalLogout) {
         logger.warn(
           `[KORUMA] WhatsApp 401 (loggedOut) gönderdi ama kasıtlı logout değil. ` +
@@ -834,14 +842,14 @@ async function createBot(sessionId = "lades-session", options = {}) {
         }
 
         setTimeout(async () => {
-          // Event listener'ları temizle (memory leak önlemi)
+          // Event listener'ları temizle (memory leak + çift reconnect önlemi)
           try { sock.ev.removeAllListeners(); } catch { }
           _isClosing = false; // Yeni socket için sıfırla
           const newSock = await createBot(sessionId, { ...options, reconnectCount });
           if (options.manager) {
             options.manager.updateSocket(sessionId, newSock);
           }
-        }, delay);
+        }, statusCode === 440 ? 5000 : delay); // 440 conflict: sabit 5sn bekle
       } else {
         // Kasıtlı logout (dashboard) veya SESSION olmayan gerçek 401
         if (isIntentionalLogout) {

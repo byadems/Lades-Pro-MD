@@ -56,6 +56,10 @@ class BotManager extends EventEmitter {
   }
 
   _bindEvents(sessionId, sock) {
+    // Eski listener'ları temizle — updateSocket her çağrıldığında birikip
+    // çift reconnect tetiklemesini önler (conflict döngüsünün ana nedenlerinden biri)
+    try { sock.ev.removeAllListeners('connection.update'); } catch { }
+
     sock.ev.on("connection.update", ({ connection }) => {
       if (connection) {
         this.states.set(sessionId, connection);
@@ -66,6 +70,11 @@ class BotManager extends EventEmitter {
 
   updateSocket(sessionId, newSock) {
     logger.info(`Session ${sessionId} socket updated (reconnected)`);
+    // Eski socket referansını kaldır (varsa eski listener'lar eski socket üzerinde)
+    const oldSock = this.bots.get(sessionId);
+    if (oldSock && oldSock !== newSock) {
+      try { oldSock.ev.removeAllListeners('connection.update'); } catch { }
+    }
     this.bots.set(sessionId, newSock);
     this._bindEvents(sessionId, newSock);
   }
