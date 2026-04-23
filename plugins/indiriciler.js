@@ -2128,7 +2128,7 @@
         }
       }
 
-      let audioPath;
+      let audioPath, downloadMsg;
 
       try {
         downloadMsg = await message.sendReply("🔻 _Ses indiriliyor..._");

@@ -205,46 +205,68 @@ function validateUrl(url, platform) {
 //  Suppress noisy logs
 // ─────────────────────────────────────────────────────────
 function suppressLibsignalLogs() {
+  // İdempotensi koruıcusu: Birden fazla çağrıda process.stderr.write iki kez sarmalanır.
+  // Flag'i process üzerinde tut — modül sınırlarını aşar.
+  if (process.__ladesLibsignalSuppressed) return;
+  process.__ladesLibsignalSuppressed = true;
+
+  // ── console.* filtreleri ────────────────────────────────────────
+  // Baileys'in kendi logger'ı console'dan geçebilecek bazı mesajları filtreler.
   const origWarn = console.warn.bind(console);
-  const origLog = console.log.bind(console);
+  const origLog  = console.log.bind(console);
   const origInfo = console.info.bind(console);
+  const origError = console.error.bind(console);
 
-  // PERFORMANS: erken çıkış optimizasyonu
-  // Baileys her işlemde çok sayıda log üretir. Bu fonksiyon her log çağrısında çalışır.
-  // Önce hızlı tip kontrolü, sonra string içerik kontrolü yapılır.
-  const FILTER_STRINGS = ["signalstore", "libsignal", "Closing session:", "SessionEntry"];
+  const CONSOLE_FILTER = ["signalstore", "libsignal", "Closing session:", "SessionEntry", "Bad MAC", "Session error"];
 
-  const filter = (args) => {
+  const filterArgs = (args) => {
     if (!args || args.length === 0) return false;
     try {
       for (const arg of args) {
-        // En hızlı kontrol önce: string mi?
         if (typeof arg === 'string') {
-          for (const s of FILTER_STRINGS) {
-            if (arg.includes(s)) return true;
-          }
-          continue; // string ama eşleşmedi, sonraki arg'a geç
+          for (const s of CONSOLE_FILTER) { if (arg.includes(s)) return true; }
+          continue;
         }
-        // Nesne kontrolü (daha nadir, en sona bırak)
         if (arg && typeof arg === 'object' && arg.constructor?.name === 'SessionEntry') return true;
       }
       return false;
     } catch { return false; }
   };
 
-  console.warn = (...args) => {
-    if (filter(args)) return;
-    origWarn(...args);
-  };
+  console.warn  = (...args) => { if (filterArgs(args)) return; origWarn(...args);  };
+  console.log   = (...args) => { if (filterArgs(args)) return; origLog(...args);   };
+  console.info  = (...args) => { if (filterArgs(args)) return; origInfo(...args);  };
+  console.error = (...args) => { if (filterArgs(args)) return; origError(...args); };
 
-  console.log = (...args) => {
-    if (filter(args)) return;
-    origLog(...args);
-  };
+  // ── process.stderr intercept ────────────────────────────────────
+  // libsignal (session_cipher.js, crypto.js) "Session error:Error: Bad MAC" gibi
+  // kritik hataları doğrudan process.stderr.write() ile yazar.
+  // console.* override'ları bunları yakalamaz — bu yüzden stream katmanında filtrele.
+  const STDERR_FILTER_STRINGS = [
+    "Bad MAC",
+    "Session error:",
+    "Closing open session in favor of",
+    "Decrypted message with closed session",
+    "at Object.verifyMAC",
+    "at SessionCipher.",
+    "at async _asyncQueueExecutor",
+    "libsignal/src/",
+  ];
 
-  console.info = (...args) => {
-    if (filter(args)) return;
-    origInfo(...args);
+  const origStderrWrite = process.stderr.write.bind(process.stderr);
+  process.stderr.write = function(chunk, encoding, callback) {
+    if (chunk) {
+      const str = Buffer.isBuffer(chunk) ? chunk.toString() : String(chunk);
+      for (const token of STDERR_FILTER_STRINGS) {
+        if (str.includes(token)) {
+          // Tamamen sessizce yut; callback'i yine çağır ki caller bloklanmasın
+          if (typeof encoding === 'function') encoding();
+          else if (typeof callback === 'function') callback();
+          return true;
+        }
+      }
+    }
+    return origStderrWrite(chunk, encoding, callback);
   };
 }
 

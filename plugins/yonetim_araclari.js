@@ -301,37 +301,170 @@ Module({
   }
 );
 
+// Ayarlar menüsündeki özellikler — sıra ve anahtar isimleri sabit kalmalı
+const GRUP_AYARLARI = [
+  {
+    key: "antispam",
+    title: "Anti-Spam",
+    desc: "Hızlı mesaj atanları otomatik gruptan atar",
+    icon: "🚨",
+    getStatus: async (jid) => {
+      const db = await antispam.get();
+      return db.some(d => d.jid === jid);
+    },
+    toggle: async (jid, enable, message) => {
+      if (enable) {
+        if (!message.isBotAdmin) return message.sendReply("🙁 *Botu önce yönetici yapın!*");
+        await antispam.set(jid);
+        return message.sendReply("✅ *Anti-Spam açıldı!*");
+      }
+      await antispam.delete(jid);
+      return message.sendReply("❌ *Anti-Spam kapatıldı!*");
+    }
+  },
+  {
+    key: "antisilme",
+    title: "Anti-Silme",
+    desc: "Silinen mesajları yakalar ve iletir",
+    icon: "🗑️",
+    getStatus: async (jid) => {
+      const db = await antidelete.get();
+      return db.some(d => d.jid === jid);
+    },
+    toggle: async (jid, enable, message) => {
+      if (enable) {
+        await antidelete.set(jid);
+        await setVar(`ANTI_DELETE_MODE_${jid}`, "chat");
+        return message.sendReply("✅ *Anti-Silme açıldı!*\n\nℹ️ _Kurtarılan mesajlar bu sohbete gönderilecek._");
+      }
+      await antidelete.delete(jid);
+      await setVar(`ANTI_DELETE_MODE_${jid}`, "off");
+      return message.sendReply("❌ *Anti-Silme kapatıldı!*");
+    }
+  },
+  {
+    key: "antibaglantilink",
+    title: "Anti-Bağlantı",
+    desc: "Grup içi link paylaşımını engeller",
+    icon: "🔗",
+    getStatus: async (jid) => {
+      const conf = await antilinkConfig.get(jid);
+      return !!(conf && conf.enabled);
+    },
+    toggle: async (jid, enable, message) => {
+      if (enable) {
+        if (!message.isBotAdmin) return message.sendReply("🙁 *Botu önce yönetici yapın!*");
+        const existing = await antilinkConfig.get(jid);
+        if (!existing || !existing.jid) {
+          await antilinkConfig.set(jid, { mode: "delete", enabled: true, updatedBy: message.sender });
+        } else {
+          await antilinkConfig.update(jid, { enabled: true, updatedBy: message.sender });
+        }
+        return message.sendReply("✅ *Anti-Bağlantı açıldı!* (Mod: SİL)\n\n💡 _Detaylı ayar için_ `.antibağlantı yardım` _kullanın._");
+      }
+      const existing = await antilinkConfig.get(jid);
+      if (existing && existing.jid) {
+        await antilinkConfig.update(jid, { enabled: false, updatedBy: message.sender });
+      }
+      invalidateManageCache();
+      return message.sendReply("❌ *Anti-Bağlantı kapatıldı!*");
+    }
+  },
+  {
+    key: "antikelime",
+    title: "Anti-Kelime",
+    desc: "Yasaklı kelime kullanımını engeller",
+    icon: "🤬",
+    getStatus: async (jid) => {
+      const db = await antiword.get();
+      const antiwordWarn = config.ANTIWORD_WARN?.split(",") || [];
+      const kickMode = db.some(d => d.jid === jid);
+      const warnMode = antiwordWarn.includes(jid);
+      if (kickMode) return "at";
+      if (warnMode) return "uyar";
+      return false;
+    },
+    toggle: async (jid, enable, message) => {
+      if (enable) {
+        if (!message.isBotAdmin) return message.sendReply("🙁 *Botu önce yönetici yapın!*");
+        // Uyarı modunda aç
+        const antiwordWarn = config.ANTIWORD_WARN?.split(",").filter(Boolean) || [];
+        if (!antiwordWarn.includes(jid)) antiwordWarn.push(jid);
+        await setVar("ANTIWORD_WARN", antiwordWarn.join(","), false);
+        return message.sendReply("✅ *Anti-Kelime açıldı!* (Mod: UYAR)\n\n💡 _At moduna geçmek için_ `.antikelime at` _kullanın._");
+      }
+      await antiword.delete(jid);
+      const antiwordWarn = config.ANTIWORD_WARN?.split(",").filter(x => x && x !== jid) || [];
+      await setVar("ANTIWORD_WARN", antiwordWarn.join(",") || "null", false);
+      invalidateManageCache();
+      return message.sendReply("❌ *Anti-Kelime kapatıldı!*");
+    }
+  },
+  {
+    key: "antinumara",
+    title: "Anti-Numara",
+    desc: "Yabancı ülke numaralarını gruptan engeller",
+    icon: "🌍",
+    getStatus: async (jid) => {
+      const db = await antifake.get();
+      return db.some(d => d.jid === jid);
+    },
+    toggle: async (jid, enable, message) => {
+      if (enable) {
+        if (!message.isBotAdmin) return message.sendReply("🙁 *Botu önce yönetici yapın!*");
+        await antifake.set(jid);
+        return message.sendReply("✅ *Anti-Numara açıldı!*\n\nℹ️ _Varsayılan: sadece +90 kabul edilir._\n💡 _Özelleştirmek için_ `.antinumara izin 90,1` _kullanın._");
+      }
+      await antifake.delete(jid);
+      return message.sendReply("❌ *Anti-Numara kapatıldı!*");
+    }
+  },
+];
+
+// Yardımcı: Durum metni üret
+function statusText(val) {
+  if (val === "at") return "Açık ✅ (At Modu)";
+  if (val === "uyar") return "Açık ✅ (Uyarı Modu)";
+  return val ? "Açık ✅" : "Kapalı ❌";
+}
+
 Module({
   pattern: "ayarlar ?(.*)",
-  fromMe: true,
-  desc: "Botun ek özelliklerini ve WhatsApp tercihlerini yönetebileceğiniz interaktif menüyü açar.",
+  fromMe: false,
+  desc: "Grup koruma özelliklerini yönetebileceğiniz interaktif menüyü açar.",
   usage: ".ayarlar",
-  use: "sistem",
+  use: "grup",
 },
   async (message, match) => {
-    let configs = settingsMenu || [];
-    if (match[1]) {
-      const selectedOption = parseInt(match[1]);
-      if (
-        !isNaN(selectedOption) &&
-        selectedOption > 0 &&
-        selectedOption <= configs.length
-      ) {
-        const setting = configs[selectedOption - 1];
-        let msg = `⚙️ *${setting.title}*\n\n1. Açık\n2. Kapalı`;
-        return await message.sendReply(msg);
-      }
+    if (!message.isGroup) return message.sendReply("⚠️ *Bu komut yalnızca gruplarda kullanılabilir!*");
+    const adminOk = await isAdmin(message);
+    if (!message.fromOwner && !adminOk) return message.sendReply("🔒 *Bu komut yalnızca yöneticilere aittir!*");
+
+    const jid = message.jid;
+
+    // .ayarlar 1  →  doğrudan bir özellik seçimi
+    const argNum = parseInt(match[1]);
+    if (!isNaN(argNum) && argNum > 0 && argNum <= GRUP_AYARLARI.length) {
+      const feat = GRUP_AYARLARI[argNum - 1];
+      const status = await feat.getStatus(jid);
+      const statusStr = statusText(status);
+      const msg =
+        `${feat.icon} *${feat.title} Ayarı*\n` +
+        `_${feat.desc}_\n\n` +
+        `ℹ️ *Mevcut Durum:* ${statusStr}\n\n` +
+        `1️⃣ Aç\n2️⃣ Kapat`;
+      return message.sendReply(msg + `\n\n_🤖 Bu mesaja 1 veya 2 yazarak yanıt verin._`);
     }
-    let msg =
-      "⚙️ *Ayarlar Yapılandırma Menüsü*\n\n_Numaraya göre bir seçenek seçin:_\n\n";
-    if (configs.length === 0) {
-      msg += "ℹ️ _Şu an yapılandırılabilir ayar bulunmuyor._";
-    } else {
-      configs.forEach((e, index) => {
-        msg += `_${index + 1}. ${e.title}_\n`;
-      });
-    }
-    return await message.sendReply(msg);
+
+    // Ana menüyü göster
+    const statuses = await Promise.all(GRUP_AYARLARI.map(f => f.getStatus(jid)));
+    let msg = `⚙️ *Grup Koruma Ayarları*\n\n`;
+    msg += `_Numarayla bu mesaja yanıt vererek ayarı değiştirin:_\n\n`;
+    GRUP_AYARLARI.forEach((feat, i) => {
+      msg += `${i + 1}. ${feat.icon} *${feat.title}* — ${statusText(statuses[i])}\n`;
+    });
+    msg += `\n💡 _Örnek: Mesaja yanıt olarak_ \`1\` _yazarsanız Anti-Spam ayarına girersiniz._`;
+    return message.sendReply(msg);
   }
 );
 
@@ -1409,38 +1542,69 @@ Module({
 },
   async (message, match) => {
     try {
-      const configs = settingsMenu;
       const sMatch = message.text?.trim().match(/^\d+$/);
-      const settingsMatch =
-        sMatch &&
-        message.reply_message?.text &&
-        message.reply_message.text
-          .toLowerCase()
-          .includes("ayarlar yapılandırma menüsü") &&
-        message.quoted.key.fromMe;
+      const quotedText = message.reply_message?.text || "";
+      const isFromBot = message.quoted?.key?.fromMe;
 
-      if (settingsMatch) {
-        const optionNumber = parseInt(sMatch[0]);
-        if (optionNumber > 0 && optionNumber <= configs.length) {
-          const setting = configs[optionNumber - 1];
-          let msg = `*_${setting.title}_*\n1. Açık\n2. Kapalı`;
-          return await message.sendReply(msg);
-        }
-      } else if (
+      // ── YENİ: Grup Ayarları menüsüne yanıt ──────────────────────────────
+      const isGrupAyarMenu =
+        sMatch &&
+        isFromBot &&
+        message.isGroup &&
+        quotedText.includes("Grup Koruma Ayarları");
+
+      if (isGrupAyarMenu) {
+        const adminOk = await isAdmin(message);
+        if (!message.fromOwner && !adminOk) return;
+
+        const featIndex = parseInt(sMatch[0]) - 1;
+        if (featIndex < 0 || featIndex >= GRUP_AYARLARI.length) return;
+
+        const feat = GRUP_AYARLARI[featIndex];
+        const status = await feat.getStatus(message.jid);
+        const statusStr = statusText(status);
+        const msg =
+          `${feat.icon} *${feat.title} Ayarı*\n` +
+          `_${feat.desc}_\n\n` +
+          `ℹ️ *Mevcut Durum:* ${statusStr}\n\n` +
+          `1️⃣ Aç\n2️⃣ Kapat\n\n` +
+          `_🤖 Bu mesaja 1 veya 2 yazarak yanıt verin._`;
+        return await message.sendReply(msg);
+      }
+
+      // ── YENİ: Özellik açma/kapatma yanıtı ──────────────────────────────
+      const isToggleReply =
         message.text?.match(/^(1|2)$/) &&
-        message.reply_message?.text?.includes("1. Açık") &&
-        message.quoted.key.fromMe
-      ) {
-        const quotedMsg = message.reply_message.text;
-        const option = parseInt(message.text);
-        for (const setting of configs) {
-          if (quotedMsg.includes(setting.title)) {
-            const value = option === 1 ? "true" : "false";
-            await setVar(setting.env_var, value);
-            await message.sendReply(`✅ *${setting.title} ${value} olarak ayarlandı!*`);
-            return;
-          }
-        }
+        isFromBot &&
+        message.isGroup &&
+        quotedText.includes("1️⃣ Aç") &&
+        quotedText.includes("2️⃣ Kapat");
+
+      if (isToggleReply) {
+        const adminOk = await isAdmin(message);
+        if (!message.fromOwner && !adminOk) return;
+
+        const enable = message.text.trim() === "1";
+        const feat = GRUP_AYARLARI.find(f => quotedText.includes(f.title));
+        if (!feat) return;
+        return await feat.toggle(message.jid, enable, message);
+      }
+
+      // ── Detay menüsüne (feat bazlı) yanıt ───────────────────────────────
+      const isFeatDetailReply =
+        sMatch &&
+        isFromBot &&
+        message.isGroup &&
+        GRUP_AYARLARI.some(f => quotedText.includes(f.title) && quotedText.includes(f.desc));
+
+      if (isFeatDetailReply) {
+        const adminOk = await isAdmin(message);
+        if (!message.fromOwner && !adminOk) return;
+
+        const feat = GRUP_AYARLARI.find(f => quotedText.includes(f.title));
+        if (!feat) return;
+        const enable = parseInt(sMatch[0]) === 1;
+        return await feat.toggle(message.jid, enable, message);
       }
 
       // --- 1. LİNK/REKLAM KORUMASI (ÖNCELİKLİ VE DB BEKLEMEDEN) ---

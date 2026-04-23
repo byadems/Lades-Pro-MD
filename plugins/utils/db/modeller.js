@@ -183,6 +183,11 @@ const PluginDB = sequelize.define("Plugin", {
     type: DataTypes.TEXT,
     allowNull: false,
   },
+  code: {
+    type: DataTypes.STRING(64),
+    allowNull: true,
+    comment: "SHA-256 hash of last installed plugin code",
+  },
 }, { indexes: [{ fields: ['url'] }] });
 
 module.exports = {

@@ -1063,7 +1063,6 @@
         await message.client.sendMessage(message.jid, { image: buf, caption: "🔫 *ARANIYOR!*" }, { quoted: message.data });
       } catch (e) {
         await message.sendReply(`❌ *Efekt uygulanamadı!* \n\n*Hata:* ${e.message}`);
-        throw e;
       }
     }
   );
@@ -1073,25 +1072,54 @@
     const replyMime = message.reply_message?.mimetype || "";
     const isImg = replyMime.startsWith("image/");
     if (!isImg) return await message.sendReply("⚠️ *Lütfen bir görsele yanıtlayın!*");
+    let wait;
     try {
-      const wait = await message.send("⏳ _İşliyorum..._");
-      const path = await message.reply_message.download();
-      const upload = await uploadToImgbb(path);
+      wait = await message.send("⏳ _İşliyorum..._");
+      const imgPath = await message.reply_message.download();
+      const upload = await uploadToImgbb(imgPath);
       const url = upload?.url || upload?.display_url || (upload?.image && (upload.image.url || upload.image.display_url)) || (typeof upload === "string" ? upload : null);
       if (!url || url.includes("hata")) throw new Error("Görsel yüklenemedi");
 
-      await message.edit("✅ _Efekti uyguluyorum..._", message.jid, wait.key);
+      await message.edit("🎨 _Efekti uyguluyorum..._", message.jid, wait.key);
 
-      // Ephoto endpoint'leri Nexray tarafında kapalı veya arızalı olduğu için hata fırlatıyoruz 
-      // veya alternatif Popcat benzeri sistem kullanabiliriz. Şimdilik geçici iptal.
-      throw new Error("Ephoto sistemi geçici olarak çevrimdışıdır.");
+      // 1. Nexray ephoto endpoint
+      try {
+        const result = await nx(`${endpoint}?url=${encodeURIComponent(url)}`, { buffer: true, timeout: 90000 });
+        if (result && result.length > 500) {
+          await message.client.sendMessage(message.jid, { image: result }, { quoted: message.data });
+          await message.edit(caption, message.jid, wait.key);
+          return;
+        }
+      } catch (_nexrayErr) {
+        // Nexray başarısız, yedek API dene
+      }
 
-      // const result = await nx(`${endpoint}?url=${encodeURIComponent(url)}`, { buffer: true, timeout: 90000 });
-      // await message.edit(caption, message.jid, wait.key);
-      // await message.client.sendMessage(message.jid, { image: result }, { quoted: message.data });
+      // 2. Siputzx cartoon efekti (genel fallback)
+      try {
+        const axios = require("axios");
+        const siputRes = await axios.get("https://api.siputzx.my.id/api/tools/cartoonize", {
+          params: { url },
+          responseType: "arraybuffer",
+          timeout: 60000,
+        });
+        if (siputRes.status === 200 && siputRes.data?.byteLength > 500) {
+          const buf = Buffer.from(siputRes.data);
+          await message.client.sendMessage(message.jid, { image: buf }, { quoted: message.data });
+          await message.edit(caption, message.jid, wait.key);
+          return;
+        }
+      } catch (_siputErr) {
+        // İkinci yedek de başarısız
+      }
+
+      // Her iki API de yanıt vermedi
+      await message.edit("❌ *Efekt şu anda uygulanamıyor. API sunucuları geçici olarak yanıt vermiyor.*", message.jid, wait.key);
     } catch (e) {
-      await message.sendReply(`❌ *Efekt uygulanamadı!* \n\n*Hata:* ${e.message}`);
-      throw e;
+      if (wait) {
+        await message.edit(`❌ *Efekt uygulanamadı!* \n\n*Hata:* ${e.message}`, message.jid, wait.key).catch(() => {});
+      } else {
+        await message.sendReply(`❌ *Efekt uygulanamadı!* \n\n*Hata:* ${e.message}`);
+      }
     }
   }
 

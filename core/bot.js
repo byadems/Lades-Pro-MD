@@ -20,6 +20,12 @@ const { WhatsappOturum, sequelize } = require("./database");
 const { migrateSudoToLID } = require("./yardimcilar");
 const { startSchedulers } = require("./zamanlayici");
 const { runSelfTest } = require("./self-test");
+// ── Libsignal gürültüsünü modül yüklenirken hemen bastır ──────────────────
+// process.stderr.write seviyesinde intercept: libsignal'ın "Bad MAC", "Session error"
+// gibi hataları doğrudan stderr'e yazar; console.* override'ları bunları yakalamaz.
+// Bu çağrı socket oluşturulmadan önce olmalı — bu yüzden module-scope'ta.
+suppressLibsignalLogs();
+
 // ── PQueue: module-level başlat (lazy async init overhead'i önce)
 let _queue = null;
 let _queueReady = false;
@@ -27,17 +33,17 @@ let _firstConnectDone = false; // loadPlugins + startSchedulers sadece 1 kez ça
 
 // Pre-warm: Bot başlar başlamaz queue'yu hazırla
 import('p-queue').then(({ default: PQueue }) => {
-  // concurrency: 3 — Paralel işleme
-  // intervalCap + interval: saniyede max 30 mesaj işle (burst engeli)
+  // concurrency: 5  — I/O-bound işler için güvenli (0.2 vCPU'da CPU değil I/O bekler)
+  // intervalCap: 60  — Saniyede max 60 mesaj işle (30 gruptan 2/s = yeterli burst emici)
   // throwOnTimeout: false — timeout'da hata fırlatma, sessizce geç
-  _queue = new PQueue({ concurrency: 3, intervalCap: 30, interval: 1000, throwOnTimeout: false });
+  _queue = new PQueue({ concurrency: 5, intervalCap: 60, interval: 1000, throwOnTimeout: false });
   _queueReady = true;
 }).catch(() => { /* fallback: create on demand */ });
 
 async function getMessageQueue() {
   if (_queue) return _queue;
   const { default: PQueue } = await import('p-queue');
-  _queue = new PQueue({ concurrency: 3, intervalCap: 30, interval: 1000, throwOnTimeout: false });
+  _queue = new PQueue({ concurrency: 5, intervalCap: 60, interval: 1000, throwOnTimeout: false });
   _queueReady = true;
   return _queue;
 }
@@ -246,11 +252,21 @@ async function createBot(sessionId = "lades-session", options = {}) {
         const logData = JSON.parse(raw);
         
         // Şifre çözme veya oturum hatalarını yakala
+        // "Bad MAC" Baileys logger üzerinden de gelebilir (session_cipher hata yaydığında)
         const isDecryptionError = 
            logData.err?.type === 'MessageCounterError' || 
            logData.err?.type === 'SessionError' ||
-           (logData.msg && logData.msg.includes('failed to decrypt')) ||
-           (logData.err?.message && logData.err.message.includes('No session'));
+           (logData.msg && (
+             logData.msg.includes('failed to decrypt') ||
+             logData.msg.includes('Bad MAC') ||
+             logData.msg.includes('Session error') ||
+             logData.msg.includes('Closing open session') ||
+             logData.msg.includes('Decrypted message with closed session')
+           )) ||
+           (logData.err?.message && (
+             logData.err.message.includes('No session') ||
+             logData.err.message.includes('Bad MAC')
+           ));
 
         if (isDecryptionError) {
           const now = Date.now();
@@ -266,11 +282,10 @@ async function createBot(sessionId = "lades-session", options = {}) {
             logger.warn(`[Şifre] ${sessionId}: 10 deşifre hatası birikti. 25'te otomatik onarım başlayacak.`);
           }
 
-          // 25 hata eşiğinde graceful reconnect (100 çok geç kalıyordu)
+          // 25 hata eşiğinde graceful reconnect
           if (decryptionErrorCount >= 25) {
             logger.error(`[KRİTİK] ${sessionId}: 25 deşifre hatası aşıldı! Oturum onarımı için yeniden bağlanılıyor...`);
             decryptionErrorCount = 0;
-            // Zombie socket önleyici: sock.end() yerine gracefulClose() kullan
             setTimeout(() => {
               try { gracefulClose("Decryption error threshold"); } catch { }
             }, 300);
@@ -783,9 +798,9 @@ async function createBot(sessionId = "lades-session", options = {}) {
   });
 
   // ── Message events ───────────────────────────────────
-  // RAM KORUMA: Queue doluysa (200+ bekleyen görev) yeni mesajları düşür.
-  // 60+ grupta burst mesajlarda heap'in sonsuz büyümesini engeller.
-  const MAX_QUEUE_SIZE = 200;
+  // RAM KORUMA: Queue doluysa (500+ bekleyen görev) yeni mesajları düşür.
+  // 200 grup / 30 eş zamanlı burst senaryosunda ~12 saniye absorbe eder, sonra drop.
+  const MAX_QUEUE_SIZE = 500;
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify" && type !== "append") return;

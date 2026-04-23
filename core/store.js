@@ -14,10 +14,10 @@ const { WhatsappOturum, BotMetrik, MesajIstatistik, KullaniciVeri, sequelize } =
 const scheduler = require("./zamanlayici").scheduler;
 
 // Message store: jid → Map<msgId, msg>
-// RAM OPT: 30→15 aktif grup, TTL 3h→45min
+// RAM OPT: 60 aktif grup, TTL 30min (Antidelete için daha geniş coverage)
 const messageStore = new LRUCache({
-  max: 15,   // 30→15 aktif grup/sohbet
-  ttl: 45 * 60 * 1000, // 45 dakika TTL (3h→45min: RAM tasarrufu)
+  max: 60,   // 15→60 aktif grup/sohbet
+  ttl: 30 * 60 * 1000, // 30 dakika TTL
   dispose: (bucket, jid) => {
     // Clean reverse index when LRU evicts a bucket
     if (bucket instanceof Map) {
@@ -63,9 +63,9 @@ function getMessageByKey(key) {
 // ─────────────────────────────────────────────────────────
 //  Group metadata
 // ─────────────────────────────────────────────────────────
-// Group metadata cache: RAM OPT edildi
+// Group metadata cache: RAM OPT edildi (200 grup)
 const groupMetaCache = new LRUCache({
-  max: 80,  // 200→80: 2133 grup için aktif 80 yeterli (LRU en az kullanılanı siler)
+  max: 200,  // 80→200: 200 aktif grup için yeterli kapasite
   ttl: 5 * 60 * 1000, // 5 dakika (aynı kalıyor — admin değişikliği algısı)
 });
 

@@ -199,10 +199,10 @@ Module({
     const isParticipant = groupMetadata.participants.some(p => p.id === targetUser);
     if (!isParticipant) {
       const targetNumericId = getNumericId(targetUser);
-      return await message.sendReply(`❌ *İşlem Başarısız!* \n\n👤 Üye: *@${targetNumericId}*\nℹ️ Durum: \`Grupta bulunmuyor\`\n\n_Grupta olmayan birine nasıl uyarı verebilirim?_`, { mentions: [targetUser] });
+      return await message.client.sendMessage(message.jid, { text: `❌ *İşlem Başarısız!* \n\n👤 Üye: *@${targetNumericId}*\nℹ️ Durum: \`Grupta bulunmuyor\`\n\n_Grupta olmayan birine nasıl uyarı verebilirim?_`, mentions: [targetUser] }, { quoted: message.data });
     }
 
-    const isTargetAdmin = message.groupAdmins.includes(targetUser);
+    const isTargetAdmin = Array.isArray(message.groupAdmins) && message.groupAdmins.includes(targetUser);
     if (isTargetAdmin) return await message.sendReply("❗ _OPS! Yöneticiler uyarılamaz._");
 
     const targetNumericId = getNumericId(targetUser);

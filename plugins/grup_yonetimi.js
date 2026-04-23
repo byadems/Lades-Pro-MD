@@ -953,12 +953,11 @@
 
       if (isReply) {
         // Yanıtlanan mesajı, katılımcıları etiketleyerek ilet
-        await message.client.sendMessage(message.jid, {
-          forward: message.reply_message.data,
-          contextInfo: { 
+        await message.forwardMessage(message.jid, message.quoted, {
+          contextInfo: {
             mentionedJid: targets,
-            isForwarded: true, 
-            forwardingScore: 999 
+            isForwarded: true,
+            forwardingScore: 999
           }
         });
       } else if (input && !isTagAdmin && !isTagAll) {
@@ -1457,50 +1456,55 @@
       if (arg.startsWith("kanal")) {
         const channelJid = config.CHANNEL_JID;
 
-        try {
-          const fetchRes = await message.client.newsletterFetchMessages(channelJid, 1);
-          const messageUpdates = getBinaryNodeChild(fetchRes, "message_updates");
-          const msgsNodes = getBinaryNodeChildren(messageUpdates, "message");
+        if (!channelJid || !channelJid.includes("@newsletter")) {
+          return await message.sendReply(
+            "❌ *Geçersiz CHANNEL_JID!*\n\n" +
+            "ℹ️ _Kanal JID'i `@newsletter` ile bitmeli._\n" +
+            "💡 `.setvar CHANNEL_JID=120363xxxx@newsletter` ile ayarlayın."
+          );
+        }
 
-          if (!msgsNodes || msgsNodes.length === 0) {
+        try {
+          // newsletterFetchMessages doğrudan WAMessage[] döndürür
+          const msgs = await message.client.newsletterFetchMessages(channelJid, 5);
+
+          if (!msgs || msgs.length === 0) {
             return await message.sendReply("❌ *Kanaldan mesaj çekilemedi (veya kanal boş).*");
           }
 
-          const lastMsgNode = msgsNodes[msgsNodes.length - 1];
-          const msgTimestamp = parseInt(lastMsgNode.attrs.t) || Math.floor(Date.now() / 1000);
-          const currentTimestamp = Math.floor(Date.now() / 1000);
+          // En son mesajı al
+          const lastMsg = msgs[msgs.length - 1];
 
-          // 24 hours check
-          if (currentTimestamp - msgTimestamp > 86400) {
-            return await message.sendReply("⚠️ *Kanaldaki son mesaj 24 saatten daha eski olduğu için iletilemiyor.*");
+          // 24 saat kontrolü
+          const msgTs = typeof lastMsg.messageTimestamp === "object"
+            ? lastMsg.messageTimestamp?.low ?? lastMsg.messageTimestamp
+            : lastMsg.messageTimestamp;
+          const nowTs = Math.floor(Date.now() / 1000);
+          if (nowTs - msgTs > 86400) {
+            return await message.sendReply("⚠️ *Kanaldaki son mesaj 24 saatten eski — WhatsApp iletmeye izin vermiyor.*");
           }
 
-          const plaintextNode = getBinaryNodeChild(lastMsgNode, "plaintext");
-          if (!plaintextNode || !plaintextNode.content) {
-            return await message.sendReply("❌ *Kanaldaki mesaj metin okunamadı veya desteklenmiyor.*");
-          }
-
-          const contentBuf = typeof plaintextNode.content === 'string'
-            ? Buffer.from(plaintextNode.content, 'binary')
-            : Buffer.from(plaintextNode.content);
-
-          const messageProto = proto.Message.decode(contentBuf);
-
-          // Mesaj objesini reconstruct ediyoruz (forward için)
+          // forward için WAMessage objesi hazırla
           reconstructedMsg = {
-            key: {
+            key: lastMsg.key || {
               remoteJid: channelJid,
-              id: lastMsgNode.attrs.server_id || lastMsgNode.attrs.message_id,
-              fromMe: false
+              id: lastMsg.key?.id || String(Date.now()),
+              fromMe: false,
             },
-            message: messageProto,
-            messageTimestamp: msgTimestamp
+            message: lastMsg.message,
+            messageTimestamp: msgTs,
           };
 
           isKanalForward = true;
         } catch (err) {
           console.error("[Duyuru] Kanal mesajı çekilirken hata:", err);
-          return await message.sendReply("❌ *Kanal mesajı çekilirken bir hata oluştu!*\n_Baileys bağlantısını veya CHANNEL_JID değerini kontrol edin._");
+          // Hata detayını da logla — debug için
+          const detail = err?.message || String(err);
+          return await message.sendReply(
+            `❌ *Kanal mesajı çekilirken hata oluştu!*\n\n` +
+            `🔍 _Hata:_ \`${detail.slice(0, 200)}\`\n\n` +
+            `💡 _CHANNEL_JID değeri:_ \`${channelJid}\``
+          );
         }
       } else {
         const pipeIndex = input.lastIndexOf("-");
@@ -1573,9 +1577,22 @@
         try {
           let sentMsg;
           if (isKanalForward) {
-            sentMsg = await message.client.sendMessage(jid, {
-              forward: reconstructedMsg
-            });
+            // Baileys'te kanal mesajını gruba iletmenin doğru yolu: generateForwardMessageContent + relayMessage
+            try {
+              await message.client.sendMessage(jid, {
+                forward: reconstructedMsg,
+                contextInfo: { isForwarded: true, forwardingScore: 1 }
+              });
+            } catch (_forwardErr) {
+              // Fallback: sadece metin varsa text olarak gönder
+              const textContent = reconstructedMsg?.message?.conversation ||
+                reconstructedMsg?.message?.extendedTextMessage?.text;
+              if (textContent) {
+                await message.client.sendMessage(jid, { text: textContent });
+              } else {
+                throw _forwardErr;
+              }
+            }
           } else if (hasReply) {
             sentMsg = await message.client.sendMessage(jid, {
               forward: message.quoted,
@@ -2831,7 +2848,9 @@
   }
 
   async function extractData(message) {
-    return message.quoted.message.stickerMessage.fileSha256.toString();
+    const sha256 = message.quoted?.message?.stickerMessage?.fileSha256;
+    if (!sha256) throw new Error("Çıkartmadan SHA256 alınamadı — geçerli bir çıkartmaya yanıt verin.");
+    return sha256.toString();
   }
   Module({
     pattern: "otoçıkartma ?(.*)",
@@ -3046,7 +3065,7 @@
         adjids.push(data.jid);
       });
       const admin_jids = [];
-      const admins = (await message.client.groupMetadata(message.jid)).participants
+      const admins = ((await message.client.groupMetadata(message.jid).catch(() => ({ participants: [] }))).participants || [])
         .filter((v) => v.admin !== null)
         .map((x) => x.id.split(":")[0] + "@s.whatsapp.net");
       admins.map(async (user) => {
@@ -3301,7 +3320,7 @@
           if (!isBotAdmin) return;
 
           // Yönetici mi? Atma
-          const admins = (await message.client.groupMetadata(message.jid)).participants
+          const admins = ((await message.client.groupMetadata(message.jid).catch(() => ({ participants: [] }))).participants || [])
             .filter(v => v.admin !== null)
             .map(x => x.id.split(":")[0] + "@s.whatsapp.net");
           if (admins.some(a => a.split("@")[0] === participantNumber)) return;

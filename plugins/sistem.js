@@ -567,7 +567,7 @@
         let response = "📋 *Planlanan Mesajlar*\n\n";
 
         pending.sort(
-          (a, b) => a.scheduleTime.getTime() - b.scheduleTime.getTime()
+          (a, b) => new Date(a.scheduleTime).getTime() - new Date(b.scheduleTime).getTime()
         );
 
         pending.forEach((msg, index) => {
@@ -662,7 +662,7 @@
     use: "sahip",
   },
     async (message, match) => {
-      match = match[1] !== "" ? match[1] : message.reply_message.text;
+      match = match[1] !== "" ? match[1] : (message.reply_message?.text || "");
       if (!match) return await message.send("⚠️ *Lütfen bir bağlantı giriniz!*");
 
       const links = extractUrls(match);
@@ -731,7 +731,7 @@
         // Kayıtlara kodun kendisini de hash ile birlikte kaydet
         await installPlugin(url, plugin_name);
         await PluginDB.update({ code: pluginHash }, { where: { name: plugin_name } });
-        await message.send("*✅ Modül başarılı bir şekilde yüklendi!*".format(plugin_name_temp) + `\n\n*🔒 Güvenlik Hash:* \`${pluginHash.slice(0, 8)}\``);
+        await message.send(`*✅ Modül başarılı bir şekilde yüklendi!* (${plugin_name_temp})\n\n*🔒 Güvenlik Hash:* \`${pluginHash.slice(0, 8)}\``);
       }
     }
   );
@@ -757,7 +757,7 @@
         }
         return;
       }
-      let msg = "*✅ Modül başarılı bir şekilde yüklendi!*";
+      let msg = "*✅ Yüklü Modüller:*\n\n";
       plugins = await PluginDB.findAll();
       if (plugins.length < 1) {
         return await message.send("⚠️ *Dışarıdan hiç modül yüklememişsiniz!*");
@@ -795,10 +795,10 @@
         return await message.send("⚠️ *Dışarıdan hiç modül yüklememişsiniz!*");
       } else {
         await plugin[0].destroy();
-        const Message = "*✅ Modül başarıyla silindi!*".format(safePluginName);
+        const Message = `*✅ Modül başarıyla silindi! (${safePluginName})*`;
         await message.sendReply(Message);
-        delete require.cache[require.resolve("./" + safePluginName + ".js")];
-        fs.unlinkSync("./plugins/" + safePluginName + ".js");
+        try { delete require.cache[require.resolve("./" + safePluginName + ".js")]; } catch (_) {}
+        try { if (fs.existsSync("./plugins/" + safePluginName + ".js")) fs.unlinkSync("./plugins/" + safePluginName + ".js"); } catch (_) {}
       }
     }
   );
@@ -850,7 +850,7 @@
         return await m.send("*❌ Modülünüz hatalı!*\n\n*Hata:*" + e);
       }
       await PluginDB.update({ code: pluginHash }, { where: { name: plugin } });
-      await m.send("✅ *Eklenti '{}' güncellendi!*".format(plugin) + `\n\n*🔒 Yeni Hash:* \`${pluginHash.slice(0, 8)}\``);
+      await m.send(`✅ *Eklenti '${plugin}' güncellendi!*\n\n*🔒 Yeni Hash:* \`${pluginHash.slice(0, 8)}\``);
       process.emit("SIGINT");
       return;
     }
@@ -896,7 +896,7 @@
       if (!m.reply_message) return await m.sendReply("💬 *Düzenlenecek mesajı yanıtlayın!*");
       if (!t[1]) return await m.sendReply("💬 *Yeni metni girin!*");
 
-      if (m.quoted.key.fromMe) {
+      if (m.quoted?.key?.fromMe) {
         const safeText = censorBadWords(t[1]);
         await m.edit(safeText, m.jid, m.quoted.key);
         await m.sendReply("✅ *Mesaj düzenlendi!*");
@@ -987,7 +987,8 @@
         return await m.sendReply("_❌ Gönderilecek mesaj metni eksik!_");
       }
 
-      await m.client.sendMessage(jid, { text }, {
+      await m.client.sendMessage(jid, {
+        text,
         contextInfo: { isForwarded: true, forwardingScore: 2 },
       });
       return await m.sendReply("✅ *Mesaj gönderildi!*");

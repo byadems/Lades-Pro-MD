@@ -1207,22 +1207,27 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     // Cache kullan: her mesajda spread/concat yapma (O(1) lookup)
     const textHandlers = getTextHandlers();
     if (textHandlers.length > 0) {
-      for (const h of textHandlers) {
+      // ── PARALEL İŞLEME: Tüm text handler'lar aynı anda çalışır (Burst hızlandırıcı) ──
+      const tasks = textHandlers.map(async (h) => {
         // fromMe filtresi: sadece bot sahibi/sudo değilse VE admin erişimi kapalıysa atla
         if (h.fromMe && !fromMe && !isOwnerOrSudo(resolvedSenderJid, senderJid)) {
           // ADMIN_ACCESS açıksa ve grup admini ise geç
           if (!(config.ADMIN_ACCESS && message.isAdmin)) {
-            continue;
+            return;
           }
         }
+        if (h._disabled) return;
+        
         try {
-          if (h._disabled) continue;
           await h.run(message, [text]);
           h._errorCount = 0;
         } catch (e) {
           notifyHandlerError(h, e, message);
         }
-      }
+      });
+      
+      // Tüm handler'ların (anti-link, vb.) eş zamanlı olarak bitmesini bekle
+      await Promise.allSettled(tasks);
     }
 
 
