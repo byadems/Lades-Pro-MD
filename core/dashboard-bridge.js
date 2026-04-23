@@ -302,6 +302,17 @@ function setupDashboardBridge(manager, config) {
           const sessionData = JSON.stringify({ creds: credsData, keys: keysData });
           await WhatsappOturum.upsert({ sessionId: 'lades-session', sessionData });
           logger.info("Oturum verisi 'lades-session' DB'ye aktarıldı.");
+
+          // ── KRİTİK: dashboard-auth klasörünü sil ───────────────────────────
+          // Bir sonraki yeniden başlatmada getAuthState, dashboard-auth'u ÖNCE kontrol eder.
+          // Klasör duruyorsa bot bu geçici (ve artık geçersiz) oturumu kullanır → bozulur.
+          // DB'ye aktarım tamamlandıktan HEMEN SONRA silerek DB önceliğini garanti altına al.
+          try {
+            fs.rmSync(authDir, { recursive: true, force: true });
+            logger.info(`[Auth] dashboard-auth dizini temizlendi (DB'ye aktarım tamamlandı): ${authDir}`);
+          } catch (cleanErr) {
+            logger.warn({ err: cleanErr.message }, "[Auth] dashboard-auth temizlenemedi, sonraki restart'ta sorun çıkabilir.");
+          }
         }
       } catch (e) {
         logger.error({ err: e.message }, "Oturum aktarım hatası");

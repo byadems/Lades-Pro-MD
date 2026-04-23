@@ -207,7 +207,11 @@ Module({
         const isCommand = prefixes.some(p => text.startsWith(p));
 
         const afkData = await removeAFK(senderJid);
-        if (false) {
+        
+        // Komut yazınca sadece sessizce AFK'dan çık, hoşgeldin gönderme
+        if (isCommand) return;
+
+        if (afkData) {
           const timeAFK = formatDuration(
             Date.now() - new Date(afkData.setAt).getTime()
           );
@@ -216,9 +220,9 @@ Module({
             `⏰ _AFK süreniz:_ \`${timeAFK}\`\n` +
             `💬 _Alınan mesajlar:_ \`${afkData.messageCount}\`\n` +
             `📝 _Sebebiniz:_ \`${afkData.reason}\``;
- 
-           await message.sendReply(welcomeBack);
-         }
+
+          await message.sendReply(welcomeBack);
+        }
         return;
       }
 
@@ -259,15 +263,24 @@ Module({
       }
 
       if (isDM) {
-        const botOwnerJid = message.client.user?.lid?.split(":")[0] + "@lid";
-        if (botOwnerJid && isAFK(botOwnerJid)) {
-          const afkData = getAFKData(botOwnerJid);
+        // Bot sahibinin JID'ini doğru formatta al
+        const userObj = message.client.user;
+        // LID önce dene (önerilen), yoksa normal JID
+        const ownerLid = userObj?.lid
+          ? (typeof userObj.lid === 'string'
+              ? userObj.lid.split(':')[0] + '@lid'
+              : userObj.lid?.user + '@lid')
+          : null;
+        const ownerJid = ownerLid || (userObj?.id?.split(':')[0] + '@s.whatsapp.net');
+
+        if (ownerJid && isAFK(ownerJid)) {
+          const afkData = getAFKData(ownerJid);
           const timeAFK = formatDuration(
             Date.now() - new Date(afkData.setAt).getTime()
           );
           const lastSeen = timeSince(afkData.lastSeen);
 
-          await incrementMessageCount(botOwnerJid);
+          await incrementMessageCount(ownerJid);
 
           const afkReply =
             `🌙 *Bot geliştiricisi şu anda AFK!*\n\n` +

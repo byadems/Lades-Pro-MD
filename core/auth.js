@@ -254,47 +254,57 @@ async function getAuthState(config, sessionId = "lades-session") {
   const sessionPath = path.join(__dirname, "..", "sessions", sessionId);
   const credsFile = path.join(sessionPath, "creds.json");
 
-  // 1. If SESSION env contains a base64 string (Northflank/Heroku ephemeral storage workaround)
+  // 1. SESSION env varsa HER ZAMAN işle (ephemeral restart sonrası creds.json silinmiş olabilir)
+  //    Northflank gibi ephemeral ortamlarda container her başlatıldığında dosya sistemi temizlenir.
+  //    Bu yüzden DB'ye de yazıyoruz — dosya sistemi güvenilmez, DB güvenilir.
   if (config.SESSION && config.SESSION.length > 20 && !config.SESSION.startsWith("path:")) {
-    logger.info("Oturum kimliği (SESSION) algılandı, yerel dosyaya aktarılıyor...");
+    logger.info("[SESSION] Ortam değişkeni algılandı, oturum yeniden yapılandırılıyor...");
     try {
-      // Sadece creds.json yoksa (yeni başlatma veya ephemeral restart)
-      if (!fs.existsSync(credsFile)) {
-        if (!fs.existsSync(sessionPath)) {
-          fs.mkdirSync(sessionPath, { recursive: true });
-        }
-        
-        let b64 = config.SESSION;
-        // Prefix destekleri (KnightBot, Hermit, Lades vb.)
-        if (b64.includes("!")) {
-          b64 = b64.split("!")[1]; 
-        } else if (b64.includes("~")) {
-          b64 = b64.split("~")[1];
-        }
-        
-        let decoded = "";
-        try {
-           // Gzip sıkıştırması kullanılmış olabilir (KnightBot stili)
-           const compressedData = Buffer.from(b64.replace(/\.\.\.$/, ''), 'base64');
-           const zlib = require('zlib');
-           decoded = zlib.gunzipSync(compressedData).toString('utf-8');
-        } catch(e) {
-           // Gzip değilse düz base64
-           decoded = Buffer.from(b64, "base64").toString("utf-8");
-        }
-
-        const parsed = JSON.parse(decoded);
-        let credsData = parsed;
-        // Eğer veride { creds: {...}, keys: {...} } varsa sadece creds kısmını al
-        if (parsed.creds) credsData = parsed.creds;
-        
-        fs.writeFileSync(credsFile, JSON.stringify(credsData, null, 2), "utf-8");
-        logger.info(`✅ SESSION başarıyla yerel dosya sistemine aktarıldı. Bot kesintisiz başlayacak!`);
-      } else {
-         logger.info(`ℹ️ Yerel creds.json zaten mevcut, SESSION değişkeni atlandı.`);
+      let b64 = config.SESSION;
+      // Prefix destekleri (KnightBot!, Hermit~, Lades~ vb.)
+      if (b64.includes("!")) {
+        b64 = b64.split("!")[1];
+      } else if (b64.includes("~")) {
+        b64 = b64.split("~")[1];
       }
+
+      let decoded = "";
+      try {
+        // Gzip sıkıştırması kullanılmış olabilir (KnightBot stili)
+        const compressedData = Buffer.from(b64.replace(/\.\.\.$/g, ''), 'base64');
+        const zlib = require('zlib');
+        decoded = zlib.gunzipSync(compressedData).toString('utf-8');
+      } catch {
+        // Gzip değilse düz base64
+        decoded = Buffer.from(b64, "base64").toString("utf-8");
+      }
+
+      const parsed = JSON.parse(decoded);
+      // { creds, keys } veya salt creds formatını destekle
+      const credsData = parsed.creds || parsed;
+      const keysData  = parsed.keys  || {};
+
+      // ── Yerel dosyaya yaz (mevcut değilse) ──────────────────────────────
+      if (!fs.existsSync(credsFile)) {
+        if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
+        fs.writeFileSync(credsFile, JSON.stringify(credsData, null, 2), "utf-8");
+        logger.info("[SESSION] Yerel creds.json oluşturuldu.");
+      }
+
+      // ── DB'ye her zaman upsert et (kalıcı depolama garantisi) ──────────
+      // Northflank restart'larında dosya sistemi sıfırlanır ama DB kalır.
+      // SESSION string'den elde ettiğimiz veriyi DB'ye yazarak çift güvence sağlıyoruz.
+      try {
+        const { WhatsappOturum } = require('./database');
+        const sessionData = JSON.stringify({ creds: credsData, keys: keysData });
+        await WhatsappOturum.upsert({ sessionId, sessionData });
+        logger.info("[SESSION] ✅ Oturum DB'ye başarıyla senkronize edildi.");
+      } catch (dbErr) {
+        logger.warn({ err: dbErr.message }, "[SESSION] DB senkronizasyonu başarısız, sadece dosya kullanılacak.");
+      }
+
     } catch (e) {
-      logger.warn({ err: e.message }, "SESSION ayrıştırma hatası, standart oturuma dönülüyor.");
+      logger.warn({ err: e.message }, "[SESSION] Ayrıştırma hatası, mevcut oturuma dönülüyor.");
     }
   }
 

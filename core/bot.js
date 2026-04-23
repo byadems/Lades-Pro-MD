@@ -774,13 +774,25 @@ async function createBot(sessionId = "lades-session", options = {}) {
       // Bağlantı kapanınca bekleyen mesaj işlemleri temizle (bellek aşımı engellenir)
       if (_queue) { try { _queue.clear(); } catch { } }
       const statusCode = lastDisconnect?.error?.output?.statusCode;
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+      // ── LOGOUT KORUMA ─────────────────────────────────────────────────────────
+      // WA sunucusu zaman zaman geçici 401 (loggedOut) sinyali gönderebilir.
+      // SESSION env varsa veya kasıtlı logout değilse oturumu ASLA silme.
+      // Sadece 'sock.__intentionalLogout = true' set edilmişse (dashboard stop/logout)
+      // oturumu temizle. Diğer tüm durumlarda yeniden bağlan.
+      const isIntentionalLogout = sock.__intentionalLogout === true;
+      const hasSessionEnv = !!(config.SESSION && config.SESSION.length > 20);
+      const shouldReconnect = statusCode !== DisconnectReason.loggedOut ||
+                              (!isIntentionalLogout && hasSessionEnv);
       
       // Geçici ağ hataları (stream hataları vb.) için sessiz reconnect loglaması
       if (statusCode === 515 || statusCode === 503 || statusCode === 408) {
         logger.warn(`Bağlantı kesildi (${statusCode} Stream Hatası). Yeniden bağlanılıyor...`);
       } else if (statusCode === 428) {
         logger.warn(`Bağlantı kesildi (428 Precondition Required). Kapanan bağlantı yenileniyor...`);
+      } else if (statusCode === DisconnectReason.loggedOut && !isIntentionalLogout) {
+        logger.warn(`[KORUMA] WhatsApp 401 (loggedOut) gönderdi ama kasıtlı logout değil. SESSION${hasSessionEnv ? ' env var' : ' yok'} → ${
+          hasSessionEnv ? 'yeniden bağlanılıyor (oturum KORUNUYOR).' : 'oturum geçersiz sayılıyor.'
+        }`);
       } else {
         logger.warn({ statusCode, shouldReconnect }, `Bağlantı kesildi.`);
       }
@@ -802,7 +814,6 @@ async function createBot(sessionId = "lades-session", options = {}) {
 
         setTimeout(async () => {
           // Event listener'ları temizle (memory leak önlemi)
-          // NOT: Bu noktada connection.update artık gelmeyecek (bağlantı zaten kapandı)
           try { sock.ev.removeAllListeners(); } catch { }
           _isClosing = false; // Yeni socket için sıfırla
           const newSock = await createBot(sessionId, { ...options, reconnectCount });
@@ -811,46 +822,38 @@ async function createBot(sessionId = "lades-session", options = {}) {
           }
         }, delay);
       } else {
-        // Manual dashboard stop/logout - still clear state if it's a full logout
-        if (sock.__intentionalLogout) {
+        // Kasıtlı logout (dashboard) veya SESSION olmayan gerçek 401
+        if (isIntentionalLogout) {
           logger.info("Oturum manuel olarak kapatıldı. Veriler temizleniyor...");
           await clearState().catch(() => {});
           return;
         }
 
-        logger.error("Oturum kapatıldı! Lütfen yeniden doğrulama yapın.");
-        // Oturum geçersiz olduğunda HEM yerel dosyayı HEM veri tabanını temizleyelim
+        logger.error("Oturum tamamen geçersiz! SESSION env olmadan QR/kod ile yeniden giriş gerekiyor.");
         try {
-          await clearState(); // NEW: Clear database sessionData
+          await clearState();
           const sessionsDir = path.join(__dirname, "..", "sessions", sessionId);
           const credsFile = path.join(sessionsDir, "creds.json");
           if (fs.existsSync(credsFile)) {
             fs.unlinkSync(credsFile);
             logger.info("Geçersiz creds.json silindi.");
           }
-          
-          // NEW: Trigger a fresh connection attempt to get the QR code
-          // BUT: Only if NOT suspended (dashboard should handle it otherwise)
+
           if (options.manager && options.manager.isSuspended(sessionId)) {
-            logger.info(`Session ${sessionId} is suspended. Skipping auto-restart.`);
+            logger.info(`Session ${sessionId} askıya alınmış. Otomatik yeniden başlatma atlandı.`);
             return;
           }
 
-          logger.info("Yeni oturum için taze bir bağlantı başlatılıyor (10sn içinde)...");
+          logger.info("Yeni QR oturumu için bağlantı başlatılıyor (10sn içinde)...");
           setTimeout(async () => {
-            if (options.manager && options.manager.isSuspended(sessionId)) {
-              logger.info(`Session ${sessionId} was suspended during wait. Aborting restart.`);
-              return;
-            }
+            if (options.manager && options.manager.isSuspended(sessionId)) return;
             const newSock = await createBot(sessionId, options);
-            if (options.manager) {
-              options.manager.updateSocket(sessionId, newSock);
-            }
+            if (options.manager) options.manager.updateSocket(sessionId, newSock);
           }, 10000);
         } catch (e) {
           logger.warn({ err: e.message }, "Oturum verileri temizlenemedi");
         }
-        
+
         if (process.send) process.send({ type: 'bot_status', data: { connected: false } });
         return;
       }
