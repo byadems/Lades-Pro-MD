@@ -129,8 +129,7 @@ Module({
         `📥 *Takip:* ${following}\n` +
         `📤 *Gönderi:* ${posts}\n` +
         `🔓 *Hesap:* ${isPrivate}\n` +
-        `✅ *Doğrulanmış:* ${isVerified}\n` +
-        `🔗 *Profil:* https://instagram.com/${result.username || username}`;
+        `✅ *Doğrulanmış:* ${isVerified}`;
 
       const avatar = result.profile_pic_url || result.hd_profile_picture || result.profile_pic || result.avatar || result.profile?.avatar || result.profilePic || result.profile_image || result.profile_image_url || result.image_url || result.image || result.thumbnail;
       if (avatar) {
@@ -149,7 +148,7 @@ Module({
 // TWITTER — Twitter/X kullanıcı sorgulama
 // ══════════════════════════════════════════════════════════
 Module({
-  pattern: "twara ?(.*)",
+  pattern: "(?:twara|xara) ?(.*)",
   fromMe: false,
   desc: "Twitter/X kullanıcısının profil detaylarını ve istatistiklerini gösterir.",
   usage: ".twara [kullanıcı adı]",
@@ -159,39 +158,45 @@ Module({
     const username = (match[1] || "").trim().replace(/^@/, "");
     if (!username) return await message.sendReply("𝕏 _Twitter kullanıcı adı girin:_ `.twara elonmusk`");
 
+    let result = null;
     try {
-      const result = await nexGet(`/stalker/twitter?username=${encodeURIComponent(username)}`);
-      if (!result) return await message.sendReply("❌ *Kullanıcı bulunamadı!*");
+      result = await nexGet(`/stalker/twitter?username=${encodeURIComponent(username)}`);
+    } catch (_) { }
 
-      const name = result.name || username;
-      const bio = result.description || result.bio || "-";
-      const stats = result.stats || {};
-      const followers = stats.followers ?? result.followers_count ?? result.followers ?? "-";
-      const following = stats.following ?? result.friends_count ?? result.following ?? "-";
-      const tweets = stats.tweets ?? result.statuses_count ?? result.tweets ?? "-";
-      const likes = stats.likes ?? result.favourites_count ?? "-";
-      const isVerified = result.verified ? "✅" : "❌";
+    if (!result) {
+      try {
+        const data = await siputGet("/api/stalk/twitter", { user: username });
+        result = data.data || data.result;
+      } catch (_) { }
+    }
 
-      const caption =
-        `𝕏 *X/Twitter Profili*\n\n` +
-        `📛 *İsim:* ${name}\n` +
-        `👤 *Kullanıcı:* @${result.username || username}\n` +
-        `📝 *Bio:* ${bio}\n` +
-        `👥 *Takipçi:* ${followers}\n` +
-        `📥 *Takip:* ${following}\n` +
-        `📤 *Tweet:* ${tweets}\n` +
-        `❤️ *Beğeni:* ${likes}\n` +
-        `✅ *Doğrulanmış:* ${isVerified}\n` +
-        `🔗 *Profil:* https://x.com/${result.username || username}`;
+    if (!result) return await message.sendReply("❌ *Kullanıcı bulunamadı!*");
 
-      const avatar = result.profile?.avatar || result.avatar || result.profile_image_url || result.profile_image || result.profile_pic_url || result.profile_pic || result.profilePic || result.image_url || result.image || result.thumbnail;
-      if (avatar) {
-        await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
-      } else {
-        await message.sendReply(caption);
-      }
-    } catch (e) {
-      await message.sendReply(`❌ *Sorgu başarısız:* \n\n${e.message}`);
+    const name = result.name || result.full_name || username;
+    const bio = result.description || result.bio || result.biography || "-";
+    const stats = result.stats || result;
+    const followers = stats.followers ?? stats.followers_count ?? result.follower_count ?? "-";
+    const following = stats.following ?? stats.friends_count ?? result.following_count ?? "-";
+    const tweets = stats.tweets ?? stats.statuses_count ?? result.media_count ?? "-";
+    const likes = stats.likes ?? result.favourites_count ?? "-";
+    const isVerified = (result.verified === true || result.is_verified === true) ? "✅" : "❌";
+
+    const caption =
+      `𝕏 *X/Twitter Profili*\n\n` +
+      `📛 *İsim:* ${name}\n` +
+      `👤 *Kullanıcı:* @${result.username || result.screen_name || username}\n` +
+      `📝 *Bio:* ${bio}\n` +
+      `👥 *Takipçi:* ${followers}\n` +
+      `📥 *Takip:* ${following}\n` +
+      `📤 *Tweet:* ${tweets}\n` +
+      `❤️ *Beğeni:* ${likes}\n` +
+      `✅ *Doğrulanmış:* ${isVerified}`;
+
+    const avatar = result.profile?.avatar || result.avatar || result.profile_image_url_https || result.profile_image_url || result.profile_image || result.profile_pic_url || result.profile_pic || result.profilePic || result.image_url || result.image || result.thumbnail;
+    if (avatar) {
+      await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
+    } else {
+      await message.sendReply(caption);
     }
   }
 );
@@ -286,7 +291,6 @@ Module({
       result.email ? `*E-Posta:* ${result.email}` : null,
       result.twitter_username ? `*Twitter:* @${result.twitter_username}` : null,
       result.created_at ? `*Katılma:* ${new Date(result.created_at).toLocaleDateString("tr-TR")}` : null,
-      `*Profil:* ${result.url || "https://github.com/" + (result.login || username)}`,
     ].filter(Boolean).join("\n");
 
     const avatar = result.avatar_url || result.avatar || result.profile_pic_url || result.profile_pic || result.profilePic || result.profile_image || result.profile_image_url || result.image_url || result.image || result.thumbnail;
@@ -378,8 +382,7 @@ Module({
         `⚠️ *Banlı:* ${banned_str ? "Evet" : "Hayır"}\n` +
         `👥 *Takipçi:* ${follower_str ?? "-"}\n` +
         `📥 *Takip:* ${following_str ?? "-"}\n` +
-        `✅ *Doğrulanmış:* ${verified_str}\n` +
-        (result.profileUrl ? `🔗 *Profil:* ${result.profileUrl}\n` : "");
+        `✅ *Doğrulanmış:* ${verified_str}`;
 
       const avatar = result.avatar?.headshotUrl || result.avatar?.imageUrl || result.avatar || result.profile_pic_url || result.thumbnail || result.headshot || result.profile_pic || result.profilePic || result.profile_image || result.profile_image_url || result.image_url || result.image;
       if (avatar) {
@@ -426,8 +429,7 @@ Module({
         `📝 *Bio:* ${bio}\n` +
         `👥 *Takipçi:* ${followers}\n` +
         `🆔 *Hesap ID:* ${result.id || "Bilinmiyor"}\n` +
-        `✅ *Onaylı Hesap:* ${isVerified}\n` +
-        `🔗 *Profil:* https://threads.net/@${result.username || username}`;
+        `✅ *Onaylı Hesap:* ${isVerified}`;
 
       const avatar = result.hd_profile_picture || result.profile_pic_url || result.profile_pic || result.profile_picture || result.avatar || result.profile?.avatar || result.profilePic || result.profile_image || result.profile_image_url || result.image_url || result.image || result.thumbnail;
       if (avatar) {
@@ -488,7 +490,7 @@ Module({
       `*İzlenme:* ${channel.views ?? channel.viewCount ?? "?"}`,
       channel.country ? `*Ülke:* ${channel.country}` : null,
       channel.customUrl ? `*@Handle:* @${channel.customUrl}` : null,
-      channel.channelUrl ? `*Bağlantı:* ${channel.channelUrl}` : null,
+
     ].filter(Boolean).join("\n");
 
     const avatar = result.channel?.avatarUrl || result.avatar || result.thumbnail || result.profile_picture || result.profile_pic_url || result.profile_pic || result.profilePic || result.profile_image || result.profile_image_url || result.image_url || result.image;
@@ -496,6 +498,81 @@ Module({
       await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
     } else {
       await message.sendReply(caption);
+    }
+  }
+);
+
+// ══════════════════════════════════════════════════════════
+// TIKTOK — TikTok kullanıcı sorgulama
+// ══════════════════════════════════════════════════════════
+Module({
+  pattern: 'ttara ?(.*)',
+  fromMe: false,
+  desc: 'TikTok kullanıcı bilgilerini getirir.',
+  usage: '.ttara [kullanıcıadı]',
+  use: 'araçlar',
+},
+  async (message, match) => {
+    const extractUsername = (input) => {
+      const urlMatch = input.match(/tiktok\.com\/@?([A-Za-z0-9_.]+)/i);
+      if (urlMatch) return urlMatch[1];
+      const atMatch = input.match(/^@?([A-Za-z0-9_.]{2,24})$/);
+      return atMatch ? atMatch[1] : null;
+    };
+    const formatNumber = (n) => {
+      if (n == null) return 'Bilinmiyor';
+      n = Number(n);
+      if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1).replace('.0', '') + 'B';
+      if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace('.0', '') + 'M';
+      if (n >= 1_000) return (n / 1_000).toFixed(1).replace('.0', '') + 'K';
+      return n.toLocaleString('tr-TR');
+    };
+    const normalizeUser = (data, i) => {
+      try {
+        if (i === 0) {
+          if (data?.status !== true || !data?.result?.username) return null;
+          const u = data.result;
+          return { username: u.username, id: u.id || 'Bilinmiyor', name: u.name || 'Bilinmiyor', followers: u.stats?.raw_followers ?? null, following: u.stats?.raw_following ?? null, likes: u.stats?.raw_likes ?? null, bio: u.bio || null, verified: u.verified === 'Verified', private: u.private === 'Yes', avatar: u.avatar || null };
+        }
+        if (i === 1) {
+          if (data?.status !== 200 || !data?.result) return null;
+          const u = data.result;
+          return { username: u.username, id: u.id || 'Bilinmiyor', name: u.name || 'Bilinmiyor', followers: u.followers ?? null, following: u.following ?? null, likes: u.likes ?? null, bio: u.bio || null, verified: u.verified === true, private: u.private === true, avatar: u.avatar || null };
+        }
+        if (i === 2) {
+          if (data?.status !== true || !data?.data?.user?.uniqueId) return null;
+          const u = data.data.user;
+          const s = data.data.stats;
+          return { username: u.uniqueId, id: u.id || 'Bilinmiyor', name: u.nickname || 'Bilinmiyor', followers: s?.followerCount ?? null, following: s?.followingCount ?? null, likes: s?.heartCount ?? null, bio: u.signature || null, verified: u.verified === true, private: u.privateAccount === true, avatar: u.avatarLarger || null };
+        }
+        return null;
+      } catch { return null; }
+    };
+    try {
+      let input = (match?.[1] || '').trim() || (message.reply_message?.text || message.reply_message?.caption || '').trim();
+      if (!input) return await message.sendReply('⚠️ *Lütfen bir TikTok @kullanıcı adı veya profil bağlantısı girin!* \n\n*💡 Örnek:* \`.ttara mrbeast\`');
+      const username = extractUsername(input);
+      if (!username) return await message.sendReply('❌ *Geçersiz TikTok kullanıcı adı!*');
+      const apis = [
+        `https://api.nexray.web.id/stalker/tiktok?username=${encodeURIComponent(username)}`,
+        `https://api.princetechn.com/api/stalk/tiktokstalk?apikey=prince&username=${encodeURIComponent(username)}`,
+        `https://api.siputzx.my.id/api/stalk/tiktok?username=${encodeURIComponent(username)}`,
+      ];
+      let user = null;
+      for (let i = 0; i < apis.length; i++) {
+        try {
+          const { data } = await axios.get(apis[i], { timeout: 10000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+          user = normalizeUser(data, i);
+          if (user) break;
+        } catch { continue; }
+      }
+      if (!user) return await message.sendReply('⚠️ *Kullanıcı bulunamadı veya tüm API\'ler şu an erişilemiyor. Lütfen daha sonra tekrar deneyin.*');
+      let caption = `👤 *Kullanıcı Adı:* @${user.username}\n🆔 *Kullanıcı ID:* ${user.id}\n📝 *İsim:* ${user.name}\n👥 *Takipçi:* ${formatNumber(user.followers)}\n➕ *Takip:* ${formatNumber(user.following)}\n❤️ *Beğeni:* ${formatNumber(user.likes)}\nℹ️ *BİYOGRAFİ*\n_${user.bio || 'Biyografi yok'}_\n` + (user.verified ? '✅ *Doğrulanmış Hesap*\n' : '') + (user.private ? '🔒 *Gizli Hesap*\n' : '');
+      if (user.avatar) await message.sendMessage({ url: user.avatar }, 'image', { caption, quoted: message.data });
+      else await message.sendReply(caption);
+    } catch (error) {
+      console.error('[TikTok] Kritik Hata:', error);
+      return await message.sendReply('❌ *Bilgiler getirilirken bir hata oluştu! Lütfen daha sonra tekrar deneyin.*');
     }
   }
 );

@@ -1333,58 +1333,11 @@
   });
 
   // ══════════════════════════════════════════════════════
-  // Twitter/X Profil Sorgulama
-  // ══════════════════════════════════════════════════════
-  Module({
-    pattern: "(?:xara|twitterara) ?(.*)",
-    fromMe: false,
-    desc: "Twitter/X kullanıcı profilini sorgular.",
-    usage: ".xara kullaniciadi",
-    use: "profil-inceleme",
-  }, async (message, match) => {
-    const user = (match[1] || "").trim();
-    if (!user) return await message.sendReply("💬 *Kullanıcı adı girin:* `.xara kullaniciadi`");
-
-    try {
-      const data = await siputGet("/api/stalk/twitter", { user });
-      const r = data.data || data.result;
-      if (!r) return await message.sendReply("❌ *Kullanıcı bulunamadı!*");
-
-      const stats = r.stats || {};
-      const text = [
-        `*Twitter/X Profili*`,
-        `*Kullanıcı:* @${r.username || r.screen_name || user}`,
-        `*Ad:* ${r.name || "?"}`,
-        r.bio || r.description ? `*Bio:* ${r.description || r.bio}` : null,
-        `*Takipçi:* ${stats.followers ?? r.followers ?? r.followers_count ?? "?"}`,
-        `*Takip:* ${stats.following ?? r.following ?? r.friends_count ?? "?"}`,
-        `*Tweet:* ${stats.tweets ?? r.tweets ?? r.statuses_count ?? "?"}`,
-        `*Beğeni:* ${stats.likes ?? "?"}`,
-        `*Medya:* ${stats.media ?? "?"}`,
-        r.location ? `*Konum:* ${r.location}` : null,
-        r.created_at ? `*Katılma:* ${new Date(r.created_at).toLocaleDateString("tr-TR")}` : null,
-      ].filter(Boolean).join("\n");
-
-      const avatar = r.profile?.image || r.profile?.avatar || r.profile_image || r.profile_image_url_https || r.profile_image_url || r.avatar || r.profile_pic_url || r.profile_pic || r.profilePic || r.image_url || r.image || r.thumbnail;
-      if (avatar) {
-        await message.client.sendMessage(message.jid, {
-          image: { url: avatar },
-          caption: text
-        }, { quoted: message.data });
-      } else {
-        await message.sendReply(text);
-      }
-    } catch (e) {
-      await message.sendReply(`❌ *Twitter sorgusu başarısız!* \n\n*Hata:* ${e.message}`);
-    }
-  });
-
-  // ══════════════════════════════════════════════════════
   // ══════════════════════════════════════════════════════
   // SoundCloud Arama
   // ══════════════════════════════════════════════════════
   Module({
-    pattern: "scara ?(.*)",
+    pattern: "soundcloud ?(.*)",
     fromMe: false,
     desc: "SoundCloud'da müzik arar.",
     usage: ".scara lofi beats",

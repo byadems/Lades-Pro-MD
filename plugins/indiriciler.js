@@ -1313,8 +1313,7 @@
               `👥 *Takipçi:* ${result.stats?.followers || result.followers || "0"}\n` +
               `📥 *Takip:* ${result.stats?.following || result.following || "0"}\n` +
               `📌 *Pin Sayısı:* ${result.stats?.pins || result.pins || "0"}\n` +
-              `✅ *Onaylı:* ${result.is_verified ? "✅" : "❌"}\n` +
-              `🔗 *Profil:* https://pinterest.com/${result.username || username}`;
+              `✅ *Onaylı:* ${result.is_verified ? "✅" : "❌"}`;
 
             const avatar = result.profile_pic_url || result.avatar || result.profile_image_url || result.image || result.thumbnail;
             if (avatar) {
@@ -1572,77 +1571,6 @@
       }
     }
   );
-
-  Module({
-    pattern: 'ttara ?(.*)',
-    fromMe: false,
-    desc: 'TikTok kullanıcı bilgilerini getirir.',
-    usage: '.ttara [kullanıcıadı]',
-    use: 'search',
-  },
-    async (message, match) => {
-      const extractUsername = (input) => {
-        const urlMatch = input.match(/tiktok\.com\/@?([A-Za-z0-9_.]+)/i);
-        if (urlMatch) return urlMatch[1];
-        const atMatch = input.match(/^@?([A-Za-z0-9_.]{2,24})$/);
-        return atMatch ? atMatch[1] : null;
-      };
-      const formatNumber = (n) => {
-        if (n == null) return 'Bilinmiyor';
-        n = Number(n);
-        if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1).replace('.0', '') + 'B';
-        if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace('.0', '') + 'M';
-        if (n >= 1_000) return (n / 1_000).toFixed(1).replace('.0', '') + 'K';
-        return n.toLocaleString('tr-TR');
-      };
-      const normalizeUser = (data, i) => {
-        try {
-          if (i === 0) {
-            if (data?.status !== true || !data?.result?.username) return null;
-            const u = data.result;
-            return { username: u.username, id: u.id || 'Bilinmiyor', name: u.name || 'Bilinmiyor', followers: u.stats?.raw_followers ?? null, following: u.stats?.raw_following ?? null, likes: u.stats?.raw_likes ?? null, bio: u.bio || null, verified: u.verified === 'Verified', private: u.private === 'Yes', avatar: u.avatar || null };
-          }
-          if (i === 1) {
-            if (data?.status !== 200 || !data?.result) return null;
-            const u = data.result;
-            return { username: u.username, id: u.id || 'Bilinmiyor', name: u.name || 'Bilinmiyor', followers: u.followers ?? null, following: u.following ?? null, likes: u.likes ?? null, bio: u.bio || null, verified: u.verified === true, private: u.private === true, avatar: u.avatar || null };
-          }
-          if (i === 2) {
-            if (data?.status !== true || !data?.data?.user?.uniqueId) return null;
-            const u = data.data.user;
-            const s = data.data.stats;
-            return { username: u.uniqueId, id: u.id || 'Bilinmiyor', name: u.nickname || 'Bilinmiyor', followers: s?.followerCount ?? null, following: s?.followingCount ?? null, likes: s?.heartCount ?? null, bio: u.signature || null, verified: u.verified === true, private: u.privateAccount === true, avatar: u.avatarLarger || null };
-          }
-          return null;
-        } catch { return null; }
-      };
-      try {
-        let input = (match?.[1] || '').trim() || (message.reply_message?.text || message.reply_message?.caption || '').trim();
-        if (!input) return await message.sendReply('⚠️ *Lütfen bir TikTok @kullanıcı adı veya profil bağlantısı girin!* \n\n*💡 Örnek:* \`.ttara mrbeast\`');
-        const username = extractUsername(input);
-        if (!username) return await message.sendReply('❌ *Geçersiz TikTok kullanıcı adı!*');
-        const apis = [
-          `https://api.nexray.web.id/stalker/tiktok?username=${encodeURIComponent(username)}`,
-          `https://api.princetechn.com/api/stalk/tiktokstalk?apikey=prince&username=${encodeURIComponent(username)}`,
-          `https://api.siputzx.my.id/api/stalk/tiktok?username=${encodeURIComponent(username)}`,
-        ];
-        let user = null;
-        for (let i = 0; i < apis.length; i++) {
-          try {
-            const { data } = await axios.get(apis[i], { timeout: 10000, headers: { 'User-Agent': 'Mozilla/5.0' } });
-            user = normalizeUser(data, i);
-            if (user) break;
-          } catch { continue; }
-        }
-        if (!user) return await message.sendReply('⚠️ *Kullanıcı bulunamadı veya tüm API\'ler şu an erişilemiyor. Lütfen daha sonra tekrar deneyin.*');
-        let caption = `👤 *Kullanıcı Adı:* @${user.username}\n🆔 *Kullanıcı ID:* ${user.id}\n📝 *İsim:* ${user.name}\n👥 *Takipçi:* ${formatNumber(user.followers)}\n➕ *Takip:* ${formatNumber(user.following)}\n❤️ *Beğeni:* ${formatNumber(user.likes)}\nℹ️ *BİYOGRAFİ*\n_${user.bio || 'Biyografi yok'}_\n` + (user.verified ? '✅ *Doğrulanmış Hesap*\n' : '') + (user.private ? '🔒 *Gizli Hesap*\n' : '') + `\n🔗 *Profil:* https://www.tiktok.com/@${user.username}`;
-        if (user.avatar) await message.sendMessage({ url: user.avatar }, 'image', { caption, quoted: message.data });
-        else await message.sendReply(caption);
-      } catch (error) {
-        console.error('[TikTok] Kritik Hata:', error);
-        return await message.sendReply('❌ *Bilgiler getirilirken bir hata oluştu! Lütfen daha sonra tekrar deneyin.*');
-      }
-    });
 })();
 
 // ==========================================

@@ -19,6 +19,7 @@ const { logger } = require("../config");
 // ─────────────────────────────────────────────────────────
 async function useDbAuthState(sessionId) {
   const { makeCacheableSignalKeyStore, BufferJSON } = await loadBaileys();
+  const { WhatsappOturum } = require("./database");
 
   // ── Deep Buffer Reviver: DB'den JSON olarak okunan Buffer'ları geri çevir ──
   const deepRevive = (obj) => {
@@ -31,172 +32,120 @@ async function useDbAuthState(sessionId) {
     return obj;
   };
 
-  // ── Session yükleme: DB bağlantısı geçici kopuksa retry yap ──
-  let sessionRow = null;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      sessionRow = await WhatsappOturum.findByPk(sessionId);
-      break;
-    } catch (e) {
-      logger.warn(`[Auth] DB session yükleme denemesi ${attempt}/3: ${e.message}`);
-      if (attempt < 3) await new Promise(r => setTimeout(r, 1500 * attempt));
+  let creds = {};
+
+  // ── İlk Başlatma ve Migrasyon (Tek Satırlık Eski Session -> Yeni Parçalı Yapı) ──
+  try {
+    const sessionRow = await WhatsappOturum.findByPk(sessionId);
+    if (sessionRow && sessionRow.sessionData) {
+      const data = typeof sessionRow.sessionData === 'string' ? JSON.parse(sessionRow.sessionData) : sessionRow.sessionData;
+      const revived = deepRevive(data);
+
+      if (revived.keys && Object.keys(revived.keys).length > 0) {
+        logger.info(`[Auth] Eski tip monolitik session tespit edildi (${sessionId}). Parçalanarak veritabanına işleniyor (Migrasyon)...`);
+        creds = revived.creds || {};
+        
+        const promises = [];
+        for (const category in revived.keys) {
+          for (const id in revived.keys[category]) {
+            const keyId = `${sessionId}:${category}:${id}`;
+            const val = JSON.stringify(revived.keys[category][id], BufferJSON.replacer);
+            promises.push(WhatsappOturum.upsert({ sessionId: keyId, sessionData: val }).catch(() => {}));
+          }
+        }
+        await Promise.all(promises);
+        
+        // Ana satırı sadece creds içerecek şekilde güncelle
+        await WhatsappOturum.upsert({ sessionId, sessionData: JSON.stringify({ creds }, BufferJSON.replacer) });
+        logger.info(`[Auth] Migrasyon tamamlandı. ${promises.length} adet anahtar ayrıldı.`);
+      } else {
+        creds = revived.creds || revived || {};
+      }
     }
+  } catch (e) {
+    logger.warn(`[Auth] Session yükleme hatası: ${e.message}`);
   }
 
-  function getState() {
-    if (!sessionRow || !sessionRow.sessionData) return {};
-    try {
-      const data = typeof sessionRow.sessionData === 'string'
-        ? JSON.parse(sessionRow.sessionData)
-        : sessionRow.sessionData;
-      return deepRevive(data) || {};
-    } catch (e) {
-      logger.error({ err: e.message, sessionId }, "[Auth] DB session parse hatası — temiz state döndürülüyor");
-      return {};
-    }
-  }
-
-  const state = getState();
-  const creds = state.creds || {};
-  const storedKeys = state.keys || {};
-  const modifiedKeys = new Set();
-  let saveThrottle = null;
-
-  // ── Signal Key Store Bellek Koruyucu ──
-  // preKey'ler tek kullanımlık el sıkışma anahtarlarıdır. Üretildikten sonra birikebilirler.
-  const MAX_PREKEYS = 200;   // ~200 preKey ÷ ~0.5 KB = ~100 KB RAM
-  const MAX_SESSIONS = 100;  // WhatsApp MultiDevice'ta tipik build ~20-50 oturum
-  const MAX_SENDER_KEYS = 50; // Grup senderKey'leri zamanla devasa boyutlara ulaşır
-
-  function pruneOldKeys() {
-    try {
-      const prekeys = storedKeys.preKey;
-      if (prekeys && Object.keys(prekeys).length > MAX_PREKEYS) {
-        const keys = Object.keys(prekeys).map(Number).sort((a, b) => a - b);
-        const toDelete = keys.slice(0, keys.length - MAX_PREKEYS);
-        for (const k of toDelete) delete prekeys[k];
-        logger.debug(`[Auth] ${toDelete.length} eski preKey temizlendi.`);
-      }
-      const sessions = storedKeys.session;
-      if (sessions && Object.keys(sessions).length > MAX_SESSIONS) {
-        const skeys = Object.keys(sessions);
-        const toDelete = skeys.slice(0, skeys.length - MAX_SESSIONS);
-        for (const k of toDelete) delete sessions[k];
-        logger.debug(`[Auth] ${toDelete.length} eski session key temizlendi.`);
-      }
-      const senderKeys = storedKeys.senderKey;
-      if (senderKeys && Object.keys(senderKeys).length > MAX_SENDER_KEYS) {
-        const skeys = Object.keys(senderKeys);
-        const toDelete = skeys.slice(0, skeys.length - MAX_SENDER_KEYS);
-        for (const k of toDelete) delete senderKeys[k];
-      }
-      const senderKeyMem = storedKeys.senderKeyMemory;
-      if (senderKeyMem && Object.keys(senderKeyMem).length > MAX_SENDER_KEYS) {
-        const skeys = Object.keys(senderKeyMem);
-        const toDelete = skeys.slice(0, skeys.length - MAX_SENDER_KEYS);
-        for (const k of toDelete) delete senderKeyMem[k];
-      }
-    } catch { }
-  }
-
-  // ── Write Queue: Race condition engelleyici zincir ──
   let isSaving = false;
   let saveRequested = false;
-  let _lastSaveData = null; // Duplicate save önleyici
 
   const saveCreds = async () => {
     saveRequested = true;
-    if (isSaving) return; // Zaten kayıt yapılıyorsa veya sırada varsa dön
+    if (isSaving) return;
+    isSaving = true;
 
-    // Throttle: 2000ms (Aşırı sık kayıt yapılmasını engelle)
-    if (saveThrottle) return;
-    saveThrottle = setTimeout(async () => {
-      saveThrottle = null;
-      if (!saveRequested || isSaving) return;
-      isSaving = true;
-
-      while (saveRequested) {
-        saveRequested = false;
-        try {
-          const { sequelize } = require("./database");
-          const sessionData = JSON.stringify({ creds, keys: storedKeys }, BufferJSON.replacer);
-
-          // Duplicate save önleyici: veri değişmediyse DB'ye yazma
-          if (sessionData === _lastSaveData) continue;
-          _lastSaveData = sessionData;
-
-          await sequelize.transaction(async (t) => {
-            if (!sessionRow) {
-              sessionRow = await WhatsappOturum.create({ sessionId, sessionData }, { transaction: t });
-            } else {
-              await sessionRow.update({ sessionData }, { transaction: t });
-            }
-            modifiedKeys.clear();
-          });
-          logger.debug(`[Auth] Session ${sessionId} DB'ye kaydedildi.`);
-        } catch (err) {
-          logger.error({ err: err.message, sessionId }, "[Auth] Session DB kayıt hatası");
-          _lastSaveData = null; // Hata durumunda tekrar dene
-        }
+    while (saveRequested) {
+      saveRequested = false;
+      try {
+        const sessionData = JSON.stringify({ creds }, BufferJSON.replacer);
+        await WhatsappOturum.upsert({ sessionId, sessionData });
+      } catch (err) {
+        logger.error({ err: err.message, sessionId }, "[Auth] Creds kayıt hatası");
       }
-      isSaving = false;
-    }, 2000);
+    }
+    isSaving = false;
   };
 
   const keys = makeCacheableSignalKeyStore({
     get: async (type, ids) => {
       const data = {};
-      for (const id of ids) {
-        const val = storedKeys[type] && storedKeys[type][id];
-        if (val) data[id] = val;
-      }
+      const promises = ids.map(async (id) => {
+        const keyId = `${sessionId}:${type}:${id}`;
+        try {
+          const row = await WhatsappOturum.findByPk(keyId);
+          if (row && row.sessionData) {
+            data[id] = JSON.parse(row.sessionData, BufferJSON.revive);
+          }
+        } catch (e) {
+          logger.warn(`[Auth] Key okuma hatası (${keyId}): ${e.message}`);
+        }
+      });
+      await Promise.all(promises);
       return data;
     },
     set: async (data) => {
-      let changed = false;
+      const promises = [];
       for (const category in data) {
-        storedKeys[category] = storedKeys[category] || {};
         for (const id in data[category]) {
           const val = data[category][id];
+          const keyId = `${sessionId}:${category}:${id}`;
           if (val) {
-            storedKeys[category][id] = val;
-            modifiedKeys.add(`${category}:${id}`);
+            promises.push(
+              WhatsappOturum.upsert({ sessionId: keyId, sessionData: JSON.stringify(val, BufferJSON.replacer) }).catch(() => {})
+            );
           } else {
-            delete storedKeys[category][id];
-            modifiedKeys.add(`${category}:${id}`);
+            promises.push(
+              WhatsappOturum.destroy({ where: { sessionId: keyId } }).catch(() => {})
+            );
           }
-          changed = true;
         }
       }
-      if (changed) {
-        pruneOldKeys();
-        await saveCreds();
-      }
+      await Promise.all(promises);
     },
   }, logger.child({ module: "signal", level: "error" }));
 
   const clearState = async () => {
-    _lastSaveData = null; // Duplicate önleyiciyi sıfırla
-    if (sessionRow) {
-      try {
-        await sessionRow.update({ sessionData: null });
-      } catch (e) {
-        logger.warn({ err: e.message }, "[Auth] clearState DB güncellemesi başarısız");
-      }
-      // Bellekteki creds ve keys'i temizle
-      for (const k in creds) delete creds[k];
-      for (const k in storedKeys) delete storedKeys[k];
-      logger.info(`[Auth] Session ${sessionId} DB ve bellekten temizlendi.`);
+    try {
+      const { Op } = require("sequelize");
+      await WhatsappOturum.destroy({ where: { sessionId: { [Op.like]: `${sessionId}%` } } });
+      creds = {};
+      logger.info(`[Auth] Session ${sessionId} ve ona bağlı tüm anahtarlar temizlendi.`);
+    } catch (e) {
+      logger.warn({ err: e.message }, "[Auth] clearState başarısız");
     }
   };
 
   const clearSessions = async () => {
     try {
-      if (storedKeys.session) delete storedKeys.session;
-      if (storedKeys.senderKey) delete storedKeys.senderKey;
-      if (storedKeys.senderKeyMemory) delete storedKeys.senderKeyMemory;
-      logger.info(`[Auth] Oturum onarımı: session ve senderKey verileri temizlendi.`);
-      await saveCreds(true);
+      const { Op } = require("sequelize");
+      // Sadece P2P şifre oturumlarını temizle, grup senderKey'leri ASLA silme!
+      // senderKey'leri silmek kalıcı decryption hatasına ve mesajların çözülememesine neden olur.
+      await WhatsappOturum.destroy({ 
+        where: { 
+          sessionId: { [Op.like]: `${sessionId}:session:%` } 
+        } 
+      });
+      logger.info(`[Auth] Oturum onarımı: Sadece p2p session verileri temizlendi. Grup şifreleri (senderKey) korundu.`);
     } catch (e) {
       logger.warn({ err: e.message }, "[Auth] clearSessions başarısız");
     }
