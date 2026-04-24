@@ -66,6 +66,7 @@ async function useDbAuthState(sessionId) {
   // preKey'ler tek kullanımlık el sıkışma anahtarlarıdır. Üretildikten sonra birikebilirler.
   const MAX_PREKEYS = 200;   // ~200 preKey ÷ ~0.5 KB = ~100 KB RAM
   const MAX_SESSIONS = 100;  // WhatsApp MultiDevice'ta tipik build ~20-50 oturum
+  const MAX_SENDER_KEYS = 50; // Grup senderKey'leri zamanla devasa boyutlara ulaşır
 
   function pruneOldKeys() {
     try {
@@ -83,49 +84,63 @@ async function useDbAuthState(sessionId) {
         for (const k of toDelete) delete sessions[k];
         logger.debug(`[Auth] ${toDelete.length} eski session key temizlendi.`);
       }
+      const senderKeys = storedKeys.senderKey;
+      if (senderKeys && Object.keys(senderKeys).length > MAX_SENDER_KEYS) {
+        const skeys = Object.keys(senderKeys);
+        const toDelete = skeys.slice(0, skeys.length - MAX_SENDER_KEYS);
+        for (const k of toDelete) delete senderKeys[k];
+      }
+      const senderKeyMem = storedKeys.senderKeyMemory;
+      if (senderKeyMem && Object.keys(senderKeyMem).length > MAX_SENDER_KEYS) {
+        const skeys = Object.keys(senderKeyMem);
+        const toDelete = skeys.slice(0, skeys.length - MAX_SENDER_KEYS);
+        for (const k of toDelete) delete senderKeyMem[k];
+      }
     } catch { }
   }
 
   // ── Write Queue: Race condition engelleyici zincir ──
-  let writePromise = Promise.resolve();
+  let isSaving = false;
+  let saveRequested = false;
   let _lastSaveData = null; // Duplicate save önleyici
 
-  const saveCreds = async (force = false) => {
-    if (!force) {
-      // Throttle: 500ms (2s'den kısa — deploy sonrası hızlı DB senkronizasyonu için)
-      if (saveThrottle) return;
-      saveThrottle = setTimeout(() => {
-        saveThrottle = null;
-        saveCreds(true);
-      }, 500);
-      return;
-    }
+  const saveCreds = async () => {
+    saveRequested = true;
+    if (isSaving) return; // Zaten kayıt yapılıyorsa veya sırada varsa dön
 
-    writePromise = writePromise.then(async () => {
-      const { sequelize } = require("./database");
-      try {
-        const sessionData = JSON.stringify({ creds, keys: storedKeys }, BufferJSON.replacer);
+    // Throttle: 2000ms (Aşırı sık kayıt yapılmasını engelle)
+    if (saveThrottle) return;
+    saveThrottle = setTimeout(async () => {
+      saveThrottle = null;
+      if (!saveRequested || isSaving) return;
+      isSaving = true;
 
-        // Duplicate save önleyici: veri değişmediyse DB'ye yazma
-        if (sessionData === _lastSaveData) return;
-        _lastSaveData = sessionData;
+      while (saveRequested) {
+        saveRequested = false;
+        try {
+          const { sequelize } = require("./database");
+          const sessionData = JSON.stringify({ creds, keys: storedKeys }, BufferJSON.replacer);
 
-        await sequelize.transaction(async (t) => {
-          if (!sessionRow) {
-            sessionRow = await WhatsappOturum.create({ sessionId, sessionData }, { transaction: t });
-          } else {
-            await sessionRow.update({ sessionData }, { transaction: t });
-          }
-          modifiedKeys.clear();
-        });
-        logger.debug(`[Auth] Session ${sessionId} DB'ye kaydedildi.`);
-      } catch (err) {
-        logger.error({ err: err.message, sessionId }, "[Auth] Session DB kayıt hatası");
-        // Throttle'ı sıfırla ki bir sonraki değişiklikte tekrar denensin
-        _lastSaveData = null;
+          // Duplicate save önleyici: veri değişmediyse DB'ye yazma
+          if (sessionData === _lastSaveData) continue;
+          _lastSaveData = sessionData;
+
+          await sequelize.transaction(async (t) => {
+            if (!sessionRow) {
+              sessionRow = await WhatsappOturum.create({ sessionId, sessionData }, { transaction: t });
+            } else {
+              await sessionRow.update({ sessionData }, { transaction: t });
+            }
+            modifiedKeys.clear();
+          });
+          logger.debug(`[Auth] Session ${sessionId} DB'ye kaydedildi.`);
+        } catch (err) {
+          logger.error({ err: err.message, sessionId }, "[Auth] Session DB kayıt hatası");
+          _lastSaveData = null; // Hata durumunda tekrar dene
+        }
       }
-    });
-    return writePromise;
+      isSaving = false;
+    }, 2000);
   };
 
   const keys = makeCacheableSignalKeyStore({
