@@ -89,38 +89,35 @@ async function useDbAuthState(sessionId) {
   const keys = makeCacheableSignalKeyStore({
     get: async (type, ids) => {
       const data = {};
-      const promises = ids.map(async (id) => {
+      for (const id of ids) {
         const keyId = `${sessionId}:${type}:${id}`;
         try {
           const row = await WhatsappOturum.findByPk(keyId);
           if (row && row.sessionData) {
-            data[id] = JSON.parse(row.sessionData, BufferJSON.revive);
+            data[id] = JSON.parse(row.sessionData, BufferJSON.reviver);
           }
         } catch (e) {
           logger.warn(`[Auth] Key okuma hatası (${keyId}): ${e.message}`);
         }
-      });
-      await Promise.all(promises);
+      }
       return data;
     },
     set: async (data) => {
-      const promises = [];
       for (const category in data) {
         for (const id in data[category]) {
           const val = data[category][id];
           const keyId = `${sessionId}:${category}:${id}`;
-          if (val) {
-            promises.push(
-              WhatsappOturum.upsert({ sessionId: keyId, sessionData: JSON.stringify(val, BufferJSON.replacer) }).catch(() => {})
-            );
-          } else {
-            promises.push(
-              WhatsappOturum.destroy({ where: { sessionId: keyId } }).catch(() => {})
-            );
+          try {
+            if (val) {
+              await WhatsappOturum.upsert({ sessionId: keyId, sessionData: JSON.stringify(val, BufferJSON.replacer) });
+            } else {
+              await WhatsappOturum.destroy({ where: { sessionId: keyId } });
+            }
+          } catch (e) {
+            logger.warn(`[Auth] Key yazma hatası (${keyId}): ${e.message}`);
           }
         }
       }
-      await Promise.all(promises);
     },
   }, logger.child({ module: "signal", level: "error" }));
 

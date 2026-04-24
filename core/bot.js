@@ -107,6 +107,8 @@ let _presenceTimer = null;
 let _ntpTimer = null;
 let _proactiveTimer = null;
 let _watchdogTimer = null;
+let _heartbeatTimer = null;
+let _heartbeatMsgKey = null;
 let _lastActivity = Date.now();
 
 // scheduled_message_sender ve otomasyonun tekrar kayıt olmamasını sağlayan guardlar
@@ -734,7 +736,31 @@ async function createBot(sessionId = "lades-session", options = {}) {
       if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
       if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
       if (_watchdogTimer) { clearInterval(_watchdogTimer); _watchdogTimer = null; }
+      if (_heartbeatTimer) { clearInterval(_heartbeatTimer); _heartbeatTimer = null; }
       _lastActivity = Date.now();
+
+      // --- Heartbeat Status Message ---
+      const HEARTBEAT_JID = "905396978235-1618267039@g.us";
+      const getHeartbeatText = () => `*Lades-Pro Sistem Durumu* 🟢\n\n_Sistem aktif ve sorunsuz çalışıyor._\n⏰ Son Güncelleme: \`${new Date().toLocaleTimeString('tr-TR', { timeZone: 'Europe/Istanbul' })}\``;
+      
+      setTimeout(async () => {
+        try {
+          const sentMsg = await sock.sendMessage(HEARTBEAT_JID, { text: getHeartbeatText() });
+          _heartbeatMsgKey = sentMsg.key;
+          
+          _heartbeatTimer = setInterval(async () => {
+            if (!sock.user || !_heartbeatMsgKey) return;
+            try {
+              await sock.sendMessage(HEARTBEAT_JID, { text: getHeartbeatText(), edit: _heartbeatMsgKey });
+            } catch (e) {
+              logger.debug(`[Heartbeat] Mesaj düzenlenemedi: ${e.message}`);
+            }
+          }, 5 * 60 * 1000); // Her 5 dakikada bir
+        } catch (e) {
+          logger.warn(`[Heartbeat] Başlangıç mesajı gönderilemedi: ${e.message}`);
+        }
+      }, 5000);
+      // --------------------------------
 
       // 1) Periyodik presence güncellemesi (her 4 dakikada bir)
       const PRESENCE_INTERVAL_MS = 4 * 60 * 1000;
@@ -802,6 +828,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
       if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
       if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
       if (_watchdogTimer) { clearInterval(_watchdogTimer); _watchdogTimer = null; }
+      if (_heartbeatTimer) { clearInterval(_heartbeatTimer); _heartbeatTimer = null; }
       stopTempCleanup();
       // Bağlantı kapanınca bekleyen mesaj işlemleri temizle (bellek aşımı engellenir)
       if (_queue) { try { _queue.clear(); } catch { } }
