@@ -447,16 +447,13 @@
         name: name
       });
 
-      await message.client.sendMessage(message.jid, {
-        image: buf,
-        caption: `✅ *${name} Profil Kartı hazır!*`
-      }, { quoted: message.data });
+      }
     } catch (e) {
       await message.sendReply(`❌ *Profil kartı oluşturulamadı!* \n\n*Hata:* ${e.message}`);
     }
   });
-})();
 */
+})();
 
   // ==========================================
   // FILE: fun-tests.js
