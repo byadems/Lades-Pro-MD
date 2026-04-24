@@ -56,9 +56,6 @@ class BotManager extends EventEmitter {
   }
 
   _bindEvents(sessionId, sock) {
-    // Eski listener'ları temizle — updateSocket her çağrıldığında birikip
-    // çift reconnect tetiklemesini önler (conflict döngüsünün ana nedenlerinden biri)
-    try { sock.ev.removeAllListeners('connection.update'); } catch { }
 
     sock.ev.on("connection.update", ({ connection }) => {
       if (connection) {

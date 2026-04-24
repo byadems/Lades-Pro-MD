@@ -108,6 +108,7 @@ let _ntpTimer = null;
 let _proactiveTimer = null;
 let _watchdogTimer = null;
 let _heartbeatTimer = null;
+let _heartbeatTimeout = null;
 let _heartbeatMsgKey = null;
 let _lastActivity = Date.now();
 
@@ -571,6 +572,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
 
   // ── Connection events ────────────────────────────────
   sock.ev.on("connection.update", async (update) => {
+    logger.info({ update }, "[connection.update] Event emitted");
     const { connection, lastDisconnect, qr, isNewLogin } = update;
 
     // CRITICAL: If suspended (dashboard is and should be in control), do nothing!
@@ -737,16 +739,19 @@ async function createBot(sessionId = "lades-session", options = {}) {
       if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
       if (_watchdogTimer) { clearInterval(_watchdogTimer); _watchdogTimer = null; }
       if (_heartbeatTimer) { clearInterval(_heartbeatTimer); _heartbeatTimer = null; }
+      if (_heartbeatTimeout) { clearTimeout(_heartbeatTimeout); _heartbeatTimeout = null; }
       _lastActivity = Date.now();
 
       // --- Heartbeat Status Message ---
       const HEARTBEAT_JID = "905396978235-1618267039@g.us";
       const getHeartbeatText = () => `*Lades-Pro Sistem Durumu* 🟢\n\n_Sistem aktif ve sorunsuz çalışıyor._\n⏰ Son Güncelleme: \`${new Date().toLocaleTimeString('tr-TR', { timeZone: 'Europe/Istanbul' })}\``;
       
-      setTimeout(async () => {
+      _heartbeatTimeout = setTimeout(async () => {
         try {
+          logger.info(`[Heartbeat] Başlangıç mesajı gönderiliyor: ${HEARTBEAT_JID}`);
           const sentMsg = await sock.sendMessage(HEARTBEAT_JID, { text: getHeartbeatText() });
           _heartbeatMsgKey = sentMsg.key;
+          logger.info(`[Heartbeat] Mesaj başarıyla gönderildi, ID: ${_heartbeatMsgKey.id}`);
           
           _heartbeatTimer = setInterval(async () => {
             if (!sock.user || !_heartbeatMsgKey) return;
@@ -759,7 +764,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
         } catch (e) {
           logger.warn(`[Heartbeat] Başlangıç mesajı gönderilemedi: ${e.message}`);
         }
-      }, 5000);
+      }, 15000);
       // --------------------------------
 
       // 1) Periyodik presence güncellemesi (her 4 dakikada bir)
@@ -829,6 +834,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
       if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
       if (_watchdogTimer) { clearInterval(_watchdogTimer); _watchdogTimer = null; }
       if (_heartbeatTimer) { clearInterval(_heartbeatTimer); _heartbeatTimer = null; }
+      if (_heartbeatTimeout) { clearTimeout(_heartbeatTimeout); _heartbeatTimeout = null; }
       stopTempCleanup();
       // Bağlantı kapanınca bekleyen mesaj işlemleri temizle (bellek aşımı engellenir)
       if (_queue) { try { _queue.clear(); } catch { } }
