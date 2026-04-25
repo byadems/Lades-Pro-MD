@@ -561,13 +561,17 @@ async function resolveLidToPn(client, lidJid) {
   
   try {
     if (client.signalRepository && client.signalRepository.lidMapping) {
-      const pnJid = await client.signalRepository.lidMapping.getPNForLID(lidJid);
+      // Sonsuz beklemeyi (deadlock) önlemek için 2 saniyelik zaman aşımı
+      const pnJid = await Promise.race([
+        client.signalRepository.lidMapping.getPNForLID(lidJid),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('LID timeout')), 2000))
+      ]);
       if (pnJid) {
-        return pnJid; // e.g. "905...:1@s.whatsapp.net"
+        return pnJid;
       }
     }
   } catch (e) {
-    logger.debug({ err: e.message }, `[LID Helper] LID -> PN çözümlenemedi: ${lidJid}`);
+    // Sessizce geç — LID çözümlenemezse orijinal JID ile devam et
   }
   return lidJid;
 }

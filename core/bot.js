@@ -33,17 +33,16 @@ let _firstConnectDone = false; // loadPlugins + startSchedulers sadece 1 kez ça
 
 // Pre-warm: Bot başlar başlamaz queue'yu hazırla
 import('p-queue').then(({ default: PQueue }) => {
-  // concurrency: 8  — Daha hızlı mesaj işleme (71 grup burst yükü için)
-  // intervalCap: 60  — Saniyede max 60 mesaj işle
-  // throwOnTimeout: false — timeout'da hata fırlatma, sessizce geç
-  _queue = new PQueue({ concurrency: 8, intervalCap: 60, interval: 1000, throwOnTimeout: false });
+  // concurrency: 8  — Eş zamanlı işleme sayısı
+  // intervalCap kaldırıldı: Rate-limit kuyruk darboğazına yol açıyordu
+  _queue = new PQueue({ concurrency: 8 });
   _queueReady = true;
 }).catch(() => { /* fallback: create on demand */ });
 
 async function getMessageQueue() {
   if (_queue) return _queue;
   const { default: PQueue } = await import('p-queue');
-  _queue = new PQueue({ concurrency: 8, intervalCap: 60, interval: 1000, throwOnTimeout: false });
+  _queue = new PQueue({ concurrency: 8 });
   _queueReady = true;
   return _queue;
 }
@@ -392,15 +391,13 @@ async function createBot(sessionId = "lades-session", options = {}) {
   const sock = makeWASocket({
     version,
     logger: baileysLogger,
-    printQRInTerminal: false, // We handle QR ourselves
+    printQRInTerminal: false,
     auth: {
       creds: state.creds,
-      // Baileys 'useMultiFileAuthState' ve 'useDbAuthState' zaten state.keys'i cache ile sarmalar.
-      // Çift önbellekleme (double-cache) durumunu ve bellek sızıntısını önlemek için direkt kullanıyoruz:
       keys: state.keys, 
     },
-    msgRetryCounterCache: createNodeCacheAdapter(50, 5 * 60 * 1000), // 100→50 mesaj, 5 dk
-    userDevicesCache: createNodeCacheAdapter(50, 5 * 60 * 1000), // 100→50 cihaz, 5 dk
+    msgRetryCounterCache: createNodeCacheAdapter(50, 5 * 60 * 1000),
+    userDevicesCache: createNodeCacheAdapter(50, 5 * 60 * 1000),
     browser: Browsers.ubuntu("Chrome"),
     getMessage: async (key) => {
       const { getMessageByKey } = require("./store");
@@ -409,10 +406,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
     },
     syncFullHistory: false,
     markOnlineOnConnect: !options.markOffline,
-    defaultQueryTimeoutMs: 60000,
-    connectTimeoutMs: 60000,
-    // Keepalive aralığı: 15sn — 25sn'den kısa tutarak WA sunucusu
-    // bağlantıyı stale (bayat) saymadan önce ping göndermesini sağlar.
+    defaultQueryTimeoutMs: 30000,  // 60s→30s: Zombie soketi daha çabuk tespit et
+    connectTimeoutMs: 30000,       // 60s→30s: Bağlantı zaman aşımı daha çabuk
     keepAliveIntervalMs: 15000,
     retryRequestDelayMs: 500,
     maxMsgRetryCount: 5,
@@ -591,7 +586,12 @@ async function createBot(sessionId = "lades-session", options = {}) {
 
   // ── Connection events ────────────────────────────────
   sock.ev.on("connection.update", async (update) => {
-    logger.info({ update }, "[connection.update] Event emitted");
+    // isOnline-only güncellemeleri debug seviyesinde logla (her 2-4 dk'da spam önleme)
+    if (update.isOnline !== undefined && Object.keys(update).length === 1) {
+      logger.debug({ update }, "[connection.update] isOnline");
+    } else {
+      logger.info({ update }, "[connection.update] Event emitted");
+    }
     const { connection, lastDisconnect, qr, isNewLogin } = update;
 
     // CRITICAL: If suspended (dashboard is and should be in control), do nothing!
