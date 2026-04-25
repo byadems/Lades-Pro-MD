@@ -975,29 +975,18 @@ async function createBot(sessionId = "lades-session", options = {}) {
       }
 
       try {
-        const q = await getMessageQueue();
-
-        // BACKPRESSURE: Queue çok doluysa yeni mesajı kuyruğa alma
-        if (q.size >= MAX_QUEUE_SIZE) {
-          logger.warn(`[Queue] Kuyruk dolu (${q.size}/${MAX_QUEUE_SIZE}). Mesaj düşürüldü: ${jid}`);
-          continue;
-        }
-
         const msgCopy = msg;
         const jidCopy = jid;
 
-        q.add(() => {
-          // ── KnightBot-Mini yaklaşımı: Komutu ANINDA çalıştır ──
-          // Grup meta verisini BEKLEMEDEN handleMessage'ı hemen çağır.
-          // handleMessage kendi içinde zaten fetchGroupMeta (cache'li) çağırıyor.
-          // Eski yaklaşım: fetchGroupMeta bekleniyor → her grup mesajı 5sn kilitleniyordu.
-          return handleMessage(sock, msgCopy, null).catch((err) => {
-            if (!err?.message?.includes('rate-overlimit') &&
-                !err?.message?.includes('Connection Closed')) {
-              logger.error({ err: err?.message, jid: jidCopy }, "Mesaj işleme hatası");
-            }
-          });
+        // ── KnightBot-Mini yaklaşımı: Komutu ANINDA çalıştır ──
+        // Queue olmadan eşzamanlı olarak çalıştır (concurrency kilitlemesini engeller)
+        handleMessage(sock, msgCopy, null).catch((err) => {
+          if (!err?.message?.includes('rate-overlimit') &&
+              !err?.message?.includes('Connection Closed')) {
+            logger.error({ err: err?.message, jid: jidCopy }, "Mesaj işleme hatası");
+          }
         });
+
       } catch (err) {
         // Queue hazır değilse fallback
         handleMessage(sock, msg).catch(() => {});
