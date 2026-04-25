@@ -746,21 +746,34 @@ async function createBot(sessionId = "lades-session", options = {}) {
       const getBioText = () => `✅ ${new Date().toLocaleTimeString('tr-TR', { timeZone: 'Europe/Istanbul', hour: '2-digit', minute: '2-digit' })}`;
       
       _heartbeatTimeout = setTimeout(async () => {
-        try {
-          logger.info(`[Heartbeat] Biyografi (About) güncelleniyor...`);
-          await sock.updateProfileStatus(getBioText());
-          
-          _heartbeatTimer = setInterval(async () => {
-            if (!sock.user) return;
+        const doUpdate = async () => {
+          const text = getBioText();
+          logger.info(`[Heartbeat] Biyografi güncelleniyor: "${text}"`);
+          try {
+            const result = await sock.updateProfileStatus(text);
+            logger.info(`[Heartbeat] Biyografi güncellendi. Sonuç: ${JSON.stringify(result)}`);
+          } catch (e) {
+            logger.warn(`[Heartbeat] Biyografi güncellenemedi: ${e.message} | code: ${e.output?.statusCode}`);
+            // Fallback: try raw IQ query with explicit namespace
             try {
-              await sock.updateProfileStatus(getBioText());
-            } catch (e) {
-              logger.debug(`[Heartbeat] Biyografi güncellenemedi: ${e.message}`);
+              await sock.query({
+                tag: 'iq',
+                attrs: { to: 's.whatsapp.net', type: 'set', xmlns: 'status' },
+                content: [{ tag: 'status', attrs: {}, content: Buffer.from(text, 'utf-8') }]
+              });
+              logger.info(`[Heartbeat] Biyografi fallback IQ ile güncellendi.`);
+            } catch (e2) {
+              logger.warn(`[Heartbeat] Fallback da başarısız: ${e2.message}`);
             }
-          }, 10 * 60 * 1000); // Her 10 dakikada bir
-        } catch (e) {
-          logger.warn(`[Heartbeat] Başlangıç biyografisi güncellenemedi: ${e.message}`);
-        }
+          }
+        };
+
+        await doUpdate();
+
+        _heartbeatTimer = setInterval(async () => {
+          if (!sock.user) return;
+          await doUpdate();
+        }, 10 * 60 * 1000); // Her 10 dakikada bir
       }, 15000);
       // --------------------------------
 
