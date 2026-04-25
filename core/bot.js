@@ -361,29 +361,32 @@ async function createBot(sessionId = "lades-session", options = {}) {
           return; 
         }
 
+        // Level kontrolü: warn (40) altındaki hiçbir logı yazma
+        // (pino seviyesi ile çäşmayabilir — burada da filtrele)
+        if (!config.DEBUG && logData.level < 40) return;
+
         // Lades-Pro'nun diğer gereksiz Baileys loglarını engelleme (konsol spam engeli)
         const strLog = JSON.stringify(logData);
         if (strLog.includes("signalstore") || strLog.includes("libsignal") || strLog.includes("SessionEntry")) {
            return;
         }
 
-        // Normal logları (eğer çok düşük seviyeli değilse) ana logger'a pasla veya stdout'a bas
-        if (config.DEBUG) {
-          process.stdout.write(raw + '\n');
-        } else if (logData.level >= 40) { // Warn veya daha yüksek
+        // Sadece warn+ seviyeli logları yazdır
+        if (config.DEBUG || logData.level >= 40) {
           process.stdout.write(raw + '\n');
         }
       } catch (e) {
-        // Parse hatası olsa da ekrana bas
-        process.stdout.write(raw + '\n');
+        // Parse hatası: JSON olmayan binary veri — sessizce yut
+        // (eski kod: parse hatasında her şeyi yazdırıyordu → debug flood)
       }
     }
   };
 
-  // Özel pino instance'ını stream ile oluştur
+  // Baileys logger: sadece warn+ seviyesi (level:40) geçer
+  // Bu sayede level:20 (debug) receipt/event buffer logları filtrelenir
   const pino = require('pino');
   const baileysLogger = pino({ 
-    level: config.DEBUG ? "debug" : "warn",
+    level: "warn",  // < 40 seviyeli hiçbir log write()'a ulaşamaz
     name: "baileys"
   }, baileysLogDestination);
 
