@@ -966,7 +966,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
   const MAX_QUEUE_SIZE = 200;
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
-    if (type !== "notify" && type !== "append") return;
+    if (type !== "notify") return; // Sadece canlı/yeni mesajları işle, geçmiş (append) logları yoksay
+
     for (const msg of messages) {
       if (!msg.message) continue;
       const jid = msg.key.remoteJid;
