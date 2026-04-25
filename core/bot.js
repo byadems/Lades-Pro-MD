@@ -275,6 +275,13 @@ async function createBot(sessionId = "lades-session", options = {}) {
           return;
         }
 
+        // ── ZOMBİ SOKET YAKALAMA (init queries timeout) ──
+        if (logData.msg && logData.msg.includes("unexpected error in 'init queries'") && logData.err?.message === "Timed Out") {
+          logger.warn(`[Bağlantı] Baileys 'init queries' zaman aşımı (Zombi Soket) tespit edildi. Zorla yeniden bağlanılıyor...`);
+          gracefulClose("InitQueries Timeout");
+          return;
+        }
+
         // ── Şifre çözme hatalarını ikiye ayır ──────────────────────────────────────
         // TİP 1 — "No session found": YENİ CİHAZ NORMAL DAVRANIŞI
         //   Sebebi: Bot yeni giriş yapınca grup üyeleri mesajlarını ESKİ session
