@@ -1461,7 +1461,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           if (!fromMe) runtime.metrics.commands++;
 
           // Command Start Reaction (⏳ Processing)
-          if (config.SEND_REACTIONS) await message.react("⏳");
+          if (config.SEND_REACTIONS) message.react("⏳").catch(() => {});
 
           // Non-blocking Auto-Typing when command starts
           if (config.AUTO_TYPING && !fromMe) {
@@ -1481,7 +1481,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           recordStat(cmd.pattern, 'ok', _dur);
 
           // Success Reaction
-          if (config.SEND_REACTIONS) await message.react("✅");
+          if (config.SEND_REACTIONS) message.react("✅").catch(() => {});
 
           // PUSH SUCCESSFUL COMMAND TO ACTIVITY BOARD
           if (!fromMe) {
@@ -1516,7 +1516,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           });
 
           // Error Reaction
-          if (config.SEND_REACTIONS) await message.react("❌");
+          if (config.SEND_REACTIONS) message.react("❌").catch(() => {});
 
           if (config.DEBUG) {
             await message.reply(`❌ Hata: \`${err.message}\``);

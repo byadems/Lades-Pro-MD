@@ -195,7 +195,8 @@ Module({
     targetUser = await resolveTargetUser(targetUser);
 
     // Üyelik kontrolü: Kullanıcı grupta mı?
-    const groupMetadata = await message.client.groupMetadata(message.jid);
+    const { fetchGroupMeta } = require("../core/store");
+    const groupMetadata = await fetchGroupMeta(message.client, message.jid);
     const isParticipant = groupMetadata.participants.some(p => p.id === targetUser);
     if (!isParticipant) {
       const targetNumericId = getNumericId(targetUser);
