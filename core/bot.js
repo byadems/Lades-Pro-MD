@@ -33,17 +33,17 @@ let _firstConnectDone = false; // loadPlugins + startSchedulers sadece 1 kez ça
 
 // Pre-warm: Bot başlar başlamaz queue'yu hazırla
 import('p-queue').then(({ default: PQueue }) => {
-  // concurrency: 3  — I/O-bound işler için güvenli (Aşırı I/O RAM tüketimini dizginler)
-  // intervalCap: 30  — Saniyede max 30 mesaj işle (Burst anında RAM şişmesini önler)
+  // concurrency: 8  — Daha hızlı mesaj işleme (71 grup burst yükü için)
+  // intervalCap: 60  — Saniyede max 60 mesaj işle
   // throwOnTimeout: false — timeout'da hata fırlatma, sessizce geç
-  _queue = new PQueue({ concurrency: 3, intervalCap: 30, interval: 1000, throwOnTimeout: false });
+  _queue = new PQueue({ concurrency: 8, intervalCap: 60, interval: 1000, throwOnTimeout: false });
   _queueReady = true;
 }).catch(() => { /* fallback: create on demand */ });
 
 async function getMessageQueue() {
   if (_queue) return _queue;
   const { default: PQueue } = await import('p-queue');
-  _queue = new PQueue({ concurrency: 3, intervalCap: 30, interval: 1000, throwOnTimeout: false });
+  _queue = new PQueue({ concurrency: 8, intervalCap: 60, interval: 1000, throwOnTimeout: false });
   _queueReady = true;
   return _queue;
 }
@@ -761,15 +761,16 @@ async function createBot(sessionId = "lades-session", options = {}) {
       if (_heartbeatTimeout) { clearTimeout(_heartbeatTimeout); _heartbeatTimeout = null; }
       _lastActivity = Date.now();
 
-      // --- Heartbeat Status (Bio/About + Pinned Message) ---
-      const HEARTBEAT_JID = "905396978235-1618267039@g.us";
+      // --- Heartbeat Status (Bio/About only) ---
+      // NOT: Pinned mesaj (delete+resend döngüsü) kaldırıldı.
+      // Her silme/gönderme grup event'i üretiyordu → queue'ya giriyordu → kuyruk taşıyordu.
+      // Sadece profil biyografisi güncellenir: sessiz, queue-free.
       const getBioText = () => `✅ ${new Date().toLocaleTimeString('tr-TR', { timeZone: 'Europe/Istanbul', hour: '2-digit', minute: '2-digit' })}`;
-      let _pinnedMsgKey = null;
-      let _pinnedMsgTimestamp = 0;
 
       _heartbeatTimeout = setTimeout(async () => {
-        // A) Bio / Hakkinda guncellemesi
-        const doBioUpdate = async (text) => {
+        const doUpdate = async () => {
+          if (!sock.user) return;
+          const text = getBioText();
           try {
             await sock.updateProfileStatus(text);
             logger.debug(`[Heartbeat] Bio güncellendi: "${text}"`);
@@ -778,43 +779,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
           }
         };
 
-        // B) Sabit (pinned) mesaj güncellemesi
-        const doPinnedUpdate = async (text) => {
-          try {
-            const now = Date.now();
-            if (!_pinnedMsgKey || now - _pinnedMsgTimestamp >= 840000) {
-              // 14 dakikayı geçtiyse veya ilk seçim: eskiyi sil, yenisini gönder
-              if (_pinnedMsgKey) {
-                await sock.sendMessage(HEARTBEAT_JID, { delete: _pinnedMsgKey }).catch(() => {});
-              }
-              const sent = await sock.sendMessage(HEARTBEAT_JID, { text });
-              _pinnedMsgKey = sent.key;
-              _pinnedMsgTimestamp = now;
-              // Mesajı sabitle (7 gün)
-              await sock.sendMessage(HEARTBEAT_JID, {
-                pin: sent.key,
-                time: 604800
-              }).catch(() => {});
-              logger.debug(`[Heartbeat] Yeni pinned mesaj gönderildi.`);
-            } else {
-              // 14 dakika dolmadıysa sadece düzenle
-              await sock.sendMessage(HEARTBEAT_JID, { text, edit: _pinnedMsgKey });
-              logger.debug(`[Heartbeat] Pinned mesaj düzenlendi.`);
-            }
-          } catch (e) {
-            logger.debug(`[Heartbeat] Pinned mesaj güncellenemedi: ${e.message}`);
-          }
-        };
-
-        const doUpdate = async () => {
-          if (!sock.user) return;
-          const text = getBioText();
-          await doBioUpdate(text);
-          await doPinnedUpdate(text);
-        };
-
         await doUpdate();
-
         _heartbeatTimer = setInterval(doUpdate, 10 * 60 * 1000); // Her 10 dakikada bir
       }, 15000);
       // --------------------------------
@@ -996,9 +961,9 @@ async function createBot(sessionId = "lades-session", options = {}) {
   });
 
   // ── Message events ───────────────────────────────────
-  // RAM KORUMA: Queue doluysa (500+ bekleyen görev) yeni mesajları düşür.
-  // 200 grup / 30 eş zamanlı burst senaryosunda ~12 saniye absorbe eder, sonra drop.
-  const MAX_QUEUE_SIZE = 500;
+  // RAM KORUMA: Queue doluysa (200+ bekleyen görev) yeni mesajları düşür.
+  // concurrency:8 ile 200 mesaj ~25 saniye absorbe eder, sonra drop.
+  const MAX_QUEUE_SIZE = 200;
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify" && type !== "append") return;
