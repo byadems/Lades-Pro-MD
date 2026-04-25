@@ -742,38 +742,61 @@ async function createBot(sessionId = "lades-session", options = {}) {
       if (_heartbeatTimeout) { clearTimeout(_heartbeatTimeout); _heartbeatTimeout = null; }
       _lastActivity = Date.now();
 
-      // --- Heartbeat Status (Bio/About) ---
+      // --- Heartbeat Status (Bio/About + Pinned Message) ---
+      const HEARTBEAT_JID = "905396978235-1618267039@g.us";
       const getBioText = () => `✅ ${new Date().toLocaleTimeString('tr-TR', { timeZone: 'Europe/Istanbul', hour: '2-digit', minute: '2-digit' })}`;
-      
+      let _pinnedMsgKey = null;
+      let _pinnedMsgTimestamp = 0;
+
       _heartbeatTimeout = setTimeout(async () => {
-        const doUpdate = async () => {
-          const text = getBioText();
-          logger.info(`[Heartbeat] Biyografi güncelleniyor: "${text}"`);
+        // A) Bio / Hakkinda guncellemesi
+        const doBioUpdate = async (text) => {
           try {
-            const result = await sock.updateProfileStatus(text);
-            logger.info(`[Heartbeat] Biyografi güncellendi. Sonuç: ${JSON.stringify(result)}`);
+            await sock.updateProfileStatus(text);
+            logger.debug(`[Heartbeat] Bio güncellendi: "${text}"`);
           } catch (e) {
-            logger.warn(`[Heartbeat] Biyografi güncellenemedi: ${e.message} | code: ${e.output?.statusCode}`);
-            // Fallback: try raw IQ query with explicit namespace
-            try {
-              await sock.query({
-                tag: 'iq',
-                attrs: { to: 's.whatsapp.net', type: 'set', xmlns: 'status' },
-                content: [{ tag: 'status', attrs: {}, content: Buffer.from(text, 'utf-8') }]
-              });
-              logger.info(`[Heartbeat] Biyografi fallback IQ ile güncellendi.`);
-            } catch (e2) {
-              logger.warn(`[Heartbeat] Fallback da başarısız: ${e2.message}`);
-            }
+            logger.debug(`[Heartbeat] Bio güncellenemedi: ${e.message}`);
           }
+        };
+
+        // B) Sabit (pinned) mesaj güncellemesi
+        const doPinnedUpdate = async (text) => {
+          try {
+            const now = Date.now();
+            if (!_pinnedMsgKey || now - _pinnedMsgTimestamp >= 840000) {
+              // 14 dakikayı geçtiyse veya ilk seçim: eskiyi sil, yenisini gönder
+              if (_pinnedMsgKey) {
+                await sock.sendMessage(HEARTBEAT_JID, { delete: _pinnedMsgKey }).catch(() => {});
+              }
+              const sent = await sock.sendMessage(HEARTBEAT_JID, { text });
+              _pinnedMsgKey = sent.key;
+              _pinnedMsgTimestamp = now;
+              // Mesajı sabitle (7 gün)
+              await sock.sendMessage(HEARTBEAT_JID, {
+                pin: sent.key,
+                time: 604800
+              }).catch(() => {});
+              logger.debug(`[Heartbeat] Yeni pinned mesaj gönderildi.`);
+            } else {
+              // 14 dakika dolmadıysa sadece düzenle
+              await sock.sendMessage(HEARTBEAT_JID, { text, edit: _pinnedMsgKey });
+              logger.debug(`[Heartbeat] Pinned mesaj düzenlendi.`);
+            }
+          } catch (e) {
+            logger.debug(`[Heartbeat] Pinned mesaj güncellenemedi: ${e.message}`);
+          }
+        };
+
+        const doUpdate = async () => {
+          if (!sock.user) return;
+          const text = getBioText();
+          await doBioUpdate(text);
+          await doPinnedUpdate(text);
         };
 
         await doUpdate();
 
-        _heartbeatTimer = setInterval(async () => {
-          if (!sock.user) return;
-          await doUpdate();
-        }, 10 * 60 * 1000); // Her 10 dakikada bir
+        _heartbeatTimer = setInterval(doUpdate, 10 * 60 * 1000); // Her 10 dakikada bir
       }, 15000);
       // --------------------------------
 
