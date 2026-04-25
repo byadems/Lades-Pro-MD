@@ -1100,6 +1100,11 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     const message = new BaseMessage(client, rawMsg, groupMetadata);
     let { jid, text, isGroup, isChannel, fromMe } = message;
 
+    // DIAGNOSTIC LOG (To see if messages reach here at all)
+    if (text) {
+      logger.info(`[RECV] ${jid.split('@')[0]}: ${text.substring(0, 50)}`);
+    }
+
     // ── OTO-ÇIKARTMA (STICKER CMD) INTERCEPTOR ──
     const stickerMsg = rawMsg.message?.stickerMessage || rawMsg.message?.documentWithCaptionMessage?.message?.stickerMessage;
     if (stickerMsg?.fileSha256) {
