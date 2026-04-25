@@ -91,26 +91,27 @@ async function searchYoutube(query) {
 }
 
 async function getVideoInfo(url) {
-  const ytdl = require('@distube/ytdl-core');
+  const youtubedl = require('youtube-dl-exec');
   return limit(async () => {
     try {
-      const requestOptions = {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-        timeout: 15000 // 15s metadata timeout
-      };
-      const info = await ytdl.getInfo(url, { requestOptions });
-      const formats = info.formats.map(f => ({
-        type: f.hasVideo ? 'video' : 'audio',
-        quality: f.qualityLabel || f.audioQuality || 'unknown',
-        size: f.contentLength ? `${(f.contentLength / 1024 / 1024).toFixed(2)}MB` : '',
-        url: f.url
-      }));
-      return { formats, title: info.videoDetails.title, videoId: info.videoDetails.videoId };
+      const info = await youtubedl(url, {
+        dumpJson: true,
+        noCheckCertificates: true,
+        noWarnings: true,
+        addHeader: ['referer:youtube.com', 'user-agent:Mozilla/5.0']
+      });
+      const formats = (info.formats || []).map(f => {
+        const hasVideo = f.vcodec && f.vcodec !== 'none';
+        return {
+          type: hasVideo ? 'video' : 'audio',
+          quality: f.format_note || f.resolution || (f.abr ? `${Math.round(f.abr)}kbps` : 'unknown'),
+          size: f.filesize ? `${(f.filesize / 1024 / 1024).toFixed(2)}MB` : '',
+          url: f.url
+        };
+      });
+      return { formats, title: info.title, videoId: info.id };
     } catch (error) {
-      console.error('ytdl getInfo error:', error.message);
+      console.error('youtube-dl getInfo error:', error.message);
       return getVideoInfoFallback(url);
     }
   });
@@ -120,17 +121,15 @@ async function getVideoInfoFallback(url) {
   const yts = require('yt-search');
   try {
     const search = await yts(url);
-    if (search) {
+    if (search && search.videos && search.videos.length > 0) {
+      const v = search.videos[0];
       return {
-        title: search.title || 'YouTube Videosu',
-        videoId: search.videoId,
+        title: v.title || search.title || 'YouTube Videosu',
+        videoId: v.videoId,
         isFallback: true,
         formats: [
           { type: 'video', quality: '360p', size: 'Standart' },
           { type: 'video', quality: '720p', size: 'HD' },
-          { type: 'video', quality: '1080p', size: 'Full HD' },
-          { type: 'video', quality: '1440p', size: '2K' },
-          { type: 'video', quality: '2160p', size: '4K' },
           { type: 'audio', quality: '128kbps', size: '-' }
         ]
       };
@@ -142,33 +141,27 @@ async function getVideoInfoFallback(url) {
 }
 
 async function downloadVideo(url, quality) {
-  const ytdl = require('@distube/ytdl-core');
+  const youtubedl = require('youtube-dl-exec');
   return limit(async () => {
     try {
-      const requestOptions = {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          'Accept-Language': 'en-US,en;q=0.9',
-        }
-      };
-      const info = await ytdl.getInfo(url, { requestOptions });
-      const safeTitle = info.videoDetails.title.replace(/[^\w\s]/gi, '').trim() || 'video';
+      const info = await youtubedl(url, { dumpJson: true, noWarnings: true, noCheckCertificates: true });
+      const safeTitle = (info.title || 'video').replace(/[^\w\s]/gi, '').trim() || 'video';
       const outputPath = getTempPath(`${safeTitle}_${Date.now()}.mp4`);
 
-      const format = ytdl.chooseFormat(info.formats, { quality: 'highest', filter: 'videoandaudio' });
-
-      return await new Promise((resolve, reject) => {
-        ytdl(url, { format, requestOptions })
-          .pipe(fs.createWriteStream(outputPath))
-          .on('finish', () => resolve({ path: outputPath, title: info.videoDetails.title }))
-          .on('error', reject);
+      await youtubedl(url, {
+        format: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+        output: outputPath,
+        noWarnings: true,
+        noCheckCertificates: true,
       });
+
+      return { path: outputPath, title: info.title };
     } catch (error) {
-      console.error('ytdl downloadVideo error:', error.message);
+      console.error('youtube-dl downloadVideo error:', error.message);
       try {
         const fallback = await nexray.downloadYtMp4(url);
         if (fallback && fallback.url) {
-          const safeTitle = (fallback.title || 'video').replace(/[^\w\s]/gi, '').trim();
+          const safeTitle = (fallback.title || 'video').replace(/[^\w\s]/gi, '').trim() || 'video';
           const outputPath = getTempPath(`${safeTitle}_${Date.now()}.mp4`);
           await saveToDisk(fallback.url, outputPath);
           return { path: outputPath, title: fallback.title || 'YouTube Videosu' };
@@ -182,31 +175,28 @@ async function downloadVideo(url, quality) {
 }
 
 async function downloadAudio(url) {
-  const ytdl = require('@distube/ytdl-core');
+  const youtubedl = require('youtube-dl-exec');
   return limit(async () => {
     try {
-      const requestOptions = {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          'Accept-Language': 'en-US,en;q=0.9',
-        }
-      };
-      const info = await ytdl.getInfo(url, { requestOptions });
-      const safeTitle = info.videoDetails.title.replace(/[^\w\s]/gi, '').trim() || 'audio';
+      const info = await youtubedl(url, { dumpJson: true, noWarnings: true, noCheckCertificates: true });
+      const safeTitle = (info.title || 'audio').replace(/[^\w\s]/gi, '').trim() || 'audio';
       const outputPath = getTempPath(`${safeTitle}_${Date.now()}.m4a`);
 
-      return await new Promise((resolve, reject) => {
-        ytdl(url, { filter: 'audioonly', requestOptions })
-          .pipe(fs.createWriteStream(outputPath))
-          .on('finish', () => resolve({ path: outputPath, title: info.videoDetails.title }))
-          .on('error', reject);
+      await youtubedl(url, {
+        extractAudio: true,
+        audioFormat: 'm4a',
+        output: outputPath,
+        noWarnings: true,
+        noCheckCertificates: true,
       });
+
+      return { path: outputPath, title: info.title };
     } catch (error) {
-      console.error('ytdl downloadAudio error:', error.message);
+      console.error('youtube-dl downloadAudio error:', error.message);
       try {
         const fallback = await nexray.downloadYtMp3(url);
         if (fallback && fallback.url) {
-          const safeTitle = (fallback.title || 'audio').replace(/[^\w\s]/gi, '').trim();
+          const safeTitle = (fallback.title || 'audio').replace(/[^\w\s]/gi, '').trim() || 'audio';
           const outputPath = getTempPath(`${safeTitle}_${Date.now()}.m4a`);
           await saveToDisk(fallback.url, outputPath);
           return { path: outputPath, title: fallback.title || 'YouTube Sesi' };
