@@ -580,6 +580,21 @@ async function spotifyPlay(query, options = {}) {
  * @returns {Promise<{url?: string, title?: string}|null>}
  */
 async function downloadYtMp4(url, options = {}) {
+  // 0. Primary: yt-dlp
+  try {
+    const youtubedl = require('youtube-dl-exec');
+    const info = await youtubedl(url, {
+      dumpJson: true,
+      noWarnings: true,
+      noCheckCertificates: true,
+      noPlaylist: true,
+      format: 'best'
+    });
+    if (info && info.url) return { url: info.url, title: info.title };
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[yt-dlp ytmp4 error]", e?.message);
+  }
+
   // 1. Nexray ytmp4
   try {
     const res = await axios.get(`${BASE}/downloader/ytmp4`, withSignal({
@@ -660,6 +675,21 @@ async function downloadYtMp4(url, options = {}) {
  * @returns {Promise<{url?: string, title?: string}|null>}
  */
 async function downloadYtMp3(url, options = {}) {
+  // 0. Primary: yt-dlp
+  try {
+    const youtubedl = require('youtube-dl-exec');
+    const info = await youtubedl(url, {
+      dumpJson: true,
+      noWarnings: true,
+      noCheckCertificates: true,
+      noPlaylist: true,
+      format: 'bestaudio'
+    });
+    if (info && info.url) return { url: info.url, title: info.title };
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[yt-dlp ytmp3 error]", e?.message);
+  }
+
   // 1. Nexray API
   try {
     const res = await axios.get(`${BASE}/downloader/ytmp3`, withSignal({
