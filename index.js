@@ -66,7 +66,7 @@ try {
 suppressLibsignalLogs();
 runtime.startTime = Date.now();
 
-const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 420; // 350→420MB (Dockerfile limit 400MB)
+const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 480; // 420→480MB (Daha geniş bellek toleransı)
 let _isShuttingDown = false;
 
 scheduler.register('memory_check', () => {
