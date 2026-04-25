@@ -273,14 +273,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
           logger.warn(`[Bağlantı] WhatsApp stream hatası tespit edildi (${logData.node?.attrs?.code || 'bilinmiyor'}). Zorla yeniden bağlanılıyor...`);
           gracefulClose("Stream Errored Out");
           return;
-        }
 
-        // ── ZOMBİ SOKET YAKALAMA (init queries timeout) ──
-        if (logData.msg && logData.msg.includes("unexpected error in 'init queries'") && logData.err?.message === "Timed Out") {
-          logger.warn(`[Bağlantı] Baileys 'init queries' zaman aşımı (Zombi Soket) tespit edildi. Zorla yeniden bağlanılıyor...`);
-          gracefulClose("InitQueries Timeout");
-          return;
-        }
 
         // ── Şifre çözme hatalarını ikiye ayır ──────────────────────────────────────
         // TİP 1 — "No session found": YENİ CİHAZ NORMAL DAVRANIŞI
@@ -416,8 +409,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
     },
     syncFullHistory: false,
     markOnlineOnConnect: !options.markOffline,
-    defaultQueryTimeoutMs: 30000,  // 60s→30s: Zombie soketi daha çabuk tespit et
-    connectTimeoutMs: 30000,       // 60s→30s: Bağlantı zaman aşımı daha çabuk
+    defaultQueryTimeoutMs: 60000,  // 60s: Allow time for large group metadata fetch
+    connectTimeoutMs: 60000,       // 60s: Allow time for connection
     keepAliveIntervalMs: 15000,
     retryRequestDelayMs: 500,
     maxMsgRetryCount: 5,
@@ -575,24 +568,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
     _lastActivity = Date.now();
   });
 
-  // ── fetchProps / executeInitQueries timeout koruması ─────────────────────
-  // Bu hata bağlantı "open" iken Baileys'in iç init sorgularının zaman aşımına
-  // uğramasından kaynaklanır. Bot bağlı görünür ama mesaj işleyemez (zombie).
-  // Çözüm: Hata alınır alınmaz gracefulClose ile yeniden bağlan.
-  const _origOnUnexpectedError = sock.onUnexpectedError?.bind(sock);
-  sock.onUnexpectedError = (err, msg) => {
-    const code = err?.output?.statusCode || err?.data?.statusCode;
-    const isInitTimeout = msg?.includes('init queries') || msg?.includes('fetchProps');
-    const isTimeout408 = code === 408 || err?.message === 'Timed Out';
-    if (isInitTimeout && isTimeout408) {
-      logger.warn(`[InitGuard] executeInitQueries zaman aşımı yakalandı (${code}). 3sn içinde yeniden bağlanılıyor...`);
-      setTimeout(() => {
-        try { gracefulClose('InitQueries Timeout'); } catch {}
-      }, 3000);
-      return; // Varsayılan crash davranışını engelle
-    }
-    if (_origOnUnexpectedError) _origOnUnexpectedError(err, msg);
-  };
+
 
   // ── Connection events ────────────────────────────────
   sock.ev.on("connection.update", async (update) => {
