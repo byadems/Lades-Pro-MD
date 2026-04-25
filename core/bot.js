@@ -570,6 +570,25 @@ async function createBot(sessionId = "lades-session", options = {}) {
     _lastActivity = Date.now();
   });
 
+  // ── fetchProps / executeInitQueries timeout koruması ─────────────────────
+  // Bu hata bağlantı "open" iken Baileys'in iç init sorgularının zaman aşımına
+  // uğramasından kaynaklanır. Bot bağlı görünür ama mesaj işleyemez (zombie).
+  // Çözüm: Hata alınır alınmaz gracefulClose ile yeniden bağlan.
+  const _origOnUnexpectedError = sock.onUnexpectedError?.bind(sock);
+  sock.onUnexpectedError = (err, msg) => {
+    const code = err?.output?.statusCode || err?.data?.statusCode;
+    const isInitTimeout = msg?.includes('init queries') || msg?.includes('fetchProps');
+    const isTimeout408 = code === 408 || err?.message === 'Timed Out';
+    if (isInitTimeout && isTimeout408) {
+      logger.warn(`[InitGuard] executeInitQueries zaman aşımı yakalandı (${code}). 3sn içinde yeniden bağlanılıyor...`);
+      setTimeout(() => {
+        try { gracefulClose('InitQueries Timeout'); } catch {}
+      }, 3000);
+      return; // Varsayılan crash davranışını engelle
+    }
+    if (_origOnUnexpectedError) _origOnUnexpectedError(err, msg);
+  };
+
   // ── Connection events ────────────────────────────────
   sock.ev.on("connection.update", async (update) => {
     logger.info({ update }, "[connection.update] Event emitted");
@@ -844,12 +863,12 @@ async function createBot(sessionId = "lades-session", options = {}) {
       }, PROACTIVE_RECONNECT_MS);
 
       // 3) Watchdog Timer (Zombie socket koruması)
-      const WATCHDOG_INTERVAL = 5 * 60 * 1000; // Her 5 dk kontrol et
-      const WATCHDOG_TIMEOUT_MS = 30 * 60 * 1000; // 30 dk hareketsizlik
+      const WATCHDOG_INTERVAL = 5 * 60 * 1000;   // Her 5 dk kontrol et
+      const WATCHDOG_TIMEOUT_MS = 10 * 60 * 1000; // 10 dk hareketsizlik (eskiden 30dk)
       _watchdogTimer = setInterval(() => {
         if (!sock.user) return;
         if (Date.now() - _lastActivity > WATCHDOG_TIMEOUT_MS && sock.ws?.readyState === 1) {
-          logger.warn('[Watchdog] 30 dakikadır hareket yok (Zombie socket). Zorla reconnect başlatılıyor...');
+          logger.warn('[Watchdog] 10 dakikadır hareket yok (Zombie socket). Zorla reconnect başlatılıyor...');
           if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
           if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
           if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
