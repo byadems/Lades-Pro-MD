@@ -273,6 +273,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
           logger.warn(`[Bağlantı] WhatsApp stream hatası tespit edildi (${logData.node?.attrs?.code || 'bilinmiyor'}). Zorla yeniden bağlanılıyor...`);
           gracefulClose("Stream Errored Out");
           return;
+        }
 
 
         // ── Şifre çözme hatalarını ikiye ayır ──────────────────────────────────────
