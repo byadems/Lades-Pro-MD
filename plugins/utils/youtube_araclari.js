@@ -98,6 +98,7 @@ async function getVideoInfo(url) {
         dumpJson: true,
         noCheckCertificates: true,
         noWarnings: true,
+        noPlaylist: true,
         addHeader: ['referer:youtube.com', 'user-agent:Mozilla/5.0']
       });
       const formats = (info.formats || []).map(f => {
@@ -144,15 +145,16 @@ async function downloadVideo(url, quality) {
   const youtubedl = require('youtube-dl-exec');
   return limit(async () => {
     try {
-      const info = await youtubedl(url, { dumpJson: true, noWarnings: true, noCheckCertificates: true });
+      const info = await youtubedl(url, { dumpJson: true, noWarnings: true, noCheckCertificates: true, noPlaylist: true });
       const safeTitle = (info.title || 'video').replace(/[^\w\s]/gi, '').trim() || 'video';
       const outputPath = getTempPath(`${safeTitle}_${Date.now()}.mp4`);
 
       await youtubedl(url, {
-        format: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+        format: 'best[ext=mp4]/best',
         output: outputPath,
         noWarnings: true,
         noCheckCertificates: true,
+        noPlaylist: true,
       });
 
       return { path: outputPath, title: info.title };
@@ -178,16 +180,16 @@ async function downloadAudio(url) {
   const youtubedl = require('youtube-dl-exec');
   return limit(async () => {
     try {
-      const info = await youtubedl(url, { dumpJson: true, noWarnings: true, noCheckCertificates: true });
+      const info = await youtubedl(url, { dumpJson: true, noWarnings: true, noCheckCertificates: true, noPlaylist: true });
       const safeTitle = (info.title || 'audio').replace(/[^\w\s]/gi, '').trim() || 'audio';
       const outputPath = getTempPath(`${safeTitle}_${Date.now()}.m4a`);
 
       await youtubedl(url, {
-        extractAudio: true,
-        audioFormat: 'm4a',
+        format: 'bestaudio[ext=m4a]/bestaudio/best',
         output: outputPath,
         noWarnings: true,
         noCheckCertificates: true,
+        noPlaylist: true,
       });
 
       return { path: outputPath, title: info.title };
