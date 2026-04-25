@@ -96,7 +96,7 @@ async function nxTry(paths, opts = {}) {
 
 function fmtCount(v) {
   const n = Number(v);
-  return Number.isFinite(n) ? n.toLocaleString() : "-";
+  return Number.isFinite(n) ? n.toLocaleString("tr-TR") : "-";
 }
 
 function trToEn(text) {

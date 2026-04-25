@@ -1310,7 +1310,7 @@
             chatName =
               allGroups[chat.jid].subject || chat.name || "Bilinmeyen Grup";
           }
-          const lastMessageTime = new Date(chat.lastMessageTime).toLocaleString();
+          const lastMessageTime = new Date(chat.lastMessageTime).toLocaleString("tr-TR");
           _msg += `_*${count}. ${chatType}:*_ \`${chatName}\`\n`;
           _msg += `_JID:_ \`${chat.jid}\`\n`;
           _msg += `_Son Mesaj:_ ${lastMessageTime}\n\n`;
@@ -1330,7 +1330,7 @@
             }
             const lastMessageTime = new Date(
               chat.lastMessageTime
-            ).toLocaleString();
+            ).toLocaleString("tr-TR");
             const chatInfo = `_*${count}. ${chatType}:*_ \`${chatName}\`\n_JID:_ \`${chat.jid}\`\n_Son Mesaj:_ ${lastMessageTime}\n\n`;
             if (currentChunk.length + chatInfo.length > chunkSize) {
               chunks.push(currentChunk);
@@ -3448,7 +3448,7 @@
           }
           responseText += `*Ayarlandı:* _${new Date(
             mentionData.timestamp
-          ).toLocaleString()}_`;
+          ).toLocaleString("tr-TR")}_`;
 
           return await message.sendReply(responseText);
 

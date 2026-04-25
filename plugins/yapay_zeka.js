@@ -1169,12 +1169,12 @@
     if (!text) return await message.sendReply("⚠️ _Soru girin:_ `.duckai Türkiye'nin başkenti neresi?`");
 
     try {
-      await message.sendReply("🧐 _Düşünüyorum..._");
+      const sent = await message.sendReply("🧐 _DuckAI düşünüyor..._");
       const data = await siputGet("/api/ai/duckai", { message: text });
       const result = data.data || data.result;
-      if (!result) return await message.sendReply("❌ *Yanıt alınamadı!*");
+      if (!result) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
       const answer = typeof result === "string" ? result : result.message || result.text || result.answer || JSON.stringify(result);
-      await message.sendReply(`🤖 *DuckAI*\n\n${answer}`);
+      await message.edit(`🤖 *DuckAI*\n\n${answer}`, message.jid, sent.key);
     } catch (e) {
       await message.sendReply(`❌ *Hata:* _AI yanıtı alınamadı:_ ${e.message}`);
     }
@@ -1194,12 +1194,19 @@
     if (!text) return await message.sendReply("⚠️ _Soru girin:_ `.deepseek Kuantum bilgisayar nedir?`");
 
     try {
-      await message.sendReply("🧐 _DeepSeek düşünüyor..._");
-      const data = await siputGet("/api/ai/deepseekr1", { prompt: text });
+      const sent = await message.sendReply("🧐 _DeepSeek düşünüyor..._");
+      const data = await siputGet("/api/ai/deepseekr1", { text });
       const result = data.data || data.result;
-      if (!result) return await message.sendReply("❌ *Yanıt alınamadı!*");
+      if (!result) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
       const answer = typeof result === "string" ? result : result.response || result.text || result.answer || JSON.stringify(result);
-      await message.sendReply(`🤖 *DeepSeek R1*\n\n${answer}`);
+      
+      // DeepSeek R1 thinking tags
+      let finalAnswer = answer;
+      if (finalAnswer.includes("<think>")) {
+        finalAnswer = finalAnswer.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+      }
+      
+      await message.edit(`🤖 *DeepSeek R1*\n\n${finalAnswer}`, message.jid, sent.key);
     } catch (e) {
       await message.sendReply(`❌ *Hata:* _AI yanıtı alınamadı:_ ${e.message}`);
     }
@@ -1219,12 +1226,12 @@
     if (!text) return await message.sendReply("⚠️ _Soru girin:_ `.llama Python ile merhaba dünya`");
 
     try {
-      await message.sendReply("🧐 _Llama düşünüyor..._");
-      const data = await siputGet("/api/ai/llama33", { prompt: text });
+      const sent = await message.sendReply("🧐 _Llama düşünüyor..._");
+      const data = await siputGet("/api/ai/llama33", { text });
       const result = data.data || data.result;
-      if (!result) return await message.sendReply("❌ *Yanıt alınamadı!*");
+      if (!result) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
       const answer = typeof result === "string" ? result : result.text || result.answer || JSON.stringify(result);
-      await message.sendReply(`🤖 *Llama 3.3*\n\n${answer}`);
+      await message.edit(`🤖 *Llama 3.3*\n\n${answer}`, message.jid, sent.key);
     } catch (e) {
       await message.sendReply(`❌ *Hata:* _AI yanıtı alınamadı:_ ${e.message}`);
     }
@@ -1244,12 +1251,12 @@
     if (!text) return await message.sendReply("⚠️ _Soru girin:_ `.metaai Yapay zeka nedir?`");
 
     try {
-      await message.sendReply("🧐 _Meta AI düşünüyor..._");
+      const sent = await message.sendReply("🧐 _Meta AI düşünüyor..._");
       const data = await siputGet("/api/ai/metaai", { query: text });
       const result = data.data || data.result;
-      if (!result) return await message.sendReply("❌ *Yanıt alınamadı!*");
+      if (!result) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
       const answer = typeof result === "string" ? result : result.text || result.answer || JSON.stringify(result);
-      await message.sendReply(`🤖 *Meta YZ*\n\n${answer}`);
+      await message.edit(`🤖 *Meta YZ*\n\n${answer}`, message.jid, sent.key);
     } catch (e) {
       await message.sendReply(`❌ *Hata:* _Meta YZ yanıtı alınamadı:_ ${e.message}`);
     }
@@ -1294,13 +1301,13 @@
     if (!text) return await message.sendReply("_Soru girin:_ `.geminilite Dünya'nın çapı nedir?`");
 
     try {
-      await message.sendReply("🧐 _Gemini düşünüyor..._");
-      const data = await siputGet("/api/ai/gemini-lite", { prompt: text });
+      const sent = await message.sendReply("🧐 _Gemini düşünüyor..._");
+      const data = await siputGet("/api/ai/gemini-lite", { text });
       const result = data.data || data.result;
-      if (!result) return await message.sendReply("❌ *Yanıt alınamadı!*");
+      if (!result) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
       
       const answer = (result.parts && result.parts[0]?.text) || result.text || result.answer || (typeof result === "string" ? result : JSON.stringify(result));
-      await message.sendReply(`🤖 *Gemini Lite*\n\n${answer}`);
+      await message.edit(`🤖 *Gemini Lite*\n\n${answer}`, message.jid, sent.key);
     } catch (e) {
       // Fallback or better error message
       await message.sendReply(`❌ *Hata:* _YZ yanıtı alınamadı:_ ${e.message}`);
@@ -1321,19 +1328,24 @@
     if (!text) return await message.sendReply("_Soru girin:_ `.qwq Fibonacci dizisi nedir?`");
 
     try {
-      await message.sendReply("🧐 _QwQ düşünüyor..._");
-      const data = await siputGet("/api/ai/qwq32b", { prompt: text });
+      const sent = await message.sendReply("🧐 _QwQ düşünüyor..._");
+      const data = await siputGet("/api/ai/qwq32b", { text });
       const result = data.data || data.result;
-      if (!result) return await message.sendReply("❌ *Yanıt alınamadı!*");
+      if (!result) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
       
       let answer = result.response || result.text || result.answer || (typeof result === "string" ? result : JSON.stringify(result));
       
-      // Remove <think> tags if present
-      if (answer.includes("<think>")) {
-        answer = answer.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+      // Robust <think> tags removal
+      if (answer.includes("<think>") || answer.includes("</think>")) {
+        answer = answer.replace(/<think>[\s\S]*?<\/think>/gi, "");
+        answer = answer.replace(/<think>[\s\S]*/gi, ""); // Remove stray start tags
+        answer = answer.replace(/[\s\S]*?<\/think>/gi, ""); // Remove stray end tags
+        answer = answer.trim();
       }
       
-      await message.sendReply(`🤖 *QwQ 32B*\n\n${answer}`);
+      if (!answer) answer = "⚠️ _Düşünme süreci bitti fakat net bir yanıt üretilemedi._";
+      
+      await message.edit(`🤖 *QwQ 32B*\n\n${answer}`, message.jid, sent.key);
     } catch (e) {
       await message.sendReply(`❌ *Hata:* _YZ yanıtı alınamadı:_ ${e.message}`);
     }

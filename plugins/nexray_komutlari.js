@@ -303,7 +303,7 @@ Module({
 
     if (!text) return await message.sendReply("⚠️ *Metin yazın!* \n\n💬 *Kullanım:* \`.brat Lades Bot\`\n\`.bratgif Lades Bot\`");
 
-    const encodedText = text.replace(/ /g, "+");
+    const encodedText = encodeURIComponent(text);
 
     try {
       const url = isAnimated
@@ -326,7 +326,7 @@ Module({
         { quoted: message.data }
       );
     } catch (e) {
-      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}`);
+      await message.sendReply(`❌ _Görsel oluşturulamadı:_ ${e.message}\n\n${e.stack?.split("\n").slice(0, 3).join("\n")}`);
     }
   }
 );

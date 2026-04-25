@@ -319,7 +319,7 @@ Module({
 
       let warningsList = `📋 *UYARI GEÇMİŞİ*\n\n👤 Üye: *@${targetNumericId}*\n🔢 Toplam Uyarı: \`${currentWarns}/${warnLimit}\`\n🥲 Kalan Hakkı: \`${remaining > 0 ? remaining : 0}\`\n\n`;
       warnings.slice(0, 5).forEach((warn, index) => {
-        const date = new Date(warn.timestamp).toLocaleString();
+        const date = new Date(warn.timestamp).toLocaleString("tr-TR");
         const warnedByNumeric = getNumericId(warn.warnedBy);
         warningsList += `🤔 Sebep: *${index + 1}.* ${warn.reason}\n   👀 _Uyarıyı Veren:_ @${warnedByNumeric}\n   📅 _Tarih: *${date}*_\n\n`;
       });

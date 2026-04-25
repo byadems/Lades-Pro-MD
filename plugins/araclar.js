@@ -836,30 +836,34 @@ ${cmdmenu}`;
   }
 
   function getTimeBasedEmoji(temp) {
-    const turkeyTime = new Date().toLocaleString("en-US");
-    const turkeyDate = new Date(turkeyTime);
-    const hour = turkeyDate.getHours();
+    const turkeyTime = new Date().toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" });
+    const [datePart, timePart] = turkeyTime.split(" ");
+    const [day, month, year] = datePart.replace(",", "").split(".");
+    const [hour, minute, second] = timePart.split(":");
+    
+    // Create date object based on parsed parts (robust to different tr-TR formats)
+    const hourInt = parseInt(hour);
 
-    if (hour >= 22 || hour < 5) {
+    if (hourInt >= 22 || hourInt < 5) {
       if (temp <= 0) return { start: "🌙", end: "❄️" };
       if (temp <= 10) return { start: "🌙", end: "🥶" };
       if (temp <= 20) return { start: "🌙", end: "😴" };
       return { start: "🌙", end: "🔥" };
     }
-    if (hour >= 5 && hour < 12) {
+    if (hourInt >= 5 && hourInt < 12) {
       if (temp <= 0) return { start: "🌅", end: "❄️" };
       if (temp <= 10) return { start: "🌅", end: "🥶" };
       if (temp <= 20) return { start: "🌅", end: "☕" };
       return { start: "🌅", end: "☀️" };
     }
-    if (hour >= 12 && hour < 19) {
+    if (hourInt >= 12 && hourInt < 19) {
       if (temp <= 0) return { start: "☀️", end: "❄️" };
       if (temp <= 10) return { start: "🌤️", end: "🧥" };
       if (temp <= 20) return { start: "☀️", end: "😊" };
       if (temp <= 30) return { start: "☀️", end: "🔥" };
       return { start: "🔥", end: "🥵" };
     }
-    if (hour >= 19 && hour < 22) {
+    if (hourInt >= 19 && hourInt < 22) {
       if (temp <= 0) return { start: "🌆", end: "❄️" };
       if (temp <= 10) return { start: "🌆", end: "🧥" };
       if (temp <= 20) return { start: "🌆", end: "😌" };

@@ -12,7 +12,7 @@
   const { Module } = require("../main");
   const config = require("../config");
   const { setVar } = require('./yonetim_araclari');
-  const { downloadGram, pinterestDl, tiktok, fb } = require("./utils");
+  const { downloadGram, pinterestDl, tiktok, fb, story } = require("./utils");
   const { getVideoInfo, downloadAudio, convertM4aToMp3, searchYoutube } = require('./utils/youtube_araclari');
   const { saveToDisk, getTempPath, cleanTempFile, isMediaImage, readMp4Dimensions } = require("../core/yardimcilar");
   const nexray = require('./utils/nexray_api');
@@ -1207,10 +1207,27 @@
         ? `https://instagram.com/stories/${userIdentifier}/`
         : urls[0];
 
+      let storyData = [];
       try {
-        var storyData = await downloadGram(userIdentifier);
-      } catch {
-        return await message.sendReply("❌ *Üzgünüm, sunucu hatası oluştu!*");
+        // Öncelikli olarak hikaye (story) API'sini dene
+        const res = await story(userIdentifier);
+        if (Array.isArray(res)) {
+          storyData = res;
+        } else if (res && typeof res === 'object') {
+          storyData = res.urls || res.media || (res.url ? [res.url] : []);
+        }
+
+        // Eğer sonuç yoksa genel Instagram indiriciyi dene
+        if (!storyData || storyData.length === 0) {
+          storyData = await downloadGram(userIdentifier);
+        }
+      } catch (e) {
+        // Hata durumunda genel indiriciyi fallback olarak kullan
+        try {
+          storyData = await downloadGram(userIdentifier);
+        } catch (_) {
+          return await message.sendReply("❌ *Üzgünüm, hikayeler alınamadı!*");
+        }
       }
       if (!storyData || !storyData.length)
         return await message.sendReply("❌ *Medya bulunamadı!*");
@@ -1532,6 +1549,8 @@
 
       try {
         const r = await nxTry([
+          `/downloader/v1/capcut?url=${encodeURIComponent(url)}`,
+          `/downloader/v2/capcut?url=${encodeURIComponent(url)}`,
           `/downloader/capcut?url=${encodeURIComponent(url)}`,
         ]);
         const video = r.video_url || r.video || r.url || r.download_url;
@@ -2418,7 +2437,7 @@
           caption += "*1.* Ses\n";
           caption += "*2.* Video";
 
-          await message.sendReply(selectedVideo.image_url, "image", {
+          await message.sendReply({ url: selectedVideo.image_url }, "image", {
             caption: caption,
           });
         } catch (error) {

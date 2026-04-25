@@ -34,21 +34,21 @@
       const path = require("path");
       const { logger } = require("../config");
 
-      await m.sendReply("⏳ *Eklentiler yenileniyor...*");
+      const sent = await m.sendReply("⏳ *Eklentiler yenileniyor...*");
       try {
         const pluginsDir = path.join(__dirname, "../plugins");
         const { loaded, failed } = await handler.loadPlugins(pluginsDir, true);
-
+ 
         let msg = `✅ *Eklentiler başarıyla yenilendi!*\n\n`;
         msg += `• Toplam Dosya: *${loaded}*\n`;
         if (failed > 0) msg += `• ⚠️ Hatalı: *${failed}* (Konsolu kontrol edin)\n`;
         msg += `• Komut Sayısı: *${handler.commands.length}*\n\n`;
         msg += `_Bağlantı kesilmeden sıcak yenileme tamamlandı._`;
-
-        await m.sendReply(msg);
+ 
+        await m.edit(msg, m.jid, sent.key);
         logger.info(`Hot-reload triggered by ${m.pushName}`);
       } catch (err) {
-        await m.sendReply(`❌ *Yenileme sırasında hata oluştu:* ${err.message}`);
+        await m.edit(`❌ *Yenileme sırasında hata oluştu:* ${err.message}`, m.jid, sent.key);
       }
     }
   );
