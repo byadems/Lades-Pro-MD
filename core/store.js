@@ -94,9 +94,18 @@ function getGroupMeta(groupId) {
   return groupMetaCache.get(groupId) || null;
 }
 
+const groupMetaErrorCache = new Map();
+
 async function fetchGroupMeta(client, groupId) {
   const cached = getGroupMeta(groupId);
   if (cached) return cached;
+  
+  // Hata cache kontrolü: Eğer son 30 saniye içinde başarısız olduysa, tekrar deneme (Kuyruk tıkanıklığını önler)
+  const lastError = groupMetaErrorCache.get(groupId);
+  if (lastError && (Date.now() - lastError) < 30000) {
+    return null;
+  }
+
   try {
     // Kilitlenmeyi (deadlock) önlemek için 5 saniyelik zorunlu zaman aşımı (timeout)
     const meta = await Promise.race([
@@ -107,6 +116,7 @@ async function fetchGroupMeta(client, groupId) {
     return meta;
   } catch (err) {
     logger.debug({ err: err.message, groupId }, "Failed to fetch group metadata");
+    groupMetaErrorCache.set(groupId, Date.now()); // Hata anını kaydet
     return null;
   }
 }

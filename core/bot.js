@@ -961,19 +961,31 @@ async function createBot(sessionId = "lades-session", options = {}) {
   });
 
   // ── Message events ───────────────────────────────────
-  // RAM KORUMA: Queue doluysa (200+ bekleyen görev) yeni mesajları düşür.
-  // concurrency:8 ile 200 mesaj ~25 saniye absorbe eder, sonra drop.
+  // Deduplication: Aynı mesajın iki kez işlenmesini önle (60s temizleme)
+  const processedMsgIds = new Set();
+  setInterval(() => processedMsgIds.clear(), 60 * 1000).unref();
+
   const MAX_QUEUE_SIZE = 200;
+  const MESSAGE_AGE_LIMIT = 5 * 60 * 1000; // 5 dakikadan eski mesajları işleme
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
-    if (type !== "notify") return; // Sadece canlı/yeni mesajları işle, geçmiş (append) logları yoksay
+    if (type !== "notify") return; // Sadece canlı/yeni mesajları işle
 
     for (const msg of messages) {
       if (!msg.message) continue;
       const jid = msg.key.remoteJid;
       if (!jid) continue;
+      const msgId = msg.key.id;
 
-      const isChannelJid = jid.endsWith('@newsletter');
+      // Deduplication: aynı mesajı iki kez işleme
+      if (processedMsgIds.has(msgId)) continue;
+      processedMsgIds.add(msgId);
+
+      // Yaş filtresi: 5 dakikadan eski mesajları işleme (QR sonrası sync koruması)
+      if (msg.messageTimestamp) {
+        const age = Date.now() - (Number(msg.messageTimestamp) * 1000);
+        if (age > MESSAGE_AGE_LIMIT) continue;
+      }
 
       try {
         const q = await getMessageQueue();
@@ -984,26 +996,20 @@ async function createBot(sessionId = "lades-session", options = {}) {
           continue;
         }
 
-        // Mesaj referansını kopyala (closure leak önlemi)
         const msgCopy = msg;
         const jidCopy = jid;
-        const isGroupJid = isGroup(jid);
 
-        q.add(async () => {
-          try {
-            if (config.DEBUG) {
-              const text = getMessageText(msgCopy.message);
-              console.log(`[UPSERT] JID: ${jidCopy} | Channel: ${isChannelJid} | Text: "${text?.slice(0, 30)}..."`);
+        q.add(() => {
+          // ── KnightBot-Mini yaklaşımı: Komutu ANINDA çalıştır ──
+          // Grup meta verisini BEKLEMEDEN handleMessage'ı hemen çağır.
+          // handleMessage kendi içinde zaten fetchGroupMeta (cache'li) çağırıyor.
+          // Eski yaklaşım: fetchGroupMeta bekleniyor → her grup mesajı 5sn kilitleniyordu.
+          return handleMessage(sock, msgCopy, null).catch((err) => {
+            if (!err?.message?.includes('rate-overlimit') &&
+                !err?.message?.includes('Connection Closed')) {
+              logger.error({ err: err?.message, jid: jidCopy }, "Mesaj işleme hatası");
             }
-            let groupMeta = null;
-            if (isGroupJid) {
-              // fetchGroupMeta önce cache'e bakar — 5dk TTL içinde DB/WA isteği yok
-              groupMeta = await fetchGroupMeta(sock, jidCopy);
-            }
-            await handleMessage(sock, msgCopy, groupMeta);
-          } catch (err) {
-            logger.error({ err: err?.message, jid: jidCopy }, "Mesaj işleme hatası");
-          }
+          });
         });
       } catch (err) {
         // Queue hazır değilse fallback
