@@ -409,9 +409,10 @@ async function createBot(sessionId = "lades-session", options = {}) {
       return msg ? msg.message : undefined;
     },
     syncFullHistory: false,
+    downloadHistory: false,
     markOnlineOnConnect: !options.markOffline,
-    defaultQueryTimeoutMs: 60000,  // 60s: Allow time for large group metadata fetch
-    connectTimeoutMs: 60000,       // 60s: Allow time for connection
+    defaultQueryTimeoutMs: 300000,  // 300s
+    connectTimeoutMs: 300000,       // 300s
     keepAliveIntervalMs: 15000,
     retryRequestDelayMs: 500,
     maxMsgRetryCount: 5,
