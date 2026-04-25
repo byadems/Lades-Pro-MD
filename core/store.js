@@ -98,11 +98,15 @@ async function fetchGroupMeta(client, groupId) {
   const cached = getGroupMeta(groupId);
   if (cached) return cached;
   try {
-    const meta = await client.groupMetadata(groupId);
+    // Kilitlenmeyi (deadlock) önlemek için 5 saniyelik zorunlu zaman aşımı (timeout)
+    const meta = await Promise.race([
+      client.groupMetadata(groupId),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("groupMetadata timeout")), 5000))
+    ]);
     setGroupMeta(groupId, meta);
     return meta;
   } catch (err) {
-    logger.debug({ err, groupId }, "Failed to fetch group metadata");
+    logger.debug({ err: err.message, groupId }, "Failed to fetch group metadata");
     return null;
   }
 }
