@@ -742,41 +742,24 @@ async function createBot(sessionId = "lades-session", options = {}) {
       if (_heartbeatTimeout) { clearTimeout(_heartbeatTimeout); _heartbeatTimeout = null; }
       _lastActivity = Date.now();
 
-      // --- Heartbeat Status Message ---
-      const HEARTBEAT_JID = "905396978235-1618267039@g.us";
-      const getHeartbeatText = () => `*Lades-Pro Sistem Durumu* 🟢\n\n_Sistem aktif ve sorunsuz çalışıyor._\n⏰ Son Güncelleme: \`${new Date().toLocaleTimeString('tr-TR', { timeZone: 'Europe/Istanbul' })}\``;
+      // --- Heartbeat Status (Bio/About) ---
+      const getBioText = () => `✅ ${new Date().toLocaleTimeString('tr-TR', { timeZone: 'Europe/Istanbul', hour: '2-digit', minute: '2-digit' })}`;
       
       _heartbeatTimeout = setTimeout(async () => {
         try {
-          logger.info(`[Heartbeat] Başlangıç mesajı gönderiliyor: ${HEARTBEAT_JID}`);
-          const sentMsg = await sock.sendMessage(HEARTBEAT_JID, { text: getHeartbeatText() });
-          _heartbeatMsgKey = sentMsg.key;
-          let _heartbeatTimestamp = Date.now();
-          logger.info(`[Heartbeat] Mesaj başarıyla gönderildi, ID: ${_heartbeatMsgKey.id}`);
+          logger.info(`[Heartbeat] Biyografi (About) güncelleniyor...`);
+          await sock.updateProfileStatus(getBioText());
           
           _heartbeatTimer = setInterval(async () => {
-            if (!sock.user || !_heartbeatMsgKey) return;
+            if (!sock.user) return;
             try {
-              const now = Date.now();
-              // WhatsApp edit limit is 15 minutes. We renew at 14 minutes (14 * 60 * 1000 = 840000 ms)
-              if (now - _heartbeatTimestamp >= 840000) {
-                // Delete old message
-                await sock.sendMessage(HEARTBEAT_JID, { delete: _heartbeatMsgKey }).catch(() => {});
-                // Send new message
-                const newMsg = await sock.sendMessage(HEARTBEAT_JID, { text: getHeartbeatText() });
-                _heartbeatMsgKey = newMsg.key;
-                _heartbeatTimestamp = now;
-                logger.debug(`[Heartbeat] 15 dk sınırı aşıldı, yeni mesaj gönderildi.`);
-              } else {
-                // Just edit
-                await sock.sendMessage(HEARTBEAT_JID, { text: getHeartbeatText(), edit: _heartbeatMsgKey });
-              }
+              await sock.updateProfileStatus(getBioText());
             } catch (e) {
-              logger.debug(`[Heartbeat] Mesaj güncellenemedi: ${e.message}`);
+              logger.debug(`[Heartbeat] Biyografi güncellenemedi: ${e.message}`);
             }
-          }, 5 * 60 * 1000); // Her 5 dakikada bir
+          }, 10 * 60 * 1000); // Her 10 dakikada bir
         } catch (e) {
-          logger.warn(`[Heartbeat] Başlangıç mesajı gönderilemedi: ${e.message}`);
+          logger.warn(`[Heartbeat] Başlangıç biyografisi güncellenemedi: ${e.message}`);
         }
       }, 15000);
       // --------------------------------
