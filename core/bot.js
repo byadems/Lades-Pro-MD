@@ -104,6 +104,7 @@ let _proactiveTimer = null;
 // scheduled_message_sender ve otomasyonun tekrar kayıt olmamasını sağlayan guardlar
 let _scheduledMsgRegistered = false;
 let _automationRegistered = false;
+let _statusTimer = null; // Profil durumu 24s yenileyici
 
 // ─────────────────────────────────────────────────────────
 //  Create bot instance
@@ -727,6 +728,25 @@ async function createBot(sessionId = "lades-session", options = {}) {
         }, 3000);
       }
 
+      // ── PROFİL DURUMU ("HAKKINDA") OTOMATİK YENİLEME ─────
+      // WhatsApp gruplarda üye üzerine basıldığında görünen
+      // "Hakkında" yazısı 24 saatte bir güncellenir.
+      const BOT_STATUS_TEXT = "• Profesyonel WhatsApp Bot";
+      const STATUS_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 saat
+      const _updateBotStatus = async () => {
+        try {
+          await sock.updateProfileStatus(BOT_STATUS_TEXT);
+          logger.info("[Profil] Hakkında yazısı güncellendi.");
+        } catch (e) {
+          logger.warn({ err: e.message }, "[Profil] Hakkında yazısı güncellenemedi");
+        }
+      };
+      // Bağlantı açılınca hemen güncelle
+      _updateBotStatus();
+      // Önceki timer'ı temizle, yenisini kur
+      if (_statusTimer) { clearInterval(_statusTimer); _statusTimer = null; }
+      _statusTimer = setInterval(_updateBotStatus, STATUS_INTERVAL_MS);
+
       // ── SAAT KAYMA ENGELLEYİCİ ───────────────────────────
       // Timer Leak Koruması: Önceki interval'lar varsa temizle,
       // sonra yeniden oluştur. Bu sayede her reconnect'te biriken
@@ -767,6 +787,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
           if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
           if (_ntpTimer) { clearInterval(_ntpTimer); _ntpTimer = null; }
           if (_proactiveTimer) { clearInterval(_proactiveTimer); _proactiveTimer = null; }
+          if (_statusTimer) { clearInterval(_statusTimer); _statusTimer = null; }
           clearInterval(watchdogInterval);
           await sock.end({ reason: 'inactive' });
         }
@@ -796,6 +817,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
             if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
             if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
             if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
+            if (_statusTimer)   { clearInterval(_statusTimer);   _statusTimer = null; }
             gracefulClose("NTP Time Drift");
           }
         } catch {
@@ -1041,6 +1063,24 @@ async function createBot(sessionId = "lades-session", options = {}) {
   });
 
   sock.ev.on("group-participants.update", async (update) => {
+    // ── 2 KİŞİLİK GRUBA EKLENİNCE OTOMATİK AYRIL ──────────
+    // Kötüye kullanımı önlemek için: bot yalnızca 2 üyeli gruplara eklendiyse ayrılır.
+    if (update.action === "add" && sock.user) {
+      const botJid = sock.user.id.replace(/:.*@/, "@");
+      const wasAdded = (update.participants || []).some(p => p.replace(/:.*@/, "@") === botJid);
+      if (wasAdded) {
+        try {
+          const meta = await sock.groupMetadata(update.id);
+          if (meta?.participants?.length <= 2) {
+            logger.info(`[Grup] 2 kişilik gruba eklendi, çıkılıyor: ${update.id}`);
+            await sock.groupLeave(update.id);
+          }
+        } catch (e) {
+          logger.warn({ err: e.message, id: update.id }, "[Grup] 2-kişilik grup ayrılma kontrolü başarısız");
+        }
+      }
+    }
+    // ────────────────────────────────────────────────────────
     await handleGroupParticipantsUpdate(sock, update);
   });
 
