@@ -14,6 +14,7 @@ const S = {
   chart: null,
   testProgressPoll: null,
   selectedBroadcastJids: new Set(),
+  broadcastGroups: [],
   activeSingleTarget: null,
   allCommands: [],
   activeBroadcastMode: 'text',
@@ -676,9 +677,52 @@ function setupBroadcast() {
   });
 }
 
+async function loadGroupsForBroadcast() {
+  const container = document.getElementById('bcGroupList');
+  if (!container) return;
+  container.innerHTML = '<p style="color:var(--text-muted); padding:20px; font-size:13px;">Gruplar yükleniyor...</p>';
+  try {
+    const res = await fetch('/api/groups');
+    const data = await res.json();
+    S.broadcastGroups = data.groups || [];
+    renderBroadcastGroups();
+  } catch (e) {
+    container.innerHTML = `<p style="color:var(--red); padding:20px; font-size:13px;">Hata: ${esc(e.message)}</p>`;
+  }
+}
+
+function renderBroadcastGroups(filter = '') {
+  const container = document.getElementById('bcGroupList');
+  if (!container) return;
+  const filtered = filter
+    ? S.broadcastGroups.filter(g => (g.subject || g.name || '').toLowerCase().includes(filter.toLowerCase()))
+    : S.broadcastGroups;
+
+  if (!filtered.length) {
+    container.innerHTML = '<p style="color:var(--text3); padding:20px; font-size:13px;">Grup bulunamadı.</p>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(g => {
+    const jid = g.jid || g.id;
+    const name = g.subject || g.name || jid;
+    const selected = S.selectedBroadcastJids.has(jid);
+    return `
+      <div class="bc-item ${selected ? 'selected' : ''}" onclick="toggleBroadcastGroup('${esc(jid)}')">
+        <div class="bc-checkbox"></div>
+        <div class="bc-item-info">
+          <span class="bc-item-name">${esc(name)}</span>
+          <span class="bc-item-jid">${esc(jid)}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 window.toggleBroadcastGroup = toggleBroadcastGroup;
 window.selectAllGroups = selectAllGroups;
 window.filterBroadcastGroups = filterBroadcastGroups;
+window.loadGroupsForBroadcast = loadGroupsForBroadcast;
 
 // ─── ANALYTICS / CHART ────────────────────────────────────
 function initChart() {
@@ -1146,9 +1190,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function updateHealth() {
   const scoreEl = document.getElementById('healthScore');
   if (!scoreEl) return;
-  // Simple logic: Base 100 - (small random jitter) - (if offline -20)
   let health = 98 + (Math.random() * 2);
-  const isOnline = document.getElementById('heroBadge')?.textContent.includes('Bağlı');
+  const isOnline = document.getElementById('heroBadge')?.classList.contains('online');
   if (!isOnline) health -= 30;
   scoreEl.textContent = Math.min(100, Math.floor(health)) + '%';
 }
@@ -1161,7 +1204,7 @@ let _lastAiCode = '';
 
 async function generateAiCommand() {
   const desc = document.getElementById('aiCmdDesc')?.value?.trim();
-  if (!desc) { showToast('Komut açıklaması girin.', 'warning'); return; }
+  if (!desc) { showToast('Komut açıklaması girin.', 'warn'); return; }
 
   const btn = document.getElementById('btnAiGenerate');
   const resultPanel = document.getElementById('aiResultPanel');
@@ -1221,7 +1264,7 @@ window.copyAiCode = function() {
 
 async function saveAiCommand() {
   const name = document.getElementById('aiCmdName')?.value?.trim();
-  if (!name || !_lastAiCode) { showToast('İsim ve kod gerekli.', 'warning'); return; }
+  if (!name || !_lastAiCode) { showToast('İsim ve kod gerekli.', 'warn'); return; }
 
   try {
     const res = await fetch('/api/ai/save-command', {
@@ -1353,7 +1396,7 @@ async function sendRemoteCommand() {
   const jid = document.getElementById('remoteJid')?.value?.trim();
   const cmd = document.getElementById('remoteCmd')?.value?.trim();
   if (!jid) { toast('Önce bir hedef seçin!', 'warn'); return; }
-  if (!cmd) { toast('Komut girin.', 'warning'); return; }
+  if (!cmd) { toast('Komut girin.', 'warn'); return; }
 
   const resultDiv = document.getElementById('remoteResult');
   try {
@@ -1379,7 +1422,7 @@ async function sendRemoteMessage() {
   const jid = document.getElementById('remoteJid')?.value?.trim();
   const text = document.getElementById('remoteCmd')?.value?.trim();
   if (!jid) { toast('Önce bir hedef seçin!', 'warn'); return; }
-  if (!text) { toast('Mesaj yazın.', 'warning'); return; }
+  if (!text) { toast('Mesaj yazın.', 'warn'); return; }
 
   try {
     const res = await fetch('/api/send-message', {
