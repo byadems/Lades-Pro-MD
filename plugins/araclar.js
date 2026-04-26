@@ -420,13 +420,13 @@ _Merhaba $user!_
       }
       // URL olmadığında ya da URL başarısız olduğunda yerel dosyayı dene
       if (!imgContent) {
-        const imagesDir = path.join(__dirname, "utils", "images");
+        const publicDir = path.join(__dirname, "..", "public");
         const localCandidates = ["logo.jpg", "logo.png"];
-        const localFile = localCandidates.find((f) => fs.existsSync(path.join(imagesDir, f)));
+        const localFile = localCandidates.find((f) => fs.existsSync(path.join(publicDir, f)));
 
         if (localFile) {
           // Cloud/Container (Bulut sunucu) uyumluluğu için URL/Path Object okuma yerine kesin buffer kullanılır.
-          imgContent = fs.readFileSync(path.join(imagesDir, localFile));
+          imgContent = fs.readFileSync(path.join(publicDir, localFile));
           if (localFile.endsWith('.png')) imgMimeType = "image/png";
         }
       }

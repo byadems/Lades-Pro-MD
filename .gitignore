@@ -43,7 +43,6 @@ scripts/dev/dasu.response
 *.opus
 
 # İstisna: proje varlıkları (yukarıdaki *.jpg / *.mp3 kuralından muaf)
-!plugins/utils/images/logo.jpg
 !public/logo.jpg
 !plugins/utils/sounds/Ban.mp3
 
