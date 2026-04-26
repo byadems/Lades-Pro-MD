@@ -371,8 +371,16 @@ async function createBot(sessionId = "lades-session", options = {}) {
     },
     syncFullHistory: false,
     markOnlineOnConnect: !options.markOffline,
-    // 90s: init queries (chats.js fetchProps) Replit network'ünde 60s'i bazen aşar
-    defaultQueryTimeoutMs: 90000,
+    // ─────────────────────────────────────────────────────────
+    //  KRİTİK: init queries'i devre dışı bırak.
+    //  Replit ağında fetchProps + presenceSubscribe sık sık 60-90s timeout
+    //  olur; bu süre boyunca Baileys event-buffer messages.upsert event'lerini
+    //  TUTAR ve handler hiç tetiklenmez. Yan etki: server property'leri
+    //  (max upload size gibi) varsayılan değerlerle kullanılır — mesaj
+    //  alma/gönderme için zorunlu değil.
+    // ─────────────────────────────────────────────────────────
+    fireInitQueries: false,
+    defaultQueryTimeoutMs: 60000,
     connectTimeoutMs: 60000,
     // Keepalive aralığı: Baileys varsayılanı (30000ms) ile PDO timeout hatalarını önler.
     keepAliveIntervalMs: 30000,
