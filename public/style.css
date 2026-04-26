@@ -160,26 +160,19 @@ body {
 .brand-name {
   font-weight: 900; font-size: 22px; line-height: 1.1; margin-bottom: 2px;
   display: inline-block;
-  /* GPU acceleration for gradient text */
   transform: translateZ(0);
-  will-change: background-position;
   backface-visibility: hidden;
-  background: linear-gradient(135deg, var(--green) 0%, var(--blue) 33%, var(--purple) 66%, var(--green) 100%);
-  background-size: 300% auto;
-  -webkit-background-clip: text;
-  -moz-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
+  color: var(--blue);
   letter-spacing: -0.5px;
-  animation: brandGradientFlow 6s linear infinite;
-  /* Fallback color (visible if gradient fails) */
-  text-shadow: 0 0 20px rgba(0,255,163,0.3);
+  animation: brandColorFlow 6s linear infinite;
+  text-shadow: 0 0 24px rgba(0,225,255,0.5);
 }
 
-@keyframes brandGradientFlow {
-  0%   { background-position: 0% center; }
-  100% { background-position: 300% center; }
+@keyframes brandColorFlow {
+  0%   { color: var(--green);  text-shadow: 0 0 24px rgba(0,255,163,0.55); }
+  33%  { color: var(--blue);   text-shadow: 0 0 24px rgba(0,225,255,0.55); }
+  66%  { color: var(--purple); text-shadow: 0 0 24px rgba(181,60,255,0.55); }
+  100% { color: var(--green);  text-shadow: 0 0 24px rgba(0,255,163,0.55); }
 }
 
 .brand-version { font-size: 12px; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; }

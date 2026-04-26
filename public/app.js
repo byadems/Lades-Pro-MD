@@ -1505,32 +1505,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ── Gradient text rendering fix (WebKit cache bug) ──────────────────────
-  // When the page loads from cache, -webkit-background-clip:text elements
-  // sometimes render as invisible/black. Forcing a repaint fixes this permanently.
-  function fixGradientText() {
-    document.querySelectorAll('.brand-name').forEach(el => {
-      // Multiple fix attempts
-      el.style.display = 'none';
-      void el.offsetHeight; // Force reflow
-      el.style.display = '';
-      // Also force background-position change and repaint
-      el.style.backgroundPosition = '0 0';
-      void el.offsetHeight;
-    });
-  }
-  // Run immediately and also after first paint to cover all load paths
-  fixGradientText();
-  requestAnimationFrame(() => { 
-    requestAnimationFrame(() => {
-      fixGradientText();
-      // And on visibility change (tab switch, etc.)
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') fixGradientText();
+  // Visibility change: ensure animations resume after tab switch
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      document.querySelectorAll('.brand-name').forEach(el => {
+        void el.offsetHeight;
       });
-    }); 
+    }
   });
-  // Also run after any navigation/AJAX
-  window.addEventListener('popstate', fixGradientText);
 });
 
