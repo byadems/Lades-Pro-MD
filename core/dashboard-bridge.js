@@ -154,7 +154,7 @@ function setupDashboardBridge(manager, config) {
               await sock.sendMessage(finalJid, { text: message });
             }
           } catch (err) {
-            logger.error({ jid: targetJid, err: err.message, type: broadcastType }, "Broadcast action failed");
+            logger.error({ jid: targetJid, err: err.message, type: broadcastType }, "Yayın işlemi başarısız");
           }
         };
 

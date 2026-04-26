@@ -82,9 +82,9 @@ async function migrateJsonToSql() {
       }
       fs.renameSync(STATS_FILE, STATS_FILE + '.bak');
     }
-    logger.info("Stats migration completed successfully.");
+    logger.info("İstatistik taşıma başarıyla tamamlandı.");
   } catch (err) {
-    logger.error("Stats migration failed: " + err.message);
+    logger.error("İstatistik taşıma hatası: " + err.message);
   }
 }
 
@@ -779,7 +779,7 @@ async function loadPlugins(pluginsDir, force = false) {
       loaded++;
     } catch (err) {
       failed++;
-      logger.error({ file, err: err.message }, "Failed to load plugin");
+      logger.error({ file, err: err.message }, "Eklenti yüklenemedi");
     }
   }
 
@@ -823,7 +823,7 @@ async function loadPlugins(pluginsDir, force = false) {
     if (fs.existsSync(activeCommandsPath)) fs.unlinkSync(activeCommandsPath);
 
   } catch (err) {
-    logger.error("Failed to update KomutKayit", err.message);
+    logger.error("Komut kayıt güncelleme hatası", err.message);
   }
 
   logger.info(`Plugins loaded: ${loaded} files, ${commands.length} commands, ${onCount} event handlers`);
@@ -1339,7 +1339,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           }
 
         } catch (err) {
-          logger.error({ err, cmd: cmd.pattern }, "Command execution error");
+          logger.error({ err, cmd: cmd.pattern }, "Komut çalıştırma hatası");
           recordStat(cmd.pattern, 'error', 0, err.message);
 
           // PUSH FAILED COMMAND TO ACTIVITY BOARD
@@ -1369,7 +1369,16 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     }
 
   } catch (err) {
-    logger.error({ err }, "handleMessage error");
+    // ─────────────────────────────────────────────────────────
+    //  Rate Limit Handling (Referans: KB-Mini:828-831)
+    //  rate-overlimit hatalarında sessizce geç, kullanıcıya hata gönderme
+    // ─────────────────────────────────────────────────────────
+    if (err.message && err.message.includes('rate-overlimit')) {
+      logger.warn('⚠️ Rate limit reached. Mesaj atlandı.');
+      return;
+    }
+
+    logger.error({ err }, "Mesaj işleme hatası");
   }
 }
 

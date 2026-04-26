@@ -548,7 +548,7 @@ async function migrateSudoToLID(client) {
         logger.info(`[LID Helper] SUDO_MAP başarıyla güncellendi. Toplam yetkili LID: ${sudoMap.length}`);
       }
     } catch (error) {
-      logger.error({ err: error.message }, '[LID Helper] SUDO to LID migration error');
+      logger.error({ err: error.message }, '[LID Yardımcı] SUDO to LID geçiş hatası');
     }
   }
 }

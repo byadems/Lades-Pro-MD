@@ -80,7 +80,7 @@ async function useDbAuthState(sessionId) {
         const sessionData = JSON.stringify({ creds }, BufferJSON.replacer);
         await WhatsappOturum.upsert({ sessionId, sessionData });
       } catch (err) {
-        logger.error({ err: err.message, sessionId }, "[Auth] Creds kayıt hatası");
+        logger.error({ err: err.message, sessionId }, "[Auth] Kimlik bilgileri kayıt hatası");
       }
     }
     isSaving = false;

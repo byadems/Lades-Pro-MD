@@ -75,7 +75,7 @@ class Scheduler {
         await result;
       }
     } catch (err) {
-      logger.error({ err: err.message, task: task.name }, "Scheduler task failed");
+      logger.error({ err: err.message, task: task.name }, "Zamanlayıcı görevi başarısız");
     }
   }
 }
@@ -106,7 +106,7 @@ async function startSchedulers(client) {
     }
     logger.info(`Started ${schedules.length} scheduled tasks.`);
   } catch (err) {
-    logger.error({ err }, "Failed to load schedules from DB");
+    logger.error({ err }, "Zamanlama verileri yüklenemedi");
   }
 }
 
@@ -120,7 +120,7 @@ function registerSchedule(client, schedule) {
       await client.sendMessage(schedule.groupId, { text: schedule.message });
       logger.debug({ groupId: schedule.groupId }, "Scheduled message sent");
     } catch (err) {
-      logger.error({ err, scheduleId: schedule.id }, "Failed to send scheduled message");
+      logger.error({ err, scheduleId: schedule.id }, "Planlı mesaj gönderilemedi");
     }
   }, { timezone: process.env.TIMEZONE || "Europe/Istanbul" });
 

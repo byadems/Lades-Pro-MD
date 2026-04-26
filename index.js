@@ -69,6 +69,23 @@ runtime.startTime = Date.now();
 const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 480; // 420→480MB (Daha geniş bellek toleransı)
 let _isShuttingDown = false;
 
+// ─────────────────────────────────────────────────────────
+//  Processed Message Deduplication (Referans: KB-Mini:119-125)
+//  Mesaj tekrarını önlemek için Set tabanlı dedup - 5 dkda bir temizlik
+// ─────────────────────────────────────────────────────────
+const processedMessages = new Set();
+
+setInterval(() => {
+  processedMessages.clear();
+  logger.debug('[Dedupe] Processed messages temizlendi.');
+}, 5 * 60 * 1000);
+
+// Process sonlanırken temizle
+process.on('beforeExit', () => processedMessages.clear());
+
+// Export handler'a erişim için
+global.processedMessages = processedMessages;
+
 scheduler.register('memory_check', () => {
   if (_isShuttingDown) return;
   const mem = process.memoryUsage();

@@ -263,7 +263,7 @@ async function initializeDatabase() {
     } catch (err) {
       retries--;
       if (retries === 0) throw err;
-      logger.warn({ err: err.message }, `DB connect failed, retrying... (${retries} left)`);
+      logger.warn({ err: err.message }, `DB bağlantısı başarısız, yeniden deneniyor... (${retries} hakkınız kaldı)`);
       await new Promise(r => setTimeout(r, 5000));
     }
   }
@@ -306,7 +306,7 @@ async function initializeDatabase() {
     await umzug.up();
     logger.info("Migrations executed successfully.");
   } catch (e) {
-    logger.warn(`Migration error: ${e.message}`);
+    logger.warn(`Taşıma hatası: ${e.message}`);
   }
 
   // Sync schema in parallel for faster startup (logging suppressed to reduce I/O noise)

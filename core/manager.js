@@ -50,7 +50,7 @@ class BotManager extends EventEmitter {
 
       return sock;
     } catch (err) {
-      logger.error({ err, sessionId }, "Failed to start session");
+      logger.error({ err, sessionId }, "Oturum başlatma başarısız");
       this.states.set(sessionId, "error");
     }
   }

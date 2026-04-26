@@ -244,6 +244,16 @@ async function createBot(sessionId = "lades-session", options = {}) {
       try {
         const logData = JSON.parse(raw);
         
+        // Event buffer ve receipt log'larını bastır (spam önleme)
+        const logMsg = JSON.stringify(logData);
+        if (logMsg.includes('Event buffer') || 
+            logMsg.includes('Flushing') || 
+            logMsg.includes('sending receipt') ||
+            logMsg.includes('communication recv') ||
+            logMsg.includes('sent ack')) {
+          return;
+        }
+        
         // Şifre çözme veya oturum hatalarını yakala
         const isDecryptionError = 
            logData.err?.type === 'MessageCounterError' || 
@@ -432,7 +442,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
         
         albumMedias.push({ type, msg });
       } catch (err) {
-        logger.error({ err: err.message }, "Error preparing album media");
+        logger.error({ err: err.message }, "Albüm medya hazırlama hatası");
       }
     }
 
@@ -509,7 +519,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
             if (process.send) process.send({ type: 'qr', qr: code }); // Send pair code as 'qr' type for simplicity in dashboard
             console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📱 Telefonunuzda WhatsApp > Bağlı Cihazlar > Cihaz Bağla\n   Kod: ${code}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
           } catch (err) {
-            logger.error({ err }, "Pair code request failed");
+            logger.error({ err }, "Eşleşme kodu talebi başarısız");
           }
         }, 3000);
       }
@@ -527,7 +537,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
       try {
         await migrateSudoToLID(sock);
       } catch (e) {
-        logger.warn({ err: e.message }, "SUDO to LID migration failed");
+        logger.warn({ err: e.message }, "SUDO'dan LID'e geçiş başarısız");
       }
       
       // Force "Online" state on connect to update Last Seen
@@ -662,6 +672,41 @@ async function createBot(sessionId = "lades-session", options = {}) {
         }
       }, PRESENCE_INTERVAL_MS);
 
+      // ─────────────────────────────────────────────────────────
+      //  Inactivity Watchdog (Referans: KB-Mini:245-262)
+      //  30 dakika inaktif olan bağlantıyı otomatik yenile
+      // ─────────────────────────────────────────────────────────
+      let lastActivity = Date.now();
+      const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 dakika
+
+      sock.ev.on('messages.upsert', ({ type }) => {
+        if (type === 'notify') lastActivity = Date.now();
+      });
+
+      const watchdogInterval = setInterval(async () => {
+        if (!sock.ws || !sock.user) return;
+        const timeSinceLastActivity = Date.now() - lastActivity;
+
+        if (timeSinceLastActivity > INACTIVITY_TIMEOUT && sock.ws.readyState === 1) {
+          logger.warn(`[Watchdog] ${Math.round(timeSinceLastActivity/60000)} dk inaktif. Yeniden bağlanılıyor...`);
+          if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
+          if (_ntpTimer) { clearInterval(_ntpTimer); _ntpTimer = null; }
+          if (_proactiveTimer) { clearInterval(_proactiveTimer); _proactiveTimer = null; }
+          clearInterval(watchdogInterval);
+          await sock.end({ reason: 'inactive' });
+        }
+      }, 5 * 60 * 1000); // Her 5 dakikada kontrol et
+
+      // Bağlantı kapandığında watchdog'ı temizle
+      const cleanupWatchdog = () => {
+        clearInterval(watchdogInterval);
+        lastActivity = Date.now();
+      };
+      sock.ev.on('connection.update', (update) => {
+        if (update.connection === 'close') cleanupWatchdog();
+        if (update.connection === 'open') lastActivity = Date.now();
+      });
+
       // 2) Saat kayması izleyicisi — 60 dakikada bir (CPU tasarrufu)
       //    timeout 3s'e düşürüldü (event-loop blokajını azaltır)
       const NTP_CHECK_INTERVAL_MS  = 60 * 60 * 1000; // 60 dakika (30dk → 60dk)
@@ -704,7 +749,18 @@ async function createBot(sessionId = "lades-session", options = {}) {
       if (_queue) { try { _queue.clear(); } catch { } }
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-      logger.warn({ statusCode, shouldReconnect }, `Bağlantı kesildi.`);
+
+      // ─────────────────────────────────────────────────────────
+      //  Status Code Özel Log (Referans: KB-Mini:288-290)
+      //  Rate limit / geçici hatalar için anlaşılır mesajlar
+      // ─────────────────────────────────────────────────────────
+      if (statusCode === 515 || statusCode === 503 || statusCode === 408) {
+        logger.info(`⚠️ Bağlantı geçici kapandı (${statusCode}). Yeniden bağlanılıyor...`);
+      } else if (statusCode === DisconnectReason.loggedOut) {
+        logger.error('Oturum kapatıldı! Lütfen yeniden doğrulama yapın.');
+      } else {
+        logger.warn({ statusCode, shouldReconnect }, 'Bağlantı kesildi.');
+      }
 
       if (shouldReconnect) {
         reconnectCount++;

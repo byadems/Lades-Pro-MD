@@ -159,7 +159,7 @@ async function getAllGroups(sock) {
 
     return simplifiedChats;
   } catch (err) {
-    logger.debug({ err: err.message }, "getAllGroups failed");
+    logger.debug({ err: err.message }, "Tüm gruplar alınamadı");
     return runtime.metrics.allGroupsCache || {};
   }
 }
