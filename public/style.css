@@ -162,17 +162,22 @@ body {
   display: inline-block;
   transform: translateZ(0);
   backface-visibility: hidden;
+  /* Visible solid fallback — shown before animation starts and if gradient fails */
   color: var(--blue);
+  background: linear-gradient(135deg, var(--green) 0%, var(--blue) 33%, var(--purple) 66%, var(--green) 100%);
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
   letter-spacing: -0.5px;
-  animation: brandColorFlow 6s linear infinite;
-  text-shadow: 0 0 24px rgba(0,225,255,0.5);
+  /* KEY FIX: -webkit-text-fill-color lives inside keyframes, not on the element.
+     This forces per-frame re-evaluation, eliminating the WebKit cache render bug
+     where static transparent fill + background-clip:text renders as invisible. */
+  animation: brandGradientFlow 6s linear infinite;
 }
 
-@keyframes brandColorFlow {
-  0%   { color: var(--green);  text-shadow: 0 0 24px rgba(0,255,163,0.55); }
-  33%  { color: var(--blue);   text-shadow: 0 0 24px rgba(0,225,255,0.55); }
-  66%  { color: var(--purple); text-shadow: 0 0 24px rgba(181,60,255,0.55); }
-  100% { color: var(--green);  text-shadow: 0 0 24px rgba(0,255,163,0.55); }
+@keyframes brandGradientFlow {
+  0%   { background-position: 0% center;   -webkit-text-fill-color: transparent; }
+  100% { background-position: 300% center; -webkit-text-fill-color: transparent; }
 }
 
 .brand-version { font-size: 12px; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; }
