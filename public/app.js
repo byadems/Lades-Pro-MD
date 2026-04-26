@@ -170,8 +170,6 @@ function setupAuth() {
     startPair(tel);
   });
 
-  // Controls
-  document.getElementById('btnStart')?.addEventListener('click', () => startQR());
   document.getElementById('btnRestartSession')?.addEventListener('click', async () => {
     try {
       toast('WhatsApp bağlantısı yenileniyor...', 'info');

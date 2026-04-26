@@ -663,8 +663,6 @@ input:checked + .slider:before { transform: translateX(20px); background-color: 
 .ctrl-btn:hover { border-color: var(--border-gl); transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); color: var(--text); }
 .ctrl-btn:hover svg { transform: scale(1.1); }
 
-.ctrl-btn.start { background: var(--green-dim); color: var(--green); border-color: rgba(0,255,163,0.3); }
-.ctrl-btn.start:hover { background: var(--green); color: #000; box-shadow: 0 0 20px var(--green-glow); }
 
 .ctrl-btn.stop { background: var(--red-dim); color: var(--red); border-color: rgba(255,59,92,0.3); }
 .ctrl-btn.stop:hover { background: var(--red); color: #fff; box-shadow: 0 0 20px var(--red-glow); }
