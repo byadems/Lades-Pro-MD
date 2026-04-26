@@ -115,7 +115,7 @@ async function fetchGroupMeta(client, groupId) {
     setGroupMeta(groupId, meta);
     return meta;
   } catch (err) {
-    logger.debug({ err: err.message, groupId }, "Failed to fetch group metadata");
+    logger.debug({ err: err.message, groupId }, "Grup meta verileri alınamadı");
     groupMetaErrorCache.set(groupId, Date.now()); // Hata anını kaydet
     return null;
   }
@@ -267,7 +267,7 @@ async function fetchFromStore(jid) {
       include: [{ model: KullaniciVeri, as: "User" }],
     });
   } catch (err) {
-    logger.debug({ err, jid }, "Failed to fetch from store");
+    logger.debug({ err, jid }, "Mağazadan alınamadı");
     return [];
   }
 }
@@ -281,7 +281,7 @@ async function getTopUsers(jid, limit = 10) {
       include: [{ model: KullaniciVeri, as: "User" }],
     });
   } catch (err) {
-    logger.debug({ err, jid }, "Failed to get top users");
+    logger.debug({ err, jid }, "En iyi kullanıcılar alınamadı");
     return [];
   }
 }
@@ -301,7 +301,7 @@ async function getGlobalTopUsers(limit = 10) {
     });
     return results;
   } catch (err) {
-    logger.debug({ err }, "Failed to get global top users");
+    logger.debug({ err }, "Global en iyi kullanıcılar alınamadı");
     return [];
   }
 }
@@ -364,11 +364,11 @@ scheduler.register('message_stats_flush', async () => {
           await record.update({ lastMessageAt: now });
         }
       } catch (rowErr) {
-        logger.debug({ err: rowErr.message, jid, userJid }, "Stats row upsert failed");
+        logger.debug({ err: rowErr.message, jid, userJid }, "İstatistik satırı kaydedilemedi");
       }
     }
   } catch (e) {
-    logger.debug({ err: e.message }, "Stats batch flush failed");
+    logger.debug({ err: e.message }, "İstatistik toplu flush başarısız");
   }
 }, 60000);
 

@@ -135,7 +135,7 @@ function shutdownCache() {
   configCache.clear();
   filterCache.clear();
   adminCache.clear(); // Memory leak fix: admin cache de temizleniyor
-  logger.info("DB cache cleared.");
+  logger.info("DB önbelleği temizlendi.");
 }
 
 module.exports = {

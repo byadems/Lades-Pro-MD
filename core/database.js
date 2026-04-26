@@ -243,7 +243,7 @@ async function initializeDatabase() {
   while (retries > 0) {
     try {
       await sequelize.authenticate();
-      logger.info("Database connection established.");
+      logger.info("Veritabanı bağlantısı kuruldu.");
 
       // SQLite pragmaları: WAL modu ve busy_timeout
       if (sequelize.getDialect() === 'sqlite') {
@@ -304,7 +304,7 @@ async function initializeDatabase() {
       fs.mkdirSync(path.join(__dirname, '../migrations'), { recursive: true });
     }
     await umzug.up();
-    logger.info("Migrations executed successfully.");
+    logger.info("Taşımalar başarıyla çalıştırıldı.");
   } catch (e) {
     logger.warn(`Taşıma hatası: ${e.message}`);
   }
@@ -322,7 +322,7 @@ async function initializeDatabase() {
     logger.warn(`Tablo senkronizasyonunda hata oluştu: ${e.message}`);
   }
 
-  logger.info("Database initialization complete.");
+  logger.info("Veritabanı başlatma tamamlandı.");
 }
 
 // ─────────────────────────────────────────────────────────

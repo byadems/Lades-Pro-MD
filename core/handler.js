@@ -52,7 +52,7 @@ async function migrateJsonToSql() {
   // Skip if already migrated or files don't exist
   if (!fs.existsSync(STATS_FILE) && !fs.existsSync(RUNTIME_STATS_FILE)) return;
 
-  logger.info("Starting stats migration from JSON to SQL Database...");
+  logger.info("İstatistikler JSON'dan SQL Veritabanına taşınıyor...");
 
   try {
     // 1. Migrate Runtime Stats
@@ -353,7 +353,7 @@ class ReplyMessage {
         err.code = "MEDIA_KEY_EXPIRED";
         throw err;
       }
-      logger.debug({ err: e.message }, "ReplyMessage.download error");
+      logger.debug({ err: e.message }, "YanıtMesajı.indirme hatası");
       throw e;
     }
   }
@@ -754,7 +754,7 @@ async function loadPlugins(pluginsDir, force = false) {
   // Only reload if file list changed OR first load OR force = true
   const currentHash = pluginFiles.sort().join("|");
   if (!force && _pluginsLoaded && currentHash === _lastPluginHash) {
-    logger.debug("Plugins already loaded and unchanged. Skipping reload.");
+    logger.debug("Eklentiler zaten yüklü ve değişmemiş. Yeniden yükleme atlanıyor.");
     return;
   }
   _lastPluginHash = currentHash;
@@ -1126,7 +1126,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     }
 
 
-    logger.debug({ jid, sender: resolvedSenderJid, text: text.slice(0, 50) }, "Processing message");
+    logger.debug({ jid, sender: resolvedSenderJid, text: text.slice(0, 50) }, "Mesaj işleniyor");
 
     // Auto-read / Auto-typing
     if (!fromMe) {
@@ -1190,7 +1190,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           isBotAdmin = admins.some(a => isBotIdentifier(a, client));
         }
       } catch (e) {
-        logger.debug({ err: e.message }, "Admin check error");
+        logger.debug({ err: e.message }, "Admin kontrolü hatası");
       }
     } else if (isChannel) {
       message.groupAdmins = [senderJid, resolvedSenderJid];
@@ -1238,7 +1238,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     if (!prefix) return;
 
     const input = text.slice(prefix.length).trim();
-    logger.debug({ prefix, input }, "Command detected");
+    logger.debug({ prefix, input }, "Komut tespit edildi");
 
     // Permission checks
     const ownerOrSudo = ownerCheck || sudoCheck;
@@ -1401,7 +1401,7 @@ async function handleGroupUpdate(client, update) {
     };
     for (const h of onH) {
       try { await h.run(message, []); } catch (e) {
-        logger.debug({ err: e.message, type: "group" }, "on-group handler error");
+        logger.debug({ err: e.message, type: "group" }, "Grup işleyici hatası");
       }
     }
   }
@@ -1434,7 +1434,7 @@ async function handleGroupParticipantsUpdate(client, update) {
       try {
         await h.run(message, []);
       } catch (e) {
-        logger.debug({ err: e.message, type: "groupParticipants" }, "on-groupParticipants handler error");
+        logger.debug({ err: e.message, type: "groupParticipants" }, "Grup katılımcıları işleyici hatası");
       }
     }
   }
@@ -1448,7 +1448,7 @@ async function handleGroupParticipantsUpdate(client, update) {
  */
 function notifyHandlerError(h, e, message) {
   h._errorCount = (h._errorCount || 0) + 1;
-  logger.warn({ err: e.message, pattern: h.on, count: h._errorCount }, "on-event handler error");
+  logger.warn({ err: e.message, pattern: h.on, count: h._errorCount }, "Olay işleyici hatası");
 
   if (h._errorCount >= 3) {
     if (!h._disabled) {

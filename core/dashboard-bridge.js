@@ -269,7 +269,7 @@ function setupDashboardBridge(manager, config) {
         child.unref();
         process.exit(0);
       } else {
-        logger.info("Bot oturumu yenileniyor (Resume triggered)...");
+        logger.info("Bot oturumu yenileniyor (Devam tetiklendi)...");
         manager.resume("lades-session");
         await manager.removeSession("lades-session", false);
         await manager.addSession("lades-session", { phoneNumber: process.env.PAIR_PHONE });

@@ -809,14 +809,14 @@ async function createBot(sessionId = "lades-session", options = {}) {
           // NEW: Trigger a fresh connection attempt to get the QR code
           // BUT: Only if NOT suspended (dashboard should handle it otherwise)
           if (options.manager && options.manager.isSuspended(sessionId)) {
-            logger.info(`Session ${sessionId} is suspended. Skipping auto-restart.`);
+            logger.info(`Oturum ${sessionId} duraklatıldı. Otomatik yeniden başlatma atlanıyor.`);
             return;
           }
 
           logger.info("Yeni oturum için taze bir bağlantı başlatılıyor (10sn içinde)...");
           setTimeout(async () => {
             if (options.manager && options.manager.isSuspended(sessionId)) {
-              logger.info(`Session ${sessionId} was suspended during wait. Aborting restart.`);
+              logger.info(`Oturum ${sessionId} bekleme sırasında duraklatıldı. Yeniden başlatma iptal ediliyor.`);
               return;
             }
             const newSock = await createBot(sessionId, options);

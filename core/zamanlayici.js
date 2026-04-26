@@ -104,7 +104,7 @@ async function startSchedulers(client) {
     for (const s of schedules) {
       registerSchedule(client, s.get({ plain: true }));
     }
-    logger.info(`Started ${schedules.length} scheduled tasks.`);
+    logger.info(`${schedules.length} zamanlanmış görev başlatıldı.`);
   } catch (err) {
     logger.error({ err }, "Zamanlama verileri yüklenemedi");
   }
@@ -143,7 +143,7 @@ async function removeSchedule(id) {
 function stopAllSchedulers() {
   for (const [id, task] of activeTasks) { task.stop(); }
   activeTasks.clear();
-  logger.info("All schedulers stopped.");
+  logger.info("Tüm zamanlayıcılar durduruldu.");
 }
 
 

@@ -402,7 +402,7 @@ async function startSessionCleanup() {
   try {
     await checkSingleInstance();
     await initializeDatabase();
-    logger.info("Bot is initializing...");
+    logger.info("Bot başlatılıyor...");
     await startSessionCleanup();
     // startKeepAlive(); // Disabled again! This steals PORT 3000 from the dashboard server!
 

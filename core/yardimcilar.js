@@ -42,7 +42,7 @@ function cleanTempFile(filePath) {
   try {
     if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
   } catch (e) {
-    logger.debug({ err: e }, "cleanTempFile error");
+    logger.debug({ err: e }, "Geçici dosya temizleme hatası");
   }
 }
 
