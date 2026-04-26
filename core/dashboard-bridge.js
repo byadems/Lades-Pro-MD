@@ -5,6 +5,10 @@ const path = require('path');
 const fs = require('fs');
 const { getAllGroups } = require("./store");
 
+// Singleton guard: ensures process.stdout/stderr are only wrapped once even if
+// setupDashboardBridge is called multiple times (e.g. during hot-restart flows).
+let _stdioHooked = false;
+
 /**
  * setupDashboardBridge
  * Consolidates all IPC logic for the dashboard.
@@ -89,11 +93,16 @@ function setupDashboardBridge(manager, config) {
 
   // --- LOG STREAMING ---
 
+  // Save originals before wrapping so we can write without triggering our own hook
+  const _origStdoutWrite = process.stdout.write.bind(process.stdout);
+  const _origStderrWrite = process.stderr.write.bind(process.stderr);
+
   let isLogging = false;
   const sendLog = (d) => {
     if (isLogging || !_dashboardRef || !_dashboardRef.connected) return;
     const s = d.toString();
-    if (s.length < 5 || s.includes('rootKey')) return;
+    // Skip very short strings, whitespace-only content, or internal key markers
+    if (s.trim().length < 3 || s.includes('rootKey')) return;
     isLogging = true;
     try { 
       _dashboardRef.send({ type: 'log', data: s }); 
@@ -101,8 +110,28 @@ function setupDashboardBridge(manager, config) {
     isLogging = false;
   };
 
-  dashboard.stdout?.on('data', (d) => { process.stdout.write(d); sendLog(d); });
-  dashboard.stderr?.on('data', (d) => { process.stderr.write(d); sendLog(d); });
+  // Intercept the main process's own stdout/stderr so bot logs appear in the terminal.
+  // We use isLogging as a re-entrancy guard to prevent loops if sendLog itself
+  // ever triggers a write (e.g. via IPC internals).
+  // _stdioHooked ensures we only wrap once even across multiple bridge setups.
+  if (!_stdioHooked) {
+    _stdioHooked = true;
+    process.stdout.write = function(chunk, encoding, callback) {
+      const result = _origStdoutWrite(chunk, encoding, callback);
+      if (!isLogging) sendLog(chunk);
+      return result;
+    };
+    process.stderr.write = function(chunk, encoding, callback) {
+      const result = _origStderrWrite(chunk, encoding, callback);
+      if (!isLogging) sendLog(chunk);
+      return result;
+    };
+  }
+
+  // Use original write for dashboard child output so we don't double-send the same data
+  // (the wrapper above would also catch it if we used process.stdout.write here)
+  dashboard.stdout?.on('data', (d) => { _origStdoutWrite(d); sendLog(d); });
+  dashboard.stderr?.on('data', (d) => { _origStderrWrite(d); sendLog(d); });
 
   // --- BROADCAST QUEUE (Singleton) ---
   let _broadcastQueue = null;
@@ -363,6 +392,11 @@ function setupDashboardBridge(manager, config) {
   dashboard.on('exit', () => {
     _dashboardRef = null;
     statusTask(); // Unregister task
+    // Restore original write functions and reset hook flag so the next bridge
+    // setup can re-install the hook if the dashboard is restarted.
+    process.stdout.write = _origStdoutWrite;
+    process.stderr.write = _origStderrWrite;
+    _stdioHooked = false;
   });
 
   return dashboard;
