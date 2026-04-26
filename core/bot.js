@@ -512,9 +512,15 @@ async function createBot(sessionId = "lades-session", options = {}) {
     const { connection, lastDisconnect, qr, isNewLogin } = update;
 
     // CRITICAL: If suspended (dashboard is and should be in control), do nothing!
+    // İSTİSNA: Eğer kullanıcı dashboard'dan çıkış (intentional logout) tetiklediyse,
+    // suspend olsa bile session/creds temizliği için close handler'a girmesine izin ver.
     if (options.manager && options.manager.isSuspended(sessionId)) {
-      if (connection === "close") logger.info(`[Suspended] Connection closed for ${sessionId}. Ignoring.`);
-      return; 
+      const isIntentionalLogoutClose = connection === "close" && sock?.__intentionalLogout;
+      if (!isIntentionalLogoutClose) {
+        if (connection === "close") logger.info(`[Suspended] Connection closed for ${sessionId}. Ignoring.`);
+        return;
+      }
+      logger.info(`[Suspended] Intentional logout close for ${sessionId} — running cleanup.`);
     }
 
     if (qr) {
@@ -761,24 +767,69 @@ async function createBot(sessionId = "lades-session", options = {}) {
       stopTempCleanup();
       // Bağlantı kapanınca bekleyen mesaj işlemleri temizle (bellek aşımı engellenir)
       if (_queue) { try { _queue.clear(); } catch { } }
-      const statusCode = lastDisconnect?.error?.output?.statusCode;
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+      // Defansif çıkarım: bazı Boom/raw error varyantlarında payload yapısı değişebilir
+      const statusCode = lastDisconnect?.error?.output?.statusCode
+        ?? lastDisconnect?.error?.output?.payload?.statusCode
+        ?? lastDisconnect?.error?.statusCode
+        ?? undefined;
+      if (statusCode === undefined && lastDisconnect?.error) {
+        logger.warn({ err: lastDisconnect.error?.message || String(lastDisconnect.error) }, 'Bilinmeyen close (statusCode tespit edilemedi)');
+      }
 
       // ─────────────────────────────────────────────────────────
-      //  Status Code Özel Log (Referans: KB-Mini:288-290)
-      //  Rate limit / geçici hatalar için anlaşılır mesajlar
+      //  DisconnectReason Politikası (Hermit-bot + KnightBot-Mini referansı)
+      //  Kalıcı hatalarda yeniden bağlanma — ping-pong döngüsünü kırar.
+      //  - 401 loggedOut          → tam temizle, yeni QR/pair iste
+      //  - 403 forbidden          → suspend, kullanıcı müdahalesi gerekli
+      //  - 411 multideviceMismatch→ tam temizle, yeni QR
+      //  - 440 connectionReplaced → SUSPEND (başka cihazda aynı oturum açık,
+      //                              yeniden bağlanmak sonsuz döngü yaratır)
+      //  - 500 badSession         → temizle ve yeniden başlat
+      //  - 408/428/503/515        → geçici, normal backoff ile devam
       // ─────────────────────────────────────────────────────────
-      if (statusCode === 515 || statusCode === 503 || statusCode === 408) {
-        logger.info(`⚠️ Bağlantı geçici kapandı (${statusCode}). Yeniden bağlanılıyor...`);
+      const PERMANENT_NO_RECONNECT = new Set([
+        DisconnectReason.loggedOut,            // 401  → clearState + fresh QR
+        DisconnectReason.forbidden,            // 403  → suspend
+        DisconnectReason.connectionReplaced,   // 440  → suspend (önemli!)
+        DisconnectReason.multideviceMismatch,  // 411  → clearState + fresh QR
+        DisconnectReason.badSession,           // 500  → clearState + fresh QR (bozuk creds)
+      ]);
+      const TRANSIENT_FAST_RETRY = new Set([
+        DisconnectReason.restartRequired,      // 515 — Baileys handshake post-login
+        DisconnectReason.connectionClosed,     // 428
+        DisconnectReason.connectionLost,       // 408 (alias of timedOut)
+        DisconnectReason.unavailableService,   // 503
+      ]);
+
+      const isPermanent = PERMANENT_NO_RECONNECT.has(statusCode);
+      const isFastRetry = TRANSIENT_FAST_RETRY.has(statusCode);
+      const shouldReconnect = !isPermanent;
+
+      // ── Anlaşılır loglar ─────────────────────────────────────
+      if (statusCode === DisconnectReason.connectionReplaced) {
+        logger.error('🛑 Bağlantı başka cihazda açıldı (440 replaced). Çakışmayı önlemek için yeniden bağlanma DURDURULDU. Diğer oturumu kapatıp dashboard\'dan tekrar başlatın.');
       } else if (statusCode === DisconnectReason.loggedOut) {
-        logger.error('Oturum kapatıldı! Lütfen yeniden doğrulama yapın.');
+        logger.error('Oturum kapatıldı (401)! Lütfen yeniden doğrulama yapın.');
+      } else if (statusCode === DisconnectReason.forbidden) {
+        logger.error('🚫 Hesap erişimi yasaklandı (403). WhatsApp tarafından engellenmiş olabilir.');
+      } else if (statusCode === DisconnectReason.multideviceMismatch) {
+        logger.error('Çoklu cihaz uyumsuzluğu (411). Oturum sıfırlanacak.');
+      } else if (isFastRetry) {
+        logger.info(`⚠️ Bağlantı geçici kapandı (${statusCode}). Hızlı yeniden bağlanılıyor...`);
+      } else if (statusCode === DisconnectReason.badSession) {
+        logger.warn('Bozuk oturum verisi (500). Temizlenip yeniden bağlanılacak.');
       } else {
         logger.warn({ statusCode, shouldReconnect }, 'Bağlantı kesildi.');
       }
 
       if (shouldReconnect) {
         reconnectCount++;
-        const delay = Math.min(RECONNECT_BASE_MS * Math.pow(2, reconnectCount - 1), RECONNECT_MAX_MS);
+        // Restart required (515) ve connectionClosed (428) için backoff'u sıfırla —
+        // bu kodlar normal handshake akışının parçası, sayım anlamsız.
+        if (isFastRetry) reconnectCount = Math.min(reconnectCount, 1);
+        const delay = isFastRetry
+          ? RECONNECT_BASE_MS  // 3s sabit
+          : Math.min(RECONNECT_BASE_MS * Math.pow(2, reconnectCount - 1), RECONNECT_MAX_MS);
         logger.info(`${delay}ms içinde yeniden bağlanılıyor (Deneme ${reconnectCount})...`);
 
         if (reconnectCount > 15) {
@@ -795,12 +846,32 @@ async function createBot(sessionId = "lades-session", options = {}) {
           // Event listener'ları temizle (memory leak önlemi)
           // NOT: Bu noktada connection.update artık gelmeyecek (bağlantı zaten kapandı)
           try { sock.ev.removeAllListeners(); } catch { }
+          // Eski WebSocket hala yarı-açık olabilir → tam kapanmasını garantiye al
+          try {
+            if (sock?.ws && typeof sock.ws.close === 'function' &&
+                sock.ws.readyState !== 3 /* CLOSED */) {
+              sock.ws.close();
+            }
+          } catch { }
           _isClosing = false; // Yeni socket için sıfırla
           const newSock = await createBot(sessionId, { ...options, reconnectCount });
           if (options.manager) {
             options.manager.updateSocket(sessionId, newSock);
           }
         }, delay);
+      } else if (statusCode === DisconnectReason.connectionReplaced ||
+                 statusCode === DisconnectReason.forbidden) {
+        // Kalıcı hata → suspend, dashboard'a haber ver, yeniden bağlanma DENEME
+        try { sock.ev.removeAllListeners(); } catch { }
+        try { if (sock?.ws?.readyState !== 3) sock.ws.close(); } catch { }
+        const reasonText = statusCode === DisconnectReason.connectionReplaced
+          ? 'Başka cihazda aynı oturum açık. Diğerini kapatıp yeniden başlatın.'
+          : 'Hesap erişimi yasaklandı (403).';
+        if (process.send) process.send({ type: 'bot_status', data: { connected: false, error: reasonText } });
+        if (options.manager) {
+          options.manager.suspend(sessionId);
+        }
+        return;
       } else {
         // Manual dashboard stop/logout - still clear state if it's a full logout
         if (sock.__intentionalLogout) {
