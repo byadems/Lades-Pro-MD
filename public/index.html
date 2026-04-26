@@ -15,7 +15,7 @@
     rel="stylesheet">
   <script>
     // Dynamic version for cache busting
-    document.write('<link rel="stylesheet" href="style.css?v=20260426d">');
+    document.write('<link rel="stylesheet" href="style.css?v=20260426e">');
   </script>
 </head>
 
@@ -41,7 +41,19 @@
             style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit; image-rendering: -webkit-optimize-contrast; filter: contrast(1.1) brightness(1.1);">
         </div>
         <div class="brand-text">
-          <span class="brand-name">Lades-Pro</span>
+          <svg class="brand-name" viewBox="0 0 145 28" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Lades-Pro">
+            <defs>
+              <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#00ffa3">
+                  <animate attributeName="stop-color" values="#00ffa3;#00e1ff;#b53cff;#00ffa3" dur="6s" repeatCount="indefinite"/>
+                </stop>
+                <stop offset="100%" stop-color="#00e1ff">
+                  <animate attributeName="stop-color" values="#00e1ff;#b53cff;#00ffa3;#00e1ff" dur="6s" repeatCount="indefinite"/>
+                </stop>
+              </linearGradient>
+            </defs>
+            <text x="0" y="22" font-family="Outfit, system-ui, sans-serif" font-weight="900" font-size="24" letter-spacing="-0.5" fill="url(#brandGrad)">Lades-Pro</text>
+          </svg>
           <span class="brand-version">Profesyonel WhatsApp Bot</span>
         </div>
       </div>

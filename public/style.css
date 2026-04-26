@@ -157,27 +157,25 @@ body {
 }
 @keyframes expandPulse { 0% { transform: scale(1); opacity: 0.4; } 100% { transform: scale(1.3); opacity: 0; } }
 
-.brand-name {
-  font-weight: 900; font-size: 22px; line-height: 1.1; margin-bottom: 2px;
-  display: inline-block;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  /* Visible solid fallback — shown before animation starts and if gradient fails */
-  color: var(--blue);
-  background: linear-gradient(135deg, var(--green) 0%, var(--blue) 33%, var(--purple) 66%, var(--green) 100%);
-  background-size: 300% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  letter-spacing: -0.5px;
-  /* KEY FIX: -webkit-text-fill-color lives inside keyframes, not on the element.
-     This forces per-frame re-evaluation, eliminating the WebKit cache render bug
-     where static transparent fill + background-clip:text renders as invisible. */
-  animation: brandGradientFlow 6s linear infinite;
+/* Brand name — SVG implementation in sidebar, span fallback in mobile header.
+   The SVG version is bulletproof: SVG gradient fills work reliably in every
+   browser/iframe context, with no -webkit-background-clip:text rendering bugs. */
+svg.brand-name {
+  display: block;
+  width: 145px;
+  height: 28px;
+  margin-bottom: 2px;
+  filter: drop-shadow(0 0 12px rgba(0, 225, 255, 0.35));
+  overflow: visible;
 }
 
-@keyframes brandGradientFlow {
-  0%   { background-position: 0% center;   -webkit-text-fill-color: transparent; }
-  100% { background-position: 300% center; -webkit-text-fill-color: transparent; }
+/* Plain span (used in mobile header) — solid color, always visible */
+span.brand-name {
+  font-weight: 900; font-size: 22px; line-height: 1.1; margin-bottom: 2px;
+  display: inline-block;
+  color: var(--blue);
+  letter-spacing: -0.5px;
+  text-shadow: 0 0 12px rgba(0, 225, 255, 0.4);
 }
 
 .brand-version { font-size: 12px; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; }
@@ -972,7 +970,8 @@ input:checked + .slider:before { transform: translateX(20px); background-color: 
 
 @media (max-width: 480px) {
   .hero-title { font-size: 18px; }
-  .brand-name { font-size: 18px; }
+  span.brand-name { font-size: 18px; }
+  svg.brand-name { width: 120px; height: 24px; }
   .nav-btn { font-size: 13.5px; padding: 10px; }
   .stat-num { font-size: 24px; }
   .hero-meta { grid-template-columns: 1fr; }
