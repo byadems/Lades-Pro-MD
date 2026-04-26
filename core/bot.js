@@ -363,7 +363,11 @@ async function createBot(sessionId = "lades-session", options = {}) {
     msgRetryCounterCache: createNodeCacheAdapter(100, 5 * 60 * 1000), // 500→100 mesaj, 5 dk
     userDevicesCache: createNodeCacheAdapter(100, 5 * 60 * 1000), // 500→100 cihaz, 5 dk
     cachedGroupMetadata, // ← YENİ: rate-overlimit'i ve send timeout'unu çözer
-    browser: ['Chrome', 'Windows', '10.0'],
+    // macOS/Safari: WhatsApp'ın multi-device korelasyon algoritmasının
+    // istatistiksel olarak en az "şüpheli" gördüğü kombinasyon. Hermit-bot
+    // ve KnightBot-Mini gibi uzun-ömürlü bot projelerinde tercih edilir.
+    // Daha az flag'lenme + daha stabil oturum.
+    browser: Browsers.macOS('Safari'),
     getMessage: async (key) => {
       const { getMessageByKey } = require("./store");
       const msg = getMessageByKey(key);
