@@ -27,6 +27,10 @@ function setupDashboardBridge(manager, config) {
    * sendIPC
    * Sends a message to the dashboard and optionally waits for a response based on requestId.
    */
+  // EventEmitter max listeners safety: parallel IPC requests can briefly attach many handlers
+  if (_dashboardRef && typeof _dashboardRef.setMaxListeners === 'function') {
+    _dashboardRef.setMaxListeners(100);
+  }
   async function sendIPC(type, data = {}, requestId = null, timeoutMs = 5000) {
     if (!_dashboardRef || !_dashboardRef.connected) return;
 
@@ -342,8 +346,9 @@ function setupDashboardBridge(manager, config) {
     if (dashboard.connected) dashboard.send({ type: 'test_progress', data: prog });
   });
 
-  // --- STATUS POLLING (Migrated to Scheduler) ---
-
+  // --- STATUS HEARTBEAT (Migrated to Scheduler) ---
+  // Real status changes already propagate via manager.on('status') above.
+  // This is just a low-frequency heartbeat (30s) to catch missed events / sync drift.
   const scheduler = require("./zamanlayici").scheduler;
   const statusTask = scheduler.register('dashboard_status_polling', () => {
     if (!_dashboardRef || !_dashboardRef.connected) return;
@@ -353,7 +358,7 @@ function setupDashboardBridge(manager, config) {
       connected: isConnected,
       phone: sock?.user?.id ? sock.user.id.split('@')[0].split(':')[0] : null
     }).catch(() => {});
-  }, 5000, { runImmediately: true });
+  }, 30000, { runImmediately: true });
 
   dashboard.on('exit', () => {
     _dashboardRef = null;

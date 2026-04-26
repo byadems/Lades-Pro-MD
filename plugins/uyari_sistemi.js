@@ -20,12 +20,29 @@ const handler = HANDLER_PREFIX;
 const globalWarnLimit = parseInt(WARN || "3");
 const sudoUsers = (SUDO || "").split(",");
 
-async function sendBanAudio(message) {
+// Ban audio cached at first use — eliminates repeated sync disk I/O on every ban.
+let _banAudioCache = null;
+let _banAudioMissing = false;
+async function getBanAudio() {
+  if (_banAudioCache) return _banAudioCache;
+  if (_banAudioMissing) return null;
   const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
   try {
-    if (!fs.existsSync(audioPath)) return;
-    await message.sendMessage(fs.readFileSync(audioPath), "audio", { ptt: true });
-  } catch (err) { }
+    _banAudioCache = await fs.promises.readFile(audioPath);
+    return _banAudioCache;
+  } catch (err) {
+    _banAudioMissing = true;
+    return null;
+  }
+}
+async function sendBanAudio(message) {
+  try {
+    const buf = await getBanAudio();
+    if (!buf) return;
+    await message.sendMessage(buf, "audio", { ptt: true });
+  } catch (err) {
+    console.error("Ban sesi gönderilemedi:", err?.message);
+  }
 }
 
 Module({

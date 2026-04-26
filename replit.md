@@ -44,9 +44,18 @@ Copy `config.env.example` to `config.env` and fill in values:
 - `PAIR_PHONE` — Phone number for pairing (optional)
 
 ## Workflow
-The Replit workflow runs `PORT=5000 node --no-warnings scripts/dashboard.js` and exposes the dashboard at port 5000.
+The Replit workflow runs `PORT=5000 node --no-warnings --expose-gc --max-old-space-size=300 index.js` (master) which forks `scripts/dashboard.js` as a child via `core/dashboard-bridge.js`. IPC carries QR/auth/log/status events both ways.
 
 ## Notes
 - The `chcp 65001` commands in `package.json` scripts are Windows-only and are ignored on Linux/Replit.
-- Sessions are stored in `sessions/` (gitignored).
-- SQLite database stored at `database.sqlite`.
+- Sessions are stored in `sessions/` (gitignored). Hybrid auth: env → DB → files (DB is the source of truth after first login).
+- SQLite database stored at `database.sqlite`. PostgreSQL pool capped at `max=3` for memory efficiency.
+
+## Recent Improvements (2026-04-26 — Stability/Speed/Light Refactor)
+- **Auth latency**: `/api/auth/qr` & `/api/auth/pair` no longer use 1s for-loop polling. EventEmitter-based `waitForAuthOutcome()` resolves immediately when QR/code is ready.
+- **Concurrency guard**: `_authInFlight` flag prevents two parallel auth flows from corrupting shared state (returns HTTP 409).
+- **IPC heartbeat**: `dashboard_status_polling` interval reduced 5s → 30s. Real-time status changes already propagate via `manager.on('status')`; polling is just a sync-drift heartbeat.
+- **IPC listener safety**: `_dashboardRef.setMaxListeners(100)` to prevent EventEmitter warnings under parallel sendIPC bursts.
+- **Audio I/O cache**: `sendBanAudio()` in `plugins/uyari_sistemi.js` and twice in `plugins/grup_yonetimi.js` now uses async `fs.promises.readFile` + module-level buffer cache. Eliminates sync disk I/O on every ban event.
+- **Error visibility**: empty `catch{}` in `core/handler.js` (group + groupParticipants handlers) and `core/bot.js` (queue fallback) replaced with `logger.debug/warn/error` calls. Uses safe `e?.message || String(e)` pattern.
+- **Workflow**: `index.js` is master entry; do NOT change it back to running `scripts/dashboard.js` directly — that breaks IPC handover after QR auth.

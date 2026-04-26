@@ -36,16 +36,29 @@
   const handler = config.HANDLER_PREFIX;
 
 
-  async function sendBanAudio(message) {
+  // Ban audio cached at first use — eliminates repeated sync disk I/O on every ban.
+  let _banAudioCacheTop = null;
+  let _banAudioMissingTop = false;
+  async function getBanAudio() {
+    if (_banAudioCacheTop) return _banAudioCacheTop;
+    if (_banAudioMissingTop) return null;
     const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
-
     try {
-      if (!fs.existsSync(audioPath)) return;
-
+      _banAudioCacheTop = await fs.promises.readFile(audioPath);
+      return _banAudioCacheTop;
+    } catch {
+      _banAudioMissingTop = true;
+      return null;
+    }
+  }
+  async function sendBanAudio(message) {
+    try {
+      const buf = await getBanAudio();
+      if (!buf) return;
       // Send as voice note (PTT) for a more premium experience
-      await message.sendMessage(fs.readFileSync(audioPath), "audio", { ptt: true });
+      await message.sendMessage(buf, "audio", { ptt: true });
     } catch (err) {
-      console.error("Ban sesini gönderirken hata:", err);
+      console.error("Ban sesini gönderirken hata:", err?.message);
     }
   }
 
@@ -3724,18 +3737,26 @@ _ℹ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
   }
 
 
+  // Ban audio cached at first use — eliminates repeated sync disk I/O on every ban.
+  let _banAudioCacheBot = null;
+  let _banAudioMissingBot = false;
   async function sendBanAudio(message) {
-    const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
+    if (_banAudioMissingBot) return;
     try {
-      if (!fs.existsSync(audioPath)) {
-        console.error("Ban sesi dosyası bulunamadı:", audioPath);
-        return;
+      if (!_banAudioCacheBot) {
+        const audioPath = path.join(__dirname, "utils", "sounds", "Ban.mp3");
+        try {
+          _banAudioCacheBot = await fs.promises.readFile(audioPath);
+        } catch (e) {
+          _banAudioMissingBot = true;
+          console.error("Ban sesi dosyası bulunamadı:", audioPath);
+          return;
+        }
       }
-      // Buffer olarak oku: bot.js interceptor'ı OGG/Opus'a dönüştürebilsin
-      const audioBuffer = fs.readFileSync(audioPath);
-      await message.sendMessage(audioBuffer, "audio", { ptt: true });
+      // Buffer olarak gönder: bot.js interceptor'ı OGG/Opus'a dönüştürebilsin
+      await message.sendMessage(_banAudioCacheBot, "audio", { ptt: true });
     } catch (err) {
-      console.error("Ban sesini gönderirken hata:", err);
+      console.error("Ban sesini gönderirken hata:", err?.message);
     }
   }
 

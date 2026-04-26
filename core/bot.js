@@ -897,8 +897,11 @@ async function createBot(sessionId = "lades-session", options = {}) {
           }
         });
       } catch (err) {
-        // Queue hazır değilse fallback
-        handleMessage(sock, msg).catch(() => {});
+        // Queue hazır değilse fallback — yine de hata varsa log'la
+        logger.warn({ err: err?.message }, "[bot] Mesaj kuyruğu push hatası, doğrudan handle deneniyor");
+        handleMessage(sock, msg).catch((e) => {
+          logger.error({ err: e?.message }, "[bot] Fallback handleMessage hatası");
+        });
       }
     }
   });

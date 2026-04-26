@@ -110,8 +110,8 @@ process.on('message', (msg) => {
     liveBotConnected = !!msg.data?.connected;
     liveBotPhone = msg.data?.phone || null;
   } else if (msg.type === 'qr') {
-    generatedCodeOrQR = msg.qr;
     authConnectionStatus = 'generated';
+    setAuthOutcome(msg.qr);
   }
 
   // Handle IPC responses (for requestFromParent calls)
@@ -170,6 +170,42 @@ let activePairMeta = null;
 let activePairCode = null;
 // CRITICAL FIX: Track pair-success reconnect (isNewLogin flag from Baileys)
 let _isNewLoginPending = false;
+
+// Event-based auth notifier — replaces 1s polling loops in /api/auth/qr & /api/auth/pair.
+// Reduces auth response latency from up-to-1000ms to ~immediate.
+const { EventEmitter } = require('events');
+const authEvents = new EventEmitter();
+authEvents.setMaxListeners(50);
+// Concurrency guard: aynı anda yalnızca tek bir QR/Pair akışı.
+// Paralel istek geldiğinde sonuçların birbirine karışmasını önler.
+let _authInFlight = false;
+
+function setAuthOutcome(value, errorMsg) {
+  if (value !== undefined) generatedCodeOrQR = value;
+  if (errorMsg !== undefined) lastAuthError = errorMsg;
+  authEvents.emit('change');
+}
+
+function waitForAuthOutcome(timeoutMs) {
+  return new Promise((resolve) => {
+    if (generatedCodeOrQR) return resolve({ ok: true, value: generatedCodeOrQR });
+    if (authConnectionStatus === 'error') return resolve({ ok: false, error: lastAuthError });
+    let done = false;
+    const finish = (result) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      authEvents.off('change', onChange);
+      resolve(result);
+    };
+    const onChange = () => {
+      if (generatedCodeOrQR) finish({ ok: true, value: generatedCodeOrQR });
+      else if (authConnectionStatus === 'error') finish({ ok: false, error: lastAuthError });
+    };
+    const timer = setTimeout(() => finish({ ok: false, error: lastAuthError || 'Zaman Aşımı (Zayıf Bağlantı)' }), timeoutMs);
+    authEvents.on('change', onChange);
+  });
+}
 
 app.get('/api/status', async (req, res) => {
   const conf = getEnvConfig();
@@ -467,22 +503,24 @@ app.get('/api/auth/status', (req, res) => {
 });
 
 app.post('/api/auth/qr', async (req, res) => {
+  if (_authInFlight) {
+    return res.status(409).json({ error: "Başka bir bağlanma işlemi sürüyor. Lütfen bitmesini bekleyin veya /api/auth/cancel deneyin." });
+  }
+  _authInFlight = true;
   try {
     generatedCodeOrQR = null;
     lastAuthError = null;
     await spawnSession(false, null, true);
-    for (let i = 0; i < 30; i++) {
-      if (authConnectionStatus === 'error') break;
-      if (generatedCodeOrQR) break;
-      await new Promise(r => setTimeout(r, 1000));
+    const outcome = await waitForAuthOutcome(30000);
+    if (!outcome.ok) {
+      return res.status(500).json({ error: outcome.error || "Zaman Aşımı (Zayıf Bağlantı)" });
     }
-    if (!generatedCodeOrQR) {
-      return res.status(500).json({ error: lastAuthError || "Zaman Aşımı (Zayıf Bağlantı)" });
-    }
-    const qrDataUrl = await qrcode.toDataURL(generatedCodeOrQR, { color: { dark: '#000', light: '#FFF' } });
+    const qrDataUrl = await qrcode.toDataURL(outcome.value, { color: { dark: '#000', light: '#FFF' } });
     res.json({ qr: qrDataUrl });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  } finally {
+    _authInFlight = false;
   }
 });
 
@@ -493,35 +531,38 @@ app.post('/api/auth/pair', async (req, res) => {
   if (!normalizedPhone) {
     return res.status(400).json({ error: "Numara formatı geçersiz. Ülke kodu ile birlikte girin (örn: 905xxxxxxxxx)." });
   }
-  try {
-    const now = Date.now();
-    if (activePairMeta && activePairCode && activePairMeta.expiresAt > now) {
-      if (activePairMeta.phone === normalizedPhone) {
-        return res.json({
-          code: activePairCode,
-          phone: activePairMeta.phone,
-          issuedAt: activePairMeta.issuedAt,
-          expiresAt: activePairMeta.expiresAt,
-          ttlMs: activePairMeta.expiresAt - activePairMeta.issuedAt,
-          attempt: activePairMeta.attempt,
-          reused: true
-        });
-      }
-      return res.status(429).json({
-        error: `Aktif bir kod zaten var (+${activePairMeta.phone}). Yeni kod için ${Math.ceil((activePairMeta.expiresAt - now) / 1000)}sn bekleyin.`
+
+  // Reuse-aktif kod kontrolü _authInFlight'tan ÖNCE yapılır:
+  // başka istek sürerken bile aynı telefona aktif kod varsa onu döndürebilelim.
+  const now = Date.now();
+  if (activePairMeta && activePairCode && activePairMeta.expiresAt > now) {
+    if (activePairMeta.phone === normalizedPhone) {
+      return res.json({
+        code: activePairCode,
+        phone: activePairMeta.phone,
+        issuedAt: activePairMeta.issuedAt,
+        expiresAt: activePairMeta.expiresAt,
+        ttlMs: activePairMeta.expiresAt - activePairMeta.issuedAt,
+        attempt: activePairMeta.attempt,
+        reused: true
       });
     }
+    return res.status(429).json({
+      error: `Aktif bir kod zaten var (+${activePairMeta.phone}). Yeni kod için ${Math.ceil((activePairMeta.expiresAt - now) / 1000)}sn bekleyin.`
+    });
+  }
 
+  if (_authInFlight) {
+    return res.status(409).json({ error: "Başka bir bağlanma işlemi sürüyor. Lütfen birkaç saniye bekleyip tekrar deneyin." });
+  }
+  _authInFlight = true;
+  try {
     generatedCodeOrQR = null;
     lastAuthError = null;
     await spawnSession(true, normalizedPhone, true);
-    for (let i = 0; i < 60; i++) {  // wait up to 60s
-      if (authConnectionStatus === 'error') break;
-      if (generatedCodeOrQR) break;
-      await new Promise(r => setTimeout(r, 1000));
-    }
-    if (!generatedCodeOrQR) {
-      return res.status(500).json({ error: lastAuthError || "Zaman Aşımı (Zayıf Bağlantı)" });
+    const outcome = await waitForAuthOutcome(60000);
+    if (!outcome.ok) {
+      return res.status(500).json({ error: outcome.error || "Zaman Aşımı (Zayıf Bağlantı)" });
     }
     const issuedAt = Date.now();
     const ttlMs = 120000; // 2 minutes - enough time to enter the code
@@ -532,9 +573,9 @@ app.post('/api/auth/pair', async (req, res) => {
       expiresAt: issuedAt + ttlMs,
       attempt: currentAttempt
     };
-    activePairCode = generatedCodeOrQR;
+    activePairCode = outcome.value;
     res.json({
-      code: generatedCodeOrQR,
+      code: outcome.value,
       phone: normalizedPhone,
       issuedAt,
       expiresAt: issuedAt + ttlMs,
@@ -543,6 +584,8 @@ app.post('/api/auth/pair', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  } finally {
+    _authInFlight = false;
   }
 });
 
@@ -635,8 +678,8 @@ async function spawnSession(usePairing, phoneNumber, forceNew) {
 
       if (qr) {
         if (!usePairing) {
-          generatedCodeOrQR = qr;
           authConnectionStatus = 'generated';
+          setAuthOutcome(qr);
           console.log('✅ QR kodu üretildi!');
         } else if (!pairCodeRequested && phoneNumber) {
           pairCodeRequested = true;
@@ -645,14 +688,14 @@ async function spawnSession(usePairing, phoneNumber, forceNew) {
             await new Promise(r => setTimeout(r, 3000));
             const code = await sock.requestPairingCode(phoneNumber);
             if (attemptToken !== authAttemptToken) return;
-            generatedCodeOrQR = code || null;
             console.log(`📱 Eşleşme kodu üretildi: ${phoneNumber}`);
-            if (generatedCodeOrQR) authConnectionStatus = 'generated';
+            if (code) authConnectionStatus = 'generated';
+            setAuthOutcome(code || null);
           } catch (pairErr) {
             const statusCode = pairErr?.output?.statusCode || pairErr?.data?.statusCode;
             console.error(`Pair code hatası (${statusCode || 'bilinmiyor'}):`, pairErr.message);
             authConnectionStatus = 'error';
-            lastAuthError = pairErr.message || 'Eşleşme kodu alınamadı.';
+            setAuthOutcome(undefined, pairErr.message || 'Eşleşme kodu alınamadı.');
           }
         }
       }
@@ -706,7 +749,7 @@ async function spawnSession(usePairing, phoneNumber, forceNew) {
               spawnSession(false, null, false).catch(e => {
                 console.error('Pair reconnect hatası:', e.message);
                 authConnectionStatus = 'error';
-                lastAuthError = e.message;
+                setAuthOutcome(undefined, e.message);
               });
             }
           }, 1500);
@@ -729,9 +772,10 @@ async function spawnSession(usePairing, phoneNumber, forceNew) {
           }, delay);
         } else if (authConnectionStatus !== 'connected' && authConnectionStatus !== 'pairing_success' && authConnectionStatus !== 'generated') {
           authConnectionStatus = 'error';
-          lastAuthError = statusCode === DisconnectReason.loggedOut
+          const errMsg = statusCode === DisconnectReason.loggedOut
             ? 'Oturum kapatıldı.'
             : `Bağlantı kurulamadı (${statusCode || 'bilinmiyor'})`;
+          setAuthOutcome(undefined, errMsg);
           currentSock = null;
         }
       }
@@ -740,7 +784,7 @@ async function spawnSession(usePairing, phoneNumber, forceNew) {
   } catch (err) {
     console.error('spawnSession hatası:', err.message);
     authConnectionStatus = 'error';
-    lastAuthError = err.message || 'Oturum başlatılamadı.';
+    setAuthOutcome(undefined, err.message || 'Oturum başlatılamadı.');
   }
 }
 

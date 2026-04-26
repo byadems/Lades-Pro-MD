@@ -1386,7 +1386,9 @@ async function handleGroupUpdate(client, update) {
   // traditional eventHandlers (Map)
   const handlers = eventHandlers.get("group") || [];
   for (const h of handlers) {
-    try { await h(client, update); } catch { }
+    try { await h(client, update); } catch (e) {
+      logger.debug({ err: e?.message || String(e), type: "group" }, "Klasik grup işleyici hatası");
+    }
   }
   // Module({ on: "group", ... }) handlers
   const onH = [...(onHandlers.group || []), ...(onHandlers["group-update"] || [])];
@@ -1415,7 +1417,9 @@ async function handleGroupParticipantsUpdate(client, update) {
   // traditional eventHandlers (Map)
   const handlers = eventHandlers.get("groupParticipants") || [];
   for (const h of handlers) {
-    try { await h(client, update); } catch { }
+    try { await h(client, update); } catch (e) {
+      logger.debug({ err: e?.message || String(e), type: "groupParticipants" }, "Klasik grup katılımcıları işleyici hatası");
+    }
   }
   // Module({ on: "groupParticipants", ... }) handlers
   const onH = onHandlers.groupParticipants || [];
