@@ -9,14 +9,15 @@ const S = {
   stats: { messages: 0, commands: 0, users: 0, groups: 0 },
   activity: [],
   commands: [], cmdStatusFilter: 'all',
-  plugins: [],
+  plugins: [], pluginFilter: 'all',
   ramHistory: [],
   chart: null,
   testProgressPoll: null,
   selectedBroadcastJids: new Set(),
   activeSingleTarget: null,
   allCommands: [],
-  activeBroadcastMode: 'text'
+  activeBroadcastMode: 'text',
+  prev: {}
 };
 let es = null;
 let pairCountdownTimer = null;
@@ -134,6 +135,12 @@ async function fetchStatus() {
     setText('heroRam', d.memory || '--');
     setText('heroNode', d.nodeVersion || '--');
 
+    // Stats page metrics
+    setText('statsUptime', formatUptime(d.uptime || 0));
+    setText('statsBotStatus', online ? 'BAĞLI' : 'DEĞİL');
+    const botStatusEl = document.getElementById('statsBotStatus');
+    if (botStatusEl) botStatusEl.style.color = online ? 'var(--green)' : 'var(--red)';
+
     // Stats kartları güncelle
     setText('statMessages', d.totalMessages || 0);
     setText('statCommands', d.totalCommands || 0);
@@ -180,21 +187,37 @@ function setupAuth() {
       });
     } catch { toast('İşlem başarısız.', 'error'); }
   });
-  document.getElementById('btnRestartSystem')?.addEventListener('click', async () => {
-    try {
-      toast('Tüm sistem yeniden başlatılıyor (Phoenix)...', 'warn');
-      await fetch('/api/auth/restart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'system' })
-      });
-    } catch { toast('Bağlantı hatası.', 'error'); }
+  document.getElementById('btnRestartSystem')?.addEventListener('click', () => {
+    showConfirm(
+      'Sistemi Yeniden Başlat',
+      'Bot tamamen yeniden başlatılacak. İşlem 30–60 saniye sürebilir ve bot bu süre boyunca yanıt vermez. Devam etmek istiyor musunuz?',
+      'Yeniden Başlat',
+      'warn',
+      async () => {
+        try {
+          toast('Tüm sistem yeniden başlatılıyor (Phoenix)...', 'warn');
+          await fetch('/api/auth/restart', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'system' })
+          });
+        } catch { toast('Bağlantı hatası.', 'error'); }
+      }
+    );
   });
-  document.getElementById('btnStop')?.addEventListener('click', async () => {
-    try {
-      await fetch('/api/auth/stop', { method: 'POST' });
-      toast('Oturum sonlandırıldı.', 'info');
-    } catch { toast('İşlem başarısız.', 'error'); }
+  document.getElementById('btnStop')?.addEventListener('click', () => {
+    showConfirm(
+      'Oturumu Kapat',
+      'WhatsApp oturumu sonlandırılacak ve bot bağlantısı kesilecek. Yeniden bağlanmak için QR kod veya eşleşme kodu gerekecek.',
+      'Oturumu Kapat',
+      'danger',
+      async () => {
+        try {
+          await fetch('/api/auth/stop', { method: 'POST' });
+          toast('Oturum sonlandırıldı.', 'info');
+        } catch { toast('İşlem başarısız.', 'error'); }
+      }
+    );
   });
 }
 
@@ -460,14 +483,29 @@ async function loadPlugins() {
   }
 }
 
+function setupPluginFilters() {
+  document.querySelectorAll('[data-plugin-f]').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('[data-plugin-f]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      S.pluginFilter = btn.dataset.pluginF;
+      renderPlugins(document.getElementById('pluginSearch')?.value.toLowerCase().trim() || '');
+    };
+  });
+}
+
 function renderPlugins(filter = '') {
   const grid = document.getElementById('pluginGrid');
   const countEl = document.getElementById('pluginCount');
   if (!grid) return;
 
-  const plugins = filter ? S.plugins.filter(p =>
+  let plugins = filter ? S.plugins.filter(p =>
     p.name.toLowerCase().includes(filter) || p.desc.toLowerCase().includes(filter)
   ) : S.plugins;
+
+  const pf = S.pluginFilter || 'all';
+  if (pf === 'active')  plugins = plugins.filter(p => p.active);
+  else if (pf === 'passive') plugins = plugins.filter(p => !p.active);
 
   if (countEl) countEl.textContent = `${plugins.length} eklenti bulundu`;
 
@@ -710,10 +748,22 @@ function connectLogs() {
       const log = JSON.parse(e.data);
 
       if (log.isMetrics) {
-        document.getElementById('statMessages').textContent = log.messages || 0;
-        document.getElementById('statCommands').textContent = log.commands || 0;
-        document.getElementById('statUsers').textContent = log.users || 0;
-        document.getElementById('statGroups').textContent = log.groups || 0;
+        const newMsg = log.messages || 0;
+        const newCmd = log.commands || 0;
+        const newUsr = log.users || 0;
+        const newGrp = log.groups || 0;
+
+        updateTrend('trendMessages', newMsg, S.prev.messages);
+        updateTrend('trendCommands', newCmd, S.prev.commands);
+        updateTrend('trendUsers',    newUsr, S.prev.users);
+        updateTrend('trendGroups',   newGrp, S.prev.groups);
+
+        S.prev = { messages: newMsg, commands: newCmd, users: newUsr, groups: newGrp };
+
+        setText('statMessages', newMsg);
+        setText('statCommands', newCmd);
+        setText('statUsers', newUsr);
+        setText('statGroups', newGrp);
 
         // Masterpiece: Add heap/max metrics
         if (log.memHeap) {
@@ -978,6 +1028,51 @@ function toggleVisibility(id) {
 window.toggleVisibility = toggleVisibility;
 
 // ══════════════════════════════
+//  CONFIRM DIALOG
+// ══════════════════════════════
+function showConfirm(title, message, okLabel, type, onConfirm) {
+  const overlay = document.getElementById('confirmOverlay');
+  const dialog = overlay?.querySelector('.confirm-dialog');
+  if (!overlay) { if (confirm(message)) onConfirm(); return; }
+
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent = message;
+  document.getElementById('confirmOkLabel').textContent = okLabel;
+
+  const okBtn = document.getElementById('confirmOk');
+  okBtn.className = `ctrl-btn confirm-ok-btn ${type}`;
+
+  if (dialog) {
+    dialog.className = type === 'danger' ? 'confirm-dialog glass-panel danger' : 'confirm-dialog glass-panel';
+  }
+
+  overlay.classList.add('active');
+
+  const close = () => overlay.classList.remove('active');
+  const handleOk = () => { close(); onConfirm(); };
+  const handleCancel = () => close();
+  const handleBg = (e) => { if (e.target === overlay) close(); };
+
+  okBtn.onclick = handleOk;
+  document.getElementById('confirmCancel').onclick = handleCancel;
+  overlay.onclick = handleBg;
+}
+
+// ══════════════════════════════
+//  TREND INDICATOR
+// ══════════════════════════════
+function updateTrend(id, newVal, oldVal) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (!oldVal || oldVal === 0) { el.className = 'stat-trend'; el.textContent = ''; return; }
+  const diff = newVal - oldVal;
+  if (diff === 0) { el.className = 'stat-trend'; el.textContent = ''; return; }
+  const isUp = diff > 0;
+  el.textContent = (isUp ? '↑' : '↓') + Math.abs(diff);
+  el.className = 'stat-trend ' + (isUp ? 'up' : 'down');
+}
+
+// ══════════════════════════════
 //  TOAST
 // ══════════════════════════════
 function toast(msg, type = 'info') {
@@ -1027,6 +1122,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSettings();
   setupBroadcast();
   setupRemoteTabs();
+  setupPluginFilters();
   connectLogs();
   fetchStatus();
   setInterval(fetchStatus, 5000);
@@ -1072,8 +1168,11 @@ async function generateAiCommand() {
   const resultCode = document.getElementById('aiResultCode');
   const saveBtn = document.getElementById('btnAiSave');
 
+  const loadingHTML = `<svg viewBox="0 0 24 24" fill="none" width="16" height="16" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 11-6.22-8.56" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> Üretiliyor...`;
+  const defaultHTML = `<svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="currentColor"/></svg> Komut Üret`;
+
   btn.disabled = true;
-  btn.textContent = 'Üretiliyor...';
+  btn.innerHTML = loadingHTML;
 
   try {
     const res = await fetch('/api/ai/generate-command', {
@@ -1100,9 +1199,25 @@ async function generateAiCommand() {
     showToast('AI hatası: ' + e.message, 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Komut Üret';
+    btn.innerHTML = defaultHTML;
   }
 }
+
+window.copyAiCode = function() {
+  if (!_lastAiCode) { toast('Kopyalanacak kod yok.', 'warn'); return; }
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(_lastAiCode).then(() => toast('Kod kopyalandı!', 'success')).catch(() => fallbackCopy());
+  } else { fallbackCopy(); }
+  function fallbackCopy() {
+    const ta = document.createElement('textarea');
+    ta.value = _lastAiCode;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('Kod kopyalandı!', 'success');
+  }
+};
 
 async function saveAiCommand() {
   const name = document.getElementById('aiCmdName')?.value?.trim();
