@@ -1841,7 +1841,7 @@
         }
       }
 
-      let videoPath;
+      let videoPath, downloadMsg;
 
       try {
         downloadMsg = await message.sendReply("⏳ _Video bilgileri alınıyor..._");

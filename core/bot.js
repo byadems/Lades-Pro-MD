@@ -223,13 +223,12 @@ async function createBot(sessionId = "lades-session", options = {}) {
     _isClosing = true;
     logger.debug(`[GracefulClose] ${reason}`);
     try {
-      // 1. Event pipeline'ı kes — pending ACK/receipt handler'ları iptal et
-      // NOT: removeAllListeners ÇAĞIRILMIYOR — connection.update'in çalışması gerekiyor
-      // sock.ev.removeAllListeners(); // Bu satır kasıtlı yorum satırı!
-      
-      // 2. WebSocket'i anında kapat (terminate = graceful handshake yok = hızlı)
-      if (sock.ws && sock.ws.readyState !== 3 /* CLOSED */) {
-        try { sock.ws.terminate(); } catch { try { sock.ws.close(); } catch { } }
+      // WebSocket'i anında kapatmak (terminate) pending query'leri patlatır
+      // Bunun yerine sock.end(Error) kullanarak güvenli şekilde kapatın
+      if (sock && typeof sock.end === 'function') {
+        sock.end(new Error(reason));
+      } else if (sock.ws && sock.ws.readyState !== 3 /* CLOSED */) {
+        try { sock.ws.close(); } catch { }
       }
     } catch (e) {
       logger.debug(`[GracefulClose] Hata: ${e.message}`);
@@ -261,20 +260,22 @@ async function createBot(sessionId = "lades-session", options = {}) {
           decryptionErrorCount++;
           lastDecryptionErrorAt = now;
 
-          // İlk 10 hata: sessizce say, 10. hatada uyar
-          if (decryptionErrorCount === 10) {
-            logger.warn(`[Şifre] ${sessionId}: 10 deşifre hatası birikti. 25'te otomatik onarım başlayacak.`);
+          if (decryptionErrorCount === 50) {
+            logger.warn(`[Şifre] ${sessionId}: Çok sayıda deşifre hatası alındı. Eski (offline) mesajlar işleniyor olabilir, yoksayılıyor.`);
           }
 
-          // 25 hata eşiğinde graceful reconnect (100 çok geç kalıyordu)
+          // Otomatik yeniden bağlanma DÖNGÜSÜNE girmemesi için kapatıldı.
+          // Çünkü eski çevrimdışı (offline) mesajlar okunduğunda yoğun deşifre hataları alınması normaldir.
+          // Baileys zaten mesajlar için retry isteyecek veya drop edecektir.
+          /*
           if (decryptionErrorCount >= 25) {
             logger.error(`[KRİTİK] ${sessionId}: 25 deşifre hatası aşıldı! Oturum onarımı için yeniden bağlanılıyor...`);
             decryptionErrorCount = 0;
-            // Zombie socket önleyici: sock.end() yerine gracefulClose() kullan
             setTimeout(() => {
               try { gracefulClose("Decryption error threshold"); } catch { }
             }, 300);
           }
+          */
           
           // UYARI EKRANINI KİRLETMEMEK İÇİN BU LOGU SESSİZCE YUT
           return; 
@@ -319,7 +320,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
     },
     msgRetryCounterCache: createNodeCacheAdapter(100, 5 * 60 * 1000), // 500→100 mesaj, 5 dk
     userDevicesCache: createNodeCacheAdapter(100, 5 * 60 * 1000), // 500→100 cihaz, 5 dk
-    browser: Browsers.ubuntu("Chrome"),
+    browser: ['Chrome', 'Windows', '10.0'],
     getMessage: async (key) => {
       const { getMessageByKey } = require("./store");
       const msg = getMessageByKey(key);
@@ -329,9 +330,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
     markOnlineOnConnect: !options.markOffline,
     defaultQueryTimeoutMs: 60000,
     connectTimeoutMs: 60000,
-    // Keepalive aralığı: 15sn — 25sn'den kısa tutarak WA sunucusu
-    // bağlantıyı stale (bayat) saymadan önce ping göndermesini sağlar.
-    keepAliveIntervalMs: 15000,
+    // Keepalive aralığı: Baileys varsayılanı (30000ms) ile PDO timeout hatalarını önler.
+    keepAliveIntervalMs: 30000,
     retryRequestDelayMs: 500,
     maxMsgRetryCount: 5,
   });
