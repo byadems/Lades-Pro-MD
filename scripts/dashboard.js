@@ -73,8 +73,8 @@ function saveEnvConfig(updates) {
 const logBuffer = [];
 const activityBuffer = [];
 const logClients = new Set();
-const MAX_LOGS = 100;
-const MAX_ACTIVITY = 15;
+const MAX_LOGS = 500;
+const MAX_ACTIVITY = 50;
 
 let isParentReady = false;
 process.on('message', (msg) => {

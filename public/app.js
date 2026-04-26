@@ -757,8 +757,8 @@ function connectLogs() {
           `;
           tBody.prepend(tr);
 
-          // Keep only the last 15 activities in DOM
-          while (tBody.children.length > 15) {
+          // Keep only the last 50 activities in DOM
+          while (tBody.children.length > 50) {
             tBody.lastElementChild.remove();
           }
 
@@ -769,7 +769,7 @@ function connectLogs() {
         return;
       }
 
-      S.logs.push(log); if (S.logs.length > 500) S.logs.shift();
+      S.logs.push(log); if (S.logs.length > 1000) S.logs.shift();
       appendLog(log);
       S.logTotal++;
       const cnt = document.getElementById('tsbCount'); if (cnt) cnt.textContent = `${S.logTotal} log`;
@@ -818,7 +818,7 @@ function appendLog(log) {
   const displayLv = lvLabels[lv] || lv.toUpperCase();
   el.innerHTML = `<span class="ltime">${log.time || ''}</span><span class="llv ${lv}">${displayLv}</span><span class="lcontent">${contentHtml}</span>`;
   body.appendChild(el);
-  if (body.children.length > 200) body.removeChild(body.firstChild);
+  if (body.children.length > 500) body.removeChild(body.firstChild);
   if (S.autoScroll) body.scrollTop = body.scrollHeight;
 }
 
