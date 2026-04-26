@@ -291,6 +291,20 @@ async function createBot(sessionId = "lades-session", options = {}) {
           return; 
         }
 
+        // ZOMBIE SOKET KORUMASI: Uzun süreli çalışmada soketin donup kalmasını (keep-alive hatası vs) engeller
+        const isDeadSocket = 
+          logData.msg === 'error in sending keep alive' || 
+          logData.msg === 'socket connection timeout' ||
+          (logData.err && logData.err.message === 'Timed Out');
+          
+        if (isDeadSocket) {
+             logger.error(`[ZOMBIE KORUMASI] Soket zaman aşımı veya keep-alive hatası! Bağlantı ölü, yenileniyor...`);
+             setTimeout(() => {
+               try { gracefulClose("Zombie Socket Keep-Alive Timeout"); } catch { }
+             }, 300);
+             return;
+        }
+
         // Lades-Pro'nun diğer gereksiz Baileys loglarını engelleme (konsol spam engeli)
         const strLog = JSON.stringify(logData);
         if (strLog.includes("signalstore") || strLog.includes("libsignal") || strLog.includes("SessionEntry")) {
