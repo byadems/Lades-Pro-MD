@@ -42,6 +42,11 @@ scripts/dev/dasu.response
 *.ogg
 *.opus
 
+# İstisna: proje varlıkları (yukarıdaki *.jpg / *.mp3 kuralından muaf)
+!plugins/utils/images/logo.jpg
+!public/logo.jpg
+!plugins/utils/sounds/Ban.mp3
+
 # Test dosyaları (prod'a gitmesin)
 test-*.js
 
