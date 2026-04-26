@@ -1672,12 +1672,21 @@ Module({
 
             try {
               await message.client.sendMessage(message.jid, { delete: message.data.key });
-            } catch (e) { console.error("Link Silme Hatası:", e.message); }
+            } catch (e) {
+              const em = e?.message || String(e);
+              // rate-overlimit ve forbidden gibi tekrarlayan / sessiz tolere edilebilir hataları log spam'ı yapma
+              if (em.includes('rate-overlimit') || em.includes('forbidden')) { /* ignore */ }
+              else console.error("Link Silme Hatası:", em);
+            }
 
             if (shouldWarn) {
               try {
                 await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove");
-              } catch (e) { console.error("Kullanıcı Çıkarma Hatası:", e.message); }
+              } catch (e) {
+                const em = e?.message || String(e);
+                if (em.includes('rate-overlimit') || em.includes('forbidden')) { /* ignore */ }
+                else console.error("Kullanıcı Çıkarma Hatası:", em);
+              }
             }
             return; // AUTO_DEL tespit edildi, kelime kontrolü yapmaya gerek yok
           }

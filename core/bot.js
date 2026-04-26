@@ -332,6 +332,24 @@ async function createBot(sessionId = "lades-session", options = {}) {
   }, baileysLogDestination);
 
 
+  // ─────────────────────────────────────────────────────────
+  //  Group Metadata Cache (KRİTİK PERFORMANS + RATE LIMIT FİX)
+  //  Baileys her grup mesajı gönderilirken WhatsApp'a groupMetadata
+  //  query'si atar. Çoklu grupta bu rate-overlimit'e yol açar ve
+  //  mesaj göndermeyi başarısız kılar ("Mesaj bekleniyor" balonu).
+  //  cachedGroupMetadata callback'i Baileys'in iç sorgularını cache'ler.
+  // ─────────────────────────────────────────────────────────
+  const groupMetaCache = new LRUCache({ max: 200, ttl: 5 * 60 * 1000 });
+  const cachedGroupMetadata = async (jid) => {
+    try {
+      const cached = groupMetaCache.get(jid);
+      if (cached) return cached;
+      // Cache yoksa ham sock.groupMetadata'yı çağır (recursion'u önlemek için
+      // wrapper'dan değil — sock henüz yaratılmadığı için aşağıda dolduruyoruz)
+      return undefined;
+    } catch { return undefined; }
+  };
+
   const sock = makeWASocket({
     version,
     logger: baileysLogger,
@@ -344,6 +362,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
     },
     msgRetryCounterCache: createNodeCacheAdapter(100, 5 * 60 * 1000), // 500→100 mesaj, 5 dk
     userDevicesCache: createNodeCacheAdapter(100, 5 * 60 * 1000), // 500→100 cihaz, 5 dk
+    cachedGroupMetadata, // ← YENİ: rate-overlimit'i ve send timeout'unu çözer
     browser: ['Chrome', 'Windows', '10.0'],
     getMessage: async (key) => {
       const { getMessageByKey } = require("./store");
@@ -352,12 +371,36 @@ async function createBot(sessionId = "lades-session", options = {}) {
     },
     syncFullHistory: false,
     markOnlineOnConnect: !options.markOffline,
-    defaultQueryTimeoutMs: 60000,
+    // 90s: init queries (chats.js fetchProps) Replit network'ünde 60s'i bazen aşar
+    defaultQueryTimeoutMs: 90000,
     connectTimeoutMs: 60000,
     // Keepalive aralığı: Baileys varsayılanı (30000ms) ile PDO timeout hatalarını önler.
     keepAliveIntervalMs: 30000,
     retryRequestDelayMs: 500,
     maxMsgRetryCount: 5,
+  });
+
+  // ── Group metadata wrapper: tüm groupMetadata çağrılarını cache'ler ──
+  // Hem Baileys'in iç çağrıları (cachedGroupMetadata) hem plugin'lerin
+  // direkt sock.groupMetadata() çağrıları cache'i besler ve okur.
+  const _origGroupMetadata = sock.groupMetadata?.bind(sock);
+  if (_origGroupMetadata) {
+    sock.groupMetadata = async (jid) => {
+      const cached = groupMetaCache.get(jid);
+      if (cached) return cached;
+      const meta = await _origGroupMetadata(jid);
+      if (meta) groupMetaCache.set(jid, meta);
+      return meta;
+    };
+  }
+  // Grup güncellemelerinde cache'i invalidate et
+  sock.ev.on('groups.update', (updates) => {
+    for (const u of updates) {
+      if (u?.id) groupMetaCache.delete(u.id);
+    }
+  });
+  sock.ev.on('group-participants.update', (ev) => {
+    if (ev?.id) groupMetaCache.delete(ev.id);
   });
 
   // Store events
