@@ -41,3 +41,7 @@ run = ["node", "--no-warnings", "scripts/dashboard.js"]
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 180000
+
+[userenv]
+
+[userenv.shared]
