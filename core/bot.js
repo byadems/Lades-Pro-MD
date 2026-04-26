@@ -832,14 +832,14 @@ async function createBot(sessionId = "lades-session", options = {}) {
       }
 
       // ─────────────────────────────────────────────────────────
-      //  DisconnectReason Politikası (Hermit-bot + KnightBot-Mini referansı)
-      //  Kalıcı hatalarda yeniden bağlanma — ping-pong döngüsünü kırar.
+      //  DisconnectReason Politikası
       //  - 401 loggedOut          → tam temizle, yeni QR/pair iste
       //  - 403 forbidden          → suspend, kullanıcı müdahalesi gerekli
       //  - 411 multideviceMismatch→ tam temizle, yeni QR
       //  - 440 connectionReplaced → SUSPEND (başka cihazda aynı oturum açık,
       //                              yeniden bağlanmak sonsuz döngü yaratır)
-      //  - 500 badSession         → temizle ve yeniden başlat
+      //  - 500 badSession         → GEÇİCİ say, oturuma dokunmadan yeniden bağlan
+      //                             (stream:error protokol hatası = credential bozukluğu DEĞİL)
       //  - 408/428/503/515        → geçici, normal backoff ile devam
       // ─────────────────────────────────────────────────────────
       const PERMANENT_NO_RECONNECT = new Set([
@@ -847,13 +847,13 @@ async function createBot(sessionId = "lades-session", options = {}) {
         DisconnectReason.forbidden,            // 403  → suspend
         DisconnectReason.connectionReplaced,   // 440  → suspend (önemli!)
         DisconnectReason.multideviceMismatch,  // 411  → clearState + fresh QR
-        DisconnectReason.badSession,           // 500  → clearState + fresh QR (bozuk creds)
       ]);
       const TRANSIENT_FAST_RETRY = new Set([
         DisconnectReason.restartRequired,      // 515 — Baileys handshake post-login
         DisconnectReason.connectionClosed,     // 428
         DisconnectReason.connectionLost,       // 408 (alias of timedOut)
         DisconnectReason.unavailableService,   // 503
+        DisconnectReason.badSession,           // 500 — stream:error protokol hatası (geçici)
       ]);
 
       const isPermanent = PERMANENT_NO_RECONNECT.has(statusCode);
@@ -870,9 +870,10 @@ async function createBot(sessionId = "lades-session", options = {}) {
       } else if (statusCode === DisconnectReason.multideviceMismatch) {
         logger.error('Çoklu cihaz uyumsuzluğu (411). Oturum sıfırlanacak.');
       } else if (isFastRetry) {
-        logger.info(`⚠️ Bağlantı geçici kapandı (${statusCode}). Hızlı yeniden bağlanılıyor...`);
-      } else if (statusCode === DisconnectReason.badSession) {
-        logger.warn('Bozuk oturum verisi (500). Temizlenip yeniden bağlanılacak.');
+        const label = statusCode === DisconnectReason.badSession
+          ? 'Stream protokol hatası (500) — oturum korunuyor'
+          : `Geçici kopma (${statusCode})`;
+        logger.info(`⚠️ ${label}. Hızlı yeniden bağlanılıyor...`);
       } else {
         logger.warn({ statusCode, shouldReconnect }, 'Bağlantı kesildi.');
       }
