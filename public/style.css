@@ -160,6 +160,10 @@ body {
 .brand-name {
   font-weight: 900; font-size: 22px; line-height: 1.1; margin-bottom: 2px;
   display: inline-block;
+  /* GPU acceleration for gradient text */
+  transform: translateZ(0);
+  will-change: background-position;
+  backface-visibility: hidden;
   background: linear-gradient(135deg, var(--green) 0%, var(--blue) 33%, var(--purple) 66%, var(--green) 100%);
   background-size: 300% auto;
   -webkit-background-clip: text;
@@ -169,6 +173,8 @@ body {
   color: transparent;
   letter-spacing: -0.5px;
   animation: brandGradientFlow 6s linear infinite;
+  /* Fallback color (visible if gradient fails) */
+  text-shadow: 0 0 20px rgba(0,255,163,0.3);
 }
 
 @keyframes brandGradientFlow {

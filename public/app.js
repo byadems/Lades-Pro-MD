@@ -1510,13 +1510,27 @@ document.addEventListener('DOMContentLoaded', () => {
   // sometimes render as invisible/black. Forcing a repaint fixes this permanently.
   function fixGradientText() {
     document.querySelectorAll('.brand-name').forEach(el => {
+      // Multiple fix attempts
       el.style.display = 'none';
       void el.offsetHeight; // Force reflow
       el.style.display = '';
+      // Also force background-position change and repaint
+      el.style.backgroundPosition = '0 0';
+      void el.offsetHeight;
     });
   }
   // Run immediately and also after first paint to cover all load paths
   fixGradientText();
-  requestAnimationFrame(() => { requestAnimationFrame(fixGradientText); });
+  requestAnimationFrame(() => { 
+    requestAnimationFrame(() => {
+      fixGradientText();
+      // And on visibility change (tab switch, etc.)
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') fixGradientText();
+      });
+    }); 
+  });
+  // Also run after any navigation/AJAX
+  window.addEventListener('popstate', fixGradientText);
 });
 
