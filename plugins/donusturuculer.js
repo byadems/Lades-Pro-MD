@@ -649,11 +649,7 @@ Module({
         audio = await gtts(ttsMessage, LANG);
       }
 
-      await message.client.sendMessage(message.jid, {
-        audio,
-        mimetype: "audio/mpeg",
-        ptt: true,
-      });
+      await message.sendMessage(audio, "audio", { ptt: true });
     } catch (error) {
       console.error("TTS Hatası:", error);
       await message.sendReply("_" + "⚠️ ```Hata! Cümlenin konuşma sentezi yapılamadı!```" + "_");
