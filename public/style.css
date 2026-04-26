@@ -630,8 +630,12 @@ span.brand-name {
 input:checked + .slider { background-color: rgba(0, 255, 163, 0.1); border-color: var(--green); }
 input:checked + .slider:before { transform: translateX(20px); background-color: var(--green); box-shadow: 0 0 8px var(--green); }
 
+/* Generic hidden helper — used by pairDisplay, modals, etc. */
+.hidden { display: none !important; }
+
 /* ─── PAIRING DISPLAY ─────────── */
 .pair-display { margin-top: 16px; background: rgba(0,0,0,0.4); border: 1px solid var(--amber); border-radius: 14px; padding: 24px; text-align: center; box-shadow: inset 0 0 20px rgba(255,184,0,0.1); }
+.pair-display:empty { display: none; }
 .pair-display h2 { font-family: 'JetBrains Mono', monospace; font-size: 2.5rem; letter-spacing: 12px; color: var(--amber); margin-bottom: 12px; text-shadow: 0 0 15px rgba(255,184,0,0.5); }
 .pair-display p  { font-size: 12.5px; color: var(--text2); font-weight: 500; }
 
@@ -1256,10 +1260,14 @@ textarea.form-input {
   }
 }
 
-/* ─── ACTION BUTTONS POLISH (Diamond Glass 2.0) ─── */
-.conn-action-btn {
+/* ─── ICON ACTION BUTTONS (Diamond Glass 2.0) ───
+   Scoped to thunder/plane icon buttons only — NOT to all .conn-action-btn,
+   otherwise it shrinks the wide "QR Kod Üret" / "Kod Gönder" buttons. */
+.conn-action-btn.btn-thunder,
+.conn-action-btn.btn-plane {
   width: 50px;
   height: 48px;
+  padding: 0;
   display: flex !important;
   align-items: center;
   justify-content: center;
@@ -1272,6 +1280,7 @@ textarea.form-input {
   background: rgba(255,255,255,0.03);
   backdrop-filter: blur(10px);
   box-shadow: inset 0 0 10px rgba(255,255,255,0.05);
+  flex: 0 0 auto;
 }
 
 /* Thunder Button (Command) */
