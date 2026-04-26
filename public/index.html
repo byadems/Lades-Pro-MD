@@ -128,8 +128,12 @@
       </button>
       <button class="nav-btn" data-page="uzakkomut">
         <svg viewBox="0 0 24 24" fill="none">
-          <path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-            stroke-linejoin="round" />
+          <line x1="4" y1="6" x2="20" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="4" y1="18" x2="20" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="8" cy="6" r="2" fill="currentColor"/>
+          <circle cx="16" cy="12" r="2" fill="currentColor"/>
+          <circle cx="10" cy="18" r="2" fill="currentColor"/>
         </svg>
         Uzaktan Yönetim
       </button>
@@ -205,8 +209,10 @@
           </div>
           <div class="hm-item">
             <span class="hm-label"><svg viewBox="0 0 24 24" fill="none" width="12" height="12">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2"
-                  stroke-linecap="round" stroke-linejoin="round" />
+                <rect x="2" y="2" width="20" height="8" rx="2" stroke="currentColor" stroke-width="2"/>
+                <rect x="2" y="14" width="20" height="8" rx="2" stroke="currentColor" stroke-width="2"/>
+                <circle cx="6" cy="6" r="1" fill="currentColor"/>
+                <circle cx="6" cy="18" r="1" fill="currentColor"/>
               </svg>Node.js</span>
             <span class="hm-val" id="heroNode">--</span>
           </div>
@@ -242,9 +248,8 @@
         <div class="stat-card green clickable" onclick="openStatModal('users')">
           <div class="stat-icon-wrap">
             <svg viewBox="0 0 24 24" fill="none">
-              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="1.5" />
-              <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.5" />
-              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" stroke-width="1.5" />
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.5" />
             </svg>
           </div>
           <div class="stat-body">
@@ -290,8 +295,9 @@
                   </svg>Kimden</th>
                 <th><svg viewBox="0 0 24 24" fill="none" width="12" height="12"
                     style="margin-right:4px;vertical-align:middle">
-                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor"
-                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="7" cy="7" r="1" fill="currentColor"/>
                   </svg>Tür</th>
                 <th><svg viewBox="0 0 24 24" fill="none" width="12" height="12"
                     style="margin-right:4px;vertical-align:middle">
