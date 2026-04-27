@@ -90,7 +90,7 @@ const config = {
   CHANNEL_JID: process.env.CHANNEL_JID || "120363427366763599@newsletter",
 
   // Database instance (core/database.js tarafından ayağa kaldırılır)
-  DATABASE_URL: process.env.DATABASE_URL || null,
+  DATABASE_URL: process.env.EXTERNAL_DB_URL || process.env.DATABASE_URL || null,
   logger,
 };
 

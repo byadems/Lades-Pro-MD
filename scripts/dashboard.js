@@ -276,7 +276,7 @@ app.get('/api/status', async (req, res) => {
   const mem = process.memoryUsage();
   const hasLocalSession = fs.existsSync(path.join(__dirname, "../sessions/lades-session/creds.json"));
   const hasDashboardSession = fs.existsSync(path.join(__dirname, "../sessions/dashboard-auth/creds.json"));
-  const hasDb = !!(conf.DATABASE_URL && conf.DATABASE_URL.trim());
+  const hasDb = !!(process.env.EXTERNAL_DB_URL || process.env.DATABASE_URL);
   const hasStoredSession = hasLocalSession || hasDashboardSession || hasDb;
 
   // Runtime stats
