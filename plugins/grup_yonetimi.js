@@ -1615,7 +1615,9 @@
         }
 
         // ── YÖNTEM 1: Önbellekten oku (timeout riski yok) ───────────────────
-        const cachedMsg = channelCache.getLastMsg(channelJid);
+        // Bellekte yoksa DB'den lazy-load eder → Republish/restart sonrası
+        // bot eski kanal mesajını hatırlar.
+        const cachedMsg = await channelCache.loadLastMsgAsync(channelJid);
 
         if (cachedMsg) {
           const msgTs = typeof cachedMsg.messageTimestamp === "object"

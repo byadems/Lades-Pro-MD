@@ -767,6 +767,12 @@ async function createBot(sessionId = "lades-session", options = {}) {
       // Bu sayede kanaldan gelen mesajlar channelCache'e düşer ve
       // .duyuru kanal komutu IQ sorgusu atmak yerine önbellekten okur.
       if (config.CHANNEL_JID && config.CHANNEL_JID.includes('@newsletter')) {
+        // Önce DB'den önbelleği belleğe yükle (Republish/restart sonrası
+        // .duyuru kanal komutunun anında çalışması için kritik).
+        channelCache.preloadFromDb().catch((e) =>
+          logger.warn({ err: e?.message }, '[ChannelCache] Preload hatası')
+        );
+
         setTimeout(async () => {
           try {
             await sock.subscribeNewsletterUpdates(config.CHANNEL_JID);
