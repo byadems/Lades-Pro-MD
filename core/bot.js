@@ -1111,8 +1111,39 @@ async function createBot(sessionId = "lades-session", options = {}) {
   // 60+ grupta burst mesajlarda heap'in sonsuz büyümesini engeller.
   const MAX_QUEUE_SIZE = 500;
 
-  // Eski mesaj eşiği: 5 dakika (saniye cinsinden)
-  const MSG_AGE_LIMIT_SEC = 5 * 60;
+  // Eski mesaj eşiği: 30 dakika (saniye cinsinden).
+  // 5dk çok dardı; saat kayması veya WhatsApp retry geç kaldığında komutlar
+  // sessizce düşüyordu. 30dk daha güvenli — gerçekten eski mesajlar yine atlanır.
+  const MSG_AGE_LIMIT_SEC = 30 * 60;
+
+  // Tek bir komut/mesajın işlenmesi için maksimum süre (90 saniye).
+  // Hung promise/network çağrısı yüzünden queue slot'unun sonsuza dek dolu
+  // kalmasını engeller. Süre dolarsa kullanıcıya geri bildirim gönderilir.
+  const HANDLER_TIMEOUT_MS = 90 * 1000;
+
+  // Komut ön ekleri (HANDLERS) — log filtreleme ve hata bildirimi için.
+  const _handlersList = String(config.HANDLERS || ".").split("");
+
+  // Mesajın komut olup olmadığını saptar (log + hata feedback'i için).
+  const _isCommandText = (txt) => {
+    if (!txt) return false;
+    const ch = txt.trim().charAt(0);
+    return _handlersList.includes(ch);
+  };
+
+  // Mesaja kullanıcıya görünür bir hata cevabı gönder (sessiz başarısızlığı
+  // kırar). Ayrıca handler.js'in koyduğu ⏳ "işleniyor" tepkisini ❌'ye
+  // çevirir — yoksa kullanıcı sonsuza kadar ⏳ görür.
+  const _safeNotifyError = async (jid, msgKey, errLabel) => {
+    // 1) ⏳ → ❌ tepki güncellemesi (fire-and-forget)
+    sock.sendMessage(jid, { react: { text: "❌", key: msgKey } }).catch(() => {});
+    // 2) Açıklayıcı metin cevabı
+    try {
+      await sock.sendMessage(jid, {
+        text: `⚠️ *Komut işlenemedi:* ${errLabel}\n_Lütfen birkaç saniye sonra tekrar deneyin._`,
+      }).catch(() => {});
+    } catch { /* yut */ }
+  };
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify" && type !== "append") return;
@@ -1160,12 +1191,20 @@ async function createBot(sessionId = "lades-session", options = {}) {
       }
       // ── KANAL ÖNBELLEĞİ SONU ────────────────────────────────────────────────
 
+      // Mesaj metnini erken çıkar — log + komut tespiti için
+      const msgText = getMessageText(msg.message) || "";
+      const isCmd = _isCommandText(msgText);
+
       try {
         const q = await getMessageQueue();
 
-        // BACKPRESSURE: Queue çok doluysa yeni mesajı kuyruğa alma
+        // BACKPRESSURE: Queue çok doluysa yeni mesajı kuyruğa alma.
+        // Komut mesajıysa kullanıcıya neden cevap alamadığını bildir.
         if (q.size >= MAX_QUEUE_SIZE) {
           logger.warn(`[Queue] Kuyruk dolu (${q.size}/${MAX_QUEUE_SIZE}). Mesaj düşürüldü: ${jid}`);
+          if (isCmd && !msg.key.fromMe) {
+            _safeNotifyError(jid, msg.key, "Bot şu an çok yoğun (kuyruk dolu)").catch(() => {});
+          }
           continue;
         }
 
@@ -1173,6 +1212,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
         const msgCopy = msg;
         const jidCopy = jid;
         const isGroupJid = isGroup(jid);
+        const cmdPreview = isCmd ? msgText.trim().slice(0, 60) : null;
 
         // ── GRUPSTAT SAYACI: Bot'a gelen mesajları değil, gerçek kullanıcı mesajlarını say ──
         if (isGroupJid && !msg.key.fromMe && type === "notify") {
@@ -1181,19 +1221,62 @@ async function createBot(sessionId = "lades-session", options = {}) {
         }
 
         q.add(async () => {
+          const startMs = Date.now();
+          // Komut mesajlarını her zaman logla — production'da da görünür olsun
+          if (cmdPreview) {
+            logger.info(`[CMD-IN] ${jidCopy} → "${cmdPreview}" (queue:${q.size})`);
+          } else if (config.DEBUG) {
+            console.log(`[UPSERT] JID: ${jidCopy} | Channel: ${isChannelJid} | Text: "${msgText?.slice(0, 30)}..."`);
+          }
           try {
-            if (config.DEBUG) {
-              const text = getMessageText(msgCopy.message);
-              console.log(`[UPSERT] JID: ${jidCopy} | Channel: ${isChannelJid} | Text: "${text?.slice(0, 30)}..."`);
-            }
             let groupMeta = null;
             if (isGroupJid) {
               // fetchGroupMeta önce cache'e bakar — 5dk TTL içinde DB/WA isteği yok
               groupMeta = await fetchGroupMeta(sock, jidCopy);
             }
-            await handleMessage(sock, msgCopy, groupMeta);
+
+            // Tek bir komut hung olsa bile queue slot'u sonsuza dek dolu kalmasın.
+            // 90 saniyeyi aşan handler'a TimeoutError fırlat → catch'e düşer →
+            // kullanıcıya geri bildirim gönderilir.
+            let timeoutHandle;
+            const timeoutPromise = new Promise((_, rej) => {
+              timeoutHandle = setTimeout(
+                () => rej(new Error(`Handler timeout (${HANDLER_TIMEOUT_MS / 1000}s)`)),
+                HANDLER_TIMEOUT_MS
+              );
+            });
+            try {
+              await Promise.race([
+                handleMessage(sock, msgCopy, groupMeta),
+                timeoutPromise,
+              ]);
+            } finally {
+              if (timeoutHandle) clearTimeout(timeoutHandle);
+            }
+
+            if (cmdPreview) {
+              const ms = Date.now() - startMs;
+              if (ms > 5000) {
+                logger.warn(`[CMD-OUT] ${jidCopy} → "${cmdPreview}" tamamlandı (${ms}ms — yavaş)`);
+              } else {
+                logger.debug(`[CMD-OUT] ${jidCopy} → "${cmdPreview}" tamamlandı (${ms}ms)`);
+              }
+            }
           } catch (err) {
-            logger.error({ err: err?.message, jid: jidCopy }, "Mesaj işleme hatası");
+            const errMsg = err?.message || String(err);
+            const isTimeout = errMsg.includes("Handler timeout");
+            logger.error(
+              { err: errMsg, jid: jidCopy, cmd: cmdPreview, ms: Date.now() - startMs },
+              isTimeout ? "Komut zaman aşımına uğradı" : "Mesaj işleme hatası"
+            );
+            // Komut mesajıysa kullanıcıya görünür geri bildirim ver
+            // (sessiz başarısızlığı kırar)
+            if (cmdPreview && !msgCopy.key.fromMe) {
+              const label = isTimeout
+                ? "İşlem 90 saniyeyi aştı"
+                : `Beklenmeyen hata (${errMsg.slice(0, 80)})`;
+              _safeNotifyError(jidCopy, msgCopy.key, label).catch(() => {});
+            }
           }
         });
       } catch (err) {
@@ -1201,6 +1284,9 @@ async function createBot(sessionId = "lades-session", options = {}) {
         logger.warn({ err: err?.message }, "[bot] Mesaj kuyruğu push hatası, doğrudan handle deneniyor");
         handleMessage(sock, msg).catch((e) => {
           logger.error({ err: e?.message }, "[bot] Fallback handleMessage hatası");
+          if (isCmd && !msg.key.fromMe) {
+            _safeNotifyError(jid, msg.key, "Mesaj kuyruğu hatası").catch(() => {});
+          }
         });
       }
     }
