@@ -1446,15 +1446,65 @@
       { key: "stickerMessage",  type: "sticker",  out: "sticker",  keepCaption: false },
     ];
 
+    // Newsletter (kanal) medyası ŞİFRESİZ yüklenir → mediaKey YOK.
+    // Bu durumda doğrudan HTTPS GET ile url/directPath üzerinden indiririz.
+    // url süresi dolmuş olabileceği için directPath ile ikinci bir deneme yaparız.
+    const fetchRawUrl = async (downloadUrl) => {
+      const resp = await axios.get(downloadUrl, {
+        responseType: "arraybuffer",
+        timeout: 30000,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        headers: { Origin: "https://web.whatsapp.com" },
+      });
+      const buf = Buffer.from(resp.data);
+      if (!buf.length) throw new Error("Boş yanıt");
+      return buf;
+    };
+
+    const downloadNewsletterRawMedia = async (mediaObj) => {
+      const candidates = [];
+      if (mediaObj?.url && mediaObj.url.startsWith("https://")) {
+        candidates.push(mediaObj.url);
+      }
+      if (mediaObj?.directPath) {
+        candidates.push(`https://mmg.whatsapp.net${mediaObj.directPath}`);
+      }
+      if (!candidates.length) throw new Error("url/directPath yok");
+
+      let lastErr;
+      for (const u of candidates) {
+        try {
+          return await fetchRawUrl(u);
+        } catch (e) {
+          lastErr = e;
+          console.warn(`[Duyuru/Kanal] Ham indirme başarısız (${u.slice(0, 60)}...): ${e?.message}`);
+        }
+      }
+      throw lastErr || new Error("Tüm ham indirme denemeleri başarısız");
+    };
+
     for (const mt of mediaTypes) {
       if (!m[mt.key]) continue;
       try {
-        const buffer = await downloadMediaMessage(
-          { message: m, key: channelMsg.key },
-          "buffer",
-          {},
-          { reuploadRequest: client?.updateMediaMessage }
-        );
+        const mediaObj = m[mt.key];
+        const hasMediaKey = mediaObj.mediaKey && mediaObj.mediaKey.length > 0;
+        let buffer;
+
+        if (hasMediaKey) {
+          // Standart şifreli indirme (normal sohbet/grup mesajları)
+          buffer = await downloadMediaMessage(
+            { message: m, key: channelMsg.key },
+            "buffer",
+            {},
+            { reuploadRequest: client?.updateMediaMessage }
+          );
+        } else {
+          // Kanal/newsletter medyası — ham (şifresiz) indir
+          console.log(`[Duyuru/Kanal] ${mt.key} ham (şifresiz) indiriliyor (newsletter medyası)...`);
+          buffer = await downloadNewsletterRawMedia(mediaObj);
+        }
+
         if (!buffer || !buffer.length) throw new Error("Boş medya buffer");
 
         const out = { [mt.out]: buffer };
