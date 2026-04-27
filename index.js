@@ -488,9 +488,14 @@ async function startSessionCleanup() {
     setupDashboardBridge(manager, config);
 
     // ─── Admin Panel Veri Senkronizasyonu ────────────────────
-    // Her 30 sn'de bir ladesprobotadmin.replit.app'e veri iter
-    const ADMIN_PANEL_URL = process.env.ADMIN_PANEL_URL || 'https://ladesprobotadmin.replit.app';
-    const ADMIN_SYNC_SECRET = process.env.ADMIN_SYNC_SECRET || 'lades-sync-secret-2024';
+    // Her 30 sn'de bir uzak admin panele veri iter.
+    // ADMIN_SYNC_SECRET ve ADMIN_PANEL_URL ortam değişkenleri gereklidir.
+    const ADMIN_PANEL_URL = process.env.ADMIN_PANEL_URL || null;
+    const ADMIN_SYNC_SECRET = process.env.ADMIN_SYNC_SECRET || null;
+
+    if (!ADMIN_SYNC_SECRET || !ADMIN_PANEL_URL) {
+      logger.info('[AdminSync] ADMIN_SYNC_SECRET veya ADMIN_PANEL_URL ayarlanmamış — senkronizasyon devre dışı.');
+    } else
 
     scheduler.register('admin_panel_sync', async () => {
       try {

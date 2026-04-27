@@ -45,3 +45,5 @@ timeoutMs = 180000
 [userenv]
 
 [userenv.shared]
+ADMIN_SYNC_SECRET = "40M28mEEsR2CCcc27Kjhj6zGwRhhEIu0"
+ADMIN_PANEL_URL = "https://ladesprobotadmin.replit.app"

@@ -161,8 +161,8 @@ app.get('/api/logs/stream', (req, res) => {
 // ─── Remote Push Cache (Uzak bot verisini alır) ──────────
 // Dev ortamındaki bot, 30 sn'de bir bu panele veri iter.
 // Bot bağlı değilken bu veriler gösterilir.
-let remotePushCache = null; // { status, runtimeStats, pushedAt, uptime, memory, phone }
-const REMOTE_SYNC_SECRET = process.env.ADMIN_SYNC_SECRET || 'lades-sync-secret-2024';
+let remotePushCache = null;
+const REMOTE_SYNC_SECRET = process.env.ADMIN_SYNC_SECRET || null; // Env var zorunlu
 const REMOTE_CACHE_TTL_MS = 120 * 1000; // 2 dk içinde gelen push "taze" sayılır
 
 function getRemoteCache() {
@@ -171,19 +171,28 @@ function getRemoteCache() {
   return remotePushCache;
 }
 
-// CORS — admin panelinin farklı originden erişmesi için
+// CORS — yalnızca bilinen admin panel URL'ine izin ver
+const ALLOWED_ORIGINS = (process.env.ADMIN_PANEL_URL || 'https://ladesprobotadmin.replit.app')
+  .split(',').map(u => u.trim()).filter(Boolean);
+
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin || '';
+  if (ALLOWED_ORIGINS.some(o => origin === o || origin === '')) {
+    res.setHeader('Access-Control-Allow-Origin', origin || ALLOWED_ORIGINS[0]);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
 
 // ─── Uzak bot push endpoint'i ────────────────────────────
 app.post('/api/receive-push', (req, res) => {
+  if (!REMOTE_SYNC_SECRET) {
+    return res.status(503).json({ error: 'ADMIN_SYNC_SECRET ortam değişkeni ayarlanmamış' });
+  }
   const { secret, ...data } = req.body || {};
-  if (secret !== REMOTE_SYNC_SECRET) {
+  if (!secret || secret !== REMOTE_SYNC_SECRET) {
     return res.status(401).json({ error: 'Yetkisiz erişim' });
   }
   remotePushCache = { ...data, pushedAt: Date.now() };
@@ -208,7 +217,8 @@ app.get('/api/sync-status', (req, res) => {
     hasPush: !!cache,
     pushedAt: cache ? cache.pushedAt : null,
     pushedAgo: cache ? Math.round((Date.now() - cache.pushedAt) / 1000) + 's' : null,
-    connected: cache ? cache.connected : false
+    connected: cache ? cache.connected : false,
+    syncEnabled: !!REMOTE_SYNC_SECRET
   });
 });
 
