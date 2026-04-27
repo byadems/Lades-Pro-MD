@@ -14,9 +14,9 @@ const { WhatsappOturum, BotMetrik, MesajIstatistik, KullaniciVeri, sequelize } =
 const scheduler = require("./zamanlayici").scheduler;
 
 // Message store: jid → Map<msgId, msg>
-// RAM OPT: 60 aktif grup, TTL 30min (Antidelete için daha geniş coverage)
+// Antidelete coverage: 30 aktif grup/sohbet, grup başına 80 mesaj
 const messageStore = new LRUCache({
-  max: 15,   // 60→15 aktif grup/sohbet (512MB RAM disk offload)
+  max: 30,   // 15→30: Antidelete kapsama alanı genişletildi
   ttl: 30 * 60 * 1000, // 30 dakika TTL
   dispose: (bucket, jid) => {
     // Clean reverse index when LRU evicts a bucket
@@ -28,7 +28,7 @@ const messageStore = new LRUCache({
 
 // Reverse index: msgId → jid (O(1) lookup for getFullMessage)
 const msgIdIndex = new Map();
-const MAX_MSGS_PER_JID = 30;   // 120→30: Bellek kısıtı için albüm limitinden feragat edildi
+const MAX_MSGS_PER_JID = 80;   // 30→80: Antidelete daha uzun geçmişi kapsasın
 const MAX_MSGID_INDEX = 2000;  // 8000→2000: İndeks boyutu azaltıldı
 
 function storeMessage(jid, message) {

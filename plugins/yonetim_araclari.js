@@ -508,7 +508,17 @@ Module({
       const db = await antidelete.get();
       const status = db.some(d => d.jid === message.jid) ? "Açık ✅" : "Kapalı ❌";
       return await message.sendReply(
-        `🚨 *Anti-Mesaj Silme Engellemesi*\n\nℹ️ *Mevcut Durum:* ${status}\n\n💬 *Kullanım:* \`.antisilme aç/kapat\``
+        `🚨 *Anti-Mesaj Silme Koruma*\n\n` +
+        `ℹ️ *Mevcut Durum:* ${status}\n\n` +
+        `📋 *Özellikler:*\n` +
+        `• Silinen mesajın içeriğini kurtarır ve iletir\n` +
+        `• Kimin sildiğini ve mesajın sahibini gösterir\n` +
+        `• İçerik bulunamazsa yine de kim sildi bilgisini verir\n` +
+        `• Mesaj türünü (fotoğraf, video, metin vb.) gösterir\n\n` +
+        `💬 *Kullanım:*\n` +
+        `\`.antisilme aç\` — sohbette göster\n` +
+        `\`.antisilme sudo\` — ilk yöneticiye gönder\n` +
+        `\`.antisilme kapat\` — kapat`
       );
     }
 

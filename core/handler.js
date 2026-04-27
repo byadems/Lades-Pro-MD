@@ -994,35 +994,80 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     // antidelete.get() her silmede DB çarpmayı önlemek için in-memory Set cache kullanılır
     if (isGroup && rawMsg.message?.protocolMessage?.type === 0) {
       const deletedKey = rawMsg.message.protocolMessage.key;
+
+      // Bot'un kendi silme işlemlerini yoksay (bot tarafından yapılan revoke)
+      if (rawMsg.key.fromMe) return;
+
       if (_antideleteCache.has(jid)) {
+        // rawMsg.key.participant = mesajı kim sildi (revoke isteğini gönderen)
+        // deletedKey.participant = silinen mesajın orijinal sahibi
+        const deleterJid = rawMsg.key.participant || rawMsg.key.remoteJid || jid;
+        const originalSenderJid = deletedKey.participant || deletedKey.remoteJid || jid;
+        const deleterNum = deleterJid.split("@")[0];
+        const originalSenderNum = originalSenderJid.split("@")[0];
+        const isSelfDelete = deleterJid === originalSenderJid;
+
+        // Mesaj türü etiketi
+        const MSG_TYPE_LABELS = {
+          conversation: "💬 Metin",
+          extendedTextMessage: "💬 Metin",
+          imageMessage: "🖼️ Fotoğraf",
+          videoMessage: "🎥 Video",
+          audioMessage: "🎵 Ses",
+          documentMessage: "📄 Döküman",
+          stickerMessage: "🎭 Çıkartma",
+          contactMessage: "👤 Kişi",
+          locationMessage: "📍 Konum",
+          pollCreationMessage: "📊 Anket",
+          reactionMessage: "❤️ Tepki",
+        };
+
+        let targetJid = jid;
+        try {
+          const { BotVariable } = require("./database");
+          const mode = await BotVariable.get(`ANTI_DELETE_MODE_${jid}`, "chat");
+          if (mode === "sudo") {
+            const sudoKey = (config.SUDO || config.OWNER_NUMBER || "").split(",")[0].replace(/[^0-9]/g, "");
+            if (sudoKey) targetJid = `${sudoKey}@s.whatsapp.net`;
+          } else if (mode === "custom") {
+            const customTarget = await BotVariable.get(`ANTI_DELETE_JID_${jid}`, jid);
+            if (customTarget) targetJid = customTarget;
+          }
+        } catch (e) {
+          logger.warn("Antidelete route error: " + (e?.message || e));
+        }
+
         const originalMsg = getMessageByKey(deletedKey);
+
         if (originalMsg) {
-          const participant = deletedKey.participant || deletedKey.remoteJid;
-          const senderName = participant.split("@")[0];
+          // ── Mesaj önbellekte bulundu → içeriğiyle birlikte ilet ──
+          const detectedType = Object.keys(originalMsg.message || {}).find(t => MSG_TYPE_LABELS[t]);
+          const typeLabel = MSG_TYPE_LABELS[detectedType] || "❓ Mesaj";
 
-          let targetJid = jid;
-          try {
-            const { BotVariable } = require("./database");
-            const mode = await BotVariable.get(`ANTI_DELETE_MODE_${jid}`, "chat");
-
-            if (mode === "sudo") {
-              const sudoKey = (config.SUDO || config.OWNER_NUMBER || "").split(",")[0].replace(/[^0-9]/g, "");
-              if (sudoKey) targetJid = `${sudoKey}@s.whatsapp.net`;
-            } else if (mode === "custom") {
-              const customTarget = await BotVariable.get(`ANTI_DELETE_JID_${jid}`, jid);
-              if (customTarget) targetJid = customTarget;
-            }
-          } catch (e) {
-            console.error("Antidelete route error", e);
+          let headerText, mentions;
+          if (isSelfDelete) {
+            headerText = `🚨 *Silinmiş Mesaj Kurtarıldı!*\n\n🗑️ *Silen:* @${deleterNum} _(kendi mesajını sildi)_\n📁 *Tür:* ${typeLabel}\n\n👇 *Silinen mesaj:*`;
+            mentions = [deleterJid];
+          } else {
+            headerText = `🚨 *Silinmiş Mesaj Kurtarıldı!*\n\n🗑️ *Silen:* @${deleterNum}\n👤 *Mesaj Sahibi:* @${originalSenderNum}\n📁 *Tür:* ${typeLabel}\n\n👇 *Silinen mesaj:*`;
+            mentions = [deleterJid, originalSenderJid];
           }
 
-          await client.sendMessage(targetJid, {
-            text: `🚨 *Mesaj Silme Engellendi!* 🚨\n\n👤 *Gönderen:* @${senderName}\n\n👇 *Silinen Mesaj:*`,
-            mentions: [participant]
-          });
+          await client.sendMessage(targetJid, { text: headerText, mentions });
           await client.sendMessage(targetJid, { forward: originalMsg }, { quoted: originalMsg });
-          return;
+        } else {
+          // ── Mesaj önbellekte yok → yine de bildir ──
+          let fallbackText, mentions;
+          if (isSelfDelete) {
+            fallbackText = `🚨 *Mesaj Silindi!*\n\n🗑️ *Silen:* @${deleterNum} _(kendi mesajını sildi)_\n\n⚠️ _Mesaj içeriği kaydedilemedi (bot yeni başlatılmış veya grup önbellekten düşmüş olabilir)._`;
+            mentions = [deleterJid];
+          } else {
+            fallbackText = `🚨 *Mesaj Silindi!*\n\n🗑️ *Silen:* @${deleterNum}\n👤 *Mesaj Sahibi:* @${originalSenderNum}\n\n⚠️ _Mesaj içeriği kaydedilemedi (bot yeni başlatılmış veya grup önbellekten düşmüş olabilir)._`;
+            mentions = [deleterJid, originalSenderJid];
+          }
+          await client.sendMessage(targetJid, { text: fallbackText, mentions });
         }
+        return;
       }
     }
 
