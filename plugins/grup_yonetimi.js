@@ -1433,14 +1433,9 @@
     const m = unwrap(channelMsg.message);
     if (!m) return null;
 
-    // Kanal adı prefix'i — gönderim "Kanal X'ten iletildi" havası versin
-    const channelName = (config.CHANNEL_NAME || "").trim();
-    const channelPrefix = channelName ? `📢 *${channelName}* kanalından iletildi\n\n` : "";
-    const withPrefix = (txt) => channelPrefix + (txt || "");
-
-    // 1) Düz metin
-    if (m.conversation) return { text: withPrefix(m.conversation) };
-    if (m.extendedTextMessage?.text) return { text: withPrefix(m.extendedTextMessage.text) };
+    // 1) Düz metin — caption/prefix YOK; "Kanaldan iletildi" görselini contextInfo verir
+    if (m.conversation) return { text: m.conversation };
+    if (m.extendedTextMessage?.text) return { text: m.extendedTextMessage.text };
 
     // 2) Medya — indir + yeniden yükle (spam filtresini bypass eder)
     const mediaTypes = [
@@ -1464,13 +1459,9 @@
 
         const out = { [mt.out]: buffer };
         if (mt.keepCaption) {
-          // Caption olsa da olmasa da kanal prefix'ini ekle
           const orig = m[mt.key].caption || "";
-          const merged = channelPrefix + orig;
-          if (merged) out.caption = merged;
+          if (orig) out.caption = orig;
         }
-        // Sticker/audio gibi caption desteklemeyenlerde prefix gösterilemez —
-        // o tipler için ayrı bir metin mesajı atmıyoruz (sade dursun).
         // Medya tipi ekstra alanları
         if (mt.key === "documentMessage") {
           out.mimetype = m.documentMessage.mimetype || "application/octet-stream";
@@ -1486,7 +1477,7 @@
         console.warn(`[Duyuru/Kanal] ${mt.key} indirilemedi, metne düş:`, e?.message);
         // Caption varsa metin olarak gönder
         const caption = m[mt.key]?.caption;
-        if (caption) return { text: withPrefix(caption) };
+        if (caption) return { text: caption };
         return null;
       }
     }
@@ -1495,7 +1486,7 @@
     const fallbackText = m.imageMessage?.caption ||
                          m.videoMessage?.caption ||
                          m.documentMessage?.caption;
-    if (fallbackText) return { text: withPrefix(fallbackText) };
+    if (fallbackText) return { text: fallbackText };
     return null;
   };
 
@@ -1728,6 +1719,7 @@
       // ── KANAL İÇERİĞİNİ BİR KEZ HAZIRLA (medyayı 107x indirmeyelim) ──────
       // Forward yerine taze mesaj olarak gönderir → WhatsApp spam filtresini bypass eder
       let preparedKanalContent = null;
+      let kanalAttribution = null; // forwardedNewsletterMessageInfo — yeşil kanal banner'ı
       if (isKanalForward) {
         try {
           preparedKanalContent = await prepareChannelMessageForFreshSend(
@@ -1738,6 +1730,24 @@
             return await message.sendReply(
               "❌ *Kanal mesajı işlenemedi.*\n\n" +
               "📢 _Mesaj içeriği boş veya desteklenmeyen bir tipte._"
+            );
+          }
+
+          // Native "Kanal X'ten iletildi" + "Kanalı Görüntüle" görseli için attribution
+          const kanalJid = config.CHANNEL_JID || reconstructedMsg.key?.remoteJid;
+          const kanalAdi = (config.CHANNEL_NAME || "Kanal").trim();
+          const rawId    = reconstructedMsg.key?.id;
+          const serverId = Number.parseInt(rawId, 10);
+          if (kanalJid && Number.isFinite(serverId)) {
+            kanalAttribution = {
+              newsletterJid: kanalJid,
+              serverMessageId: serverId,
+              newsletterName: kanalAdi,
+              contentType: 1, // UPDATE
+            };
+          } else {
+            console.warn(
+              `[Duyuru/Kanal] Attribution kurulamadı (jid=${kanalJid}, rawId=${rawId}) — banner'sız gönderilecek`
             );
           }
         } catch (prepErr) {
@@ -1752,17 +1762,22 @@
         try {
           let sentMsg;
           if (isKanalForward) {
-            // Taze mesaj olarak gönder — kanal forward metadata'sı YOK,
-            // WhatsApp normal kullanıcı mesajı gibi görür → 420 spam reddi olmaz.
-            // Ama görsel olarak "Çok kez iletildi" rozetiyle görünür (gerçek forward'ı taklit eder).
+            // Taze medya + forwardedNewsletterMessageInfo kombinasyonu:
+            //   • Medya her grup için yeniden upload → her grupta farklı mediaKey → spam (420) yok
+            //   • forwardedNewsletterMessageInfo + isForwarded → görselde yeşil kanal adı
+            //     ("Lades-Pro | Bot kanalından iletildi") + "Kanalı Görüntüle" butonu çıkar
             // Shallow clone — Baileys'in objeyi değiştirme ihtimaline karşı garantici.
+            const ctxInfo = {
+              ...(preparedKanalContent.contextInfo || {}),
+              isForwarded: true,
+              forwardingScore: 999,
+            };
+            if (kanalAttribution) {
+              ctxInfo.forwardedNewsletterMessageInfo = kanalAttribution;
+            }
             sentMsg = await message.client.sendMessage(jid, {
               ...preparedKanalContent,
-              contextInfo: {
-                ...(preparedKanalContent.contextInfo || {}),
-                isForwarded: true,
-                forwardingScore: 999,
-              },
+              contextInfo: ctxInfo,
             });
           } else if (hasReply) {
             sentMsg = await message.client.sendMessage(jid, {
