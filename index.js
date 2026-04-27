@@ -270,7 +270,7 @@ function startKeepAlive() {
   // ─── Yönetici token doğrulaması ───────────────────────────
   const _adminToken = process.env.ADMIN_SYNC_SECRET || null;
   const _requireAdminToken = (req, res, next) => {
-    if (!_adminToken) return next();
+    if (!_adminToken) return res.status(503).json({ error: 'Bu endpoint devre dışı: ADMIN_SYNC_SECRET ortam değişkeni ayarlanmamış.' });
     const authHeader = req.headers['authorization'] || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.body && req.body.secret);
     if (token !== _adminToken) return res.status(401).json({ error: 'Yetkisiz: Geçersiz yönetici tokeni' });

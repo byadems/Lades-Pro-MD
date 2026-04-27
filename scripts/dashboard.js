@@ -34,7 +34,9 @@ app.use(express.json());
 const ADMIN_TOKEN = process.env.ADMIN_SYNC_SECRET || null;
 
 function requireAdminToken(req, res, next) {
-  if (!ADMIN_TOKEN) return next(); // Token ayarlanmamış → açık erişim
+  if (!ADMIN_TOKEN) {
+    return res.status(503).json({ error: 'Bu endpoint devre dışı: ADMIN_SYNC_SECRET ortam değişkeni ayarlanmamış.' });
+  }
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.body && req.body.secret);
   if (token !== ADMIN_TOKEN) {
