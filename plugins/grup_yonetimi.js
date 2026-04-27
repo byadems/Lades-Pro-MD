@@ -1367,6 +1367,7 @@
       }
     }
   );
+  const channelCache = require("../core/channel-cache");
   const PIN_DURATIONS = {
     "24s": 86400,
     "7g": 604800,
@@ -1477,47 +1478,90 @@
           );
         }
 
-        try {
-          // newsletterFetchMessages doğrudan WAMessage[] döndürür
-          const msgs = await message.client.newsletterFetchMessages(channelJid, 5);
+        // ── YÖNTEM 1: Önbellekten oku (timeout riski yok) ───────────────────
+        const cachedMsg = channelCache.getLastMsg(channelJid);
 
-          if (!msgs || msgs.length === 0) {
-            return await message.sendReply("❌ *Kanaldan mesaj çekilemedi (veya kanal boş).*");
-          }
-
-          // En son mesajı al
-          const lastMsg = msgs[msgs.length - 1];
-
-          // 24 saat kontrolü
-          const msgTs = typeof lastMsg.messageTimestamp === "object"
-            ? lastMsg.messageTimestamp?.low ?? lastMsg.messageTimestamp
-            : lastMsg.messageTimestamp;
+        if (cachedMsg) {
+          const msgTs = typeof cachedMsg.messageTimestamp === "object"
+            ? (cachedMsg.messageTimestamp?.low ?? Number(cachedMsg.messageTimestamp))
+            : Number(cachedMsg.messageTimestamp || 0);
           const nowTs = Math.floor(Date.now() / 1000);
-          if (nowTs - msgTs > 86400) {
-            return await message.sendReply("⚠️ *Kanaldaki son mesaj 24 saatten eski — WhatsApp iletmeye izin vermiyor.*");
+          if (msgTs > 0 && nowTs - msgTs > 86400) {
+            return await message.sendReply(
+              "⚠️ *Önbellekteki kanal mesajı 24 saatten eski.*\n\n" +
+              "📢 _Kanalda yeni bir paylaşım yapıldıktan sonra tekrar deneyin._"
+            );
           }
-
-          // forward için WAMessage objesi hazırla
           reconstructedMsg = {
-            key: lastMsg.key || {
-              remoteJid: channelJid,
-              id: lastMsg.key?.id || String(Date.now()),
-              fromMe: false,
-            },
-            message: lastMsg.message,
-            messageTimestamp: msgTs,
+            key: cachedMsg.key || { remoteJid: channelJid, id: String(Date.now()), fromMe: false },
+            message: cachedMsg.message,
+            messageTimestamp: msgTs || Math.floor(Date.now() / 1000),
           };
-
           isKanalForward = true;
-        } catch (err) {
-          console.error("[Duyuru] Kanal mesajı çekilirken hata:", err);
-          // Hata detayını da logla — debug için
-          const detail = err?.message || String(err);
-          return await message.sendReply(
-            `❌ *Kanal mesajı çekilirken hata oluştu!*\n\n` +
-            `🔍 _Hata:_ \`${detail.slice(0, 200)}\`\n\n` +
-            `💡 _CHANNEL_JID değeri:_ \`${channelJid}\``
-          );
+        } else {
+          // ── YÖNTEM 2: Canlı sorgu — önce abone ol, sonra kısa timeout ile çek ─
+          try {
+            // Önce abone ol (daha güvenilir yanıt alınır)
+            await message.client.subscribeNewsletterUpdates(channelJid).catch(() => {});
+
+            // 20 saniye timeout ile IQ sorgusu (varsayılan 60s'den çok daha kısa)
+            const msgs = await Promise.race([
+              message.client.newsletterFetchMessages(channelJid, 5),
+              new Promise((_, rej) =>
+                setTimeout(() => rej(new Error("Timed Out (20s)")), 20000)
+              ),
+            ]);
+
+            if (!msgs || msgs.length === 0) {
+              return await message.sendReply(
+                "❌ *Kanaldan mesaj çekilemedi.*\n\n" +
+                "📢 _Kanalda henüz mesaj yok veya kanal boş._\n" +
+                `💡 _CHANNEL_JID:_ \`${channelJid}\``
+              );
+            }
+
+            const lastMsg = msgs[msgs.length - 1];
+            const msgTs = typeof lastMsg.messageTimestamp === "object"
+              ? (lastMsg.messageTimestamp?.low ?? Number(lastMsg.messageTimestamp))
+              : Number(lastMsg.messageTimestamp || 0);
+            const nowTs = Math.floor(Date.now() / 1000);
+
+            if (msgTs > 0 && nowTs - msgTs > 86400) {
+              return await message.sendReply(
+                "⚠️ *Kanaldaki son mesaj 24 saatten eski — WhatsApp iletmeye izin vermiyor.*\n\n" +
+                "📢 _Kanalda yeni bir paylaşım yapıldıktan sonra tekrar deneyin._"
+              );
+            }
+
+            reconstructedMsg = {
+              key: lastMsg.key || { remoteJid: channelJid, id: String(Date.now()), fromMe: false },
+              message: lastMsg.message,
+              messageTimestamp: msgTs || Math.floor(Date.now() / 1000),
+            };
+
+            // Bir sonraki kullanım için önbelleğe kaydet
+            channelCache.setLastMsg(channelJid, lastMsg);
+            isKanalForward = true;
+
+          } catch (err) {
+            console.error("[Duyuru] Kanal mesajı çekilirken hata:", err?.message || err);
+            const isTimeout = (err?.message || "").toLowerCase().includes("timed out") ||
+                              (err?.message || "").toLowerCase().includes("timeout");
+            if (isTimeout) {
+              return await message.sendReply(
+                "⏱️ *WhatsApp kanal sorgusu zaman aşımına uğradı.*\n\n" +
+                "📢 _Bot henüz bu kanaldan canlı mesaj almadı._\n" +
+                "💡 _Kanalda yeni bir paylaşım yapıldığında mesaj otomatik önbelleğe alınır ve komut anında çalışır._\n\n" +
+                `📌 _CHANNEL_JID:_ \`${channelJid}\``
+              );
+            }
+            const detail = err?.message || String(err);
+            return await message.sendReply(
+              `❌ *Kanal mesajı çekilirken hata oluştu!*\n\n` +
+              `🔍 _Hata:_ \`${detail.slice(0, 200)}\`\n\n` +
+              `💡 _CHANNEL_JID değeri:_ \`${channelJid}\``
+            );
+          }
         }
       } else {
         const pipeIndex = input.lastIndexOf("-");

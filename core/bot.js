@@ -21,6 +21,7 @@ const { migrateSudoToLID } = require("./yardimcilar");
 const { startSchedulers } = require("./zamanlayici");
 const { runSelfTest } = require("./self-test");
 const grupstat = require("../plugins/utils/grupstat");
+const channelCache = require("./channel-cache");
 
 // ─── Oto-Durum (Auto Status) in-memory state ─────────────────────────────────
 const _autoStatus = { enabled: false, react: false, lastRefresh: 0 };
@@ -761,6 +762,22 @@ async function createBot(sessionId = "lades-session", options = {}) {
         }, 3000);
       }
 
+      // ── NEWSLETTER ABONELIK ────────────────────────────────────────────────────
+      // CHANNEL_JID tanımlıysa bağlantı açılınca canlı güncelleme aboneliği kur.
+      // Bu sayede kanaldan gelen mesajlar channelCache'e düşer ve
+      // .duyuru kanal komutu IQ sorgusu atmak yerine önbellekten okur.
+      if (config.CHANNEL_JID && config.CHANNEL_JID.includes('@newsletter')) {
+        setTimeout(async () => {
+          try {
+            await sock.subscribeNewsletterUpdates(config.CHANNEL_JID);
+            logger.info(`[Newsletter] Kanal aboneliği kuruldu: ${config.CHANNEL_JID}`);
+          } catch (e) {
+            logger.warn({ err: e?.message }, '[Newsletter] Kanal aboneliği kurulamadı (önemli değil, mesajlar yine de gelebilir)');
+          }
+        }, 5000);
+      }
+      // ── NEWSLETTER ABONELIK SONU ───────────────────────────────────────────────
+
       // ── SAAT KAYMA ENGELLEYİCİ ───────────────────────────
       // Timer Leak Koruması: Önceki interval'lar varsa temizle,
       // sonra yeniden oluştur. Bu sayede her reconnect'te biriken
@@ -1128,6 +1145,14 @@ async function createBot(sessionId = "lades-session", options = {}) {
       }
 
       const isChannelJid = jid.endsWith('@newsletter');
+
+      // ── KANAL ÖNBELLEĞİ: Newsletter mesajını hemen kaydet ──────────────────
+      // .duyuru kanal komutu zaman aşımlı IQ sorgusu yerine buradan okur.
+      if (isChannelJid && config.CHANNEL_JID && jid === config.CHANNEL_JID) {
+        channelCache.setLastMsg(jid, msg);
+        logger.debug(`[Newsletter] Kanal mesajı önbelleğe alındı: ${jid}`);
+      }
+      // ── KANAL ÖNBELLEĞİ SONU ────────────────────────────────────────────────
 
       try {
         const q = await getMessageQueue();
