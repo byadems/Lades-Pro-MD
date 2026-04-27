@@ -1745,8 +1745,16 @@
           if (isKanalForward) {
             // Taze mesaj olarak gönder — kanal forward metadata'sı YOK,
             // WhatsApp normal kullanıcı mesajı gibi görür → 420 spam reddi olmaz.
+            // Ama görsel olarak "Çok kez iletildi" rozetiyle görünür (gerçek forward'ı taklit eder).
             // Shallow clone — Baileys'in objeyi değiştirme ihtimaline karşı garantici.
-            sentMsg = await message.client.sendMessage(jid, { ...preparedKanalContent });
+            sentMsg = await message.client.sendMessage(jid, {
+              ...preparedKanalContent,
+              contextInfo: {
+                ...(preparedKanalContent.contextInfo || {}),
+                isForwarded: true,
+                forwardingScore: 999,
+              },
+            });
           } else if (hasReply) {
             sentMsg = await message.client.sendMessage(jid, {
               forward: message.quoted,
