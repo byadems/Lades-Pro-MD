@@ -29,6 +29,25 @@ let dashboardStartTime = Date.now();
 app.use(express.static(path.join(__dirname, "../public")));
 app.use(express.json());
 
+// ─── Yönetici token doğrulaması ───────────────────────────
+// ADMIN_SYNC_SECRET ayarlandıysa yıkıcı endpoint'ler bu tokeni zorunlu kılar.
+const ADMIN_TOKEN = process.env.ADMIN_SYNC_SECRET || null;
+
+function requireAdminToken(req, res, next) {
+  if (!ADMIN_TOKEN) return next(); // Token ayarlanmamış → açık erişim
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.body && req.body.secret);
+  if (token !== ADMIN_TOKEN) {
+    return res.status(401).json({ error: 'Yetkisiz: Geçersiz yönetici tokeni' });
+  }
+  next();
+}
+
+// Frontend'in token alması için güvenli endpoint
+app.get('/api/admin-token', (req, res) => {
+  res.json({ token: ADMIN_TOKEN || null });
+});
+
 // Health check endpoint for Northflank/Docker
 app.get('/health', (req, res) => res.json({ status: "ok", uptime: (Date.now() - dashboardStartTime) / 1000 }));
 
@@ -501,7 +520,7 @@ app.post('/api/auth/stop', (req, res) => {
   if (process.send) process.send({ type: 'stop', isLogout: true });
 });
 
-app.post('/api/force-repair', async (req, res) => {
+app.post('/api/force-repair', requireAdminToken, async (req, res) => {
   try {
     const { Op } = require('sequelize');
     const deletedCount = await WhatsappOturum.destroy({

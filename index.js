@@ -267,8 +267,19 @@ function startKeepAlive() {
     res.json({ ok: true, t: Date.now() });
   });
 
+  // ─── Yönetici token doğrulaması ───────────────────────────
+  const _adminToken = process.env.ADMIN_SYNC_SECRET || null;
+  const _requireAdminToken = (req, res, next) => {
+    if (!_adminToken) return next();
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.body && req.body.secret);
+    if (token !== _adminToken) return res.status(401).json({ error: 'Yetkisiz: Geçersiz yönetici tokeni' });
+    next();
+  };
+  app.get('/api/admin-token', (req, res) => res.json({ token: _adminToken || null }));
+
   // Force re-pair: DB'deki oturumu temizle ve yeniden eşleştir
-  app.post('/api/force-repair', express.json(), async (req, res) => {
+  app.post('/api/force-repair', express.json(), _requireAdminToken, async (req, res) => {
     try {
       const { Op } = require('sequelize');
       const deletedCount = await WhatsappOturum.destroy({

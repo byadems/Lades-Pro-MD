@@ -230,7 +230,13 @@ function setupAuth() {
       async () => {
         try {
           toast('Oturum temizleniyor, yeni QR bekleniyor...', 'warn');
-          const r = await fetch('/api/force-repair', { method: 'POST' });
+          const tokenRes = await fetch('/api/admin-token').then(r => r.json()).catch(() => ({ token: null }));
+          const r = await fetch('/api/force-repair', {
+            method: 'POST',
+            headers: tokenRes.token
+              ? { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenRes.token}` }
+              : { 'Content-Type': 'application/json' }
+          });
           const d = await r.json();
           if (d.ok) {
             toast('Oturum silindi! Bağlantı sayfasına geçip QR kodu okutun.', 'success');
