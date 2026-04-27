@@ -25,7 +25,7 @@ const { BotManager } = require("./core/manager");
 const { suppressLibsignalLogs, startTempCleanup } = require("./core/yardimcilar");
 const { shutdownCache } = require("./core/db-cache");
 const { getAllGroups } = require("./core/store");
-const { setupDashboardBridge } = require("./core/dashboard-bridge");
+const { setupDashboardBridge, getAndClearPendingLogs } = require("./core/dashboard-bridge");
 
 async function checkSingleInstance() {
   try {
@@ -549,6 +549,9 @@ async function startSessionCleanup() {
         const memStr = Math.round(mem.heapUsed / 1024 / 1024) + ' MB';
         const uptimeSec = Math.floor((Date.now() - runtime.startTime) / 1000);
 
+        // Son push'tan bu yana biriken logları al (tampon temizlenir)
+        const pendingLogs = getAndClearPendingLogs();
+
         const payload = JSON.stringify({
           secret: ADMIN_SYNC_SECRET,
           connected,
@@ -557,7 +560,8 @@ async function startSessionCleanup() {
           hasStoredSession: hasSession,
           uptime: uptimeSec,
           memory: memStr,
-          runtimeStats
+          runtimeStats,
+          logs: pendingLogs   // Son 30 sn'deki log girişleri
         });
 
         const url = new URL('/api/receive-push', ADMIN_PANEL_URL);

@@ -197,6 +197,16 @@ app.post('/api/receive-push', (req, res) => {
   }
   remotePushCache = { ...data, pushedAt: Date.now() };
 
+  // Gelen log girişlerini SSE ile canlı yayınla + logBuffer'a ekle
+  if (data.logs && Array.isArray(data.logs) && data.logs.length > 0) {
+    data.logs.forEach(log => {
+      logBuffer.push(log);
+      if (logBuffer.length > MAX_LOGS) logBuffer.shift();
+      const payload = `data: ${JSON.stringify(log)}\n\n`;
+      for (const client of logClients) client.res.write(payload);
+    });
+  }
+
   // Gelen aktiviteyi SSE ile canlı yayınla
   if (data.recentActivity && Array.isArray(data.recentActivity)) {
     data.recentActivity.forEach(act => {
@@ -207,7 +217,7 @@ app.post('/api/receive-push', (req, res) => {
     });
   }
 
-  res.json({ ok: true, cachedAt: remotePushCache.pushedAt });
+  res.json({ ok: true, cachedAt: remotePushCache.pushedAt, logsReceived: (data.logs || []).length });
 });
 
 // ─── Push durumunu sorgulama ──────────────────────────────
