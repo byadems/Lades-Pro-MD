@@ -239,6 +239,20 @@ async function createBot(sessionId = "lades-session", options = {}) {
   let _isClosing = false; // Çift kapatma koruması
   let _lastZombieFire = 0; // Zombie pino interceptor debounce (ms)
 
+  // ─────────────────────────────────────────────────────────
+  //  Eski-Soket "Connection Closed" Sel Dedektörü
+  //  428 ACK hatası şelalesini tespit eder. Yeniden bağlandıktan sonra
+  //  eski soketin processNodeWithBuffer'ı kapanmış WebSocket'te ACK
+  //  yollamaya devam ederse, event loop tıkanır ve yeni soket mesaj
+  //  alamaz. Bu sayaç 30s pencerede 200+ hata olursa süreci yeniden
+  //  başlatır (Reserved VM otomatik kalkar).
+  // ─────────────────────────────────────────────────────────
+  let _ccErrorWindow = []; // Son 30s'deki "Connection Closed" zamanları
+  let _suppressedCcErrors = 0; // Bastırılan toplam (özet için)
+  let _lastCcSummaryAt = 0;
+  const CC_BURST_WINDOW_MS = 30 * 1000;
+  const CC_BURST_THRESHOLD = 200; // 30s'de 200 hata = sıkışma kanıtı
+
   /**
    * Zombie socket bırakmadan bağlantıyı kapat.
    * sock.end() yerine ws.terminate() kullanır — graceful handshake beklemiyor.
@@ -277,6 +291,56 @@ async function createBot(sessionId = "lades-session", options = {}) {
             logMsg.includes('communication recv') ||
             logMsg.includes('sent ack')) {
           return;
+        }
+
+        // ─────────────────────────────────────────────────────
+        //  KRİTİK: Eski soketin "Connection Closed" (428) sel'ini bastır
+        //  Yeniden bağlandıktan sonra eski soketin offline mesaj kuyruğu
+        //  kapanmış WebSocket üzerinden ACK göndermeye devam eder. Her
+        //  hata pino → process.stdout → console.log = event loop tıkanır.
+        //  Yüzlerce hata/saniye yeni soketin mesaj almasını engeller.
+        //  Çözüm: Bu hataları sessizce yut, sadece özet say + sıkışma
+        //  yakalanırsa süreci yeniden başlat.
+        // ─────────────────────────────────────────────────────
+        const isClosedSocketAckError =
+          logData.err?.message === 'Connection Closed' &&
+          (logMsg.includes('handling receipt') ||
+           logMsg.includes('handling notification') ||
+           logMsg.includes('handling message') ||
+           logMsg.includes('processNodeWithBuffer') ||
+           logMsg.includes('sendMessageAck') ||
+           logMsg.includes('sendRawMessage'));
+
+        if (isClosedSocketAckError) {
+          const now = Date.now();
+          _suppressedCcErrors++;
+          _ccErrorWindow.push(now);
+          // 30s öncesinden gelen kayıtları temizle
+          while (_ccErrorWindow.length && _ccErrorWindow[0] < now - CC_BURST_WINDOW_MS) {
+            _ccErrorWindow.shift();
+          }
+
+          // Her 30s'de bir özet (kullanıcıya görünürlük)
+          if (now - _lastCcSummaryAt > 30000 && _suppressedCcErrors > 0) {
+            _lastCcSummaryAt = now;
+            logger.warn(`[Bağlantı] Eski soket ACK hataları bastırıldı: ${_suppressedCcErrors} (son 30s: ${_ccErrorWindow.length})`);
+            _suppressedCcErrors = 0;
+          }
+
+          // SIKIŞMA TESPİTİ: 30s pencerede 200+ hata = eski buffer event loop'u tıkıyor
+          // Reserved VM otomatik kalkar — temiz başlangıç garantili.
+          if (_ccErrorWindow.length >= CC_BURST_THRESHOLD) {
+            logger.error(`[KRİTİK] Eski soket ACK seli (${_ccErrorWindow.length}/${Math.round(CC_BURST_WINDOW_MS/1000)}s) — event loop tıkalı. Süreç temiz yeniden başlatılıyor...`);
+            _ccErrorWindow = []; // tekrar tetiklemeyi engelle
+            // Zaman ver ki son loglar yazılsın, sonra süreç kapansın
+            setTimeout(() => {
+              try {
+                if (process.send) process.send({ type: 'bot_status', data: { connected: false, error: 'ACK seli — yeniden başlatma' } });
+              } catch {}
+              process.exit(1);
+            }, 500);
+          }
+          return; // Sessizce yut
         }
         
         // Şifre çözme veya oturum hatalarını yakala
@@ -415,6 +479,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
     // Daha az flag'lenme + daha stabil oturum.
     browser: Browsers.macOS('Safari'),
     getMessage: async (key) => {
+      // Eski/atılmış soket için DB sorgulaması yapma — buffer flood event loop'unu tıkıyor
+      if (sock?.__discarded) return undefined;
       const { getMessageByKey } = require("./store");
       const msg = getMessageByKey(key);
       return msg ? msg.message : undefined;
@@ -872,10 +938,13 @@ async function createBot(sessionId = "lades-session", options = {}) {
                 try { if (clearSessions) await clearSessions(); } catch { }
                 try { sock.end(new Error('zombie-clearSessions')); } catch { }
               } else {
-                // Ağır onarım: Tüm session'ı sıfırla → dashboard'dan yeniden eşleştirme
-                logger.error(`[Zombie] Deneme ${zombieRecoveryCount}: clearSessions sonrası hâlâ zombie! clearState() çalışıyor — yeniden eşleştirme GEREKİYOR.`);
-                try { if (clearState) await clearState(); } catch { }
-                try { sock.end(new Error('zombie-clearState')); } catch { }
+                // ÜLTRA ONARIM: clearState (QR zorunluluğu) ÇOK AĞIR — kullanıcı yeniden eşleşmek istemez.
+                // Onun yerine süreci temiz kapat → Reserved VM aynı oturumla saniyeler içinde kalkar.
+                logger.error(`[Zombie] Deneme ${zombieRecoveryCount}: clearSessions sonrası hâlâ zombie! Süreç temiz yeniden başlatılıyor (Reserved VM kalkar)...`);
+                try {
+                  if (process.send) process.send({ type: 'bot_status', data: { connected: false, error: 'Zombie soket — yeniden başlatma' } });
+                } catch {}
+                setTimeout(() => process.exit(1), 500);
               }
             }
           }, 90 * 1000);
@@ -1037,18 +1106,28 @@ async function createBot(sessionId = "lades-session", options = {}) {
         }
 
         setTimeout(async () => {
+          // KRİTİK: Eski soketi "atılmış" olarak işaretle — getMessage / cachedGroupMetadata
+          // gibi callback'ler hızlı çıksın, eski buffer DB'yi gereksiz sorgulamasın.
+          try { sock.__discarded = true; } catch { }
           // Event listener'ları temizle (memory leak önlemi)
           // NOT: Bu noktada connection.update artık gelmeyecek (bağlantı zaten kapandı)
           try { sock.ev.removeAllListeners(); } catch { }
           // Eski WebSocket hala yarı-açık olabilir → tam kapanmasını garantiye al
+          // close() yumuşak; terminate() anında öldürür → buffer ACK'leri hızlı patlar
           try {
-            if (sock?.ws && typeof sock.ws.close === 'function' &&
-                sock.ws.readyState !== 3 /* CLOSED */) {
-              sock.ws.close();
+            if (sock?.ws && sock.ws.readyState !== 3 /* CLOSED */) {
+              if (typeof sock.ws.terminate === 'function') {
+                sock.ws.terminate();
+              } else if (typeof sock.ws.close === 'function') {
+                sock.ws.close();
+              }
             }
           } catch { }
           _isClosing = false; // Yeni socket için sıfırla
           _lastZombieFire = 0; // Yeni bağlantıda zombie debounce sıfırla
+          // CC sayaçlarını sıfırla — yeni bağlantıdan sonra eski hatalar baştan sayılsın
+          _ccErrorWindow = [];
+          _suppressedCcErrors = 0;
           const newSock = await createBot(sessionId, { ...options, reconnectCount, zombieRecoveryCount });
           if (options.manager) {
             options.manager.updateSocket(sessionId, newSock);
