@@ -43,11 +43,6 @@ function requireAdminToken(req, res, next) {
   next();
 }
 
-// Frontend'in token alması için güvenli endpoint
-app.get('/api/admin-token', (req, res) => {
-  res.json({ token: ADMIN_TOKEN || null });
-});
-
 // Health check endpoint for Northflank/Docker
 app.get('/health', (req, res) => res.json({ status: "ok", uptime: (Date.now() - dashboardStartTime) / 1000 }));
 

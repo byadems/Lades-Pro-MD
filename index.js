@@ -276,8 +276,6 @@ function startKeepAlive() {
     if (token !== _adminToken) return res.status(401).json({ error: 'Yetkisiz: Geçersiz yönetici tokeni' });
     next();
   };
-  app.get('/api/admin-token', (req, res) => res.json({ token: _adminToken || null }));
-
   // Force re-pair: DB'deki oturumu temizle ve yeniden eşleştir
   app.post('/api/force-repair', express.json(), _requireAdminToken, async (req, res) => {
     try {

@@ -229,13 +229,12 @@ function setupAuth() {
       'danger',
       async () => {
         try {
+          const secret = prompt('Yönetici şifresini girin (ADMIN_SYNC_SECRET):');
+          if (!secret) return;
           toast('Oturum temizleniyor, yeni QR bekleniyor...', 'warn');
-          const tokenRes = await fetch('/api/admin-token').then(r => r.json()).catch(() => ({ token: null }));
           const r = await fetch('/api/force-repair', {
             method: 'POST',
-            headers: tokenRes.token
-              ? { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenRes.token}` }
-              : { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${secret}` }
           });
           const d = await r.json();
           if (d.ok) {
