@@ -353,8 +353,52 @@ function isRecoverableError(err) {
   return KNOWN_RECOVERABLE.some(s => msg.includes(s));
 }
 
+// ─────────────────────────────────────────────────────────
+//  ENOSPC (disk dolu) durumunda acil temizlik
+// ─────────────────────────────────────────────────────────
+async function cleanupDiskSpace() {
+  const fs = await import("fs");
+  const path = await import("path");
+  const dirs = ["/tmp", "./temp", "./uploads", "./downloads"].filter(d => {
+    try { return fs.existsSync(d); } catch { return false; }
+  });
+  let freed = 0;
+  for (const dir of dirs) {
+    try {
+      const files = fs.readdirSync(dir);
+      for (const f of files) {
+        const fp = path.join(dir, f);
+        try {
+          const stat = fs.statSync(fp);
+          // 30 dakikadan eski dosyaları sil
+          if (Date.now() - stat.mtimeMs > 30 * 60 * 1000) {
+            if (stat.isDirectory()) fs.rmSync(fp, { recursive: true, force: true });
+            else fs.unlinkSync(fp);
+            freed++;
+          }
+        } catch { /* dosyaya erişilemiyorsa geç */ }
+      }
+    } catch { /* dizine erişilemiyorsa geç */ }
+  }
+  logger.warn(`[ENOSPC] Disk temizlendi. ${freed} dosya silindi.`);
+}
+
+function isEnospc(err) {
+  if (!err) return false;
+  return err.code === "ENOSPC" || err.errno === -28 ||
+    String(err.message || "").includes("ENOSPC") ||
+    String(err.message || "").includes("no space left");
+}
+
 process.on("uncaughtException", (err) => {
   if (err.code === "ERR_IPC_DISCONNECTED") return;
+
+  // Disk dolu hatası — temizle ve devam et, botu çökertme
+  if (isEnospc(err)) {
+    logger.error("[ENOSPC] Disk dolu! Acil temizlik başlatılıyor...");
+    cleanupDiskSpace().catch(() => {});
+    return;
+  }
 
   // Bilinen geçici Baileys hatalarını sessizce logla — bot çökmesin
   if (isRecoverableError(err)) {
@@ -374,6 +418,13 @@ process.on("uncaughtException", (err) => {
 
 process.on("unhandledRejection", (reason, promise) => {
   if (reason?.code === "ERR_IPC_DISCONNECTED") return;
+
+  // Disk dolu hatası — temizle ve devam et
+  if (isEnospc(reason)) {
+    logger.error("[ENOSPC] Disk dolu (rejection)! Acil temizlik başlatılıyor...");
+    cleanupDiskSpace().catch(() => {});
+    return;
+  }
 
   // Bilinen geçici Baileys hatalarını sessizce logla
   if (isRecoverableError(reason)) {

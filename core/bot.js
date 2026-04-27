@@ -1066,12 +1066,25 @@ async function createBot(sessionId = "lades-session", options = {}) {
   // 60+ grupta burst mesajlarda heap'in sonsuz büyümesini engeller.
   const MAX_QUEUE_SIZE = 500;
 
+  // Eski mesaj eşiği: 5 dakika (saniye cinsinden)
+  const MSG_AGE_LIMIT_SEC = 5 * 60;
+
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify" && type !== "append") return;
     for (const msg of messages) {
       if (!msg.message) continue;
       const jid = msg.key.remoteJid;
       if (!jid) continue;
+
+      // Mesaj yaşı filtresi: sadece "notify" (gerçek zamanlı) mesajlara uygula.
+      // "append" = çevrimdışıyken gelen mesajlar — bunları yaş filtresinden muaf tut.
+      if (type === "notify") {
+        const ts = Number(msg.messageTimestamp || 0);
+        if (ts > 0 && (Date.now() / 1000) - ts > MSG_AGE_LIMIT_SEC) {
+          logger.debug({ jid, ts }, "[MsgFilter] 5dk+ eski mesaj atlandı");
+          continue;
+        }
+      }
 
       const isChannelJid = jid.endsWith('@newsletter');
 
