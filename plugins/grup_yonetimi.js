@@ -10,11 +10,11 @@
 // ==========================================
 (function () {
   const { loadBaileys } = require("../core/yardimcilar");
-  let delay, generateWAMessageFromContent, proto, getBinaryNodeChild, getBinaryNodeChildren;
+  let delay, generateWAMessageFromContent, proto, getBinaryNodeChild, getBinaryNodeChildren, downloadMediaMessage, getContentType;
 
   const baileysPromise = loadBaileys()
     .then((baileys) => {
-      ({ delay, generateWAMessageFromContent, proto, getBinaryNodeChild, getBinaryNodeChildren } = baileys);
+      ({ delay, generateWAMessageFromContent, proto, getBinaryNodeChild, getBinaryNodeChildren, downloadMediaMessage, getContentType } = baileys);
     })
     .catch((err) => {
       console.error("Baileys yüklenemedi (Eklenti Hatası):", err.message);
@@ -1404,6 +1404,92 @@
     return Math.ceil(totalMs / 1000);
   };
 
+  /**
+   * Newsletter (kanal) mesajını gruba "taze" göndermek için hazırlar.
+   * Forward metadata'sı OLMAYAN bir mesaj objesi döner — bu sayede WhatsApp'ın
+   * "kanal-forward → spam" filtresi tetiklenmez.
+   *
+   * Medyalar bot tarafından indirilip yeniden yüklenir; metin doğrudan kopyalanır.
+   *
+   * @param {object} channelMsg  Önbellekten gelen WAMessage (cachedMsg)
+   * @param {object} client      Baileys sock — medya indirme için gerekir
+   * @returns {Promise<object|null>}  sendMessage'a verilebilen content objesi
+   */
+  const prepareChannelMessageForFreshSend = async (channelMsg, client) => {
+    if (!channelMsg || !channelMsg.message) return null;
+
+    // Sarmalayıcıları aç: ephemeral / viewOnce / documentWithCaption / edited
+    const unwrap = (msg) => {
+      if (!msg) return msg;
+      if (msg.ephemeralMessage?.message)            return unwrap(msg.ephemeralMessage.message);
+      if (msg.viewOnceMessage?.message)             return unwrap(msg.viewOnceMessage.message);
+      if (msg.viewOnceMessageV2?.message)           return unwrap(msg.viewOnceMessageV2.message);
+      if (msg.viewOnceMessageV2Extension?.message)  return unwrap(msg.viewOnceMessageV2Extension.message);
+      if (msg.documentWithCaptionMessage?.message)  return unwrap(msg.documentWithCaptionMessage.message);
+      if (msg.editedMessage?.message)               return unwrap(msg.editedMessage.message);
+      if (msg.protocolMessage?.editedMessage)       return unwrap(msg.protocolMessage.editedMessage);
+      return msg;
+    };
+    const m = unwrap(channelMsg.message);
+    if (!m) return null;
+
+    // 1) Düz metin
+    if (m.conversation) return { text: m.conversation };
+    if (m.extendedTextMessage?.text) return { text: m.extendedTextMessage.text };
+
+    // 2) Medya — indir + yeniden yükle (spam filtresini bypass eder)
+    const mediaTypes = [
+      { key: "imageMessage",    type: "image",    out: "image",    keepCaption: true },
+      { key: "videoMessage",    type: "video",    out: "video",    keepCaption: true },
+      { key: "audioMessage",    type: "audio",    out: "audio",    keepCaption: false },
+      { key: "documentMessage", type: "document", out: "document", keepCaption: true },
+      { key: "stickerMessage",  type: "sticker",  out: "sticker",  keepCaption: false },
+    ];
+
+    for (const mt of mediaTypes) {
+      if (!m[mt.key]) continue;
+      try {
+        const buffer = await downloadMediaMessage(
+          { message: m, key: channelMsg.key },
+          "buffer",
+          {},
+          { reuploadRequest: client?.updateMediaMessage }
+        );
+        if (!buffer || !buffer.length) throw new Error("Boş medya buffer");
+
+        const out = { [mt.out]: buffer };
+        if (mt.keepCaption) {
+          const caption = m[mt.key].caption || "";
+          if (caption) out.caption = caption;
+        }
+        // Medya tipi ekstra alanları
+        if (mt.key === "documentMessage") {
+          out.mimetype = m.documentMessage.mimetype || "application/octet-stream";
+          out.fileName = m.documentMessage.fileName || "dosya";
+        } else if (mt.key === "audioMessage") {
+          out.mimetype = m.audioMessage.mimetype || "audio/ogg; codecs=opus";
+          out.ptt = !!m.audioMessage.ptt;
+        } else if (mt.key === "videoMessage") {
+          if (m.videoMessage.gifPlayback) out.gifPlayback = true;
+        }
+        return out;
+      } catch (e) {
+        console.warn(`[Duyuru/Kanal] ${mt.key} indirilemedi, metne düş:`, e?.message);
+        // Caption varsa metin olarak gönder
+        const caption = m[mt.key]?.caption;
+        if (caption) return { text: caption };
+        return null;
+      }
+    }
+
+    // 3) Bilinmeyen tip — metin alanı varsa onu kullan
+    const fallbackText = m.imageMessage?.caption ||
+                         m.videoMessage?.caption ||
+                         m.documentMessage?.caption;
+    if (fallbackText) return { text: fallbackText };
+    return null;
+  };
+
   Module({
     pattern: "duyuru ?(.*)",
     fromMe: true,
@@ -1630,26 +1716,37 @@
       const PIN_RETRY_COUNT = 2;
       const PIN_RETRY_DELAY = 5000;
 
+      // ── KANAL İÇERİĞİNİ BİR KEZ HAZIRLA (medyayı 107x indirmeyelim) ──────
+      // Forward yerine taze mesaj olarak gönderir → WhatsApp spam filtresini bypass eder
+      let preparedKanalContent = null;
+      if (isKanalForward) {
+        try {
+          preparedKanalContent = await prepareChannelMessageForFreshSend(
+            reconstructedMsg,
+            message.client
+          );
+          if (!preparedKanalContent) {
+            return await message.sendReply(
+              "❌ *Kanal mesajı işlenemedi.*\n\n" +
+              "📢 _Mesaj içeriği boş veya desteklenmeyen bir tipte._"
+            );
+          }
+        } catch (prepErr) {
+          console.error("[Duyuru/Kanal] Hazırlama hatası:", prepErr?.message);
+          return await message.sendReply(
+            `❌ *Kanal mesajı hazırlanırken hata!*\n\n🔍 \`${(prepErr?.message || "").slice(0, 200)}\``
+          );
+        }
+      }
+
       for (const jid of groupJids) {
         try {
           let sentMsg;
           if (isKanalForward) {
-            // Baileys'te kanal mesajını gruba iletmenin doğru yolu: generateForwardMessageContent + relayMessage
-            try {
-              await message.client.sendMessage(jid, {
-                forward: reconstructedMsg,
-                contextInfo: { isForwarded: true, forwardingScore: 1 }
-              });
-            } catch (_forwardErr) {
-              // Fallback: sadece metin varsa text olarak gönder
-              const textContent = reconstructedMsg?.message?.conversation ||
-                reconstructedMsg?.message?.extendedTextMessage?.text;
-              if (textContent) {
-                await message.client.sendMessage(jid, { text: textContent });
-              } else {
-                throw _forwardErr;
-              }
-            }
+            // Taze mesaj olarak gönder — kanal forward metadata'sı YOK,
+            // WhatsApp normal kullanıcı mesajı gibi görür → 420 spam reddi olmaz.
+            // Shallow clone — Baileys'in objeyi değiştirme ihtimaline karşı garantici.
+            sentMsg = await message.client.sendMessage(jid, { ...preparedKanalContent });
           } else if (hasReply) {
             sentMsg = await message.client.sendMessage(jid, {
               forward: message.quoted,
