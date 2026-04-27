@@ -110,6 +110,7 @@ let _automationRegistered = false;
 // ─────────────────────────────────────────────────────────
 async function createBot(sessionId = "lades-session", options = {}) {
   let reconnectCount = options.reconnectCount || 0;
+  let zombieRecoveryCount = options.zombieRecoveryCount || 0;
   let selfTestRan = false;
   let pairCodeRequested = false;
   // Load Baileys library dynamically (ESM)
@@ -162,7 +163,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
     }
   }
 
-  const { state, saveCreds, clearState } = await getAuthState(config, sessionId);
+  const { state, saveCreds, clearState, clearSessions } = await getAuthState(config, sessionId);
   
   // SESSION VALIDATION: Sadece 'me' (bağlı telefon) varlığını kontrol et.
   // signedPreKey gibi kriptografik alanları zorunlu kılmıyoruz — deploy sonrası
@@ -309,6 +310,17 @@ async function createBot(sessionId = "lades-session", options = {}) {
         const strLog = JSON.stringify(logData);
         if (strLog.includes("signalstore") || strLog.includes("libsignal") || strLog.includes("SessionEntry")) {
            return;
+        }
+
+        // ── Katman 5: Pre-key sağlık izleme ──
+        // "0 pre-keys found on server" + oturum kayıtlıysa → uyarı ver
+        if (logData.msg && logData.msg.includes('pre-keys found on server') && state.creds && state.creds.me) {
+          const found = parseInt(raw.match(/"count"\s*:\s*(\d+)/)?.[1] || logData.count || '0', 10);
+          if (found === 0) {
+            logger.warn('[PreKey] ⚠️  Sunucuda 0 pre-key bulundu (kayıtlı oturum). Baileys şimdi yeni pre-key yükleyecek.');
+          } else {
+            logger.info(`[PreKey] Sunucuda ${found} pre-key mevcut — oturum sağlıklı.`);
+          }
         }
 
         // Normal logları (eğer çok düşük seviyeli değilse) ana logger'a pasla veya stdout'a bas
@@ -775,9 +787,10 @@ async function createBot(sessionId = "lades-session", options = {}) {
       }, 60 * 1000); // Her 1 dakikada kontrol et
 
       // ─────────────────────────────────────────────────────────
-      //  Startup Zombie Dedektörü
-      //  Bağlantı açıldıktan 90 saniye içinde hiç mesaj gelmezse
-      //  (zombie state) bağlantıyı yenile
+      //  Startup Zombie Dedektörü — Kademeli Recovery
+      //  Bağlantı açıldıktan 90s içinde hiç mesaj gelmezse:
+      //   Deneme 1 → clearSessions() + reconnect (hafif onarım)
+      //   Deneme 2 → clearState()  + dashboard'a QR zorunluluğu
       // ─────────────────────────────────────────────────────────
       let startupZombieTimer = null;
 
@@ -796,8 +809,18 @@ async function createBot(sessionId = "lades-session", options = {}) {
           if (startupZombieTimer) clearTimeout(startupZombieTimer);
           startupZombieTimer = setTimeout(async () => {
             if (!firstMsgReceived && sock.ws && sock.ws.readyState === 1 && sock.user) {
-              logger.warn('[Watchdog] Bağlantıdan 90s sonra hiç mesaj gelmedi (zombie state). Yenileniyor...');
-              try { sock.end(new Error('startup zombie')); } catch { }
+              zombieRecoveryCount++;
+              if (zombieRecoveryCount === 1) {
+                // Hafif onarım: P2P signal session'larını temizle, creds koru
+                logger.warn(`[Zombie] Deneme ${zombieRecoveryCount}: 90s mesaj yok. clearSessions() + yeniden bağlanıyor...`);
+                try { if (clearSessions) await clearSessions(); } catch { }
+                try { sock.end(new Error('zombie-clearSessions')); } catch { }
+              } else {
+                // Ağır onarım: Tüm session'ı sıfırla → dashboard'dan yeniden eşleştirme
+                logger.error(`[Zombie] Deneme ${zombieRecoveryCount}: clearSessions sonrası hâlâ zombie! clearState() çalışıyor — yeniden eşleştirme GEREKİYOR.`);
+                try { if (clearState) await clearState(); } catch { }
+                try { sock.end(new Error('zombie-clearState')); } catch { }
+              }
             }
           }, 90 * 1000);
         }
@@ -832,6 +855,44 @@ async function createBot(sessionId = "lades-session", options = {}) {
         if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
         gracefulClose("Proactive 6h reconnect");
       }, PROACTIVE_RECONNECT_MS);
+
+      // ─────────────────────────────────────────────────────────
+      //  Signal Key Sağlık Monitörü — 10 dakikada bir
+      //  DB'deki signal key sayısını kontrol et. Sıfıra düşerse
+      //  zombie state'i önlemek için hemen otur. sıfırla + reconnect.
+      // ─────────────────────────────────────────────────────────
+      const KEY_HEALTH_INTERVAL_MS = 10 * 60 * 1000; // 10 dakika
+      const keyHealthInterval = setInterval(async () => {
+        if (!sock.user || !sock.ws || sock.ws.readyState !== 1) return;
+        try {
+          const { Op } = require('sequelize');
+          const { WhatsappOturum } = require('./database');
+          const keyCount = await WhatsappOturum.count({
+            where: { sessionId: { [Op.like]: `${sessionId}:%` } }
+          });
+          if (keyCount === 0) {
+            logger.error(`[KeyHealth] ⚠️  Signal key'ler DB'den SİLİNMİŞ (${keyCount})! Zombie önlemi: clearState → yeniden eşleştirme.`);
+            clearInterval(keyHealthInterval);
+            if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
+            if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
+            if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
+            try { if (clearState) await clearState(); } catch { }
+            try { sock.end(new Error('key-health-zero')); } catch { }
+          } else if (keyCount < 5) {
+            logger.warn(`[KeyHealth] Signal key sayısı az (${keyCount}). Baileys yeniden bağlanmada otomatik tamamlayacak.`);
+          } else {
+            logger.debug(`[KeyHealth] Signal key'ler sağlıklı (${keyCount} kayıt).`);
+          }
+        } catch (e) {
+          logger.warn(`[KeyHealth] Kontrol başarısız: ${e.message}`);
+        }
+      }, KEY_HEALTH_INTERVAL_MS);
+
+      // Bağlantı kapanınca key health interval'ını temizle
+      sock.ev.on('connection.update', (ku) => {
+        if (ku.connection === 'close') clearInterval(keyHealthInterval);
+      });
+
       // ── SAAT KAYMA ENGELLEYİCİ SONU ────────────────────
     }
 
@@ -931,7 +992,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
             }
           } catch { }
           _isClosing = false; // Yeni socket için sıfırla
-          const newSock = await createBot(sessionId, { ...options, reconnectCount });
+          const newSock = await createBot(sessionId, { ...options, reconnectCount, zombieRecoveryCount });
           if (options.manager) {
             options.manager.updateSocket(sessionId, newSock);
           }
