@@ -267,6 +267,29 @@ function startKeepAlive() {
     res.json({ ok: true, t: Date.now() });
   });
 
+  // Force re-pair: DB'deki oturumu temizle ve yeniden eşleştir
+  app.post('/api/force-repair', express.json(), async (req, res) => {
+    try {
+      const { Op } = require('sequelize');
+      const deletedCount = await WhatsappOturum.destroy({
+        where: { sessionId: { [Op.like]: 'lades-session%' } }
+      });
+      logger.warn(`[Force-Repair] ${deletedCount} oturum kaydı silindi. Yeniden eşleştirme başlatılıyor...`);
+
+      const mgr = runtime.manager;
+      if (mgr) {
+        mgr.resume('lades-session');
+        await mgr.removeSession('lades-session', false).catch(() => {});
+        await new Promise(r => setTimeout(r, 1000));
+        await mgr.addSession('lades-session', { phoneNumber: process.env.PAIR_PHONE });
+      }
+      res.json({ ok: true, deleted: deletedCount, msg: 'Oturum temizlendi. QR kodu bekleniyor...' });
+    } catch (e) {
+      logger.error({ err: e.message }, '[Force-Repair] Hata');
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
   // Serve static files with caching
   app.use(express.static(publicDir, {
     maxAge: '1h',

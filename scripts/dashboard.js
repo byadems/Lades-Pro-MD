@@ -13,7 +13,7 @@ const pino = require('pino');
 const app = express();
 const PORT = process.env.PORT || 3001;
 const envPath = path.join(__dirname, "../config.env");
-const { BotMetrik, KomutIstatistik, KomutKayit, KullaniciVeri, GrupAyar } = require('../core/database');
+const { BotMetrik, KomutIstatistik, KomutKayit, KullaniciVeri, GrupAyar, WhatsappOturum } = require('../core/database');
 const runtime = require('../core/runtime');
 
 // Prevent Baileys unhandled promise rejections / connection timeouts from crashing the Dashboard
@@ -496,6 +496,21 @@ app.post('/api/auth/restart', (req, res) => {
 app.post('/api/auth/stop', (req, res) => {
   res.json({ ok: true });
   if (process.send) process.send({ type: 'stop', isLogout: true });
+});
+
+app.post('/api/force-repair', async (req, res) => {
+  try {
+    const { Op } = require('sequelize');
+    const deletedCount = await WhatsappOturum.destroy({
+      where: { sessionId: { [Op.like]: 'lades-session%' } }
+    });
+    console.log(`[Force-Repair] ${deletedCount} oturum kaydı silindi. Yeniden eşleştirme tetikleniyor...`);
+    res.json({ ok: true, deleted: deletedCount, msg: 'Oturum temizlendi. QR kodu bekleniyor...' });
+    if (process.send) process.send({ type: 'force-repair' });
+  } catch (e) {
+    console.error('[Force-Repair] Hata:', e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 app.get('/api/auth/status', (req, res) => {

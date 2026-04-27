@@ -360,6 +360,14 @@ function setupDashboardBridge(manager, config) {
       await manager.removeSession("lades-session", !!msg.isLogout);
       sendIPC('bot_status', { connected: false }).catch(() => {});
       sendIPC('ready_to_login').catch(() => {});
+    } else if (msg.type === 'force-repair') {
+      logger.warn('[Force-Repair] Oturum temizlendi, yeniden eşleştirme başlatılıyor...');
+      manager.resume("lades-session");
+      await manager.removeSession("lades-session", false).catch(() => {});
+      sendIPC('bot_status', { connected: false }).catch(() => {});
+      await new Promise(r => setTimeout(r, 1500));
+      await manager.addSession("lades-session", { phoneNumber: process.env.PAIR_PHONE });
+      sendIPC('ready_to_login').catch(() => {});
     }
   });
 

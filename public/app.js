@@ -220,6 +220,27 @@ function setupAuth() {
       }
     );
   });
+
+  document.getElementById('btnForceRepair')?.addEventListener('click', () => {
+    showConfirm(
+      'Yeniden Eşleştir',
+      'Mevcut WhatsApp oturumu tamamen silinecek ve bot yeni QR kod gösterecek. Telefonunuzda WhatsApp > Bağlı Cihazlar > Cihaz Ekle ile yeniden tarayın. Devam etmek istiyor musunuz?',
+      'Evet, Sil ve Eşleştir',
+      'danger',
+      async () => {
+        try {
+          toast('Oturum temizleniyor, yeni QR bekleniyor...', 'warn');
+          const r = await fetch('/api/force-repair', { method: 'POST' });
+          const d = await r.json();
+          if (d.ok) {
+            toast('Oturum silindi! Bağlantı sayfasına geçip QR kodu okutun.', 'success');
+          } else {
+            toast('Hata: ' + (d.error || 'Bilinmeyen'), 'error');
+          }
+        } catch { toast('İşlem başarısız.', 'error'); }
+      }
+    );
+  });
 }
 
 async function startQR() {

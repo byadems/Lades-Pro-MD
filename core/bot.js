@@ -748,14 +748,16 @@ async function createBot(sessionId = "lades-session", options = {}) {
       }, PRESENCE_INTERVAL_MS);
 
       // ─────────────────────────────────────────────────────────
-      //  Inactivity Watchdog (Referans: KB-Mini:245-262)
-      //  30 dakika inaktif olan bağlantıyı otomatik yenile
+      //  Inactivity Watchdog
+      //  5 dakika inaktif olan bağlantıyı otomatik yenile
       // ─────────────────────────────────────────────────────────
       let lastActivity = Date.now();
-      const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 dakika
+      let firstMsgReceived = false;
+      const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 dakika
 
       sock.ev.on('messages.upsert', ({ type }) => {
-        if (type === 'notify') lastActivity = Date.now();
+        firstMsgReceived = true;
+        lastActivity = Date.now();
       });
 
       const watchdogInterval = setInterval(async () => {
@@ -768,18 +770,37 @@ async function createBot(sessionId = "lades-session", options = {}) {
           if (_ntpTimer) { clearInterval(_ntpTimer); _ntpTimer = null; }
           if (_proactiveTimer) { clearInterval(_proactiveTimer); _proactiveTimer = null; }
           clearInterval(watchdogInterval);
-          await sock.end({ reason: 'inactive' });
+          try { sock.end(new Error('inactive')); } catch { }
         }
-      }, 5 * 60 * 1000); // Her 5 dakikada kontrol et
+      }, 60 * 1000); // Her 1 dakikada kontrol et
+
+      // ─────────────────────────────────────────────────────────
+      //  Startup Zombie Dedektörü
+      //  Bağlantı açıldıktan 90 saniye içinde hiç mesaj gelmezse
+      //  (zombie state) bağlantıyı yenile
+      // ─────────────────────────────────────────────────────────
+      let startupZombieTimer = null;
 
       // Bağlantı kapandığında watchdog'ı temizle
       const cleanupWatchdog = () => {
         clearInterval(watchdogInterval);
+        if (startupZombieTimer) { clearTimeout(startupZombieTimer); startupZombieTimer = null; }
         lastActivity = Date.now();
       };
       sock.ev.on('connection.update', (update) => {
         if (update.connection === 'close') cleanupWatchdog();
-        if (update.connection === 'open') lastActivity = Date.now();
+        if (update.connection === 'open') {
+          lastActivity = Date.now();
+          firstMsgReceived = false;
+          // 90 saniyelik startup zombie kontrolü
+          if (startupZombieTimer) clearTimeout(startupZombieTimer);
+          startupZombieTimer = setTimeout(async () => {
+            if (!firstMsgReceived && sock.ws && sock.ws.readyState === 1 && sock.user) {
+              logger.warn('[Watchdog] Bağlantıdan 90s sonra hiç mesaj gelmedi (zombie state). Yenileniyor...');
+              try { sock.end(new Error('startup zombie')); } catch { }
+            }
+          }, 90 * 1000);
+        }
       });
 
       // 2) Saat kayması izleyicisi — 60 dakikada bir (CPU tasarrufu)
