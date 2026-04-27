@@ -237,6 +237,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
   let decryptionErrorCount = 0;
   let lastDecryptionErrorAt = 0;
   let _isClosing = false; // Çift kapatma koruması
+  let _lastZombieFire = 0; // Zombie pino interceptor debounce (ms)
 
   /**
    * Zombie socket bırakmadan bağlantıyı kapat.
@@ -322,11 +323,21 @@ async function createBot(sessionId = "lades-session", options = {}) {
           (logData.err && logData.err.message === 'Timed Out');
           
         if (isDeadSocket) {
-             logger.error(`[ZOMBIE KORUMASI] Soket zaman aşımı veya keep-alive hatası! Bağlantı ölü, yenileniyor...`);
-             setTimeout(() => {
-               try { gracefulClose("Zombie Socket Keep-Alive Timeout"); } catch { }
-             }, 300);
-             return;
+          // Soket zaten kapanıyor/kapalıysa (readyState !== 1) Baileys kendi reconnect'ini
+          // hallediyordur. gracefulClose çağırmak çift reconnect döngüsüne neden olur.
+          const wsState = sock?.ws?.readyState;
+          const socketIsOpen = wsState === 1; // WebSocket.OPEN
+          const now = Date.now();
+          const cooldownOk = !_lastZombieFire || (now - _lastZombieFire > 30000);
+
+          if (socketIsOpen && cooldownOk) {
+            _lastZombieFire = now;
+            logger.error(`[ZOMBIE KORUMASI] Soket zaman aşımı veya keep-alive hatası! Bağlantı ölü, yenileniyor...`);
+            setTimeout(() => {
+              try { gracefulClose("Zombie Socket Keep-Alive Timeout"); } catch { }
+            }, 300);
+          }
+          return;
         }
 
         // Lades-Pro'nun diğer gereksiz Baileys loglarını engelleme (konsol spam engeli)
@@ -1037,6 +1048,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
             }
           } catch { }
           _isClosing = false; // Yeni socket için sıfırla
+          _lastZombieFire = 0; // Yeni bağlantıda zombie debounce sıfırla
           const newSock = await createBot(sessionId, { ...options, reconnectCount, zombieRecoveryCount });
           if (options.manager) {
             options.manager.updateSocket(sessionId, newSock);
