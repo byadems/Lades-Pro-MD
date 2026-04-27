@@ -88,6 +88,7 @@ const config = {
   ACR_S: process.env.ACR_S || "",
   PORT: process.env.PORT || 3000,
   CHANNEL_JID: process.env.CHANNEL_JID || "120363427366763599@newsletter",
+  CHANNEL_NAME: process.env.CHANNEL_NAME || "Lades-Pro | Bot",
 
   // Database instance (core/database.js tarafından ayağa kaldırılır)
   DATABASE_URL: process.env.EXTERNAL_DB_URL || null,

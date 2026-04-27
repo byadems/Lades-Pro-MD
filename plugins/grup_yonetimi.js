@@ -1433,9 +1433,14 @@
     const m = unwrap(channelMsg.message);
     if (!m) return null;
 
+    // Kanal adı prefix'i — gönderim "Kanal X'ten iletildi" havası versin
+    const channelName = (config.CHANNEL_NAME || "").trim();
+    const channelPrefix = channelName ? `📢 *${channelName}* kanalından iletildi\n\n` : "";
+    const withPrefix = (txt) => channelPrefix + (txt || "");
+
     // 1) Düz metin
-    if (m.conversation) return { text: m.conversation };
-    if (m.extendedTextMessage?.text) return { text: m.extendedTextMessage.text };
+    if (m.conversation) return { text: withPrefix(m.conversation) };
+    if (m.extendedTextMessage?.text) return { text: withPrefix(m.extendedTextMessage.text) };
 
     // 2) Medya — indir + yeniden yükle (spam filtresini bypass eder)
     const mediaTypes = [
@@ -1459,9 +1464,13 @@
 
         const out = { [mt.out]: buffer };
         if (mt.keepCaption) {
-          const caption = m[mt.key].caption || "";
-          if (caption) out.caption = caption;
+          // Caption olsa da olmasa da kanal prefix'ini ekle
+          const orig = m[mt.key].caption || "";
+          const merged = channelPrefix + orig;
+          if (merged) out.caption = merged;
         }
+        // Sticker/audio gibi caption desteklemeyenlerde prefix gösterilemez —
+        // o tipler için ayrı bir metin mesajı atmıyoruz (sade dursun).
         // Medya tipi ekstra alanları
         if (mt.key === "documentMessage") {
           out.mimetype = m.documentMessage.mimetype || "application/octet-stream";
@@ -1477,7 +1486,7 @@
         console.warn(`[Duyuru/Kanal] ${mt.key} indirilemedi, metne düş:`, e?.message);
         // Caption varsa metin olarak gönder
         const caption = m[mt.key]?.caption;
-        if (caption) return { text: caption };
+        if (caption) return { text: withPrefix(caption) };
         return null;
       }
     }
@@ -1486,7 +1495,7 @@
     const fallbackText = m.imageMessage?.caption ||
                          m.videoMessage?.caption ||
                          m.documentMessage?.caption;
-    if (fallbackText) return { text: fallbackText };
+    if (fallbackText) return { text: withPrefix(fallbackText) };
     return null;
   };
 
