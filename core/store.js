@@ -17,7 +17,7 @@ const scheduler = require("./zamanlayici").scheduler;
 // Antidelete coverage: 30 aktif grup/sohbet, grup başına 80 mesaj
 const messageStore = new LRUCache({
   max: 30,   // 15→30: Antidelete kapsama alanı genişletildi
-  ttl: 30 * 60 * 1000, // 30 dakika TTL
+  ttl: 4 * 60 * 60 * 1000, // 4 saat TTL (30dk→4saat: antidelete kapsama genişletildi)
   dispose: (bucket, jid) => {
     // Clean reverse index when LRU evicts a bucket
     if (bucket instanceof Map) {
