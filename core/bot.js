@@ -16,10 +16,32 @@ const { bindToSocket, fetchGroupMeta } = require("./store");
 const { handleMessage, handleGroupUpdate, handleGroupParticipantsUpdate, loadPlugins } = require("./handler");
 const { getNumericalId, getMessageText, isGroup, suppressLibsignalLogs, startTempCleanup, stopTempCleanup, loadBaileys } = require("./yardimcilar");
 const runtime = require("./runtime");
-const { WhatsappOturum, sequelize } = require("./database");
+const { WhatsappOturum, sequelize, BotVariable } = require("./database");
 const { migrateSudoToLID } = require("./yardimcilar");
 const { startSchedulers } = require("./zamanlayici");
 const { runSelfTest } = require("./self-test");
+const grupstat = require("../plugins/utils/grupstat");
+
+// ─── Oto-Durum (Auto Status) in-memory state ─────────────────────────────────
+const _autoStatus = { enabled: false, react: false, lastRefresh: 0 };
+const AUTO_STATUS_REFRESH_MS = 2 * 60 * 1000; // 2 dakikada bir DB'den yenile
+
+async function _refreshAutoStatusState() {
+  try {
+    const enabled = await BotVariable.get("AUTO_STATUS_ENABLED", "false");
+    const react   = await BotVariable.get("AUTO_STATUS_REACT",    "false");
+    _autoStatus.enabled = enabled === "true";
+    _autoStatus.react   = react   === "true";
+    _autoStatus.lastRefresh = Date.now();
+  } catch { /* DB bağlantısı yoksa mevcut durumu koru */ }
+}
+
+async function getAutoStatusState() {
+  if (Date.now() - _autoStatus.lastRefresh > AUTO_STATUS_REFRESH_MS) {
+    await _refreshAutoStatusState();
+  }
+  return _autoStatus;
+}
 // ── PQueue: module-level başlat (lazy async init overhead'i önce)
 let _queue = null;
 let _queueReady = false;
@@ -1076,6 +1098,25 @@ async function createBot(sessionId = "lades-session", options = {}) {
       const jid = msg.key.remoteJid;
       if (!jid) continue;
 
+      // ── OTO-DURUM (AUTO STATUS): status@broadcast mesajlarını yakala ──────────
+      if (jid === "status@broadcast") {
+        try {
+          const autoSt = await getAutoStatusState();
+          if (autoSt.enabled) {
+            await sock.readMessages([msg.key]).catch(() => {});
+            if (autoSt.react) {
+              // WhatsApp durum reaksiyonu: kalp emojisi
+              await sock.sendMessage("status@broadcast", {
+                react: { text: "💚", key: msg.key }
+              }).catch(() => {});
+            }
+          }
+        } catch (e) {
+          logger.debug({ err: e?.message }, "[OtoDurum] Durum işleme hatası");
+        }
+        continue; // Status mesajları normal handler'a gitmesin
+      }
+
       // Mesaj yaşı filtresi: sadece "notify" (gerçek zamanlı) mesajlara uygula.
       // "append" = çevrimdışıyken gelen mesajlar — bunları yaş filtresinden muaf tut.
       if (type === "notify") {
@@ -1101,6 +1142,12 @@ async function createBot(sessionId = "lades-session", options = {}) {
         const msgCopy = msg;
         const jidCopy = jid;
         const isGroupJid = isGroup(jid);
+
+        // ── GRUPSTAT SAYACI: Bot'a gelen mesajları değil, gerçek kullanıcı mesajlarını say ──
+        if (isGroupJid && !msg.key.fromMe && type === "notify") {
+          const sender = msg.key.participant;
+          if (sender) grupstat.countMessage(jidCopy, sender);
+        }
 
         q.add(async () => {
           try {

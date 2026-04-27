@@ -65,3 +65,11 @@ The Replit workflow runs `PORT=5000 node --no-warnings --expose-gc --max-old-spa
 - **Init-query bypass (CRITICAL)**: `fireInitQueries: false` set on `makeWASocket`. On Replit network, Baileys' `chats.js fetchProps` + `presenceSubscribe` repeatedly timed out (60-90s), and during that window Baileys' event-buffer **withheld `messages.upsert` events** — so the handler never fired and the bot appeared dead even though the socket was open. Disabling init queries skips these non-essential bootstrap requests; messaging works normally and event-buffer flushes immediately. `defaultQueryTimeoutMs` reverted to 60s (no longer hit).
 - **Log silencing for benign rate-limits**: `plugins/yonetim_araclari.js` antilink delete/kick `catch` blocks now suppress `rate-overlimit` and `forbidden` console spam (still logs unknown errors).
 - **Workflow**: `index.js` is master entry; do NOT change it back to running `scripts/dashboard.js` directly — that breaks IPC handover after QR auth.
+
+## Recent Additions (2026-04-27 — KnightBot-Mini Feature Adaptations)
+- **`.otodurum` (Auto Status)**: `plugins/yonetim_araclari.js`'e eklendi. Bot tüm kişilerin WhatsApp durumlarını otomatik görüntüler ve isteğe bağlı tepki verir. `BotVariable` (DB cache 2dk) ile `AUTO_STATUS_ENABLED` + `AUTO_STATUS_REACT` toggle. `core/bot.js`'de `status@broadcast` interceptor.
+- **`.sihirlikure` (Magic 8-Ball)**: `plugins/oyunlar.js`'e eklendi. 20 Türkçe cevap (olumlu/tarafsız/olumsuz). Soru girilmezse kullanım ipucu gösterir.
+- **Adam Asmaca (Hangman)**: `plugins/oyunlar.js`'e eklendi. `.adamasmaca` yeni oyun başlatır (50+ Türkçe kelime), `.harf [X]` tahmin girer, `.adamasmacabitti` iptal eder. ASCII darağacı görseli, 10 dk timeout, sohbet başına izole state.
+- **`plugins/utils/grupstat.js`** (yeni): In-memory günlük mesaj sayacı. `countMessage`, `getGroupStats`, `getTotalToday`, `getUserStats` API'leri. `core/bot.js`'den grup mesajlarında çağrılır.
+- **`plugins/grup_istatistikleri.js`** (yeni): `.grupistatistikleri` (top 5 aktif üye, toplam mesaj, aktivite yüzdesi) ve `.aktivitem` (kişisel sıralama + yüzde). Sadece gruplarda çalışır. `groupMetadata` ile katılımcı adı çözümleme (fallback: numara).
+- **`oyunlar.js` sözdizim düzeltmesi**: Önceki oturumda eklenen `sihirlikure/adamasmaca` bloğu fazladan `})();` kapanması bırakmıştı; giderildi.

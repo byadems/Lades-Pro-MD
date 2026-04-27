@@ -2136,6 +2136,62 @@ Module({
   }
 );
 
+// ─────────────────────────────────────────────────────────
+//  OTO-DURUM (Auto Status View)
+// ─────────────────────────────────────────────────────────
+Module({
+  pattern: "otodurum ?(.*)",
+  fromMe: true,
+  desc: "Kişilerin durumlarını (status) otomatik olarak görür ve isteğe bağlı tepki verir.",
+  usage: ".otodurum [aç/kapat/tepki aç/tepki kapat]",
+  use: "sistem",
+},
+  async (message, match) => {
+    const sub = (match[1] || "").trim().toLowerCase();
+
+    const enabled = await BotVariable.get("AUTO_STATUS_ENABLED", "false") === "true";
+    const react   = await BotVariable.get("AUTO_STATUS_REACT",    "false") === "true";
+
+    if (!sub) {
+      return await message.sendReply(
+        `👁️ *Oto-Durum Ayarları*\n\n` +
+        `📱 *Otomatik Görüntüleme:* ${enabled ? "Açık ✅" : "Kapalı ❌"}\n` +
+        `💚 *Otomatik Tepki:* ${react ? "Açık ✅" : "Kapalı ❌"}\n\n` +
+        `💬 *Kullanım:*\n` +
+        `• \`.otodurum aç\` — durumları otomatik görüntüle\n` +
+        `• \`.otodurum kapat\` — otomatik görüntülemeyi kapat\n` +
+        `• \`.otodurum tepki aç\` — görüntülenen durumlara 💚 tepki ver\n` +
+        `• \`.otodurum tepki kapat\` — tepkiyi kapat`
+      );
+    }
+
+    if (sub === "aç") {
+      await BotVariable.set("AUTO_STATUS_ENABLED", "true");
+      return await message.sendReply("✅ *Oto-Durum açıldı!*\n\nℹ️ _Bot artık kişilerin durumlarını otomatik olarak görüntüleyecek._");
+    }
+
+    if (sub === "kapat") {
+      await BotVariable.set("AUTO_STATUS_ENABLED", "false");
+      return await message.sendReply("❌ *Oto-Durum kapatıldı!*");
+    }
+
+    if (sub === "tepki aç") {
+      await BotVariable.set("AUTO_STATUS_REACT", "true");
+      return await message.sendReply("💚 *Oto-Durum tepkisi açıldı!*\n\nℹ️ _Görüntülenen durumlara 💚 emojisiyle tepki verilecek._");
+    }
+
+    if (sub === "tepki kapat") {
+      await BotVariable.set("AUTO_STATUS_REACT", "false");
+      return await message.sendReply("❌ *Oto-Durum tepkisi kapatıldı!*");
+    }
+
+    return await message.sendReply(
+      `❌ *Geçersiz seçenek!*\n\n` +
+      `ℹ️ _Kullanım:_ \`.otodurum aç/kapat\` veya \`.otodurum tepki aç/kapat\``
+    );
+  }
+);
+
 module.exports = {
   containsDisallowedWords,
   setVar,

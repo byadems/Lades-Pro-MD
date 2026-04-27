@@ -786,3 +786,220 @@
       }
     );
   })();
+
+// ==========================================
+// FILE: sihirlikure.js + adamasmaca.js
+// ==========================================
+(function () {
+  const { Module } = require("../main");
+
+  // ══════════════════════════════════════════════════════
+  // Sihirli Küre (Magic 8-Ball)
+  // ══════════════════════════════════════════════════════
+  const SEKIZLI_CEVAPLAR = [
+    // Olumlu
+    "🔮 Kesinlikle evet!",
+    "🔮 Evet, bundan emin olabilirsin.",
+    "🔮 İşaretler bunu gösteriyor.",
+    "🔮 Görünüşe göre evet.",
+    "🔮 Benim görüşüm: evet.",
+    "🔮 Çok olası.",
+    "🔮 Evet, kesinlikle.",
+    "🔮 Tabii ki!",
+    // Tarafsız
+    "🔮 Şimdilik cevap belirsiz, tekrar sor.",
+    "🔮 Şimdi tahmin etmek zor.",
+    "🔮 Şu an konsantre olamıyorum, tekrar sor.",
+    "🔮 Daha sonra tekrar sor.",
+    "🔮 Bunu şu an tahmin edemiyorum.",
+    "🔮 Daha iyi odaklan ve tekrar sor.",
+    // Olumsuz
+    "🔮 Çok da iyi değil.",
+    "🔮 Hayır diyebilirim.",
+    "🔮 Görünüşe göre hayır.",
+    "🔮 Çok şüpheliyim.",
+    "🔮 Hayır.",
+    "🔮 İşaretler hayır diyor.",
+  ];
+
+  Module({
+    pattern: "sihirlikure ?(.*)",
+    fromMe: false,
+    desc: "Sihirli küreye bir soru sorun, mistik cevabını alın! (8-Ball)",
+    usage: ".sihirlikure [sorunuz]",
+    use: "oyun",
+  },
+    async (message, match) => {
+      const soru = (match[1] || "").trim();
+      if (!soru) {
+        return await message.sendReply(
+          "🔮 *Sihirli Küre*\n\n_Bana bir soru sormalısın!_\n\n💬 _Örnek:_ `.sihirlikure Bu ay şansım açık olacak mı?`"
+        );
+      }
+      const cevap = SEKIZLI_CEVAPLAR[Math.floor(Math.random() * SEKIZLI_CEVAPLAR.length)];
+      return await message.sendReply(`🔮 *Soru:* _${soru}_\n\n${cevap}`);
+    }
+  );
+
+  // ══════════════════════════════════════════════════════
+  // Adam Asmaca (Hangman)
+  // ══════════════════════════════════════════════════════
+  const KELIME_LISTESI = [
+    "araba", "bilgisayar", "telefon", "müzik", "sinema", "tatil",
+    "yazılım", "internet", "uçak", "deniz", "dağ", "şehir",
+    "kitap", "spor", "yemek", "çiçek", "hayvan", "gezegen",
+    "oyun", "dans", "şarkı", "sanat", "fotoğraf", "kamera",
+    "güneş", "yıldız", "nehir", "orman", "köprü", "müze",
+    "bisiklet", "tren", "gemi", "roket", "kalem", "defter",
+    "elma", "portakal", "çilek", "muz", "karpuz", "kavun",
+    "aslan", "kaplan", "fil", "penguen", "yunus", "kartal",
+    "futbol", "basketbol", "tenis", "yüzme", "koşu", "satranç",
+  ];
+
+  // Aktif oyunlar: chatJid -> oyun durumu
+  const adamAsmacaOyunlari = new Map();
+
+  const DARAGINLAR = [
+    "```\n  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========```",
+    "```\n  +---+\n  |   |\n  O   |\n      |\n      |\n      |\n=========```",
+    "```\n  +---+\n  |   |\n  O   |\n  |   |\n      |\n      |\n=========```",
+    "```\n  +---+\n  |   |\n  O   |\n /|   |\n      |\n      |\n=========```",
+    "```\n  +---+\n  |   |\n  O   |\n /|\\  |\n      |\n      |\n=========```",
+    "```\n  +---+\n  |   |\n  O   |\n /|\\  |\n /    |\n      |\n=========```",
+    "```\n  +---+\n  |   |\n  O   |\n /|\\  |\n / \\  |\n      |\n=========```",
+  ];
+
+  function maskele(kelime, tahminler) {
+    return kelime.split("").map(h => tahminler.includes(h) ? h : "_").join(" ");
+  }
+
+  function oyunDurumu(oyun) {
+    const daraginStr = DARAGINLAR[oyun.yanlislar] || DARAGINLAR[DARAGINLAR.length - 1];
+    const maskStr = maskele(oyun.kelime, oyun.tahminler);
+    const harf = oyun.tahminler.length ? oyun.tahminler.join(", ") : "-";
+    return (
+      `${daraginStr}\n\n` +
+      `📝 *Kelime:* \`${maskStr}\`\n` +
+      `❌ *Yanlış hak:* ${oyun.yanlislar}/${oyun.maxYanlis}\n` +
+      `🔤 *Denenen harfler:* ${harf}`
+    );
+  }
+
+  Module({
+    pattern: "adamasmaca ?(.*)",
+    fromMe: false,
+    desc: "Adam asmaca oyunu başlatır. `.adamasmaca` ile yeni oyun, `.harf X` ile harf tahmini.",
+    usage: ".adamasmaca",
+    use: "oyun",
+  },
+    async (message) => {
+      const jid = message.jid;
+
+      if (adamAsmacaOyunlari.has(jid)) {
+        const oyun = adamAsmacaOyunlari.get(jid);
+        return await message.sendReply(
+          `⚠️ *Bu sohbette zaten devam eden bir oyun var!*\n\n` +
+          `${oyunDurumu(oyun)}\n\n` +
+          `💬 _Harf tahmin etmek için_ \`.harf [harf]\` _yazın._\n` +
+          `💬 _Oyunu bitirmek için_ \`.adamasmacabitti\` _yazın._`
+        );
+      }
+
+      const kelime = KELIME_LISTESI[Math.floor(Math.random() * KELIME_LISTESI.length)];
+      const oyun = { kelime, tahminler: [], yanlislar: 0, maxYanlis: 6 };
+      adamAsmacaOyunlari.set(jid, oyun);
+
+      // Timeout: 10 dakika sonra oyunu otomatik bitir
+      setTimeout(() => {
+        if (adamAsmacaOyunlari.has(jid)) {
+          adamAsmacaOyunlari.delete(jid);
+        }
+      }, 10 * 60 * 1000);
+
+      return await message.sendReply(
+        `🎮 *Adam Asmaca Başladı!*\n\n` +
+        `${oyunDurumu(oyun)}\n\n` +
+        `💬 _Harf tahmin etmek için_ \`.harf [harf]\` _yazın._\n` +
+        `💬 _Kelimeyi direkt tahmin etmek için_ \`.tahmin [kelime]\` _yazın._`
+      );
+    }
+  );
+
+  Module({
+    pattern: "harf ?(.*)",
+    fromMe: false,
+    desc: "Adam asmaca oyununda harf tahmini yapar.",
+    usage: ".harf [harf]",
+    use: "oyun",
+    dontAddCommandList: true,
+  },
+    async (message, match) => {
+      const jid = message.jid;
+      if (!adamAsmacaOyunlari.has(jid)) {
+        return await message.sendReply("🎮 _Aktif bir oyun yok. Yeni oyun için_ `.adamasmaca` _yazın._");
+      }
+
+      const harf = (match[1] || "").trim().toLowerCase().replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ş/g, "s").replace(/ı/g, "i").replace(/ö/g, "o").replace(/ç/g, "c");
+      if (!harf || harf.length !== 1 || !/[a-z]/.test(harf)) {
+        return await message.sendReply("❌ _Lütfen tek bir harf girin._ Örnek: `.harf a`");
+      }
+
+      const oyun = adamAsmacaOyunlari.get(jid);
+      const kelimeNorm = oyun.kelime.replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ş/g, "s").replace(/ı/g, "i").replace(/ö/g, "o").replace(/ç/g, "c");
+
+      if (oyun.tahminler.includes(harf)) {
+        return await message.sendReply(`⚠️ *"${harf}"* harfini zaten denediniz!\n\n${oyunDurumu(oyun)}`);
+      }
+
+      oyun.tahminler.push(harf);
+
+      if (kelimeNorm.includes(harf)) {
+        // Doğru harf — kazandı mı kontrol et
+        const kazandi = kelimeNorm.split("").every(h => oyun.tahminler.includes(h));
+        if (kazandi) {
+          adamAsmacaOyunlari.delete(jid);
+          return await message.sendReply(
+            `🎉 *Tebrikler! Kelimeyi buldunuz!*\n\n` +
+            `✅ *Kelime:* \`${oyun.kelime}\`\n\n` +
+            `💬 _Yeni oyun için_ \`.adamasmaca\` _yazın._`
+          );
+        }
+        return await message.sendReply(`✅ *"${harf}"* doğru!\n\n${oyunDurumu(oyun)}`);
+      } else {
+        // Yanlış harf
+        oyun.yanlislar++;
+        if (oyun.yanlislar >= oyun.maxYanlis) {
+          adamAsmacaOyunlari.delete(jid);
+          return await message.sendReply(
+            `${DARAGINLAR[DARAGINLAR.length - 1]}\n\n` +
+            `💀 *Oyun Bitti!* Kelimeyi bulamadınız.\n\n` +
+            `✅ *Doğru kelime:* \`${oyun.kelime}\`\n\n` +
+            `💬 _Tekrar oynamak için_ \`.adamasmaca\` _yazın._`
+          );
+        }
+        return await message.sendReply(`❌ *"${harf}"* yanlış!\n\n${oyunDurumu(oyun)}`);
+      }
+    }
+  );
+
+  Module({
+    pattern: "adamasmacabitti",
+    fromMe: false,
+    desc: "Devam eden adam asmaca oyununu iptal eder.",
+    usage: ".adamasmacabitti",
+    use: "oyun",
+    dontAddCommandList: true,
+  },
+    async (message) => {
+      const jid = message.jid;
+      if (!adamAsmacaOyunlari.has(jid)) {
+        return await message.sendReply("🎮 _Bu sohbette aktif bir oyun yok._");
+      }
+      const oyun = adamAsmacaOyunlari.get(jid);
+      adamAsmacaOyunlari.delete(jid);
+      return await message.sendReply(
+        `🛑 *Oyun iptal edildi.*\n\n✅ *Doğru kelime:* \`${oyun.kelime}\``
+      );
+    }
+  );
+}());
