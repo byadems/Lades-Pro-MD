@@ -64,7 +64,7 @@ async function parseAliveMessage(template, messageObject) {
           "image"
         );
         if (ppUrl) {
-          profilePicBuffer = await getBuffer(ppUrl);
+          profilePicBuffer = await getBuffer(ppUrl, { timeout: 15000 });
         }
       } catch (error) {
         console.log("Profil resmi alınamadı:", error);
@@ -77,7 +77,7 @@ async function parseAliveMessage(template, messageObject) {
     if (mediaMatch) {
       const mediaUrl = mediaMatch[1];
       try {
-        customMediaBuffer = await getBuffer(mediaUrl);
+        customMediaBuffer = await getBuffer(mediaUrl, { timeout: 30000 });
 
         isVideo = /\.(mp4|mov|avi|mkv|webm|gif)$/i.test(mediaUrl);
       } catch (error) {

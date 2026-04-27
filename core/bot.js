@@ -50,17 +50,17 @@ let _firstConnectDone = false; // loadPlugins + startSchedulers sadece 1 kez ça
 
 // Pre-warm: Bot başlar başlamaz queue'yu hazırla
 import('p-queue').then(({ default: PQueue }) => {
-  // concurrency: 6 — Paralel işleme (görsel indirme gibi ağır komutlar slotları uzun tutar)
+  // concurrency: 20 — 101 grup için yeterli; hafif komutlar çoğunluk
   // intervalCap + interval: saniyede max 50 mesaj işle (burst engeli)
   // throwOnTimeout: false — timeout'da hata fırlatma, sessizce geç
-  _queue = new PQueue({ concurrency: 6, intervalCap: 50, interval: 1000, throwOnTimeout: false });
+  _queue = new PQueue({ concurrency: 20, intervalCap: 50, interval: 1000, throwOnTimeout: false });
   _queueReady = true;
 }).catch(() => { /* fallback: create on demand */ });
 
 async function getMessageQueue() {
   if (_queue) return _queue;
   const { default: PQueue } = await import('p-queue');
-  _queue = new PQueue({ concurrency: 6, intervalCap: 50, interval: 1000, throwOnTimeout: false });
+  _queue = new PQueue({ concurrency: 20, intervalCap: 50, interval: 1000, throwOnTimeout: false });
   _queueReady = true;
   return _queue;
 }
@@ -1116,10 +1116,11 @@ async function createBot(sessionId = "lades-session", options = {}) {
   // sessizce düşüyordu. 30dk daha güvenli — gerçekten eski mesajlar yine atlanır.
   const MSG_AGE_LIMIT_SEC = 30 * 60;
 
-  // Tek bir komut/mesajın işlenmesi için maksimum süre (90 saniye).
+  // Tek bir komut/mesajın işlenmesi için maksimum süre (5 dakika).
   // Hung promise/network çağrısı yüzünden queue slot'unun sonsuza dek dolu
-  // kalmasını engeller. Süre dolarsa kullanıcıya geri bildirim gönderilir.
-  const HANDLER_TIMEOUT_MS = 90 * 1000;
+  // kalmasını engeller. YouTube indirme gibi uzun işlemler bu süre içinde biter.
+  // Süre dolarsa kullanıcıya geri bildirim gönderilir.
+  const HANDLER_TIMEOUT_MS = 5 * 60 * 1000;
 
   // Komut ön ekleri (HANDLERS) — log filtreleme ve hata bildirimi için.
   const _handlersList = String(config.HANDLERS || ".").split("");
@@ -1236,7 +1237,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
             }
 
             // Tek bir komut hung olsa bile queue slot'u sonsuza dek dolu kalmasın.
-            // 90 saniyeyi aşan handler'a TimeoutError fırlat → catch'e düşer →
+            // 5 dakikayı aşan handler'a TimeoutError fırlat → catch'e düşer →
             // kullanıcıya geri bildirim gönderilir.
             let timeoutHandle;
             const timeoutPromise = new Promise((_, rej) => {
@@ -1273,7 +1274,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
             // (sessiz başarısızlığı kırar)
             if (cmdPreview && !msgCopy.key.fromMe) {
               const label = isTimeout
-                ? "İşlem 90 saniyeyi aştı"
+                ? "İşlem 5 dakikayı aştı"
                 : `Beklenmeyen hata (${errMsg.slice(0, 80)})`;
               _safeNotifyError(jidCopy, msgCopy.key, label).catch(() => {});
             }
