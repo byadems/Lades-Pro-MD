@@ -158,79 +158,6 @@ app.get('/api/logs/stream', (req, res) => {
   });
 });
 
-// ─── Remote Push Cache (Uzak bot verisini alır) ──────────
-// Dev ortamındaki bot, 30 sn'de bir bu panele veri iter.
-// Bot bağlı değilken bu veriler gösterilir.
-let remotePushCache = null;
-const REMOTE_SYNC_SECRET = process.env.ADMIN_SYNC_SECRET || null; // Env var zorunlu
-const REMOTE_CACHE_TTL_MS = 120 * 1000; // 2 dk içinde gelen push "taze" sayılır
-
-function getRemoteCache() {
-  if (!remotePushCache) return null;
-  if (Date.now() - remotePushCache.pushedAt > REMOTE_CACHE_TTL_MS) return null;
-  return remotePushCache;
-}
-
-// CORS — yalnızca bilinen admin panel URL'ine izin ver
-const ALLOWED_ORIGINS = (process.env.ADMIN_PANEL_URL || 'https://ladesprobotadmin.replit.app')
-  .split(',').map(u => u.trim()).filter(Boolean);
-
-app.use((req, res, next) => {
-  const origin = req.headers.origin || '';
-  if (ALLOWED_ORIGINS.some(o => origin === o || origin === '')) {
-    res.setHeader('Access-Control-Allow-Origin', origin || ALLOWED_ORIGINS[0]);
-  }
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
-  next();
-});
-
-// ─── Uzak bot push endpoint'i ────────────────────────────
-app.post('/api/receive-push', (req, res) => {
-  if (!REMOTE_SYNC_SECRET) {
-    return res.status(503).json({ error: 'ADMIN_SYNC_SECRET ortam değişkeni ayarlanmamış' });
-  }
-  const { secret, ...data } = req.body || {};
-  if (!secret || secret !== REMOTE_SYNC_SECRET) {
-    return res.status(401).json({ error: 'Yetkisiz erişim' });
-  }
-  remotePushCache = { ...data, pushedAt: Date.now() };
-
-  // Gelen log girişlerini SSE ile canlı yayınla + logBuffer'a ekle
-  if (data.logs && Array.isArray(data.logs) && data.logs.length > 0) {
-    data.logs.forEach(log => {
-      logBuffer.push(log);
-      if (logBuffer.length > MAX_LOGS) logBuffer.shift();
-      const payload = `data: ${JSON.stringify(log)}\n\n`;
-      for (const client of logClients) client.res.write(payload);
-    });
-  }
-
-  // Gelen aktiviteyi SSE ile canlı yayınla
-  if (data.recentActivity && Array.isArray(data.recentActivity)) {
-    data.recentActivity.forEach(act => {
-      activityBuffer.unshift(act);
-      if (activityBuffer.length > MAX_ACTIVITY) activityBuffer.pop();
-      const payload = `data: ${JSON.stringify({ isActivity: true, ...act })}\n\n`;
-      for (const client of logClients) client.res.write(payload);
-    });
-  }
-
-  res.json({ ok: true, cachedAt: remotePushCache.pushedAt, logsReceived: (data.logs || []).length });
-});
-
-// ─── Push durumunu sorgulama ──────────────────────────────
-app.get('/api/sync-status', (req, res) => {
-  const cache = getRemoteCache();
-  res.json({
-    hasPush: !!cache,
-    pushedAt: cache ? cache.pushedAt : null,
-    pushedAgo: cache ? Math.round((Date.now() - cache.pushedAt) / 1000) + 's' : null,
-    connected: cache ? cache.connected : false,
-    syncEnabled: !!REMOTE_SYNC_SECRET
-  });
-});
 
 // Emulate store logic
 let authConnectionStatus = 'idle';
@@ -331,33 +258,18 @@ app.get('/api/status', async (req, res) => {
     }
   }
 
-  // Yerel bot bağlı değilse uzak push verisini kullan
-  const remoteCache = getRemoteCache();
-  const connected = liveBotConnected || (remoteCache ? remoteCache.connected : false);
-  const phone = liveBotPhone || sessionPhone || (remoteCache ? remoteCache.phone : null);
+  const connected = liveBotConnected;
+  const phone = liveBotPhone || sessionPhone;
 
-  // Runtime stats: yerel DB boşsa uzak cache'den al
-  if (!totalMessages && remoteCache && remoteCache.runtimeStats) {
-    totalMessages = remoteCache.runtimeStats.totalMessages || 0;
-    totalCommands = remoteCache.runtimeStats.totalCommands || 0;
-    activeUsers   = remoteCache.runtimeStats.activeUsers || 0;
-    managedGroups = remoteCache.runtimeStats.managedGroups || 0;
-  }
-
-  const uptimeSec = remoteCache && !liveBotConnected
-    ? (remoteCache.uptime || (Date.now() - dashboardStartTime) / 1000)
-    : (Date.now() - dashboardStartTime) / 1000;
-
-  const memStr = remoteCache && !liveBotConnected
-    ? (remoteCache.memory || Math.round(mem.heapUsed / 1024 / 1024) + " MB")
-    : Math.round(mem.heapUsed / 1024 / 1024) + " MB";
+  const uptimeSec = (Date.now() - dashboardStartTime) / 1000;
+  const memStr = Math.round(mem.heapUsed / 1024 / 1024) + " MB";
 
   res.json({
     bot: conf.BOT_NAME || "Lades-Pro",
     botName: conf.BOT_NAME || "Lades-Pro",
-    hasSession: isRegistered || (remoteCache ? remoteCache.hasSession : false),
+    hasSession: isRegistered,
     connected: connected,
-    hasStoredSession: hasStoredSession || (remoteCache ? remoteCache.hasStoredSession : false),
+    hasStoredSession: hasStoredSession,
     hasDb,
     phone: phone,
     uptime: uptimeSec,
@@ -367,10 +279,7 @@ app.get('/api/status', async (req, res) => {
     totalMessages,
     totalCommands,
     activeUsers,
-    managedGroups,
-    // Uzak senkronizasyon bilgisi
-    remoteSynced: !!remoteCache,
-    remoteSyncedAt: remoteCache ? remoteCache.pushedAt : null
+    managedGroups
   });
 });
 
@@ -542,15 +451,7 @@ async function loadRuntimeStats() {
 }
 
 app.get('/api/runtime-stats', async (req, res) => {
-  const local = await loadRuntimeStats();
-  // Yerel stats sıfırsa ve uzak cache varsa onu kullan
-  if (!local.totalMessages && !local.totalCommands) {
-    const remoteCache = getRemoteCache();
-    if (remoteCache && remoteCache.runtimeStats) {
-      return res.json({ ...remoteCache.runtimeStats, remoteSynced: true });
-    }
-  }
-  res.json(local);
+  res.json(await loadRuntimeStats());
 });
 
 app.get('/api/cmd-stats', async (req, res) => {

@@ -35,8 +35,8 @@ localPort = 5000
 externalPort = 80
 
 [deployment]
-deploymentTarget = "autoscale"
-run = ["node", "--no-warnings", "scripts/dashboard.js"]
+deploymentTarget = "vm"
+run = ["node", "--no-warnings", "--expose-gc", "--max-old-space-size=300", "index.js"]
 
 [postMerge]
 path = "scripts/post-merge.sh"
@@ -45,4 +45,3 @@ timeoutMs = 180000
 [userenv]
 
 [userenv.shared]
-ADMIN_PANEL_URL = "https://ladesprobotadmin.replit.app"

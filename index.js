@@ -25,7 +25,7 @@ const { BotManager } = require("./core/manager");
 const { suppressLibsignalLogs, startTempCleanup } = require("./core/yardimcilar");
 const { shutdownCache } = require("./core/db-cache");
 const { getAllGroups } = require("./core/store");
-const { setupDashboardBridge, getAndClearPendingLogs } = require("./core/dashboard-bridge");
+const { setupDashboardBridge } = require("./core/dashboard-bridge");
 
 async function checkSingleInstance() {
   try {
@@ -486,112 +486,6 @@ async function startSessionCleanup() {
     await manager.addSession("lades-session", { phoneNumber });
 
     setupDashboardBridge(manager, config);
-
-    // ─── Admin Panel Veri Senkronizasyonu ────────────────────
-    // Her 30 sn'de bir uzak admin panele veri iter.
-    // ADMIN_SYNC_SECRET ve ADMIN_PANEL_URL ortam değişkenleri gereklidir.
-    const ADMIN_PANEL_URL = process.env.ADMIN_PANEL_URL || null;
-    const ADMIN_SYNC_SECRET = process.env.ADMIN_SYNC_SECRET || null;
-
-    if (!ADMIN_SYNC_SECRET || !ADMIN_PANEL_URL) {
-      logger.info('[AdminSync] ADMIN_SYNC_SECRET veya ADMIN_PANEL_URL ayarlanmamış — senkronizasyon devre dışı.');
-    } else
-
-    scheduler.register('admin_panel_sync', async () => {
-      try {
-        const http = require('https');
-        const { BotMetrik, GrupAyar } = require('./core/database');
-
-        // Bot bağlantı durumu
-        const mgr = runtime.manager;
-        let connected = false;
-        let phone = null;
-        let hasSession = false;
-        try {
-          if (mgr) {
-            // manager.states: sessionId → "open"|"connecting"|"closed"
-            for (const [sessionId, state] of mgr.states) {
-              if (state === 'open') {
-                connected = true;
-                const sock = mgr.bots ? mgr.bots.get(sessionId) : null;
-                if (sock && sock.user && sock.user.id) {
-                  phone = sock.user.id.split(':')[0];
-                }
-                hasSession = true;
-                break;
-              }
-            }
-          }
-        } catch (e) { /* ignore */ }
-
-        // Runtime istatistikleri
-        let runtimeStats = {
-          totalMessages: runtime.metrics ? (runtime.metrics.messages || 0) : 0,
-          totalCommands: runtime.metrics ? (runtime.metrics.commands || 0) : 0,
-          activeUsers: runtime.metrics && runtime.metrics.users ? runtime.metrics.users.size : 0,
-          managedGroups: runtime.metrics && runtime.metrics.groups ? runtime.metrics.groups.size : 0
-        };
-
-        // DB'den kalıcı istatistikler
-        try {
-          const [msgM, cmdM, gCount] = await Promise.all([
-            BotMetrik.findByPk('total_messages'),
-            BotMetrik.findByPk('total_commands'),
-            GrupAyar.count()
-          ]);
-          if (msgM) runtimeStats.totalMessages = Math.max(runtimeStats.totalMessages, parseInt(msgM.value) || 0);
-          if (cmdM) runtimeStats.totalCommands = Math.max(runtimeStats.totalCommands, parseInt(cmdM.value) || 0);
-          if (gCount) runtimeStats.managedGroups = Math.max(runtimeStats.managedGroups, gCount);
-        } catch (e) { /* DB sorgusunda hata — mevcut değerleri kullan */ }
-
-        // Bellek & uptime
-        const mem = process.memoryUsage();
-        const memStr = Math.round(mem.heapUsed / 1024 / 1024) + ' MB';
-        const uptimeSec = Math.floor((Date.now() - runtime.startTime) / 1000);
-
-        // Son push'tan bu yana biriken logları al (tampon temizlenir)
-        const pendingLogs = getAndClearPendingLogs();
-
-        const payload = JSON.stringify({
-          secret: ADMIN_SYNC_SECRET,
-          connected,
-          phone,
-          hasSession,
-          hasStoredSession: hasSession,
-          uptime: uptimeSec,
-          memory: memStr,
-          runtimeStats,
-          logs: pendingLogs   // Son 30 sn'deki log girişleri
-        });
-
-        const url = new URL('/api/receive-push', ADMIN_PANEL_URL);
-        const options = {
-          hostname: url.hostname,
-          path: url.pathname,
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(payload)
-          },
-          timeout: 8000
-        };
-
-        await new Promise((resolve, reject) => {
-          const req = http.request(options, (res) => {
-            res.resume();
-            res.on('end', resolve);
-          });
-          req.on('error', reject);
-          req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
-          req.write(payload);
-          req.end();
-        });
-
-        logger.info(`[AdminSync] Veri gönderildi → ${ADMIN_PANEL_URL} (${connected ? 'BAĞLI' : 'çevrimdışı'})`);
-      } catch (e) {
-        logger.warn(`[AdminSync] Gönderilemedi: ${e.message}`);
-      }
-    }, 30 * 1000); // 30 saniye
 
     logger.info("Lades-Pro Aktif!");
   } catch (err) {

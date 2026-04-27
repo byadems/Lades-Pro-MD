@@ -9,14 +9,6 @@ const { getAllGroups } = require("./store");
 // setupDashboardBridge is called multiple times (e.g. during hot-restart flows).
 let _stdioHooked = false;
 
-// ─── Uzak admin paneline iletilecek log tamponu ───────────
-// admin_panel_sync zamanlayıcısı bu tamponu okuyup temizler.
-const _remotePendingLogs = [];
-const MAX_REMOTE_PENDING = 100;
-
-function getAndClearPendingLogs() {
-  return _remotePendingLogs.splice(0);
-}
 /**
  * setupDashboardBridge
  * Consolidates all IPC logic for the dashboard.
@@ -112,14 +104,6 @@ function setupDashboardBridge(manager, config) {
     // Skip very short strings, whitespace-only content, or internal key markers
     if (s.trim().length < 3 || s.includes('rootKey')) return;
     isLogging = true;
-
-    // Uzak admin paneli için log tamponu (push zamanlayıcısı okur)
-    const logEntry = {
-      time: new Date().toLocaleTimeString('tr-TR', { hour12: false }),
-      data: s.replace(/\x1B\[[0-9;]*[mK]/g, '').trim()
-    };
-    _remotePendingLogs.push(logEntry);
-    if (_remotePendingLogs.length > MAX_REMOTE_PENDING) _remotePendingLogs.shift();
 
     if (_dashboardRef && _dashboardRef.connected) {
       try { 
@@ -429,4 +413,4 @@ function setupDashboardBridge(manager, config) {
   return dashboard;
 }
 
-module.exports = { setupDashboardBridge, getAndClearPendingLogs };
+module.exports = { setupDashboardBridge };
