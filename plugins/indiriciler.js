@@ -2515,7 +2515,6 @@
               await message.client.sendMessage(message.jid, {
                 video: { url: result.url },
                 mimetype: "video/mp4",
-                caption: `_*${safeTitle}*_\n\n_Nexray Downloader_`,
               }, { quoted: message.data });
 
               await message.edit(

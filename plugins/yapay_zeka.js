@@ -1155,6 +1155,16 @@
     throw new Error("Veri alınamadı");
   }
 
+  function turkceHata(msg = "") {
+    const m = msg.toLowerCase();
+    if (m.includes("prompt") && (m.includes("required") || m.includes("non-empty"))) return "_Sunucu boş soru aldı. Lütfen soru yazıp tekrar deneyin._";
+    if (m.includes("all nodes failed")) return "_Sunucu şu an yanıt vermiyor, lütfen birkaç dakika sonra tekrar deneyin._";
+    if (m.includes("timeout") || m.includes("econnaborted")) return "_İstek zaman aşımına uğradı. Lütfen tekrar deneyin._";
+    if (m.includes("network") || m.includes("econnrefused") || m.includes("enotfound")) return "_Ağ bağlantısı hatası. Lütfen tekrar deneyin._";
+    if (m.includes("api yanıt vermedi") || m.includes("rate limit") || m.includes("429")) return "_Sunucu geçici olarak meşgul. Lütfen kısa bir süre bekleyip tekrar deneyin._";
+    return `_${msg}_`;
+  }
+
   // ══════════════════════════════════════════════════════
   // DuckAI Sohbet
   // ══════════════════════════════════════════════════════
@@ -1193,8 +1203,9 @@
     const text = (match[1] || "").trim() || message.reply_message?.text;
     if (!text) return await message.sendReply("⚠️ _Soru girin:_ `.deepseek Kuantum bilgisayar nedir?`");
 
+    let sent;
     try {
-      const sent = await message.sendReply("🧐 _DeepSeek düşünüyor..._");
+      sent = await message.sendReply("🧐 _DeepSeek düşünüyor..._");
       const data = await siputGet("/api/ai/deepseekr1", { text });
       const result = data.data || data.result;
       if (!result) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
@@ -1208,7 +1219,9 @@
       
       await message.edit(`🤖 *DeepSeek R1*\n\n${finalAnswer}`, message.jid, sent.key);
     } catch (e) {
-      await message.sendReply(`❌ *Hata:* _AI yanıtı alınamadı:_ ${e.message}`);
+      const errTr = turkceHata(e.message);
+      if (sent) await message.edit(`❌ *Hata:* ${errTr}`, message.jid, sent.key).catch(() => {});
+      else await message.sendReply(`❌ *Hata:* ${errTr}`);
     }
   });
 
@@ -1225,15 +1238,18 @@
     const text = (match[1] || "").trim() || message.reply_message?.text;
     if (!text) return await message.sendReply("⚠️ _Soru girin:_ `.llama Python ile merhaba dünya`");
 
+    let sent;
     try {
-      const sent = await message.sendReply("🧐 _Llama düşünüyor..._");
+      sent = await message.sendReply("🧐 _Llama düşünüyor..._");
       const data = await siputGet("/api/ai/llama33", { text });
       const result = data.data || data.result;
       if (!result) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
       const answer = typeof result === "string" ? result : result.text || result.answer || JSON.stringify(result);
       await message.edit(`🤖 *Llama 3.3*\n\n${answer}`, message.jid, sent.key);
     } catch (e) {
-      await message.sendReply(`❌ *Hata:* _AI yanıtı alınamadı:_ ${e.message}`);
+      const errTr = turkceHata(e.message);
+      if (sent) await message.edit(`❌ *Hata:* ${errTr}`, message.jid, sent.key).catch(() => {});
+      else await message.sendReply(`❌ *Hata:* ${errTr}`);
     }
   });
 
@@ -1250,15 +1266,18 @@
     const text = (match[1] || "").trim() || message.reply_message?.text;
     if (!text) return await message.sendReply("⚠️ _Soru girin:_ `.metaai Yapay zeka nedir?`");
 
+    let sent;
     try {
-      const sent = await message.sendReply("🧐 _Meta AI düşünüyor..._");
+      sent = await message.sendReply("🧐 _Meta AI düşünüyor..._");
       const data = await siputGet("/api/ai/metaai", { query: text });
       const result = data.data || data.result;
       if (!result) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
       const answer = typeof result === "string" ? result : result.text || result.answer || JSON.stringify(result);
       await message.edit(`🤖 *Meta YZ*\n\n${answer}`, message.jid, sent.key);
     } catch (e) {
-      await message.sendReply(`❌ *Hata:* _Meta YZ yanıtı alınamadı:_ ${e.message}`);
+      const errTr = turkceHata(e.message);
+      if (sent) await message.edit(`❌ *Hata:* ${errTr}`, message.jid, sent.key).catch(() => {});
+      else await message.sendReply(`❌ *Hata:* ${errTr}`);
     }
   });
 
@@ -1300,8 +1319,9 @@
     const text = (match[1] || "").trim() || message.reply_message?.text;
     if (!text) return await message.sendReply("_Soru girin:_ `.geminilite Dünya'nın çapı nedir?`");
 
+    let sent;
     try {
-      const sent = await message.sendReply("🧐 _Gemini düşünüyor..._");
+      sent = await message.sendReply("🧐 _Gemini düşünüyor..._");
       const data = await siputGet("/api/ai/gemini-lite", { text });
       const result = data.data || data.result;
       if (!result) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
@@ -1309,8 +1329,9 @@
       const answer = (result.parts && result.parts[0]?.text) || result.text || result.answer || (typeof result === "string" ? result : JSON.stringify(result));
       await message.edit(`🤖 *Gemini Lite*\n\n${answer}`, message.jid, sent.key);
     } catch (e) {
-      // Fallback or better error message
-      await message.sendReply(`❌ *Hata:* _YZ yanıtı alınamadı:_ ${e.message}`);
+      const errTr = turkceHata(e.message);
+      if (sent) await message.edit(`❌ *Hata:* ${errTr}`, message.jid, sent.key).catch(() => {});
+      else await message.sendReply(`❌ *Hata:* ${errTr}`);
     }
   });
 

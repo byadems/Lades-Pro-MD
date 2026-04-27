@@ -1396,64 +1396,47 @@
   });
 
   // ══════════════════════════════════════════════════════
-  // Rastgele Kedi Fotoğrafı
+  // Rastgele Kedi Çıkartması
   // ══════════════════════════════════════════════════════
   Module({
     pattern: "(?:kedi|randomkedi)",
     fromMe: false,
-    desc: "Rastgele bir kedi fotoğrafı gönderir.",
+    desc: "Rastgele bir kedi görselini çıkartmaya dönüştürür.",
     usage: ".kedi",
     use: "eglence",
   }, async (message) => {
+    const { sticker, addExif } = require("./utils");
+    const config = require("../config");
     try {
       let buf;
       try {
         buf = await siputGetBuffer("/api/r/cats");
-      } catch (e) {
-        // Fallback: TheCatAPI
+      } catch (_) {
         const res = await axios.get("https://api.thecatapi.com/v1/images/search");
         const url = res.data?.[0]?.url;
-        if (url) {
-          const imgRes = await axios.get(url, { responseType: "arraybuffer", timeout: 15000 });
-          buf = Buffer.from(imgRes.data);
-        } else {
-          throw new Error("Görsel URL bulunamadı");
-        }
+        if (!url) throw new Error("Görsel URL bulunamadı");
+        const imgRes = await axios.get(url, { responseType: "arraybuffer", timeout: 15000 });
+        buf = Buffer.from(imgRes.data);
       }
 
       if (!buf || buf.length < 500) throw new Error("Geçersiz görsel verisi");
 
-      await message.client.sendMessage(message.jid, {
-        image: buf,
-        caption: "*Miyav!* 🐾"
-      }, { quoted: message.data });
+      const packParts = (config.STICKER_DATA || "Lades-Pro;Lades-Pro").split(";");
+      const stickerBuf = await addExif(
+        await sticker(buf, false),
+        { packname: packParts[0] || "Lades-Pro", author: packParts[1] || "Lades-Pro" }
+      );
+
+      await message.client.sendMessage(
+        message.jid,
+        { sticker: stickerBuf },
+        { quoted: message.data }
+      );
     } catch (e) {
-      await message.sendReply(`❌ *Kedi fotoğrafı alınamadı!* \n\n*Hata:* ${e.message}`);
+      await message.sendReply(`❌ *Kedi çıkartması alınamadı!* \n\n*Hata:* ${e.message}`);
     }
   });
 
-  // ══════════════════════════════════════════════════════
-  // Anime Sözleri
-  // ══════════════════════════════════════════════════════
-  Module({
-    pattern: "animesoz",
-    fromMe: false,
-    desc: "Rastgele anime sözü gönderir.",
-    usage: ".animesoz",
-    use: "eglence",
-  }, async (message) => {
-    try {
-      const data = await siputGet("/api/r/quotesanime");
-      const r = Array.isArray(data.data) ? data.data[0] : (data.data || data.result);
-      if (!r) return await message.sendReply("❌ *Söz bulunamadı!*");
-
-      const quote = r.quotes || r.quote || r.text || (typeof r === "string" ? r : JSON.stringify(r));
-      const char = r.karakter || r.character || r.anime || "";
-      await message.sendReply(`*Anime Sözü*\n\n_"${quote}"_${char ? `\n\n— ${char}` : ""}`);
-    } catch (e) {
-      await message.sendReply(`❌ *Anime sözü alınamadı!* \n\n*Hata:* ${e.message}`);
-    }
-  });
 
   // ══════════════════════════════════════════════════════
   // Çeviri
