@@ -27,17 +27,17 @@ let _firstConnectDone = false; // loadPlugins + startSchedulers sadece 1 kez ça
 
 // Pre-warm: Bot başlar başlamaz queue'yu hazırla
 import('p-queue').then(({ default: PQueue }) => {
-  // concurrency: 3 — Paralel işleme
-  // intervalCap + interval: saniyede max 30 mesaj işle (burst engeli)
+  // concurrency: 6 — Paralel işleme (görsel indirme gibi ağır komutlar slotları uzun tutar)
+  // intervalCap + interval: saniyede max 50 mesaj işle (burst engeli)
   // throwOnTimeout: false — timeout'da hata fırlatma, sessizce geç
-  _queue = new PQueue({ concurrency: 3, intervalCap: 30, interval: 1000, throwOnTimeout: false });
+  _queue = new PQueue({ concurrency: 6, intervalCap: 50, interval: 1000, throwOnTimeout: false });
   _queueReady = true;
 }).catch(() => { /* fallback: create on demand */ });
 
 async function getMessageQueue() {
   if (_queue) return _queue;
   const { default: PQueue } = await import('p-queue');
-  _queue = new PQueue({ concurrency: 3, intervalCap: 30, interval: 1000, throwOnTimeout: false });
+  _queue = new PQueue({ concurrency: 6, intervalCap: 50, interval: 1000, throwOnTimeout: false });
   _queueReady = true;
   return _queue;
 }
@@ -982,7 +982,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
   // ── Message events ───────────────────────────────────
   // RAM KORUMA: Queue doluysa (200+ bekleyen görev) yeni mesajları düşür.
   // 60+ grupta burst mesajlarda heap'in sonsuz büyümesini engeller.
-  const MAX_QUEUE_SIZE = 200;
+  const MAX_QUEUE_SIZE = 500;
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify" && type !== "append") return;
