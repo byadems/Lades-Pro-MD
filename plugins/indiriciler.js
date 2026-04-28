@@ -1203,65 +1203,100 @@
         return await message.sendReply("_⚠️ Bir Instagram kullanıcı adı veya bağlantısı gerekli!_");
 
       const urls = extractUrls(userIdentifier);
+      const cleanUsername = String(userIdentifier).trim().replace(/^@/, "");
       userIdentifier = urls.length === 0
-        ? `https://instagram.com/stories/${userIdentifier}/`
+        ? `https://instagram.com/stories/${cleanUsername}/`
         : urls[0];
 
-      let storyData = [];
+      // Yardımcı: medya öğesini { url, isImage } haline getir
+      const normalizeMediaItem = (m) => {
+        if (!m) return null;
+        if (typeof m === "string") return { url: m, isImage: isMediaImage(m) };
+        // type: "video" / "image" / "jpg" / "mp4" gibi farklı şemalar
+        const url = m.video_url || m.url || m.thumbnail || m.src;
+        if (!url || typeof url !== "string") return null;
+        const t = String(m.type || "").toLowerCase();
+        let isImage;
+        if (t === "video" || t === "mp4" || m.video_url) isImage = false;
+        else if (t === "image" || t === "img" || t === "jpg" || t === "jpeg" || t === "png") isImage = true;
+        else isImage = isMediaImage(url);
+        return { url, isImage };
+      };
+
+      let mediaItems = [];
+
+      // 1) Birincil: Nexray /downloader/v2/instagram (her hikayeyi ayrı medya olarak verir)
       try {
-        // Öncelikli olarak hikaye (story) API'sini dene
-        const res = await story(userIdentifier);
-        if (Array.isArray(res)) {
-          storyData = res;
-        } else if (res && typeof res === 'object') {
-          storyData = res.urls || res.media || (res.url ? [res.url] : []);
+        const cleanUrl = userIdentifier.split("?")[0].replace(/\/$/, "");
+        const res = await axios.get(`https://api.nexray.web.id/downloader/v2/instagram`, {
+          params: { url: cleanUrl },
+          timeout: 30000,
+          validateStatus: () => true,
+        });
+        const r = res.data?.result;
+        if (res.data?.status && r?.media && Array.isArray(r.media)) {
+          // Stories endpoint'inde her öğe bağımsız bir hikayedir, hiçbirini eleme
+          mediaItems = r.media.map(normalizeMediaItem).filter(Boolean);
         }
+      } catch (_) { }
 
-        // Eğer sonuç yoksa genel Instagram indiriciyi dene
-        if (!storyData || storyData.length === 0) {
-          storyData = await downloadGram(userIdentifier);
-        }
-      } catch (e) {
-        // Hata durumunda genel indiriciyi fallback olarak kullan
+      // 2) Yedek: mevcut downloadInstagram (post içeriklerini de toplayabilir)
+      if (mediaItems.length === 0) {
         try {
-          storyData = await downloadGram(userIdentifier);
-        } catch (_) {
-          return await message.sendReply("❌ *Üzgünüm, hikayeler alınamadı!*");
-        }
+          const arr = await downloadGram(userIdentifier);
+          if (Array.isArray(arr)) mediaItems = arr.map(normalizeMediaItem).filter(Boolean);
+        } catch (_) { }
       }
-      if (!storyData || !storyData.length)
-        return await message.sendReply("❌ *Medya bulunamadı!*");
 
-      storyData = [...new Set(storyData)];
-      if (storyData.length === 1) {
-        const isImage = isMediaImage(storyData[0]);
-        const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
+      // 3) Son çare: kullanıcı adıyla v2/instagram (son gönderiler)
+      if (mediaItems.length === 0 && urls.length === 0) {
         try {
-          await saveToDisk(storyData[0], tempPath);
-          return await message.sendReply(
-            { [isImage ? "image" : "video"]: { url: tempPath } }
-          );
-        } finally {
-          cleanTempFile(tempPath);
-        }
+          const res = await axios.get(`https://api.nexray.web.id/downloader/v2/instagram`, {
+            params: { url: `https://www.instagram.com/${cleanUsername}/` },
+            timeout: 30000,
+            validateStatus: () => true,
+          });
+          const r = res.data?.result;
+          if (res.data?.status && r?.media && Array.isArray(r.media)) {
+            mediaItems = r.media.map(normalizeMediaItem).filter(Boolean);
+          }
+        } catch (_) { }
       }
-      const storyMatch = userIdentifier.match(/stories\/([A-Za-z0-9._]+)/i);
-      userIdentifier = storyMatch ? storyMatch[1] : userIdentifier;
-      await message.sendReply(`⏳ _${userIdentifier} kullanıcısının (${storyData.length} hikayesi iletiliyor...)_`, { quoted: message.data });
-      for (const storyMediaUrl of storyData) {
-        const isImage = isMediaImage(storyMediaUrl);
-        const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
+
+      if (!mediaItems.length) {
+        return await message.sendReply(
+          "❌ *Hikaye bulunamadı!*\n\n_Hesap gizli olabilir, son 24 saatte hikaye paylaşılmamış olabilir veya kullanıcı adı yanlış yazılmış olabilir._"
+        );
+      }
+
+      // Yinelenenleri at
+      const seen = new Set();
+      mediaItems = mediaItems.filter((it) => {
+        if (seen.has(it.url)) return false;
+        seen.add(it.url);
+        return true;
+      });
+
+      const displayName = cleanUsername;
+      if (mediaItems.length > 1) {
+        await message.sendReply(
+          `⏳ _${displayName} kullanıcısının ${mediaItems.length} hikayesi iletiliyor..._`,
+          { quoted: message.data }
+        );
+      }
+
+      for (const item of mediaItems) {
+        const tempPath = getTempPath(item.isImage ? ".jpg" : ".mp4");
         try {
-          await saveToDisk(storyMediaUrl, tempPath);
-          await message.sendReply({ [isImage ? "image" : "video"]: { url: tempPath } });
-          await new Promise(r => setTimeout(r, 1000));
+          await saveToDisk(item.url, tempPath);
+          await message.sendReply({ [item.isImage ? "image" : "video"]: { url: tempPath } });
+          if (mediaItems.length > 1) await new Promise(r => setTimeout(r, 800));
         } catch (err) {
-          console.error("Hikaye medyaları indirilemedi:", err);
+          console.error("Hikaye medyası indirilemedi:", err?.message);
         } finally {
           cleanTempFile(tempPath);
         }
       }
-      return;
     }
   );
 

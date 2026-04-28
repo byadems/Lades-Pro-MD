@@ -503,18 +503,13 @@ ${cmdmenu}`;
       const handlerPrefix = HANDLERS.match(/\[(\W*)\]/)?.[1]?.[0] || ".";
       let response = `*🎮 ───「 Mevcut Oyunlar 」───*\n\n`;
       response += `*🤖 Bot Oyunları:*\n`;
-      response += `• \`${handlerPrefix}bilmece\` - Bilmece sorar\n`;
-      response += `• \`${handlerPrefix}kimyasoru\` - Kimya sorusu\n`;
-      response += `• \`${handlerPrefix}beyin\` - IQ/Beyin sorusu\n`;
       response += `• \`${handlerPrefix}aşkölç\` - Aşk ölçer\n\n`;
 
       response += `*🏰 Özel Oyunlar:*\n`;
-      response += `• \`${handlerPrefix}bilgiyarismasi\` - Family 100 tarzı yarışma\n`;
-      response += `• \`${handlerPrefix}matoyun\` - Matematik sorusu\n`;
+      response += `• \`${handlerPrefix}matoyun\` - Matematik sorusu (yanıtla cevap ver)\n`;
       response += `• \`${handlerPrefix}gorseltahmin\` - Görsel tahmin\n`;
       response += `• \`${handlerPrefix}logotahmin\` - Logo tahmin\n`;
-      response += `• \`${handlerPrefix}bayraktahmin\` - Bayrak hangi ülkenin?\n`;
-      response += `• \`${handlerPrefix}bulmaca\` - Genel bulmaca\n`;
+      response += `• \`${handlerPrefix}bayraktahmin\` - Bayrak hangi ülkenin? (yanıtla cevap ver)\n`;
       response += `• \`${handlerPrefix}kelemediz\` - Harf dizmece\n`;
 
       await message.sendReply(response);
@@ -1155,9 +1150,6 @@ ${cmdmenu}`;
             "⏳ .gerisayım\nZaman hesabı yapar. Belirlediğiniz tarihe ne kadar kaldığını söyler.\n\n" +
             "⚡ .hıztesti\nİnternet hızınızı test eder.\n\n" +
             "❤️ .aşkölç\nAşk ölçer.\n\n" +
-            "🧠 .beyin\nBeyin oyunu.\n\n" +
-            "🤔 .bilmece\nBilmece sorar.\n\n" +
-            "🔬 .kimyasoru\nKimya sorusu sorar.\n\n" +
             "😂 .alay\nAlaycı mesaj oluşturur.\n\n" +
             "🐉 .dragonyazı\nDragon tarzı yazı yazdırır.\n\n" +
             "💫 .neonyazı\nNeon tarzı yazı yazdırır.\n\n" +
