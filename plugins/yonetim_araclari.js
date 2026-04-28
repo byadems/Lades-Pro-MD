@@ -1900,39 +1900,43 @@ Module({
         console.error("[ADMIN-CHECK] Error:", e);
       }
 
-      // ---------------- ANTI-SPAM SISTEMI ----------------
+      // ---------------- ANTI-SPAM SISTEMI (sliding window) ----------------
+      // Her kullanıcı için son 10 saniye içindeki mesaj timestamp'leri tutulur.
+      // Eski timestamp'ler her mesajda otomatik temizlenir → gerçek bir kayan
+      // pencere. Önceki tumbling window'da görülen "eski sayımın yeni teste
+      // bleed etmesi" (limit 10'ken 5 mesajda atma) sorunu bu sayede biter.
       if (isAntispamActive) {
         if (!global.spamMonitor) global.spamMonitor = new Map();
-        const spamKey = message.jid + "_" + message.sender;
-        let userData = global.spamMonitor.get(spamKey) || { count: 0, firstMessageAt: Date.now() };
-
+        const WINDOW_MS = 10_000;
+        // Sender'ın @lid / @s.whatsapp.net farkı ve cihaz suffix'i olabilir;
+        // sadece numerik kısmı anahtarla → aynı kişi için tek sayaç.
+        const senderNumeric = (message.sender || "").split("@")[0].split(":")[0];
+        const spamKey = `${message.jid}_${senderNumeric}`;
         const now = Date.now();
-        // 10 saniyelik pencere
-        if (now - userData.firstMessageAt > 10000) {
-          userData.count = 1;
-          userData.firstMessageAt = now;
-        } else {
-          userData.count += 1;
-        }
-        global.spamMonitor.set(spamKey, userData);
+
+        let timestamps = global.spamMonitor.get(spamKey) || [];
+        // Pencere dışında kalan eski mesajları at
+        timestamps = timestamps.filter(t => now - t <= WINDOW_MS);
+        timestamps.push(now);
+        global.spamMonitor.set(spamKey, timestamps);
 
         const { BotVariable } = require("../core/database");
         const limitStr = await BotVariable.get(`SPAMLIMIT_${message.jid}`, "10");
         const limit = parseInt(limitStr) || 10;
 
-        if (userData.count >= limit) {
-          // Atma işleminden sonra sayacı sıfırla ki peş peşe tetiklenmesin
+        if (timestamps.length >= limit) {
+          // Atma sonrası sayacı sıfırla → arka arkaya tetiklenmesin
           global.spamMonitor.delete(spamKey);
 
           if (botIsAdmin) {
             await message.client.sendMessage(message.jid, {
-              text: `🚨 *Anti-Spam Sistemi Devrede!*\n\n🚫 @${message.sender.split("@")[0]} kısa sürede çok fazla mesaj gönderdiği için gruptan uzaklaştırıldı.\n_(Limit: 10 saniyede ${limit} mesaj)_`,
+              text: `🚨 *Anti-Spam Sistemi Devrede!*\n\n🚫 @${senderNumeric} kısa sürede çok fazla mesaj gönderdiği için gruptan uzaklaştırıldı.\n_(Limit: 10 saniyede ${limit} mesaj)_`,
               mentions: [message.sender]
             });
             await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove");
           } else {
             await message.client.sendMessage(message.jid, {
-              text: `🚨 *Anti-Spam Tespit Edildi!*\n\n🚫 @${message.sender.split("@")[0]} spam yapıyor ancak yönetici olmadığım için gruptan atamıyorum!`,
+              text: `🚨 *Anti-Spam Tespit Edildi!*\n\n🚫 @${senderNumeric} spam yapıyor ancak yönetici olmadığım için gruptan atamıyorum!`,
               mentions: [message.sender]
             });
           }
