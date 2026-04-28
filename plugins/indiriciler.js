@@ -2498,7 +2498,8 @@
         }
       } else if (
         repliedText.includes("Yanıtlayın:") &&
-        repliedText.includes("* Ses")
+        /\bSes\b/i.test(repliedText) &&
+        /\bVideo\b/i.test(repliedText)
       ) {
         if (selectedNumber !== 1 && selectedNumber !== 2) {
           return await message.sendReply("🎬 _Ses için 1'i Video için 2'yi seçin_"

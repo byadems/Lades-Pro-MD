@@ -1227,23 +1227,43 @@
   });
 
   // ══════════════════════════════════════════════════════
-  // Çevrimiçi Durum Değiştirme
+  // Bio (Hakkımda) Yazma — WhatsApp profil durumu
   // ══════════════════════════════════════════════════════
   Module({
-    pattern: "durumyaz ?(.*)",
+    pattern: "bioyaz ?(.*)",
     fromMe: true,
-    desc: "Bot'un durum mesajını değiştirir.",
-    usage: ".durumyaz [mesaj]",
+    desc: "WhatsApp 'Hakkımda' bilgisini (bio) günceller.",
+    usage: ".bioyaz [metin]",
     use: "ayarlar",
   }, async (message, match) => {
     const text = (match[1] || "").trim();
-    if (!text) return await message.sendReply("💬 *Durum mesajı girin:* `.durumyaz Aktif!`");
+    if (!text) return await message.sendReply("💬 *Bio metni girin:* `.bioyaz Aktif!`");
+    if (text.length > 139) {
+      return await message.sendReply(`⚠️ *Bio en fazla 139 karakter olabilir!* \n_Girilen:_ ${text.length} karakter`);
+    }
 
     try {
-      await message.client.updateProfileStatus(text);
-      await message.sendReply(`✅ *Durum güncellendi:* *${text}*`);
+      const sock = message.client;
+      // Baileys updateProfileStatus -> WhatsApp 'About' alanı (bio)
+      if (typeof sock.updateProfileStatus !== "function") {
+        throw new Error("Baileys updateProfileStatus fonksiyonu mevcut değil");
+      }
+      await sock.updateProfileStatus(text);
+
+      // Doğrulama: Hemen geri okumaya çalış
+      let verified = "";
+      try {
+        if (typeof sock.fetchStatus === "function" && sock.user?.id) {
+          const me = sock.user.id;
+          const cur = await sock.fetchStatus(me);
+          const got = cur?.status || cur?.[0]?.status?.status;
+          if (got) verified = `\n\n_Şu anki:_ *${got}*`;
+        }
+      } catch (_) { }
+
+      await message.sendReply(`✅ *Bio güncellendi:* *${text}*${verified}`);
     } catch (e) {
-      await message.sendReply(`❌ *Durum güncellenemedi!* \n\n*Hata:* ${e.message}`);
+      await message.sendReply(`❌ *Bio güncellenemedi!* \n\n*Hata:* ${e.message}`);
     }
   });
 

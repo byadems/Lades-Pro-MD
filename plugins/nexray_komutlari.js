@@ -578,15 +578,17 @@ Module({
       text = message.reply_message.text || "";
     }
     if (!text) return await message.sendReply("⚠️ *Rüyanızı anlatın!* \n\n💬 *Kullanım:* \`.rüya Gökyüzünde koşuyordum\`");
+    let sent;
     try {
-      const sent = await message.send("🙂‍↔️ _Rüyanız yorumlanıyor..._");
+      sent = await message.sendReply("🌙 _Rüyanız yorumlanıyor..._");
       const result = await nexGet(`/ai/dreamanalyze?text=${encodeURIComponent(text)}`);
       if (!result) throw new Error("Yorum alınamadı");
-      const interpretation = typeof result === "string" ? result : JSON.stringify(result);
-      await message.edit("🌙 *Rüya Yorumu*", message.jid, sent.key);
-      await message.sendReply(`🌙 *Rüya Yorumu*\n\n💭 _"${text.substring(0, 100)}${text.length > 100 ? "..." : ""}"_\n\n🔮 ${interpretation}`);
+      const interpretation = typeof result === "string" ? result : (result.interpretation || result.result || JSON.stringify(result));
+      await message.edit(`🌙 *Rüya Yorumu*\n\n🔮 ${interpretation}`, message.jid, sent.key);
     } catch (e) {
-      await message.sendReply(`❌ *Rüya yorumlanamadı:* \n\n${e.message}`);
+      const errText = `❌ *Rüya yorumlanamadı:* ${e.message}`;
+      if (sent) await message.edit(errText, message.jid, sent.key);
+      else await message.sendReply(errText);
     }
   }
 );
@@ -1268,23 +1270,39 @@ Module({
     if (!url) return await message.sendReply("⚠️ *YouTube bağlantısı girin!* \n\n💬 *Kullanım:* \`.ytaltyazı https://youtube.com/watch?v=...\`");
     if (!url.startsWith("http")) url = "https://" + url;
 
+    let sent;
     try {
-      const sent = await message.sendReply("📝 _Transkript alınıyor..._");
-      const result = await nexGet(`/tools/yt-transcribe?url=${encodeURIComponent(url)}`, { timeout: 90000 });
-      await message.edit("✅ *Transkript alındı!*", message.jid, sent.key);
+      sent = await message.sendReply("📝 _Transkript alınıyor..._");
 
-      if (result?.transcript) {
-        const transcript = result.transcript.length > 3000 ?
-          result.transcript.substring(0, 3000) + "\n..." :
-          result.transcript;
-        await message.sendReply(`📝 *Transkript*\n\n${transcript}`);
-      } else if (typeof result === "string") {
-        await message.sendReply(result);
+      // Nexray API'sini doğrudan çağır (nexGet sadece `result` alanını
+      // anlıyor, transkript endpointi ise `data.transcript` döndürüyor)
+      const res = await axios.get(
+        `${BASE}/tools/yt-transcribe?url=${encodeURIComponent(url)}`,
+        { timeout: 90000, validateStatus: () => true }
+      );
+      const payload = res.data || {};
+      const transcript =
+        payload?.data?.transcript ||
+        payload?.result?.transcript ||
+        payload?.transcript ||
+        (typeof payload === "string" ? payload : "");
+
+      if (transcript && transcript.trim().length > 0) {
+        const out = transcript.length > 3000
+          ? transcript.substring(0, 3000) + "\n..."
+          : transcript;
+        await message.edit(`📝 *Transkript*\n\n${out}`, message.jid, sent.key);
       } else {
-        await message.sendReply("❌ *Transkript bulunamadı!*");
+        const errMsg = payload?.error || payload?.message || "Bu video için transkript bulunamadı.";
+        await message.edit(`❌ *Transkript alınamadı:* ${errMsg}`, message.jid, sent.key);
       }
     } catch (e) {
-      await message.sendReply(`❌ *Transkript alınamadı:* \n\n${e.message}`);
+      const errText = `❌ *Transkript alınamadı:* ${e.message}`;
+      if (sent) {
+        await message.edit(errText, message.jid, sent.key);
+      } else {
+        await message.sendReply(errText);
+      }
     }
   }
 );

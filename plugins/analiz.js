@@ -216,7 +216,21 @@ Module({
     if (!uid) return await message.sendReply("🎮 _Free Fire oyuncu numarası girin:_ `.freefire 1234567890`");
 
     try {
-      const result = await nexGet(`/stalker/freefire?uid=${encodeURIComponent(uid)}`);
+      let result;
+      try {
+        result = await nexGet(`/stalker/freefire?uid=${encodeURIComponent(uid)}`);
+      } catch (err) {
+        // 5xx (özellikle 523 = upstream Free Fire sunucusu kapalı) durumunda
+        // anlamlı bir Türkçe mesaj göster
+        const msg = String(err.message || "");
+        if (/5\d\d/.test(msg) || /status code 5\d\d/i.test(msg)) {
+          return await message.sendReply(
+            "❌ *Free Fire sunucularına şu an ulaşılamıyor!*\n\n" +
+            "_Garena tarafındaki sorgu servisi geçici olarak yanıt vermiyor (HTTP 523). Lütfen birkaç dakika sonra tekrar deneyin._"
+          );
+        }
+        throw err;
+      }
       if (!result) return await message.sendReply("❌ *Oyuncu bulunamadı!*");
 
       const caption =
@@ -324,13 +338,19 @@ Module({
       const result = await nexGet(`/stalker/mlbb?id=${encodeURIComponent(id)}&zone=${encodeURIComponent(zone)}`);
       if (!result) return await message.sendReply("❌ *Oyuncu bulunamadı!*");
 
+      // API alan isimleri tutarsız: nickname/username/name; region/server vs.
+      const nick = result.nickname || result.username || result.name;
+      const region = result.region || result.country || result.server;
+
       const caption =
         `🎮 *Mobile Legends Bilgileri*\n\n` +
-        (result.nickname ? `📛 *Nick:* ${result.nickname}\n` : "") +
+        (nick ? `📛 *Nick:* ${nick}\n` : "") +
         (result.level ? `⭐ *Seviye:* ${result.level}\n` : "") +
         (result.rank ? `🏆 *Rank:* ${result.rank}\n` : "") +
         (result.hero ? `🦸 *Ana Hero:* ${result.hero}\n` : "") +
-        (result.id ? `🆔 *ID:* ${result.id}\n` : "");
+        (region ? `🌍 *Bölge:* ${region}\n` : "") +
+        (result.id ? `🆔 *ID:* ${result.id}\n` : "") +
+        (result.zone ? `🗺️ *Zone:* ${result.zone}\n` : "");
 
       const avatar = result.avatar || result.profile_pic || result.profile_pic_url || result.headshot || result.profilePic || result.profile_image || result.profile_image_url || result.image_url || result.image || result.thumbnail;
       if (avatar) {
@@ -384,7 +404,32 @@ Module({
         `📥 *Takip:* ${following_str ?? "-"}\n` +
         `✅ *Doğrulanmış:* ${verified_str}`;
 
-      const avatar = result.avatar?.headshotUrl || result.avatar?.imageUrl || result.avatar || result.profile_pic_url || result.thumbnail || result.headshot || result.profile_pic || result.profilePic || result.profile_image || result.profile_image_url || result.image_url || result.image;
+      // Roblox avatarı iç içe yapıda geliyor: avatar.headshot.data[0].imageUrl
+      const av = result.avatar || {};
+      let avatar = null;
+      const candidates = [
+        av?.headshot?.data?.[0]?.imageUrl,
+        av?.bust?.data?.[0]?.imageUrl,
+        av?.fullBody?.data?.[0]?.imageUrl,
+        av?.headshotUrl,
+        av?.imageUrl,
+        result.profile_pic_url,
+        result.thumbnail,
+        result.headshot,
+        result.profile_pic,
+        result.profilePic,
+        result.profile_image,
+        result.profile_image_url,
+        result.image_url,
+        result.image,
+      ];
+      for (const c of candidates) {
+        if (typeof c === "string" && c.startsWith("http")) {
+          avatar = c;
+          break;
+        }
+      }
+
       if (avatar) {
         await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
       } else {
