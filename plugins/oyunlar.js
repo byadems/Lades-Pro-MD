@@ -147,44 +147,6 @@
     }
   });
 
-  // ══════════════════════════════════════════════════════
-  // Görsel Tahmin Oyunu
-  // ══════════════════════════════════════════════════════
-  Module({
-    pattern: "gorseltahmin",
-    fromMe: false,
-    desc: "Görsel tahmin oyunu. Görseldeki nesneyi tahmin edin.",
-    usage: ".gorseltahmin",
-    use: "oyun",
-  }, async (message) => {
-    try {
-      const data = await siputGet("/api/games/tebakgambar");
-      const r = data.data || data.result;
-      if (!r) return await message.sendReply("❌ *Soru alınamadı!*");
-
-      const imageUrl = r.img || r.image || r.url;
-      const answer = r.jawaban || r.answer;
-
-      if (!global._guessAnswers) global._guessAnswers = new Map();
-      global._guessAnswers.set(message.jid, {
-        answer: String(answer).toLowerCase(),
-        expires: Date.now() + 60000
-      });
-
-      if (imageUrl) {
-        await message.client.sendMessage(message.jid, {
-          image: { url: imageUrl },
-          caption: `🧩 *Görsel Tahmin Oyunu*\n\n_Bu görseldeki nesneyi tahmin edin!_\n⏳ _60 saniye içinde "tahmin [yanıt]" yazın._`
-        }, { quoted: message.data });
-      } else {
-        const desc = r.deskripsi || r.description || r.soal;
-        await message.sendReply(`🧩 *Görsel Tahmin*\n\n_İpucu:_ ${desc}\n\n⏳ _"tahmin [yanıt]" yazın._`);
-      }
-    } catch (e) {
-      await message.sendReply(`❌ *Oyun başlatılamadı!* \n\n*Hata:* ${e.message}`);
-    }
-  });
-
   Module({
     pattern: "tahmin ?(.*)",
     fromMe: false,
@@ -206,41 +168,6 @@
       await message.sendReply("✅ *Doğru cevap! Tebrikler!*");
     } else {
       await message.sendReply("❌ *Yanlış cevap!* _Tekrar deneyin._");
-    }
-  });
-
-  // ══════════════════════════════════════════════════════
-  // Logo Tahmin
-  // ══════════════════════════════════════════════════════
-  Module({
-    pattern: "logotahmin",
-    fromMe: false,
-    desc: "Logo tahmin oyunu.",
-    usage: ".logotahmin",
-    use: "oyun",
-  }, async (message) => {
-    try {
-      const data = await siputGet("/api/games/tebaklogo");
-      const r = data.data || data.result;
-      if (!r) return await message.sendReply("❌ *Soru alınamadı!*");
-
-      const imageUrl = r.img || r.image || r.url;
-      const answer = r.jawaban || r.answer;
-
-      if (!global._guessAnswers) global._guessAnswers = new Map();
-      global._guessAnswers.set(message.jid, {
-        answer: String(answer).toLowerCase(),
-        expires: Date.now() + 60000
-      });
-
-      if (imageUrl) {
-        await message.client.sendMessage(message.jid, {
-          image: { url: imageUrl },
-          caption: `🏢 *Logo Tahmin Oyunu*\n\n_Bu logoyu tahmin edin!_\n⏳ _60 saniye içinde "tahmin [yanıt]" yazın._`
-        }, { quoted: message.data });
-      }
-    } catch (e) {
-      await message.sendReply(`❌ *Oyun başlatılamadı!* \n\n*Hata:* ${e.message}`);
     }
   });
 
@@ -656,25 +583,6 @@
         if (!text) return await message.sendReply("🖊️ _Metin girin:_ `.grafitiyazı LADES`");
         try {
           const buf = await nx(`/textpro/write-graffiti?text=${encodeURIComponent(text)}`, { buffer: true });
-          await message.client.sendMessage(message.jid, { image: buf }, { quoted: message.data });
-        } catch (e) {
-          await message.sendReply(`❌ *Görsel oluşturulamadı:* \n\n${e.message}`);
-        }
-      }
-    );
-
-    Module({
-      pattern: "devilyazı ?(.*)",
-      fromMe: false,
-      desc: "Yazdığınız metni şeytan kanatları temalı karanlık bir logoya dönüştürür.",
-      usage: ".devilyazı [metin]",
-      use: "düzenleme",
-    },
-      async (message, match) => {
-        const text = trToEn((match[1] || "").trim());
-        if (!text) return await message.sendReply("😈 _Metin girin:_ `.devilyazı LADES`");
-        try {
-          const buf = await nx(`/textpro/devil-wings?text=${encodeURIComponent(text)}`, { buffer: true });
           await message.client.sendMessage(message.jid, { image: buf }, { quoted: message.data });
         } catch (e) {
           await message.sendReply(`❌ *Görsel oluşturulamadı:* \n\n${e.message}`);

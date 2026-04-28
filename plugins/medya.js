@@ -1080,9 +1080,9 @@
     try {
       wait = await message.send("⏳ _İşliyorum..._");
       const imgPath = await message.reply_message.download();
-      const upload = await uploadToImgbb(imgPath);
-      const url = upload?.url || upload?.display_url || (upload?.image && (upload.image.url || upload.image.display_url)) || (typeof upload === "string" ? upload : null);
-      if (!url || url.includes("hata")) throw new Error("Görsel yüklenemedi");
+      const catResult = await uploadToCatbox(imgPath);
+      const url = catResult?.url;
+      if (!url || url.includes("hata") || url.includes("_Dosya")) throw new Error("Görsel yüklenemedi");
 
       await message.edit("🎨 _Efekti uyguluyorum..._", message.jid, wait.key);
 
@@ -1680,7 +1680,7 @@
       const finalContent = replyText || text;
 
       try {
-        if (!id || id > 33 || id < 1) {
+        if (!id || id > 34 || id < 1) {
           // ID yoksa veya geçersizse tüm listeyi göster
           return await message.sendReply(fancy.list(finalContent || "Lades-Pro", fancy));
         }
@@ -1703,6 +1703,7 @@
     webp2mp4,
     addID3,
     getBuffer,
+    nx,
     uploadToImgbb,
     uploadToCatbox,
   } = require("./utils");
@@ -1714,7 +1715,7 @@
     pattern: "take ?(.*)",
     fromMe: false,
     desc: "Yanıtladığınız çıkartma veya ses dosyasının paket adını ve yazar bilgilerini günceller.",
-    usage: ".take [paket];[yazar]",
+    usage: ".take [paket];[yazar]\n📌 *Çıkartma için:* `.take PaketAdı;YazarAdı` — yanıtladığınız çıkartmanın paket ve yazar bilgisini günceller.\n📌 *Ses için:* `.take BaşlıkAdı;SanatçıAdı;kapak_url` — yanıtladığınız ses dosyasına başlık, sanatçı ve kapak ekler.\n📌 *Bilgi girilmezse* config'deki varsayılan STICKER_DATA / AUDIO_DATA kullanılır.",
     use: "medya",
   },
     async (m, match) => {
@@ -1803,32 +1804,33 @@
     }
   );
   Module({
-    pattern: "mp4 ?(.*)",
+    pattern: "gif ?(.*)",
     fromMe: false,
-    desc: "Hareketli çıkartmaları MP4 video formatına dönüştürür.",
-    usage: ".mp4 [yanıtla]",
+    desc: "Hareketli çıkartmaları GIF formatına dönüştürür.",
+    usage: ".gif [yanıtla]",
     use: "medya",
   },
     async (m, t) => {
-      if (m.reply_message.sticker) {
-        const q = await m.reply_message.download("buffer");
-        const { getTempPath } = require("../core/yardimcilar");
-        const outPath = getTempPath("converted.mp4");
-        try {
-          await webp2mp4(q, outPath);
-        } catch (e) {
-          console.log("Take hatası (.mp4):", e);
-          return await m.sendReply(`*❌ Hareketli çıkartma videoya dönüştürülemedi. Hata:* ${e.message}`);
+      if (!m.reply_message?.sticker) return await m.sendReply("_💬 Hareketli bir çıkartmayı yanıtlayın!_");
+      const wait = await m.sendReply("⏳ _Dönüştürülüyor..._");
+      try {
+        const stickerPath = await m.reply_message.download();
+        const catResult = await uploadToCatbox(stickerPath);
+        if (!catResult?.url || catResult.url.includes("hata") || catResult.url.includes("_Dosya")) {
+          throw new Error("Çıkartma yüklenemedi");
         }
+        const gifBuf = await nx(`/tools/webp2mp4?url=${encodeURIComponent(catResult.url)}`, { buffer: true, timeout: 60000 });
+        if (!gifBuf || gifBuf.length < 500) throw new Error("Dönüştürme başarısız oldu");
         await m.client.sendMessage(
           m.jid,
-          {
-            document: await fs.promises.readFile(outPath),
-            mimetype: "video/mp4",
-          },
+          { video: gifBuf, gifPlayback: true, mimetype: "video/mp4" },
           { quoted: m.quoted }
         );
-      } else return await m.sendReply("_💬 Hareketli bir çıkartmayı yanıtlayın!_");
+        await m.edit("✅ *GIF oluşturuldu!*", m.jid, wait.key);
+      } catch (e) {
+        console.log("GIF dönüştürme hatası:", e);
+        await m.edit(`❌ *GIF oluşturulamadı. Hata:* ${e.message}`, m.jid, wait.key);
+      }
     }
   );
 
@@ -1840,19 +1842,24 @@
     use: "medya",
   },
     async (m, match) => {
-      let result;
-      if (m.reply_message?.image || m.reply_message?.sticker) {
-        let q = await m.reply_message.download();
-        result = await uploadToImgbb(q);
-        return await m.sendReply(result.url);
-      } else if (
-        m.reply_message?.video ||
-        m.reply_message?.document ||
-        m.reply_message?.audio
-      ) {
-        let q = await m.reply_message.download();
-        result = await uploadToCatbox(q);
-        return await m.sendReply(result.url);
+      const hasMedia = m.reply_message?.image || m.reply_message?.sticker ||
+        m.reply_message?.video || m.reply_message?.document || m.reply_message?.audio;
+      if (!hasMedia) return await m.sendReply("_📎 Bir görsel, video, ses veya belgeyi yanıtlayın_");
+      const wait = await m.sendReply("⏳ _Yükleniyor..._");
+      try {
+        let url;
+        const q = await m.reply_message.download();
+        if (m.reply_message?.image || m.reply_message?.sticker) {
+          const res = await uploadToCatbox(q);
+          url = res?.url;
+        } else {
+          const res = await uploadToCatbox(q);
+          url = res?.url;
+        }
+        if (!url || url.includes("hata") || url.includes("_Dosya")) throw new Error("Dosya yüklenemedi");
+        await m.edit(`🔗 *Bağlantı:*\n${url}`, m.jid, wait.key);
+      } catch (e) {
+        await m.edit(`❌ *Yükleme başarısız!* \n\n*Hata:* ${e.message}`, m.jid, wait.key);
       }
     }
   );

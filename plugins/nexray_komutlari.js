@@ -1187,66 +1187,41 @@ Module({
   pattern: "maviyüz ?(.*)",
   fromMe: false,
   desc: "Verilen fotoğrafı mavi plan tarzında işler.",
-  usage: ".maviyüz [fotoğraf bağlantısı]",
+  usage: ".maviyüz [yanıtla veya bağlantı]",
   use: "düzenleme",
 },
   async (message, match) => {
     let url = (match[1] || "").trim();
-    if (!url && message.reply_message?.image) {
-      url = "reply";
-    }
+    const isImg = (message.reply_message?.mimetype || "").startsWith("image/");
+
     if (!url && message.reply_message?.text) {
       const m = message.reply_message.text.match(/https?:\/\/\S+/);
       if (m) url = m[0];
     }
-    if (!url) return await message.sendReply("🟦 _Fotoğraf bağlantısı girin veya bir fotoğrafı yanıtlayın:_ `.maviyüz <bağlantı>`");
-    if (!url) return await message.sendReply("🆙 _Fotoğraf bağlantısı girin veya bir fotoğrafı yanıtlayın:_ `.remini <bağlantı>`");
-    if (!url) return await message.sendReply("🎵 _Müzik bağlantısı girin veya bir ses dosyasını yanıtlayın:_ `.vokalsil <bağlantı>`");
-    if (!url) return await message.sendReply("📤 _Görsel bağlantısı girin veya bir fotoğrafı yanıtlayın:_ `.tgçıkartma <bağlantı>`");
-    if (!url) return await message.sendReply("🔍 _Fotoğraf bağlantısı girin veya bir fotoğrafı yanıtlayın:_ `.netleştir <bağlantı>`");
-    if (!url) return await message.sendReply("🎵 _Ses/video bağlantısı girin veya bir medyayı yanıtlayın:_ `.whatmusic <bağlantı>`");
 
+    if (!url && !isImg) {
+      return await message.sendReply("🟦 _Fotoğraf bağlantısı girin veya bir fotoğrafı yanıtlayın:_ `.maviyüz <bağlantı>`");
+    }
+
+    const wait = await message.sendReply("⏳ _İşleniyor..._");
     try {
-      let mediaUrl = url;
-      let sentMsg;
-      if (url === "reply_audio" && message.reply_message?.audio) {
-        const media = await message.client.downloadMediaMessage(message.reply_message.message);
-        if (media) {
-          const tempPath = getTempPath(".mp3");
-          await saveToDisk(media, tempPath);
-          sentMsg = await message.sendReply("📤 _Ses dosyasını indiriyorum..._");
-          mediaUrl = await uploadMedia(tempPath, "audio");
-          cleanTempFile(tempPath);
+      if (!url && isImg) {
+        const imgPath = await message.reply_message.download();
+        const catResult = await uploadToCatbox(imgPath);
+        if (!catResult?.url || catResult.url.includes("hata") || catResult.url.includes("_Dosya")) {
+          throw new Error("Görsel yüklenemedi");
         }
-      } else if (url === "reply_video" && message.reply_message?.video) {
-        const media = await message.client.downloadMediaMessage(message.reply_message.message);
-        if (media) {
-          const tempPath = getTempPath(".mp4");
-          await saveToDisk(media, tempPath);
-          sentMsg = await message.sendReply("📤 _Video dosyasını indiriyorum..._");
-          mediaUrl = await uploadMedia(tempPath, "video");
-          cleanTempFile(tempPath);
-        }
+        url = catResult.url;
       }
 
-      if (!sentMsg) sentMsg = await message.sendReply("🎵 _Müziği tanıyorum..._");
-      else await message.edit("🎵 _Müziği dinliyorum..._", message.jid, sentMsg.key);
-      const result = await nexGet(`/tools/whatsmusic?url=${encodeURIComponent(mediaUrl)}`, { timeout: 60000 });
-      await message.edit("✅ *Müzik bulundu!*", message.jid, sentMsg.key);
+      await message.edit("🎨 _Efekt uygulanıyor..._", message.jid, wait.key);
+      const buf = await nexGet(`/photo/blueface?url=${encodeURIComponent(url)}`, { buffer: true, timeout: 60000 });
+      if (!buf || buf.length < 500) throw new Error("Efekt uygulanamadı, API yanıt vermedi");
 
-      if (result) {
-        const info = typeof result === "string" ? result :
-          `🎵 *Müzik Bilgisi*\n\n` +
-          (result.title ? `🎤 Şarkı: ${result.title}\n` : "") +
-          (result.artist ? `👤 Sanatçı: ${result.artist}\n` : "") +
-          (result.album ? `💿 Albüm: ${result.album}\n` : "") +
-          (result.year ? `📅 Yıl: ${result.year}\n` : "");
-        await message.sendReply(info);
-      } else {
-        await message.sendReply("❌ *Müzik bulunamadı!*");
-      }
+      await message.edit("✅ *Mavi yüz efekti uygulandı!*", message.jid, wait.key);
+      await message.client.sendMessage(message.jid, { image: buf, caption: "🟦" }, { quoted: message.data });
     } catch (e) {
-      await message.sendReply(`❌ *Müzik tanınamadı:* \n\n${e.message}`);
+      await message.edit(`❌ *Efekt uygulanamadı:* \n\n${e.message}`, message.jid, wait.key);
     }
   }
 );
