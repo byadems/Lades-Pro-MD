@@ -2143,44 +2143,6 @@ Module({
   }
 );
 
-Module({
-  pattern: "otogoruldu ?(.*)",
-  fromMe: true,
-  desc: "Gelen mesajları otomatik olarak okundu (mavi tik) işaretlemeyi yönetir.",
-  usage: ".otogörüldü [aç/kapat]",
-  use: "yonetim",
-},
-  async (message, match) => {
-    const sub = (match[1] || "").trim().toLowerCase();
-    const enabled = await BotVariable.get("AUTO_READ_ENABLED", "false") === "true";
-
-    if (!sub) {
-      return await message.sendReply(
-        `👁️ *Oto-Görüldü Durumu*\n\n` +
-        `• *Otomatik okundu:* ${enabled ? "Açık ✅" : "Kapalı ❌"}\n\n` +
-        `_Kullanım:_\n` +
-        `• \`.otogörüldü aç\` — gelen mesajları otomatik okundu işaretle\n` +
-        `• \`.otogörüldü kapat\` — otomatik okunduyu kapat`
-      );
-    }
-
-    if (sub === "aç" || sub === "ac") {
-      await BotVariable.set("AUTO_READ_ENABLED", "true");
-      return await message.sendReply("✅ *Oto-Görüldü açıldı!*\n\nℹ️ _Bot artık tüm gelen mesajları otomatik okundu olarak işaretleyecek._");
-    }
-
-    if (sub === "kapat") {
-      await BotVariable.set("AUTO_READ_ENABLED", "false");
-      return await message.sendReply("❌ *Oto-Görüldü kapatıldı!*");
-    }
-
-    return await message.sendReply(
-      `❌ *Geçersiz seçenek!*\n\n` +
-      `ℹ️ _Kullanım:_ \`.otogörüldü aç/kapat\``
-    );
-  }
-);
-
 module.exports = {
   containsDisallowedWords,
   setVar,
