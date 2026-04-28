@@ -43,6 +43,25 @@ async function getAutoStatusState() {
   }
   return _autoStatus;
 }
+
+// ─── Oto-Görüldü (Auto Read) in-memory state ────────────────────────────────
+const _autoRead = { enabled: false, lastRefresh: 0 };
+const AUTO_READ_REFRESH_MS = 2 * 60 * 1000;
+
+async function _refreshAutoReadState() {
+  try {
+    const v = await BotVariable.get("AUTO_READ_ENABLED", "false");
+    _autoRead.enabled = v === "true";
+    _autoRead.lastRefresh = Date.now();
+  } catch { /* DB hazır değilse mevcut durumu koru */ }
+}
+
+async function getAutoReadState() {
+  if (Date.now() - _autoRead.lastRefresh > AUTO_READ_REFRESH_MS) {
+    await _refreshAutoReadState();
+  }
+  return _autoRead;
+}
 // ── PQueue: module-level başlat (lazy async init overhead'i önce)
 let _queue = null;
 let _queueReady = false;
@@ -1286,6 +1305,16 @@ async function createBot(sessionId = "lades-session", options = {}) {
           logger.debug({ jid, ts }, "[MsgFilter] 5dk+ eski mesaj atlandı");
           continue;
         }
+      }
+
+      // ── OTO-GÖRÜLDÜ (AUTO READ): tüm gelen mesajları okundu işaretle ──────
+      try {
+        const autoRd = await getAutoReadState();
+        if (autoRd.enabled && type === "notify" && !msg.key?.fromMe) {
+          sock.readMessages([msg.key]).catch(() => {});
+        }
+      } catch (e) {
+        logger.debug({ err: e?.message }, "[OtoGörüldü] Okundu işaretleme hatası");
       }
 
       const isChannelJid = jid.endsWith('@newsletter');

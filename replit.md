@@ -73,3 +73,7 @@ The Replit workflow runs `PORT=5000 node --no-warnings --expose-gc --max-old-spa
 - **`plugins/utils/grupstat.js`** (yeni): In-memory günlük mesaj sayacı. `countMessage`, `getGroupStats`, `getTotalToday`, `getUserStats` API'leri. `core/bot.js`'den grup mesajlarında çağrılır.
 - **`plugins/grup_istatistikleri.js`** (yeni): `.grupistatistikleri` (top 5 aktif üye, toplam mesaj, aktivite yüzdesi) ve `.aktivitem` (kişisel sıralama + yüzde). Sadece gruplarda çalışır. `groupMetadata` ile katılımcı adı çözümleme (fallback: numara).
 - **`oyunlar.js` sözdizim düzeltmesi**: Önceki oturumda eklenen `sihirlikure/adamasmaca` bloğu fazladan `})();` kapanması bırakmıştı; giderildi.
+
+## Recent Additions (2026-04-28 — `.ayarlar` Menüsü Yeniden Düzenlendi)
+- **`.ayarlar` menüsü komut tabanlı**: `plugins/yonetim_araclari.js`'de menü artık numara yerine doğrudan komut adlarını listeler (`.antispam`, `.antisilme`, `.antibağlantı`, `.antikelime`, `.antinumara`, `.otogörüldü`). Numerik seçim (`.ayarlar 1`) ve "1=Aç / 2=Kapat" yanıt akışı tamamen kaldırıldı; alıntı yanıt dinleyicisi (`text` event handler içindeki üç blok) silindi.
+- **`.otogörüldü` (Auto Read Receipts)**: Yeni `BotVariable` toggle (`AUTO_READ_ENABLED`). Hem `.otogörüldü aç/kapat` standalone komutu hem de `.ayarlar` menüsünden erişilebilir. `core/bot.js`'de `messages.upsert` döngüsünde 2dk DB cache'li (`getAutoReadState`); `notify` tipinde olup `fromMe` olmayan tüm gelen mesajları `sock.readMessages([msg.key])` ile mavi tik işaretler.

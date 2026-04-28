@@ -419,6 +419,25 @@ const GRUP_AYARLARI = [
       return message.sendReply("❌ *Anti-Numara kapatıldı!*");
     }
   },
+  {
+    key: "otogörüldü",
+    cmd: "otogoruldu",
+    title: "Oto-Görüldü",
+    desc: "Gelen mesajları otomatik okundu işaretler (mavi tik)",
+    icon: "👁️",
+    getStatus: async () => {
+      const v = await BotVariable.get("AUTO_READ_ENABLED", "false");
+      return v === "true";
+    },
+    toggle: async (jid, enable, message) => {
+      await BotVariable.set("AUTO_READ_ENABLED", enable ? "true" : "false");
+      return message.sendReply(
+        enable
+          ? "✅ *Oto-Görüldü açıldı!*\n\nℹ️ _Bottaki tüm gelen mesajlar otomatik okundu olarak işaretlenecek._"
+          : "❌ *Oto-Görüldü kapatıldı!*"
+      );
+    }
+  },
 ];
 
 // Yardımcı: Durum metni üret
@@ -442,28 +461,15 @@ Module({
 
     const jid = message.jid;
 
-    // .ayarlar 1  →  doğrudan bir özellik seçimi
-    const argNum = parseInt(match[1]);
-    if (!isNaN(argNum) && argNum > 0 && argNum <= GRUP_AYARLARI.length) {
-      const feat = GRUP_AYARLARI[argNum - 1];
-      const status = await feat.getStatus(jid);
-      const statusStr = statusText(status);
-      const msg =
-        `${feat.icon} *${feat.title} Ayarı*\n` +
-        `_${feat.desc}_\n\n` +
-        `ℹ️ *Mevcut Durum:* ${statusStr}\n\n` +
-        `1️⃣ Aç\n2️⃣ Kapat`;
-      return message.sendReply(msg + `\n\n_🤖 Bu mesaja 1 veya 2 yazarak yanıt verin._`);
-    }
-
-    // Ana menüyü göster
+    // Ana menüyü göster — komut adları ile
     const statuses = await Promise.all(GRUP_AYARLARI.map(f => f.getStatus(jid)));
     let msg = `⚙️ *Grup Koruma Ayarları*\n\n`;
-    msg += `_Numarayla bu mesaja yanıt vererek ayarı değiştirin:_\n\n`;
+    msg += `_Aşağıdaki komutları yazarak ilgili ayarı yönetin:_\n\n`;
     GRUP_AYARLARI.forEach((feat, i) => {
-      msg += `${i + 1}. ${feat.icon} *${feat.title}* — ${statusText(statuses[i])}\n`;
+      const cmdName = feat.cmd || feat.key;
+      msg += `${feat.icon} \`.${cmdName}\` *${feat.title}* — ${statusText(statuses[i])}\n`;
     });
-    msg += `\n💡 _Örnek: Mesaja yanıt olarak_ \`1\` _yazarsanız Anti-Spam ayarına girersiniz._`;
+    msg += `\n💡 _Örnek: Anti-Spam'ı açmak için_ \`.antispam aç\` _yazın._`;
     return message.sendReply(msg);
   }
 );
@@ -1552,71 +1558,6 @@ Module({
 },
   async (message, match) => {
     try {
-      const sMatch = message.text?.trim().match(/^\d+$/);
-      const quotedText = message.reply_message?.text || "";
-      const isFromBot = message.quoted?.key?.fromMe;
-
-      // ── YENİ: Grup Ayarları menüsüne yanıt ──────────────────────────────
-      const isGrupAyarMenu =
-        sMatch &&
-        isFromBot &&
-        message.isGroup &&
-        quotedText.includes("Grup Koruma Ayarları");
-
-      if (isGrupAyarMenu) {
-        const adminOk = await isAdmin(message);
-        if (!message.fromOwner && !adminOk) return;
-
-        const featIndex = parseInt(sMatch[0]) - 1;
-        if (featIndex < 0 || featIndex >= GRUP_AYARLARI.length) return;
-
-        const feat = GRUP_AYARLARI[featIndex];
-        const status = await feat.getStatus(message.jid);
-        const statusStr = statusText(status);
-        const msg =
-          `${feat.icon} *${feat.title} Ayarı*\n` +
-          `_${feat.desc}_\n\n` +
-          `ℹ️ *Mevcut Durum:* ${statusStr}\n\n` +
-          `1️⃣ Aç\n2️⃣ Kapat\n\n` +
-          `_🤖 Bu mesaja 1 veya 2 yazarak yanıt verin._`;
-        return await message.sendReply(msg);
-      }
-
-      // ── YENİ: Özellik açma/kapatma yanıtı ──────────────────────────────
-      const isToggleReply =
-        message.text?.match(/^(1|2)$/) &&
-        isFromBot &&
-        message.isGroup &&
-        quotedText.includes("1️⃣ Aç") &&
-        quotedText.includes("2️⃣ Kapat");
-
-      if (isToggleReply) {
-        const adminOk = await isAdmin(message);
-        if (!message.fromOwner && !adminOk) return;
-
-        const enable = message.text.trim() === "1";
-        const feat = GRUP_AYARLARI.find(f => quotedText.includes(f.title));
-        if (!feat) return;
-        return await feat.toggle(message.jid, enable, message);
-      }
-
-      // ── Detay menüsüne (feat bazlı) yanıt ───────────────────────────────
-      const isFeatDetailReply =
-        sMatch &&
-        isFromBot &&
-        message.isGroup &&
-        GRUP_AYARLARI.some(f => quotedText.includes(f.title) && quotedText.includes(f.desc));
-
-      if (isFeatDetailReply) {
-        const adminOk = await isAdmin(message);
-        if (!message.fromOwner && !adminOk) return;
-
-        const feat = GRUP_AYARLARI.find(f => quotedText.includes(f.title));
-        if (!feat) return;
-        const enable = parseInt(sMatch[0]) === 1;
-        return await feat.toggle(message.jid, enable, message);
-      }
-
       // --- 1. LİNK/REKLAM KORUMASI (ÖNCELİKLİ VE DB BEKLEMEDEN) ---
       const foundLinks = linkDetector.detectLinks(message.text);
 
@@ -2198,6 +2139,44 @@ Module({
     return await message.sendReply(
       `❌ *Geçersiz seçenek!*\n\n` +
       `ℹ️ _Kullanım:_ \`.otodurum aç/kapat\` veya \`.otodurum tepki aç/kapat\``
+    );
+  }
+);
+
+Module({
+  pattern: "otogoruldu ?(.*)",
+  fromMe: true,
+  desc: "Gelen mesajları otomatik olarak okundu (mavi tik) işaretlemeyi yönetir.",
+  usage: ".otogörüldü [aç/kapat]",
+  use: "yonetim",
+},
+  async (message, match) => {
+    const sub = (match[1] || "").trim().toLowerCase();
+    const enabled = await BotVariable.get("AUTO_READ_ENABLED", "false") === "true";
+
+    if (!sub) {
+      return await message.sendReply(
+        `👁️ *Oto-Görüldü Durumu*\n\n` +
+        `• *Otomatik okundu:* ${enabled ? "Açık ✅" : "Kapalı ❌"}\n\n` +
+        `_Kullanım:_\n` +
+        `• \`.otogörüldü aç\` — gelen mesajları otomatik okundu işaretle\n` +
+        `• \`.otogörüldü kapat\` — otomatik okunduyu kapat`
+      );
+    }
+
+    if (sub === "aç" || sub === "ac") {
+      await BotVariable.set("AUTO_READ_ENABLED", "true");
+      return await message.sendReply("✅ *Oto-Görüldü açıldı!*\n\nℹ️ _Bot artık tüm gelen mesajları otomatik okundu olarak işaretleyecek._");
+    }
+
+    if (sub === "kapat") {
+      await BotVariable.set("AUTO_READ_ENABLED", "false");
+      return await message.sendReply("❌ *Oto-Görüldü kapatıldı!*");
+    }
+
+    return await message.sendReply(
+      `❌ *Geçersiz seçenek!*\n\n` +
+      `ℹ️ _Kullanım:_ \`.otogörüldü aç/kapat\``
     );
   }
 );
