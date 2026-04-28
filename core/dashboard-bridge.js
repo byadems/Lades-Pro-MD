@@ -296,6 +296,21 @@ function setupDashboardBridge(manager, config) {
         sendIPC('send_result', { success: false, error: 'Bot bağlı değil' }, msg.requestId).catch(() => {});
       }
     }
+    // 2.5 Hot env-var update from dashboard (e.g. IG cookie, API keys)
+    // Lets new credentials take effect mid-flight without a full restart.
+    else if (msg.type === 'update_env') {
+      const patch = msg.data || {};
+      let count = 0;
+      for (const [k, v] of Object.entries(patch)) {
+        if (typeof k === 'string' && /^[A-Z][A-Z0-9_]*$/.test(k)) {
+          process.env[k] = v == null ? '' : String(v);
+          count++;
+        }
+      }
+      if (count > 0) {
+        logger.info(`[Env] ${count} ortam değişkeni canlı güncellendi: ${Object.keys(patch).join(', ')}`);
+      }
+    }
     // 3. Lifecycle Logic (Restart, Stop, Session Transfer)
     else if (msg.type === 'restart') {
       const restartType = msg.restartType || (msg.data && msg.data.type) || 'session';

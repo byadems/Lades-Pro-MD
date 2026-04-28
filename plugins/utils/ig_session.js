@@ -93,7 +93,75 @@ async function fetchUserStories(username) {
   }
 }
 
+/**
+ * validateSession
+ * Verify that the current (or provided) IG cookie still works by calling
+ * the authenticated current_user endpoint. Returns { ok, username?, error? }.
+ *
+ * Accepts optional overrides so the dashboard can test a freshly-pasted
+ * cookie BEFORE it's saved to disk.
+ */
+async function validateSession(overrides = {}) {
+  const sessionId = overrides.IG_SESSION_ID || process.env.IG_SESSION_ID;
+  if (!sessionId) return { ok: false, error: "sessionid yok" };
+
+  // Build a one-off header set without mutating process.env
+  const cookies = [`sessionid=${sessionId}`];
+  const dsUid = overrides.IG_DS_USER_ID || process.env.IG_DS_USER_ID;
+  const csrf = overrides.IG_CSRF_TOKEN || process.env.IG_CSRF_TOKEN;
+  if (dsUid) cookies.push(`ds_user_id=${dsUid}`);
+  if (csrf) cookies.push(`csrftoken=${csrf}`);
+
+  const headers = {
+    "User-Agent": UA_WEB,
+    "X-IG-App-ID": IG_APP_ID,
+    "Accept": "*/*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.instagram.com/",
+    "Origin": "https://www.instagram.com",
+    "Cookie": cookies.join("; "),
+  };
+  if (csrf) headers["X-CSRFToken"] = csrf;
+
+  try {
+    const res = await axios.get(
+      "https://www.instagram.com/api/v1/accounts/current_user/?edit=true",
+      {
+        headers,
+        timeout: 15000,
+        // IG bounces unauthenticated/invalid sessions through a login redirect
+        // chain. Disable following them so we can detect the bad-cookie case
+        // cleanly instead of hitting "Maximum number of redirects exceeded".
+        maxRedirects: 0,
+        validateStatus: () => true,
+      }
+    );
+    if (res.status === 200 && res.data?.user?.username) {
+      return {
+        ok: true,
+        username: res.data.user.username,
+        fullName: res.data.user.full_name || null,
+        userId: res.data.user.pk || res.data.user.pk_id || null,
+      };
+    }
+    if (res.status === 301 || res.status === 302) {
+      return { ok: false, error: "Çerez geçersiz: Instagram giriş sayfasına yönlendirdi." };
+    }
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, error: "Çerez geçersiz veya süresi dolmuş (HTTP " + res.status + ")" };
+    }
+    if (res.status === 429) {
+      return { ok: false, error: "Instagram bu IP'yi geçici olarak kısıtladı (HTTP 429). Birkaç dakika bekle." };
+    }
+    return { ok: false, error: "Beklenmeyen yanıt (HTTP " + res.status + ")" };
+  } catch (e) {
+    // axios throws on network errors / DNS / TLS even with validateStatus
+    return { ok: false, error: e.message };
+  }
+}
+
 module.exports = {
   getUserIdByUsername,
   fetchUserStories,
+  validateSession,
 };

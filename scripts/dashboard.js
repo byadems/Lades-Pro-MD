@@ -329,6 +329,11 @@ app.get('/api/config', (req, res) => {
     ACR_A: conf.ACR_A || '',
     ACR_S: conf.ACR_S || '',
 
+    // Instagram session (for .hikaye full story access)
+    IG_SESSION_ID: conf.IG_SESSION_ID || '',
+    IG_DS_USER_ID: conf.IG_DS_USER_ID || '',
+    IG_CSRF_TOKEN: conf.IG_CSRF_TOKEN || '',
+
     // Advanced / Internal
     MAX_STICKER_SIZE: conf.MAX_STICKER_SIZE || '2',
     MAX_DL_SIZE: conf.MAX_DL_SIZE || '50',
@@ -348,12 +353,70 @@ app.post('/api/config', (req, res) => {
     'BOT_NAME', 'OWNER_NUMBER', 'PREFIX', 'SUDO', 'LANG', 'ALIVE', 'BOT_INFO', 'STICKER_DATA',
     'PUBLIC_MODE', 'AUTO_READ', 'AUTO_TYPING', 'AUTO_RECORDING', 'ANTI_LINK', 'ANTI_SPAM', 'ADMIN_ACCESS',
     'GEMINI_API_KEY', 'OPENAI_API_KEY', 'GROQ_API_KEY', 'AI_MODEL', 'ACR_A', 'ACR_S',
+    'IG_SESSION_ID', 'IG_DS_USER_ID', 'IG_CSRF_TOKEN',
     'MAX_STICKER_SIZE', 'MAX_DL_SIZE', 'PM2_RESTART_LIMIT_MB', 'DEBUG'
   ];
   const updates = {};
   allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
   saveEnvConfig(updates);
+
+  // Apply hot-reloadable env vars in dashboard process AND signal parent.
+  // Without this, IG_SESSION_ID/etc would only take effect on next restart.
+  const hotReloadable = ['IG_SESSION_ID', 'IG_DS_USER_ID', 'IG_CSRF_TOKEN',
+    'GEMINI_API_KEY', 'OPENAI_API_KEY', 'GROQ_API_KEY', 'AI_MODEL', 'ACR_A', 'ACR_S'];
+  const envPatch = {};
+  for (const k of hotReloadable) {
+    if (Object.prototype.hasOwnProperty.call(updates, k)) {
+      process.env[k] = updates[k];
+      envPatch[k] = updates[k];
+    }
+  }
+  if (process.send && Object.keys(envPatch).length) {
+    try { process.send({ type: 'update_env', data: envPatch }); } catch (_) {}
+  }
+
   res.json({ success: true });
+});
+
+// ─── Instagram session validator ──────────────────────────────
+// Lets the dashboard verify a freshly-pasted IG cookie before saving.
+// Body may contain { IG_SESSION_ID, IG_DS_USER_ID, IG_CSRF_TOKEN } overrides;
+// otherwise the currently-saved env values are used.
+app.post('/api/ig-session/test', async (req, res) => {
+  try {
+    const { validateSession } = require('../plugins/utils/ig_session');
+    const body = req.body || {};
+    const overrides = {};
+    if (body.IG_SESSION_ID) overrides.IG_SESSION_ID = String(body.IG_SESSION_ID).trim();
+    if (body.IG_DS_USER_ID) overrides.IG_DS_USER_ID = String(body.IG_DS_USER_ID).trim();
+    if (body.IG_CSRF_TOKEN) overrides.IG_CSRF_TOKEN = String(body.IG_CSRF_TOKEN).trim();
+
+    const result = await validateSession(overrides);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Optional helper: parse a raw `Cookie:` header string into the three pieces
+// so users can paste the full cookie blob from DevTools without hand-splitting.
+app.post('/api/ig-session/parse', (req, res) => {
+  const raw = String((req.body && req.body.cookie) || '').trim();
+  if (!raw) return res.status(400).json({ error: 'cookie alanı boş' });
+  const parts = {};
+  raw.split(/;\s*/).forEach(seg => {
+    const eq = seg.indexOf('=');
+    if (eq <= 0) return;
+    const k = seg.slice(0, eq).trim().toLowerCase();
+    const v = seg.slice(eq + 1).trim();
+    if (k === 'sessionid') parts.IG_SESSION_ID = v;
+    else if (k === 'ds_user_id') parts.IG_DS_USER_ID = v;
+    else if (k === 'csrftoken') parts.IG_CSRF_TOKEN = v;
+  });
+  if (!parts.IG_SESSION_ID) {
+    return res.status(400).json({ error: 'Yapıştırdığınız metinde sessionid bulunamadı.' });
+  }
+  res.json({ ok: true, ...parts });
 });
 
 // ─── Plugins management ──────────────────────────────────

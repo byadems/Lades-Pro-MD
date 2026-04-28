@@ -1028,6 +1028,11 @@ async function fetchConfig() {
     setVal('s_ACR_A', d.ACR_A);
     setVal('s_ACR_S', d.ACR_S);
 
+    // Instagram session (for .hikaye)
+    setVal('s_IG_SESSION_ID', d.IG_SESSION_ID);
+    setVal('s_IG_DS_USER_ID', d.IG_DS_USER_ID);
+    setVal('s_IG_CSRF_TOKEN', d.IG_CSRF_TOKEN);
+
     // Systems
     setVal('s_MAX_STICKER_SIZE', d.MAX_STICKER_SIZE);
     setVal('s_MAX_DL_SIZE', d.MAX_DL_SIZE);
@@ -1074,6 +1079,10 @@ function setupSettings() {
       ACR_A: getVal('s_ACR_A'),
       ACR_S: getVal('s_ACR_S'),
 
+      IG_SESSION_ID: getVal('s_IG_SESSION_ID'),
+      IG_DS_USER_ID: getVal('s_IG_DS_USER_ID'),
+      IG_CSRF_TOKEN: getVal('s_IG_CSRF_TOKEN'),
+
       MAX_STICKER_SIZE: getVal('s_MAX_STICKER_SIZE'),
       MAX_DL_SIZE: getVal('s_MAX_DL_SIZE'),
       PM2_RESTART_LIMIT_MB: getVal('s_PM2_RESTART_LIMIT_MB'),
@@ -1089,6 +1098,68 @@ function setupSettings() {
   });
 
   document.getElementById('btnRefreshEnv')?.addEventListener('click', loadEnvPreview);
+
+  // ── Instagram session helpers ────────────────────────────
+  // "Ayrıştır" : pastes a full Cookie: header into the bulk box, then splits
+  // sessionid/ds_user_id/csrftoken into the three fields below.
+  document.getElementById('ig_bulk_parse_btn')?.addEventListener('click', async () => {
+    const raw = (getVal('ig_bulk_paste') || '').trim();
+    if (!raw) return toast('Önce çerez metnini yapıştır.', 'error');
+    try {
+      const r = await fetch('/api/ig-session/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookie: raw })
+      });
+      const d = await r.json();
+      if (!r.ok || !d.ok) {
+        toast(d.error || 'Ayrıştırma başarısız.', 'error');
+        return;
+      }
+      setVal('s_IG_SESSION_ID', d.IG_SESSION_ID || '');
+      if (d.IG_DS_USER_ID) setVal('s_IG_DS_USER_ID', d.IG_DS_USER_ID);
+      if (d.IG_CSRF_TOKEN) setVal('s_IG_CSRF_TOKEN', d.IG_CSRF_TOKEN);
+      setVal('ig_bulk_paste', '');
+      toast('Çerez parçalandı. Şimdi "Test Et" yap, sonra Kaydet.', 'success');
+    } catch (e) { toast('Bağlantı hatası.', 'error'); }
+  });
+
+  // "Çerezi Test Et" : verifies the cookie against IG's current_user endpoint
+  // BEFORE the user commits with Save. Tests the form values, not what's on disk.
+  document.getElementById('ig_test_btn')?.addEventListener('click', async () => {
+    const out = document.getElementById('ig_test_result');
+    const sid = (getVal('s_IG_SESSION_ID') || '').trim();
+    if (!sid) {
+      if (out) { out.textContent = '✗ sessionid alanı boş.'; out.style.color = '#e74c3c'; }
+      return;
+    }
+    if (out) { out.textContent = '⏳ test ediliyor...'; out.style.color = '#9aa3b2'; }
+    try {
+      const r = await fetch('/api/ig-session/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          IG_SESSION_ID: sid,
+          IG_DS_USER_ID: (getVal('s_IG_DS_USER_ID') || '').trim(),
+          IG_CSRF_TOKEN: (getVal('s_IG_CSRF_TOKEN') || '').trim(),
+        })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        if (out) {
+          out.textContent = `✓ Geçerli: @${d.username}` + (d.fullName ? ` (${d.fullName})` : '');
+          out.style.color = '#2ecc71';
+        }
+      } else {
+        if (out) {
+          out.textContent = '✗ ' + (d.error || 'Çerez doğrulanamadı.');
+          out.style.color = '#e74c3c';
+        }
+      }
+    } catch (e) {
+      if (out) { out.textContent = '✗ Bağlantı hatası: ' + e.message; out.style.color = '#e74c3c'; }
+    }
+  });
 }
 
 function toggleVisibility(id) {

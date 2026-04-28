@@ -851,6 +851,69 @@
               </div>
             </div>
 
+            <!-- CATEGORY: INSTAGRAM SESSION (for .hikaye full-story access) -->
+            <div class="toggle-group spot-card">
+              <div class="tg-title">📸 Instagram Oturumu (Hikayeler için)</div>
+              <p style="color:#9aa3b2;font-size:12px;margin:4px 0 12px 0;line-height:1.5;">
+                <strong>Neden gerekli?</strong> 2026'dan itibaren Meta, anonim hikaye scraping'i tamamen kapattı.
+                <code>.hikaye</code> komutunun bütün hikayeleri (1/3 değil 3/3) getirebilmesi için <em>burner</em> bir
+                Instagram hesabının çerezini ekleyin. Bu hesap sadece okuma yapacak; mesajlaşmayacak.
+              </p>
+
+              <details style="margin-bottom:12px;">
+                <summary style="cursor:pointer;color:#5dade2;font-size:13px;user-select:none;">
+                  📖 Çerez nasıl alınır? (3 adım)
+                </summary>
+                <ol style="color:#9aa3b2;font-size:12px;line-height:1.7;padding-left:20px;margin-top:8px;">
+                  <li>Tarayıcıda yeni/burner bir IG hesabıyla <code>instagram.com</code>'a gir.</li>
+                  <li>F12 → <strong>Application</strong> sekmesi → <strong>Cookies</strong> → <code>https://www.instagram.com</code>.</li>
+                  <li><code>sessionid</code>, <code>ds_user_id</code>, <code>csrftoken</code> üçünü kopyala.
+                      VEYA: Network sekmesinden bir isteğe sağ tık → <em>Copy as cURL</em> → çıkan <code>Cookie:</code>
+                      satırının tamamını aşağıdaki "Toplu yapıştır" kutusuna yapıştır, otomatik ayrıştırılsın.</li>
+                </ol>
+              </details>
+
+              <div class="sf-field">
+                <label>Toplu yapıştır (Cookie: satırı veya 3 değer; ayrı)</label>
+                <div style="display:flex;gap:8px;">
+                  <input type="text" id="ig_bulk_paste" placeholder="sessionid=XXX; ds_user_id=YYY; csrftoken=ZZZ" class="glass-input" style="flex:1;" />
+                  <button type="button" id="ig_bulk_parse_btn" class="ctrl-btn" style="white-space:nowrap;">Ayrıştır</button>
+                </div>
+              </div>
+
+              <div class="sf-field">
+                <label>sessionid <span style="color:#e74c3c;">*zorunlu</span></label>
+                <div class="glass-input-wrap">
+                  <input type="password" id="s_IG_SESSION_ID" placeholder="123456789%3AAbCdEf..." class="glass-input" />
+                  <button type="button" class="pw-eye" onclick="toggleVisibility('s_IG_SESSION_ID')">
+                    <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2" />
+                      <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="sf-field">
+                <label>ds_user_id (önerilir)</label>
+                <input type="text" id="s_IG_DS_USER_ID" placeholder="123456789" class="glass-input" />
+              </div>
+
+              <div class="sf-field">
+                <label>csrftoken (önerilir)</label>
+                <input type="text" id="s_IG_CSRF_TOKEN" placeholder="32 karakterli token" class="glass-input" />
+              </div>
+
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+                <button type="button" id="ig_test_btn" class="ctrl-btn">🔎 Çerezi Test Et</button>
+                <span id="ig_test_result" style="font-size:13px;color:#9aa3b2;"></span>
+              </div>
+              <p style="color:#7a8290;font-size:11px;margin-top:10px;line-height:1.4;">
+                ⚠️ Çerez bot süreciyle aynı bellekte saklanır; <code>config.env</code> dosyasına yazılır.
+                Süresi ortalama 30-60 günde dolar; <em>Çerezi Test Et</em> başarısız dönerse tekrar yapıştırın.
+              </p>
+            </div>
+
             <!-- CATEGORY: FEATURES (TOGGLES) -->
             <div class="toggle-group spot-card">
               <div class="tg-title">🎮 Bot Özellikleri (Toggles)</div>
