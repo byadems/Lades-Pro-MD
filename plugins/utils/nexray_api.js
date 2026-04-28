@@ -236,12 +236,16 @@ async function downloadInstagram(url, options = {}) {
       if (r.media && Array.isArray(r.media)) {
         let urls = [];
         const isSingleStory = cleanUrl.includes("/stories/") && /\d+$/.test(cleanUrl);
+        const isStoryFeed = cleanUrl.includes("/stories/");
 
         if (isSingleStory) {
           // Tekil hikaye bağlantısında sadece asıl medyayı al (videoyu tercih et)
           const video = r.media.find(m => m.type === "video" || m.video_url);
           if (video) urls = [video.video_url || video.url];
           else if (r.media[0]) urls = [r.media[0].url || r.media[0].thumbnail];
+        } else if (isStoryFeed) {
+          // Hikaye akışında her öğe bağımsız bir hikayedir; thumbnail eleme yapma
+          urls = r.media.map(m => (typeof m === 'object' ? (m?.video_url || m?.url || m?.thumbnail) : m));
         } else {
           // Normal postlarda hepsi alınır ama video varsa thumbnail'ı elemek için basit bir kontrol:
           // Eğer sadece 2 öğe varsa ve biri video biri fotoğrafsa, fotoğraf muhtemelen thumbnail'dır.
