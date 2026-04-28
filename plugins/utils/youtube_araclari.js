@@ -238,6 +238,19 @@ async function downloadAudio(url) {
     } catch (error) {
       console.error('youtube-dl downloadAudio error:', error.message);
       try {
+        const { ytdl } = require("@distube/ytdl-core");
+        const info = await ytdl.getInfo(url);
+        const format = ytdl.chooseFormat(info.formats, { quality: "highestaudio" });
+        if (format?.url) {
+          const safeTitle = (info.videoDetails?.title || 'audio').replace(/[^\w\s]/gi, '').trim() || 'audio';
+          const outputPath = getTempPath(`${safeTitle}_${Date.now()}.m4a`);
+          await saveToDisk(format.url, outputPath);
+          return { path: outputPath, title: info.videoDetails?.title || 'YouTube Sesi' };
+        }
+      } catch (localErr) {
+        if (process.env.DEBUG) console.error("[Local YouTube audio]", localErr?.message);
+      }
+      try {
         const fallback = await nexray.downloadYtMp3(url);
         if (fallback && fallback.url) {
           const safeTitle = (fallback.title || 'audio').replace(/[^\w\s]/gi, '').trim() || 'audio';

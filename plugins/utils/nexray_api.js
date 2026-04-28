@@ -190,6 +190,17 @@ async function deepImg(prompt, options = {}) {
  */
 async function downloadInstagram(url, options = {}) {
   if (process.env.IS_SELF_TEST === 'true') return ["https://example.com/dummy.mp4"];
+  try {
+    const { igdl } = require("ruhend-scraper");
+    const local = await igdl(url);
+    const items = local?.data || local?.result || [];
+    if (Array.isArray(items) && items.length) {
+      const urls = items.map((item) => item?.downloadUrl || item?.url || item?.videoUrl || item?.video_url || item?.thumbnail).filter(Boolean);
+      if (urls.length) return [...new Set(urls)];
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Local instagram]", e?.message);
+  }
   // v1 endpoint
   try {
     const cleanUrl = url.split("?")[0].replace(/\/$/, "");
@@ -403,6 +414,18 @@ async function downloadTiktok(url, options = {}) {
  */
 async function downloadFacebook(url, options = {}) {
   if (process.env.IS_SELF_TEST === 'true') return { url: "https://example.com/dummy.mp4", title: "Test FB" };
+  try {
+    const { facebookdl } = require("@bochilteam/scraper-facebook");
+    const local = await facebookdl(url);
+    if (local?.video && Array.isArray(local.video) && local.video.length) {
+      const first = local.video[0];
+      const downloaded = await first.download?.();
+      const videoUrl = typeof downloaded === "string" ? downloaded : downloaded?.url || downloaded?.download;
+      if (videoUrl) return { url: videoUrl, title: local?.title || first?.quality || "Facebook Video" };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Local facebook]", e?.message);
+  }
   try {
     const res = await axios.get(`${BASE}/downloader/facebook`, withSignal({
       params: { url },

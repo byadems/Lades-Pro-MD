@@ -973,11 +973,10 @@
           let found = false;
 
           try {
-            const r = await axios.get('https://api.nexray.web.id/downloader/v2/instagram?url=' + encodeURIComponent(url), { timeout: 40000 });
-            const media = r.data.result?.media || r.data.result;
-            if (media && Array.isArray(media)) {
-              for (const item of media.slice(0, 10)) {
-                if (item.url) allMediaUrls.push(item.url);
+            const local = await downloadGram(url);
+            if (Array.isArray(local) && local.length) {
+              for (const item of local.slice(0, 10)) {
+                if (item) allMediaUrls.push(typeof item === "string" ? item : (item.url || item.video_url || item.thumbnail));
               }
               if (allMediaUrls.length > 0) found = true;
             }
@@ -985,10 +984,10 @@
 
           if (!found) {
             try {
-              const r = await axios.get('https://api.nexray.web.id/downloader/instagram?url=' + encodeURIComponent(url), { timeout: 40000 });
-              const nexrayData = r.data.result;
-              if (nexrayData && Array.isArray(nexrayData)) {
-                for (const item of nexrayData.slice(0, 10)) {
+              const r = await axios.get('https://api.nexray.web.id/downloader/v2/instagram?url=' + encodeURIComponent(url), { timeout: 40000 });
+              const media = r.data.result?.media || r.data.result;
+              if (media && Array.isArray(media)) {
+                for (const item of media.slice(0, 10)) {
                   if (item.url) allMediaUrls.push(item.url);
                 }
                 if (allMediaUrls.length > 0) found = true;
@@ -1225,7 +1224,16 @@
 
       let mediaItems = [];
 
-      // 1) Birincil: Nexray /downloader/v2/instagram (her hikayeyi ayrı medya olarak verir)
+      // 1) Birincil: local scraper
+      try {
+        const arr = await downloadGram(userIdentifier);
+        if (Array.isArray(arr) && arr.length) {
+          mediaItems = arr.map(normalizeMediaItem).filter(Boolean);
+        }
+      } catch (_) { }
+
+      // 2) Nexray /downloader/v2/instagram (her hikayeyi ayrı medya olarak verir)
+      if (mediaItems.length === 0) {
       try {
         const cleanUrl = userIdentifier.split("?")[0].replace(/\/$/, "");
         const res = await axios.get(`https://api.nexray.web.id/downloader/v2/instagram`, {
@@ -1239,8 +1247,9 @@
           mediaItems = r.media.map(normalizeMediaItem).filter(Boolean);
         }
       } catch (_) { }
+      }
 
-      // 2) Yedek: mevcut downloadInstagram (post içeriklerini de toplayabilir)
+      // 3) Yedek: mevcut downloadInstagram (post içeriklerini de toplayabilir)
       if (mediaItems.length === 0) {
         try {
           const arr = await downloadGram(userIdentifier);
@@ -1248,7 +1257,7 @@
         } catch (_) { }
       }
 
-      // 3) Son çare: kullanıcı adıyla v2/instagram (son gönderiler)
+      // 4) Son çare: kullanıcı adıyla v2/instagram (son gönderiler)
       if (mediaItems.length === 0 && urls.length === 0) {
         try {
           const res = await axios.get(`https://api.nexray.web.id/downloader/v2/instagram`, {
