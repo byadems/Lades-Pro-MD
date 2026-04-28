@@ -22,7 +22,6 @@
   "license": "GPL-3.0",
   "dependencies": {
     "@bochilteam/scraper-facebook": "^5.0.0",
-    "@bochilteam/scraper-instagram": "^5.0.0",
     "@distube/ytdl-core": "^4.16.12",
     "@google/generative-ai": "^0.24.1",
     "@vitalets/google-translate-api": "^9.2.1",
