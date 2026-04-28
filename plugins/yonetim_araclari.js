@@ -420,8 +420,8 @@ const GRUP_AYARLARI = [
     }
   },
   {
-    key: "otogörüldü",
-    cmd: "otogoruldu",
+    key: "otogoruldu",
+    cmd: "otogörüldü",
     title: "Oto-Görüldü",
     desc: "Gelen mesajları otomatik okundu işaretler (mavi tik)",
     icon: "👁️",
