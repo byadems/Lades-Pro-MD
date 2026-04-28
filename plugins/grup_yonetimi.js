@@ -954,18 +954,29 @@
 • \`.tag <metin>\` 📝`);
       }
 
-      const { participants } = await message.client.groupMetadata(message.jid);
+      const meta = await message.client.groupMetadata(message.jid);
+      const { participants } = meta;
       const targets = [];
-      let msgText = "";
 
       for (const p of participants) {
         if (isTagAdmin && !p.admin) continue;
         targets.push(p.id);
-        msgText += `• @${p.id.split("@")[0]}\n`;
+      }
+
+      // Batch gönderimi: 50 üye/mesaj, aralarında 400ms bekleme.
+      // Büyük gruplarda tek seferde 200+ mention göndermek WhatsApp
+      // rate-limit'ine çarpar ve komutu yavaşlatır veya askıya alır.
+      const BATCH_SIZE = 50;
+      const BATCH_DELAY_MS = 400;
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      const chunks = [];
+      for (let i = 0; i < targets.length; i += BATCH_SIZE) {
+        chunks.push(targets.slice(i, i + BATCH_SIZE));
       }
 
       if (isReply) {
-        // Yanıtlanan mesajı, katılımcıları etiketleyerek ilet
+        // Yanıtlanan mesajı ilk batch ile ilet, sonraki batch'ları mention olarak gönder
         await message.forwardMessage(message.jid, message.quoted, {
           contextInfo: {
             mentionedJid: targets,
@@ -974,19 +985,27 @@
           }
         });
       } else if (input && !isTagAdmin && !isTagAll) {
-        // Özel metin ile etiketle
+        // Özel metin — tek mesaj, tüm mention'lar
         await message.client.sendMessage(message.jid, {
           text: match[1],
           mentions: targets,
           contextInfo: { isForwarded: true, forwardingScore: 999 }
         });
       } else {
-        // Liste şeklinde etiketle
-        await message.client.sendMessage(message.jid, {
-          text: `📢 *Sırayla Etiketlendi!* 📢\n\n${msgText}`,
-          mentions: targets,
-          contextInfo: { isForwarded: true, forwardingScore: 999 }
-        });
+        // Batch'lar halinde etiketle
+        for (let i = 0; i < chunks.length; i++) {
+          const batch = chunks[i];
+          const batchText = batch.map(id => `• @${id.split("@")[0]}`).join("\n");
+          const header = chunks.length > 1
+            ? `📢 *Etiketlendi (${i + 1}/${chunks.length})* 📢\n\n`
+            : `📢 *Sırayla Etiketlendi!* 📢\n\n`;
+          await message.client.sendMessage(message.jid, {
+            text: header + batchText,
+            mentions: batch,
+            contextInfo: { isForwarded: true, forwardingScore: 999 }
+          });
+          if (i < chunks.length - 1) await sleep(BATCH_DELAY_MS);
+        }
       }
     }
   );
