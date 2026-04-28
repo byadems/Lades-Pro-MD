@@ -5,6 +5,177 @@
  * Components: chatbot.js, siputzx-ai.js, yapayzeka.js
  */
 
+// ══════════════════════════════════════════════════════════════════════════
+// SHARED: AI helpers + per-user, per-command chat memory
+// (Module-scope so both `.yz` and any standalone command can use them.)
+// ══════════════════════════════════════════════════════════════════════════
+const _aiAxios = require("axios");
+const AI_SHARED = (() => {
+  const SIPUTZX_BASE = "https://api.siputzx.my.id";
+  const NEXRAY_BASE = "https://api.nexray.web.id";
+  const TIMEOUT = 30000;
+
+  async function siputGet(path, params = {}) {
+    const url = `${SIPUTZX_BASE}${path}`;
+    const res = await _aiAxios.get(url, { params, timeout: TIMEOUT, validateStatus: () => true });
+    if (res.data && res.data.status) return res.data;
+    throw new Error(res.data?.error || `API yanıt vermedi (HTTP ${res.status})`);
+  }
+
+  async function siputGetBuffer(path, params = {}) {
+    const url = `${SIPUTZX_BASE}${path}`;
+    const res = await _aiAxios.get(url, { params, timeout: TIMEOUT, responseType: "arraybuffer", validateStatus: () => true });
+    if (res.status === 200 && res.data) return Buffer.from(res.data);
+    throw new Error("Veri alınamadı");
+  }
+
+  async function nexrayAiGet(path, params = {}) {
+    const url = `${NEXRAY_BASE}${path}`;
+    const res = await _aiAxios.get(url, { params, timeout: TIMEOUT, validateStatus: () => true });
+    if (res.data && res.data.status === true && res.data.result !== undefined) return res.data.result;
+    throw new Error(res.data?.error || `Nexray API hatası (HTTP ${res.status})`);
+  }
+
+  function extractAnswer(result) {
+    if (result == null) return "";
+    if (typeof result === "string") return result;
+    return (
+      (result.parts && result.parts[0]?.text) ||
+      result.response || result.message || result.text ||
+      result.answer || result.content || JSON.stringify(result)
+    );
+  }
+
+  function stripThinkTags(s = "") {
+    if (!s) return s;
+    let out = s;
+    out = out.replace(/<think>[\s\S]*?<\/think>/gi, "");
+    out = out.replace(/<\/?think>/gi, "");
+    return out.trim();
+  }
+
+  function turkceHata(msg = "") {
+    const m = String(msg).toLowerCase();
+    if (m.includes("prompt") && (m.includes("required") || m.includes("non-empty"))) return "_Sunucu boş soru aldı. Lütfen soru yazıp tekrar deneyin._";
+    if (m.includes("all nodes failed")) return "_Sunucu şu an yanıt vermiyor, lütfen birkaç dakika sonra tekrar deneyin._";
+    if (m.includes("timeout") || m.includes("econnaborted")) return "_İstek zaman aşımına uğradı. Lütfen tekrar deneyin._";
+    if (m.includes("network") || m.includes("econnrefused") || m.includes("enotfound")) return "_Ağ bağlantısı hatası. Lütfen tekrar deneyin._";
+    if (m.includes("api yanıt vermedi") || m.includes("rate limit") || m.includes("429")) return "_Sunucu geçici olarak meşgul. Lütfen kısa bir süre bekleyip tekrar deneyin._";
+    return `_${msg}_`;
+  }
+
+  // ── Per-user, per-model chat memory ───────────────────────────────────
+  const memory = new Map();                  // key: `${cmd}:${jid}`
+  const MEMORY_TTL_MS = 10 * 60 * 1000;
+  const MAX_TURNS = 6;
+  const MAX_PROMPT_CHARS = 6000;
+  const _key = (cmd, jid) => `${cmd}:${jid}`;
+
+  function getMemory(cmd, jid) {
+    const m = memory.get(_key(cmd, jid));
+    if (!m) return null;
+    if (Date.now() - m.lastUsedAt > MEMORY_TTL_MS) { memory.delete(_key(cmd, jid)); return null; }
+    return m;
+  }
+  function appendMemory(cmd, jid, userText, aiText) {
+    if (!aiText || !userText) return;
+    const k = _key(cmd, jid);
+    let m = memory.get(k);
+    if (!m) m = { messages: [], lastUsedAt: 0 };
+    m.messages.push({ role: "user", text: userText });
+    m.messages.push({ role: "ai", text: aiText });
+    if (m.messages.length > MAX_TURNS * 2) m.messages = m.messages.slice(-MAX_TURNS * 2);
+    m.lastUsedAt = Date.now();
+    memory.set(k, m);
+  }
+  function clearMemory(cmd, jid) {
+    if (cmd === "*") {
+      let n = 0;
+      for (const k of [...memory.keys()]) if (k.endsWith(`:${jid}`)) { memory.delete(k); n++; }
+      return n;
+    }
+    return memory.delete(_key(cmd, jid)) ? 1 : 0;
+  }
+  function buildPromptWithMemory(cmd, jid, currentText) {
+    const persona = "Sen Lades adlı yardımcı bir asistansın. Önceki konuyu hatırla, kısa ve net cevap ver, yalnızca Türkçe konuş.";
+    const m = getMemory(cmd, jid);
+    if (!m || m.messages.length === 0) return currentText;
+    const lines = m.messages.map(msg => msg.role === "user" ? `Kullanıcı: ${msg.text}` : `Asistan: ${msg.text}`);
+    while (lines.join("\n").length > MAX_PROMPT_CHARS && lines.length > 2) lines.splice(0, 2);
+    return `${persona}\n\n--- Önceki sohbet ---\n${lines.join("\n")}\n\nKullanıcı: ${currentText}\nAsistan:`;
+  }
+  setInterval(() => {
+    const now = Date.now();
+    for (const [k, m] of memory) if (now - m.lastUsedAt > MEMORY_TTL_MS) memory.delete(k);
+  }, 5 * 60 * 1000).unref?.();
+
+  // ── Per-model runners — each: (text, jid) → { answer, label, source } ─
+  // No misleading fallbacks: if the requested model is down, we surface an
+  // honest error rather than silently substituting another model.
+  const runners = {
+    geminilite: async (text, jid) => {
+      const p = buildPromptWithMemory("geminilite", jid, text);
+      try {
+        const r = await nexrayAiGet("/ai/gemini", { text: p });
+        const ans = extractAnswer(r);
+        if (ans) appendMemory("geminilite", jid, text, ans);
+        return { answer: ans, label: "Gemini Lite", source: "Nexray Gemini" };
+      } catch (_) {
+        const data = await siputGet("/api/ai/gemini-lite", { prompt: p, text: p });
+        const ans = extractAnswer(data.data || data.result);
+        if (ans) appendMemory("geminilite", jid, text, ans);
+        return { answer: ans, label: "Gemini Lite", source: "Siputzx Gemini Lite" };
+      }
+    },
+    deepseek: async (text, jid) => {
+      const p = buildPromptWithMemory("deepseek", jid, text);
+      const data = await siputGet("/api/ai/deepseekr1", { prompt: p, text: p });
+      const ans = stripThinkTags(extractAnswer(data.data || data.result));
+      if (ans) appendMemory("deepseek", jid, text, ans);
+      return { answer: ans, label: "DeepSeek R1", source: "Siputzx DeepSeek R1" };
+    },
+    llama: async (text, jid) => {
+      const p = buildPromptWithMemory("llama", jid, text);
+      const data = await siputGet("/api/ai/llama33", { prompt: p, text: p });
+      const ans = extractAnswer(data.data || data.result);
+      if (ans) appendMemory("llama", jid, text, ans);
+      return { answer: ans, label: "Llama 3.3", source: "Siputzx Llama 3.3" };
+    },
+    metaai: async (text, jid) => {
+      const p = buildPromptWithMemory("metaai", jid, text);
+      const data = await siputGet("/api/ai/metaai", { query: p, prompt: p });
+      const ans = extractAnswer(data.data || data.result);
+      if (ans) appendMemory("metaai", jid, text, ans);
+      return { answer: ans, label: "Meta AI", source: "Siputzx Meta AI" };
+    },
+    qwq: async (text, jid) => {
+      const p = buildPromptWithMemory("qwq", jid, text);
+      const data = await siputGet("/api/ai/qwq32b", { prompt: p, text: p });
+      const ans = stripThinkTags(extractAnswer(data.data || data.result));
+      if (ans) appendMemory("qwq", jid, text, ans);
+      return { answer: ans, label: "QwQ 32B", source: "Siputzx QwQ 32B" };
+    },
+    duckai: async (text, jid) => {
+      const p = buildPromptWithMemory("duckai", jid, text);
+      const data = await siputGet("/api/ai/duckai", { message: p });
+      const ans = extractAnswer(data.data || data.result);
+      if (ans) appendMemory("duckai", jid, text, ans);
+      return { answer: ans, label: "DuckAI", source: "Siputzx DuckAI" };
+    },
+  };
+
+  const KNOWN_MODELS = Object.keys(runners);
+  const MODEL_ALIASES = { "gemini-lite": "geminilite", "deepseekr1": "deepseek", "llama33": "llama", "qwq32b": "qwq" };
+
+  return {
+    siputGet, siputGetBuffer, nexrayAiGet,
+    extractAnswer, stripThinkTags, turkceHata,
+    runners, KNOWN_MODELS, MODEL_ALIASES,
+    clearMemory, getMemory,
+    resolveModel: (name) => MODEL_ALIASES[name] || name,
+  };
+})();
+
 // ==========================================
 // FILE: chatbot.js
 // ==========================================
@@ -702,6 +873,64 @@
       const subCmd = parts[0]?.toLowerCase() || "";
       const subArgs = parts.slice(1).join(" ");
 
+      // ─── Model alt komutları (.yz <model> <soru>) ────────────────────────
+      const resolvedModel = AI_SHARED.resolveModel(subCmd);
+      if (AI_SHARED.runners[resolvedModel]) {
+        const text = subArgs || message.reply_message?.text;
+        if (!text) {
+          return await message.sendReply(
+            `⚠️ _Soru girin:_ \`.yz ${subCmd} <sorunuz>\`\n\n` +
+            `_Örn:_ \`.yz ${subCmd} Türkiye'nin başkenti neresi?\``
+          );
+        }
+        const labels = {
+          geminilite: "Gemini Lite", deepseek: "DeepSeek R1", llama: "Llama 3.3",
+          metaai: "Meta AI", qwq: "QwQ 32B", duckai: "DuckAI",
+        };
+        const label = labels[resolvedModel] || resolvedModel;
+        let sent;
+        try {
+          sent = await message.sendReply(`🧐 _${label} düşünüyor..._`);
+          const { answer } = await AI_SHARED.runners[resolvedModel](text, message.jid);
+          if (!answer) {
+            return await message.edit(`❌ *${label} yanıt üretemedi.*`, message.jid, sent.key);
+          }
+          await message.edit(`🤖 *${label}*\n\n${answer}`, message.jid, sent.key);
+        } catch (e) {
+          const errTr = AI_SHARED.turkceHata(e.message);
+          const txt = `❌ *${label} şu an yanıt veremedi.* ${errTr}`;
+          if (sent) await message.edit(txt, message.jid, sent.key).catch(() => {});
+          else await message.sendReply(txt);
+        }
+        return;
+      }
+
+      // ─── Hafıza yönetimi (.yz sifirla [model|tum]) ───────────────────────
+      if (subCmd === "sifirla" || subCmd === "sıfırla" || subCmd === "unut") {
+        const target = (subArgs || "").trim().toLowerCase();
+        if (!target || target === "tum" || target === "tümü" || target === "all" || target === "*") {
+          const n = AI_SHARED.clearMemory("*", message.jid);
+          return await message.sendReply(
+            n > 0
+              ? `✅ _Tüm AI sohbet hafızanız sıfırlandı (${n} model)._`
+              : `ℹ️ _Sıfırlanacak aktif sohbet bulunamadı._`
+          );
+        }
+        const resolved = AI_SHARED.resolveModel(target);
+        if (!AI_SHARED.runners[resolved]) {
+          return await message.sendReply(
+            `⚠️ _Geçerli modeller:_ ${AI_SHARED.KNOWN_MODELS.map(c => `\`${c}\``).join(", ")}\n` +
+            `_Tümünü sıfırlamak için:_ \`.yz sifirla tum\``
+          );
+        }
+        const n = AI_SHARED.clearMemory(resolved, message.jid);
+        return await message.sendReply(
+          n > 0
+            ? `✅ _\`.yz ${resolved}\` sohbet hafızanız sıfırlandı._`
+            : `ℹ️ _\`.yz ${resolved}\` için aktif bir sohbet yoktu._`
+        );
+      }
+
       switch (subCmd) {
         case "görsel": {
           const imagePrompt = subArgs || message.reply_message?.text?.trim();
@@ -1082,9 +1311,19 @@
           } else {
             return await message.sendReply(
               "✨ *Yapay Zeka (Lades AI) Komutları*\n\n" +
-              "💬 *Sohbet:*\n" +
+              "💬 *Varsayılan Sohbet (Gemini):*\n" +
               "└ .yz nasılsın — Herhangi bir konuda soru sor\n" +
               "└ (görsele yanıtlayıp) .yz — Görsel analiz et\n\n" +
+              "🤖 *Diğer Modeller (10dk hafıza):*\n" +
+              "└ .yz geminilite <soru> — Gemini Lite\n" +
+              "└ .yz deepseek <soru> — DeepSeek R1\n" +
+              "└ .yz llama <soru> — Llama 3.3\n" +
+              "└ .yz metaai <soru> — Meta AI\n" +
+              "└ .yz qwq <soru> — QwQ 32B\n" +
+              "└ .yz duckai <soru> — DuckAI (GPT-4o-mini)\n\n" +
+              "🧠 *Sohbet Hafızası:*\n" +
+              "└ .yz sifirla — Tüm modellerin hafızanızı siler\n" +
+              "└ .yz sifirla deepseek — Sadece o modeli sıfırlar\n\n" +
               "🎨 *Görsel Üretimi:*\n" +
               "└ .yz görsel gün batımı — Metinden görsel üret\n\n" +
               "🖌️ *Görsel Düzenleme:*\n" +
@@ -1130,286 +1369,11 @@
 // FILE: siputzx-ai.js
 // ==========================================
 (function () {
-  /**
-   * plugins/siputzx-ai.js
-   * Siputzx API - AI Komutları (DuckAI, DeepSeek, Llama)
-   * Tüm çıktılar %100 Türkçe
-   */
   const { Module } = require("../main");
-  const axios = require("axios");
+  const { siputGetBuffer } = AI_SHARED;
 
-  const SIPUTZX_BASE = "https://api.siputzx.my.id";
-  const NEXRAY_BASE = "https://api.nexray.web.id";
-  const TIMEOUT = 30000;
-
-  async function siputGet(path, params = {}) {
-    const url = `${SIPUTZX_BASE}${path}`;
-    const res = await axios.get(url, { params, timeout: TIMEOUT, validateStatus: () => true });
-    if (res.data && res.data.status) return res.data;
-    throw new Error(res.data?.error || `API yanıt vermedi (HTTP ${res.status})`);
-  }
-
-  async function siputGetBuffer(path, params = {}) {
-    const url = `${SIPUTZX_BASE}${path}`;
-    const res = await axios.get(url, { params, timeout: TIMEOUT, responseType: "arraybuffer", validateStatus: () => true });
-    if (res.status === 200 && res.data) return Buffer.from(res.data);
-    throw new Error("Veri alınamadı");
-  }
-
-  // Nexray AI fallback helper — returns the `result` field on success
-  async function nexrayAiGet(path, params = {}) {
-    const url = `${NEXRAY_BASE}${path}`;
-    const res = await axios.get(url, { params, timeout: TIMEOUT, validateStatus: () => true });
-    if (res.data && res.data.status === true && res.data.result !== undefined) {
-      return res.data.result;
-    }
-    throw new Error(res.data?.error || `Nexray API hatası (HTTP ${res.status})`);
-  }
-
-  // Extract a plain-text answer from various AI response shapes
-  function extractAnswer(result) {
-    if (result == null) return "";
-    if (typeof result === "string") return result;
-    return (
-      (result.parts && result.parts[0]?.text) ||
-      result.response ||
-      result.message ||
-      result.text ||
-      result.answer ||
-      result.content ||
-      JSON.stringify(result)
-    );
-  }
-
-  // Strip <think>...</think> reasoning blocks (used by DeepSeek R1 / QwQ).
-  // Behavior:
-  //  - Remove fully-paired <think>…</think> blocks.
-  //  - If the model returned only an unclosed <think>… (no closing tag), keep
-  //    the content but drop the bare tag so the user still sees a reply.
-  function stripThinkTags(s = "") {
-    if (!s) return s;
-    let out = s;
-    // Remove fully closed reasoning blocks
-    out = out.replace(/<think>[\s\S]*?<\/think>/gi, "");
-    // Drop any leftover bare opening/closing tags but keep the prose
-    out = out.replace(/<\/?think>/gi, "");
-    return out.trim();
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // Per-command, per-user chat memory
-  // ──────────────────────────────────────────────────────────────────────────
-  // Key:  `${cmd}:${jid}`
-  // Each entry: { messages: [{role:'user'|'ai', text}], lastUsedAt: number }
-  const aiMemory = new Map();
-  const MEMORY_TTL_MS = 10 * 60 * 1000;   // 10 dk hareketsizlik sonrası unut
-  const MAX_TURNS = 6;                    // En fazla son 6 turu (12 mesaj) tut
-  const MAX_PROMPT_CHARS = 6000;          // Bağlam çok büyürse kırp
-
-  function _key(cmd, jid) { return `${cmd}:${jid}`; }
-
-  function getMemory(cmd, jid) {
-    const m = aiMemory.get(_key(cmd, jid));
-    if (!m) return null;
-    if (Date.now() - m.lastUsedAt > MEMORY_TTL_MS) {
-      aiMemory.delete(_key(cmd, jid));
-      return null;
-    }
-    return m;
-  }
-
-  function appendMemory(cmd, jid, userText, aiText) {
-    if (!aiText || !userText) return;
-    const key = _key(cmd, jid);
-    let m = aiMemory.get(key);
-    if (!m) m = { messages: [], lastUsedAt: 0 };
-    m.messages.push({ role: "user", text: userText });
-    m.messages.push({ role: "ai", text: aiText });
-    if (m.messages.length > MAX_TURNS * 2) {
-      m.messages = m.messages.slice(-MAX_TURNS * 2);
-    }
-    m.lastUsedAt = Date.now();
-    aiMemory.set(key, m);
-  }
-
-  function clearMemory(cmd, jid) {
-    if (cmd === "*") {
-      let n = 0;
-      for (const k of [...aiMemory.keys()]) {
-        if (k.endsWith(`:${jid}`)) { aiMemory.delete(k); n++; }
-      }
-      return n;
-    }
-    return aiMemory.delete(_key(cmd, jid)) ? 1 : 0;
-  }
-
-  // Build the prompt with prior context prepended in a model-agnostic format.
-  function buildPromptWithMemory(cmd, jid, currentText, opts = {}) {
-    const persona = opts.persona ||
-      "Sen Lades adlı yardımcı bir asistansın. Aşağıdaki sohbetin devamı olarak yanıt ver. " +
-      "Önceki konuyu hatırla, kısa ve net cevap ver, yalnızca Türkçe konuş.";
-    const m = getMemory(cmd, jid);
-    if (!m || m.messages.length === 0) return currentText;
-
-    const lines = m.messages.map(msg =>
-      msg.role === "user" ? `Kullanıcı: ${msg.text}` : `Asistan: ${msg.text}`
-    );
-    let context = lines.join("\n");
-    // Bağlam çok büyürse en eski turları at
-    while (context.length > MAX_PROMPT_CHARS && lines.length > 2) {
-      lines.splice(0, 2); // bir tur (kullanıcı + asistan) at
-      context = lines.join("\n");
-    }
-    return `${persona}\n\n--- Önceki sohbet ---\n${context}\n\nKullanıcı: ${currentText}\nAsistan:`;
-  }
-
-  // Periyodik temizlik — bellek sızıntısını önler
-  setInterval(() => {
-    const now = Date.now();
-    for (const [k, m] of aiMemory) {
-      if (now - m.lastUsedAt > MEMORY_TTL_MS) aiMemory.delete(k);
-    }
-  }, 5 * 60 * 1000).unref?.();
-
-  function turkceHata(msg = "") {
-    const m = msg.toLowerCase();
-    if (m.includes("prompt") && (m.includes("required") || m.includes("non-empty"))) return "_Sunucu boş soru aldı. Lütfen soru yazıp tekrar deneyin._";
-    if (m.includes("all nodes failed")) return "_Sunucu şu an yanıt vermiyor, lütfen birkaç dakika sonra tekrar deneyin._";
-    if (m.includes("timeout") || m.includes("econnaborted")) return "_İstek zaman aşımına uğradı. Lütfen tekrar deneyin._";
-    if (m.includes("network") || m.includes("econnrefused") || m.includes("enotfound")) return "_Ağ bağlantısı hatası. Lütfen tekrar deneyin._";
-    if (m.includes("api yanıt vermedi") || m.includes("rate limit") || m.includes("429")) return "_Sunucu geçici olarak meşgul. Lütfen kısa bir süre bekleyip tekrar deneyin._";
-    return `_${msg}_`;
-  }
-
-  // ══════════════════════════════════════════════════════
-  // DuckAI Sohbet
-  // ══════════════════════════════════════════════════════
-  Module({
-    pattern: "duckai ?(.*)",
-    fromMe: false,
-    desc: "DuckAI ile sohbet eder (sohbet hafızası: 10 dk).",
-    usage: ".duckai Türkiye'nin başkenti neresi?",
-    use: "yapay zeka",
-  }, async (message, match) => {
-    const text = (match[1] || "").trim() || message.reply_message?.text;
-    if (!text) return await message.sendReply("⚠️ _Soru girin:_ `.duckai Türkiye'nin başkenti neresi?`");
-
-    let sent;
-    try {
-      sent = await message.sendReply("🧐 _DuckAI düşünüyor..._");
-      const promptWithCtx = buildPromptWithMemory("duckai", message.jid, text);
-      const data = await siputGet("/api/ai/duckai", { message: promptWithCtx });
-      const result = data.data || data.result;
-      const answer = extractAnswer(result);
-      if (!answer) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
-      appendMemory("duckai", message.jid, text, answer);
-      await message.edit(`🤖 *DuckAI*\n\n${answer}`, message.jid, sent.key);
-    } catch (e) {
-      const errTr = turkceHata(e.message);
-      if (sent) await message.edit(`❌ *Hata:* ${errTr}`, message.jid, sent.key).catch(() => {});
-      else await message.sendReply(`❌ *Hata:* ${errTr}`);
-    }
-  });
-
-  // ══════════════════════════════════════════════════════
-  // DeepSeek R1
-  // ══════════════════════════════════════════════════════
-  Module({
-    pattern: "deepseek ?(.*)",
-    fromMe: false,
-    desc: "DeepSeek R1 ile sohbet eder.",
-    usage: ".deepseek Kuantum bilgisayar nedir?",
-    use: "yapay zeka",
-  }, async (message, match) => {
-    const text = (match[1] || "").trim() || message.reply_message?.text;
-    if (!text) return await message.sendReply("⚠️ _Soru girin:_ `.deepseek Kuantum bilgisayar nedir?`");
-
-    let sent;
-    try {
-      sent = await message.sendReply("🧐 _DeepSeek düşünüyor..._");
-      // Siputzx now requires `prompt` (was `text`); send both for compat.
-      // No fallback — başka modeli DeepSeek diye sunmayız.
-      const promptWithCtx = buildPromptWithMemory("deepseek", message.jid, text);
-      const data = await siputGet("/api/ai/deepseekr1", { prompt: promptWithCtx, text: promptWithCtx });
-      const result = data.data || data.result;
-      const finalAnswer = stripThinkTags(extractAnswer(result));
-      if (!finalAnswer) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
-      appendMemory("deepseek", message.jid, text, finalAnswer);
-      await message.edit(`🤖 *DeepSeek R1*\n\n${finalAnswer}`, message.jid, sent.key);
-    } catch (e) {
-      const errTr = turkceHata(e.message);
-      if (sent) await message.edit(`❌ *DeepSeek şu an yanıt veremedi.* ${errTr}`, message.jid, sent.key).catch(() => {});
-      else await message.sendReply(`❌ *DeepSeek şu an yanıt veremedi.* ${errTr}`);
-    }
-  });
-
-  // ══════════════════════════════════════════════════════
-  // Llama 3.3
-  // ══════════════════════════════════════════════════════
-  Module({
-    pattern: "llama ?(.*)",
-    fromMe: false,
-    desc: "Llama 3.3 ile sohbet eder.",
-    usage: ".llama Python ile merhaba dünya",
-    use: "yapay zeka",
-  }, async (message, match) => {
-    const text = (match[1] || "").trim() || message.reply_message?.text;
-    if (!text) return await message.sendReply("⚠️ _Soru girin:_ `.llama Python ile merhaba dünya`");
-
-    let sent;
-    try {
-      sent = await message.sendReply("🧐 _Llama düşünüyor..._");
-      // Llama 3.3 sohbet modeli için yedek olarak yalnızca gerçek Llama 3.3
-      // endpoint'i kullanıyoruz; başka modeli Llama diye sunmayız.
-      const promptWithCtx = buildPromptWithMemory("llama", message.jid, text);
-      const data = await siputGet("/api/ai/llama33", { prompt: promptWithCtx, text: promptWithCtx });
-      const result = data.data || data.result;
-      const answer = extractAnswer(result);
-      if (!answer) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
-      appendMemory("llama", message.jid, text, answer);
-      await message.edit(`🤖 *Llama 3.3*\n\n${answer}`, message.jid, sent.key);
-    } catch (e) {
-      const errTr = turkceHata(e.message);
-      if (sent) await message.edit(`❌ *Llama 3.3 şu an yanıt veremedi.* ${errTr}`, message.jid, sent.key).catch(() => {});
-      else await message.sendReply(`❌ *Llama 3.3 şu an yanıt veremedi.* ${errTr}`);
-    }
-  });
-
-  // ══════════════════════════════════════════════════════
-  // Meta AI
-  // ══════════════════════════════════════════════════════
-  Module({
-    pattern: "metaai ?(.*)",
-    fromMe: false,
-    desc: "Meta AI ile sohbet eder.",
-    usage: ".metaai Yapay zeka nedir?",
-    use: "yapay zeka",
-  }, async (message, match) => {
-    const text = (match[1] || "").trim() || message.reply_message?.text;
-    if (!text) return await message.sendReply("⚠️ _Soru girin:_ `.metaai Yapay zeka nedir?`");
-
-    let sent;
-    try {
-      sent = await message.sendReply("🧐 _Meta AI düşünüyor..._");
-      // Sadece gerçek Meta AI endpoint'i kullanılır;
-      // başka modeli Meta AI diye sunmayız.
-      const promptWithCtx = buildPromptWithMemory("metaai", message.jid, text);
-      const data = await siputGet("/api/ai/metaai", { query: promptWithCtx, prompt: promptWithCtx });
-      const result = data.data || data.result;
-      const answer = extractAnswer(result);
-      if (!answer) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
-      appendMemory("metaai", message.jid, text, answer);
-      await message.edit(`🤖 *Meta YZ*\n\n${answer}`, message.jid, sent.key);
-    } catch (e) {
-      const errTr = turkceHata(e.message);
-      if (sent) await message.edit(`❌ *Meta AI şu an yanıt veremedi.* ${errTr}`, message.jid, sent.key).catch(() => {});
-      else await message.sendReply(`❌ *Meta AI şu an yanıt veremedi.* ${errTr}`);
-    }
-  });
-
-  // ══════════════════════════════════════════════════════
-  // DuckAI Görsel Üretimi
-  // ══════════════════════════════════════════════════════
+  // DuckAI Görsel Üretimi — modelden bağımsız (sohbet değil) görsel üretimi
+  // olduğu için bağımsız komut olarak kalıyor.
   Module({
     pattern: "aigörsel ?(.*)",
     fromMe: false,
@@ -1425,119 +1389,14 @@
       const buf = await siputGetBuffer("/api/ai/duckaiimage", { prompt });
       await message.client.sendMessage(message.jid, {
         image: buf,
-        caption: `✅ *YZ Görsel:*\n_${prompt}_`
+        caption: `✅ *YZ Görsel:*
+_${prompt}_`
       }, { quoted: message.data });
     } catch (e) {
-      await message.sendReply(`❌ *Görsel üretilemedi!* \n\n*Detay:* ${e.message}`);
+      await message.sendReply(`❌ *Görsel üretilemedi!* 
+
+*Detay:* ${e.message}`);
     }
-  });
-
-  // ══════════════════════════════════════════════════════
-  // Gemini Lite
-  // ══════════════════════════════════════════════════════
-  Module({
-    pattern: "geminilite ?(.*)",
-    fromMe: false,
-    desc: "Gemini Lite ile sohbet eder (API anahtarı gerektirmez).",
-    usage: ".geminilite Dünya'nın çapı nedir?",
-    use: "yapay zeka",
-  }, async (message, match) => {
-    const text = (match[1] || "").trim() || message.reply_message?.text;
-    if (!text) return await message.sendReply("_Soru girin:_ `.geminilite Dünya'nın çapı nedir?`");
-
-    let sent;
-    try {
-      sent = await message.sendReply("🧐 _Gemini düşünüyor..._");
-      const promptWithCtx = buildPromptWithMemory("geminilite", message.jid, text);
-      let answer = "";
-      try {
-        // Hem birincil hem yedek gerçek Gemini modeli olduğu için bu iki
-        // endpoint arasında geçiş dürüsttür.
-        const result = await nexrayAiGet("/ai/gemini", { text: promptWithCtx });
-        answer = extractAnswer(result);
-      } catch (primaryErr) {
-        const data = await siputGet("/api/ai/gemini-lite", { prompt: promptWithCtx, text: promptWithCtx });
-        const result = data.data || data.result;
-        answer = extractAnswer(result);
-      }
-      if (!answer) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
-      appendMemory("geminilite", message.jid, text, answer);
-      await message.edit(`🤖 *Gemini Lite*\n\n${answer}`, message.jid, sent.key);
-    } catch (e) {
-      const errTr = turkceHata(e.message);
-      if (sent) await message.edit(`❌ *Gemini Lite şu an yanıt veremedi.* ${errTr}`, message.jid, sent.key).catch(() => {});
-      else await message.sendReply(`❌ *Gemini Lite şu an yanıt veremedi.* ${errTr}`);
-    }
-  });
-
-  // ══════════════════════════════════════════════════════
-  // QwQ 32B
-  // ══════════════════════════════════════════════════════
-  Module({
-    pattern: "qwq ?(.*)",
-    fromMe: false,
-    desc: "QwQ 32B ile sohbet eder.",
-    usage: ".qwq Fibonacci dizisi nedir?",
-    use: "yapay zeka",
-  }, async (message, match) => {
-    const text = (match[1] || "").trim() || message.reply_message?.text;
-    if (!text) return await message.sendReply("_Soru girin:_ `.qwq Fibonacci dizisi nedir?`");
-
-    let sent;
-    try {
-      sent = await message.sendReply("🧐 _QwQ düşünüyor..._");
-      const promptWithCtx = buildPromptWithMemory("qwq", message.jid, text);
-      const data = await siputGet("/api/ai/qwq32b", { prompt: promptWithCtx, text: promptWithCtx });
-      const result = data.data || data.result;
-      if (!result) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
-
-      let answer = stripThinkTags(extractAnswer(result));
-      if (!answer) answer = "⚠️ _Düşünme süreci bitti fakat net bir yanıt üretilemedi._";
-      else appendMemory("qwq", message.jid, text, answer);
-
-      await message.edit(`🤖 *QwQ 32B*\n\n${answer}`, message.jid, sent.key);
-    } catch (e) {
-      const errTr = turkceHata(e.message);
-      if (sent) await message.edit(`❌ *QwQ şu an yanıt veremedi.* ${errTr}`, message.jid, sent.key).catch(() => {});
-      else await message.sendReply(`❌ *QwQ şu an yanıt veremedi.* ${errTr}`);
-    }
-  });
-
-  // ══════════════════════════════════════════════════════
-  // YZ Hafıza Yönetimi (.yzsifirla)
-  // ══════════════════════════════════════════════════════
-  Module({
-    pattern: "yzsifirla ?(.*)",
-    fromMe: false,
-    desc: "Yapay zeka sohbet hafızanızı sıfırlar (örn: .yzsifirla deepseek veya .yzsifirla tum).",
-    usage: ".yzsifirla [komut|tum]",
-    use: "yapay zeka",
-  }, async (message, match) => {
-    const arg = (match[1] || "").trim().toLowerCase();
-    const knownCmds = ["duckai", "deepseek", "llama", "metaai", "geminilite", "qwq"];
-
-    if (!arg || arg === "tum" || arg === "tümü" || arg === "all" || arg === "*") {
-      const n = clearMemory("*", message.jid);
-      return await message.sendReply(
-        n > 0
-          ? `✅ _Tüm AI sohbet hafızanız sıfırlandı (${n} model)._`
-          : `ℹ️ _Sıfırlanacak aktif sohbet bulunamadı._`
-      );
-    }
-
-    if (!knownCmds.includes(arg)) {
-      return await message.sendReply(
-        `⚠️ _Geçerli komutlar:_ ${knownCmds.map(c => `\`.${c}\``).join(", ")}\n` +
-        `_Tümünü sıfırlamak için:_ \`.yzsifirla tum\``
-      );
-    }
-
-    const n = clearMemory(arg, message.jid);
-    await message.sendReply(
-      n > 0
-        ? `✅ _\`.${arg}\` sohbet hafızanız sıfırlandı._`
-        : `ℹ️ _\`.${arg}\` için aktif bir sohbet yoktu._`
-    );
   });
 })();
 
