@@ -1022,20 +1022,7 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
           reactionMessage: "❤️ Tepki",
         };
 
-        let targetJid = jid;
-        try {
-          const { BotVariable } = require("./database");
-          const mode = await BotVariable.get(`ANTI_DELETE_MODE_${jid}`, "chat");
-          if (mode === "sudo") {
-            const sudoKey = (config.SUDO || config.OWNER_NUMBER || "").split(",")[0].replace(/[^0-9]/g, "");
-            if (sudoKey) targetJid = `${sudoKey}@s.whatsapp.net`;
-          } else if (mode === "custom") {
-            const customTarget = await BotVariable.get(`ANTI_DELETE_JID_${jid}`, jid);
-            if (customTarget) targetJid = customTarget;
-          }
-        } catch (e) {
-          logger.warn("Antidelete route error: " + (e?.message || e));
-        }
+        const targetJid = jid;
 
         const originalMsg = getMessageByKey(deletedKey);
 

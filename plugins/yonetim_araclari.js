@@ -501,7 +501,7 @@ Module({
   pattern: "antisilme ?(.*)",
   fromMe: false,
   desc: "Sohbetlerde silinen mesajları otomatik olarak yakalar ve belirlediğiniz hedefe iletir.",
-  usage: ".antisilme [aç/kapat/sudo/jid]",
+  usage: ".antisilme [aç/kapat]",
   use: "grup",
 },
   async (message, match) => {
@@ -522,9 +522,8 @@ Module({
         `• İçerik bulunamazsa yine de kim sildi bilgisini verir\n` +
         `• Mesaj türünü (fotoğraf, video, metin vb.) gösterir\n\n` +
         `💬 *Kullanım:*\n` +
-        `\`.antisilme aç\` — sohbette göster\n` +
-        `\`.antisilme sudo\` — ilk yöneticiye gönder\n` +
-        `\`.antisilme kapat\` — kapat`
+        `\`.antisilme aç\` - Silinenleri grup sohbetine iletir.\n` +
+        `\`.antisilme kapat\` - Özelliği kapatır.`
       );
     }
 
@@ -539,24 +538,9 @@ Module({
       await setVar(`ANTI_DELETE_MODE_${message.jid}`, "chat");
       return await message.sendReply("✅ *Mesaj silme koruması açıldı!*\n\nℹ️ _Kurtarılan mesajlar orijinal sohbete gönderilecek_"
       );
-    } else if (target === "sudo") {
-      await antidelete.set(message.jid);
-      await setVar(`ANTI_DELETE_MODE_${message.jid}`, "sudo");
-      return await message.sendReply("✅ *Mesaj silme koruması açıldı!*\n\nℹ️ _Kurtarılan mesajlar ilk yöneticiye gönderilecek_"
-      );
-    } else if (target.includes("@")) {
-      if (!target.match(/^\d+@(s\.whatsapp\.net|g\.us)$/)) {
-        return await message.sendReply("❌ *Geçersiz JID formatı!*\n\nℹ️ _Kabul edilen formatlar:_\n- `123020340234@s.whatsapp.net` (kişisel)\n- `123020340234@g.us` (grup)"
-        );
-      }
-      await antidelete.set(message.jid);
-      await setVar(`ANTI_DELETE_MODE_${message.jid}`, "custom");
-      await setVar(`ANTI_DELETE_JID_${message.jid}`, target);
-      return await message.sendReply(
-        `✅ *Mesaj silme engeli etkinleştirildi!*\n\nℹ️ _Kurtarılan mesajlar ${target} adresine gönderilecek_`
-      );
     } else {
-      return await message.sendReply(`❌ *Geçersiz seçenek!*\n\nℹ️ _Kullanım:_\n\`.antisilme aç\` - *orijinal sohbete gönderir*\n\`.antisilme sudo\` - *ilk yöneticiye gönderir*\n\`.antisilme <jid>\` - *belirtilen JID'e gönderir*\n\`.antisilme kapat\` - *mesaj silme engelini kapatır*`
+      return await message.sendReply(
+        `❌ *Geçersiz seçenek!*\n\nℹ️ _Kullanım:_\n\`.antisilme aç\` - Silinenleri grup sohbetine iletir.\n\`.antisilme kapat\` - Özelliği kapatır.`
       );
     }
   }
