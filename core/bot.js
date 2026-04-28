@@ -320,15 +320,34 @@ async function createBot(sessionId = "lades-session", options = {}) {
         //  Yüzlerce hata/saniye yeni soketin mesaj almasını engeller.
         //  Çözüm: Bu hataları sessizce yut, sadece özet say + sıkışma
         //  yakalanırsa süreci yeniden başlat.
+        //
+        //  İki format yakalanır:
+        //  1) logData.err.message === 'Connection Closed'  (eski format)
+        //  2) logData.error.isBoom && statusCode === 428   (Boom format — node işlemcisinden)
+        //  3) logData.trace içinde ECONNRESET / Connection Closed (sendRawMessage zinciri)
         // ─────────────────────────────────────────────────────
+        const isBoom428 =
+          logData.error?.isBoom === true &&
+          (logData.error?.output?.statusCode === 428 ||
+           logData.error?.output?.payload?.statusCode === 428);
+
+        const isTraceConnError =
+          typeof logData.trace === 'string' &&
+          (logData.trace.includes('ECONNRESET') || logData.trace.includes('Connection Closed')) &&
+          (logData.trace.includes('sendRawMessage') || logData.trace.includes('sendNode') ||
+           logData.trace.includes('sendMessageAck') || logData.trace.includes('processNodeWithBuffer') ||
+           (logData.key?.fromMe === true));
+
         const isClosedSocketAckError =
-          logData.err?.message === 'Connection Closed' &&
+          isBoom428 ||
+          isTraceConnError ||
+          (logData.err?.message === 'Connection Closed' &&
           (logMsg.includes('handling receipt') ||
            logMsg.includes('handling notification') ||
            logMsg.includes('handling message') ||
            logMsg.includes('processNodeWithBuffer') ||
            logMsg.includes('sendMessageAck') ||
-           logMsg.includes('sendRawMessage'));
+           logMsg.includes('sendRawMessage')));
 
         if (isClosedSocketAckError) {
           const now = Date.now();

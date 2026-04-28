@@ -5,7 +5,7 @@
 
 const badWords = [
   // Ağır Küfürler & Cinsellik
-  "orospu", "amcı", "amına", "amını", "amın", "sik", "göt",
+  "orospu", "amcı", "amına", "amını", "amın", "amc", "sik", "göt",
   "yarra", "yarak", "taşak", "daşşak", "piç", "pezevenk", "kahpe",
   "kaltak", "kaşar", "puşt", "ibne", "ibine", "gavat", "döl",
 
