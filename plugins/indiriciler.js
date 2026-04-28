@@ -1234,7 +1234,7 @@
 
       // 2) Nexray /downloader/v2/instagram (her hikayeyi ayrı medya olarak verir)
       if (mediaItems.length === 0) {
-      try {
+        try {
         const cleanUrl = userIdentifier.split("?")[0].replace(/\/$/, "");
         const res = await axios.get(`https://api.nexray.web.id/downloader/v2/instagram`, {
           params: { url: cleanUrl },
@@ -1246,18 +1246,10 @@
           // Stories endpoint'inde her öğe bağımsız bir hikayedir, hiçbirini eleme
           mediaItems = r.media.map(normalizeMediaItem).filter(Boolean);
         }
-      } catch (_) { }
-      }
-
-      // 3) Yedek: mevcut downloadInstagram (post içeriklerini de toplayabilir)
-      if (mediaItems.length === 0) {
-        try {
-          const arr = await downloadGram(userIdentifier);
-          if (Array.isArray(arr)) mediaItems = arr.map(normalizeMediaItem).filter(Boolean);
         } catch (_) { }
       }
 
-      // 4) Son çare: kullanıcı adıyla v2/instagram (son gönderiler)
+      // 3) Son çare: kullanıcı adıyla v2/instagram (son gönderiler)
       if (mediaItems.length === 0 && urls.length === 0) {
         try {
           const res = await axios.get(`https://api.nexray.web.id/downloader/v2/instagram`, {
