@@ -343,7 +343,7 @@ const GRUP_AYARLARI = [
     }
   },
   {
-    key: "antibaglantilink",
+    key: "antibağlantı",
     title: "Anti-Bağlantı",
     desc: "Grup içi link paylaşımını engeller",
     icon: "🔗",
