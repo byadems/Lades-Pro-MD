@@ -1348,22 +1348,48 @@
         try {
           const url = await nexray.downloadPinterest(pinUrl);
           if (!url) {
+            // Yedek 1: Siputzx /api/d/pinterest (çeşitli format çıkarma)
+            let fbUrl = null;
             try {
               const fallback = await siputGet("/api/d/pinterest", { url: pinUrl });
               const r = fallback.data || fallback.result;
-              if (r?.url || r?.image || r?.video) {
-                const mediaUrl = r.url || r.image || r.video;
-                const isImage = !mediaUrl.includes(".mp4") && r.type !== "video";
-                const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
-                try {
-                  await saveToDisk(mediaUrl, tempPath);
-                  await message.sendReply({ [isImage ? "image" : "video"]: { url: tempPath } });
-                } finally {
-                  cleanTempFile(tempPath);
-                }
-                return;
-              }
+              if (typeof r === "string") fbUrl = r;
+              else if (Array.isArray(r)) fbUrl = r[0]?.url || r[0]?.image || r[0]?.video || (typeof r[0] === "string" ? r[0] : null);
+              else if (r) fbUrl = r.video || r.url || r.image || r.thumbnail || r.media?.[0]?.url;
             } catch (_) { }
+
+            // Yedek 2: Siputzx /api/d/savefrom (yeni iç içe format)
+            if (!fbUrl) {
+              try {
+                const fallback = await siputGet("/api/d/savefrom", { url: pinUrl });
+                const arr = fallback.data || fallback.result;
+                const tops = Array.isArray(arr) ? arr : [arr];
+                for (const top of tops) {
+                  if (top?.type === "error") continue;
+                  if (Array.isArray(top?.data)) {
+                    for (const node of top.data) {
+                      fbUrl = node?.hd?.url || node?.sd?.url
+                        || (Array.isArray(node?.url) && (node.url.find(x => /\.(mp4|jpg|jpeg|png|webp)/i.test(x.url || ''))?.url || node.url[0]?.url))
+                        || node?.thumb;
+                      if (fbUrl) break;
+                    }
+                  }
+                  if (fbUrl) break;
+                }
+              } catch (_) { }
+            }
+
+            if (fbUrl) {
+              const isImage = !/\.mp4(\?|$)/i.test(fbUrl);
+              const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
+              try {
+                await saveToDisk(fbUrl, tempPath);
+                await message.sendReply({ [isImage ? "image" : "video"]: { url: tempPath } });
+              } finally {
+                cleanTempFile(tempPath);
+              }
+              return;
+            }
             return await message.sendReply("❌ *İndirilebilir medya bulunamadı veya sunucu hatası.*");
           }
 
@@ -1460,11 +1486,50 @@
       if (!videoLink || !/twitter\.com|x\.com/i.test(videoLink))
         return await message.sendReply("⚠️ *Geçerli bir Twitter/X bağlantısı gerekli!*");
       try {
-        const result = await nexray.downloadTwitter(videoLink);
-        if (result?.url) {
+        // 1) Birincil: TwDown + Nexray (downloadTwitter içinde)
+        let videoUrl = (await nexray.downloadTwitter(videoLink))?.url;
+
+        // 2) Yedek: Siputzx /api/d/twitter
+        if (!videoUrl) {
+          try {
+            const fb = await siputGet("/api/d/twitter", { url: videoLink });
+            const r = fb.data || fb.result;
+            if (Array.isArray(r)) {
+              const hd = r.find(x => /hd|720|1080/i.test(x.quality || x.label || ''));
+              videoUrl = (hd || r[0])?.url;
+            } else if (r) {
+              videoUrl = r.hd || r.sd || r.url || r.video
+                || (Array.isArray(r.media) && (r.media.find(m => /hd|720|1080/i.test(m.quality || ''))?.url || r.media[0]?.url))
+                || (Array.isArray(r.downloads) && r.downloads[0]?.url);
+              if (typeof videoUrl === "object") videoUrl = videoUrl?.url;
+            }
+          } catch (_) { }
+        }
+
+        // 3) Yedek: Siputzx /api/d/savefrom (yeni iç içe format)
+        if (!videoUrl) {
+          try {
+            const fb = await siputGet("/api/d/savefrom", { url: videoLink });
+            const arr = fb.data || fb.result;
+            const tops = Array.isArray(arr) ? arr : [arr];
+            for (const top of tops) {
+              if (top?.type === "error") continue;
+              if (Array.isArray(top?.data)) {
+                for (const node of top.data) {
+                  videoUrl = node?.hd?.url || node?.sd?.url
+                    || (Array.isArray(node?.url) && (node.url.find(x => /\.mp4/i.test(x.url || ''))?.url || node.url[0]?.url));
+                  if (videoUrl) break;
+                }
+              }
+              if (videoUrl) break;
+            }
+          } catch (_) { }
+        }
+
+        if (videoUrl) {
           const tempPath = getTempPath(".mp4");
           try {
-            await saveToDisk(result.url, tempPath);
+            await saveToDisk(videoUrl, tempPath);
             await message.sendReply({ video: { url: tempPath } });
           } finally {
             cleanTempFile(tempPath);
@@ -2992,6 +3057,7 @@
 
       // Toplanan medya URL'lerini çıkar (yeni iç içe + eski düz formatlar)
       const collected = []; // { url, type: 'video'|'image' }
+      let upstreamError = null;
       const pushUrl = (u, type) => {
         if (typeof u !== "string" || !u.startsWith("http")) return;
         const isVideo = type === "video" || /\.mp4(\?|$)/i.test(u);
@@ -3000,6 +3066,11 @@
 
       const topItems = Array.isArray(r) ? r : [r];
       for (const top of topItems) {
+        // SaveFrom upstream'in iç hata cevabı: { type:'error', data:{ html, response_type, success:false } }
+        if (top?.type === "error" || top?.data?.success === false) {
+          upstreamError = top?.data?.html || top?.data?.response_type || upstreamError;
+          continue;
+        }
         // Yeni format: { type: 'video', data: [{ url: [{url, ext, subname}], hd:{url}, sd:{url}, thumb }] }
         if (Array.isArray(top?.data)) {
           for (const node of top.data) {
@@ -3021,7 +3092,13 @@
         else if (typeof direct?.url === "string") pushUrl(direct.url, top?.type || direct.type);
       }
 
-      if (!collected.length) return await message.sendReply("_Medya bulunamadı._");
+      if (!collected.length) {
+        return await message.sendReply(
+          upstreamError
+            ? `❌ *İndirilemedi:* ${upstreamError}`
+            : "_Medya bulunamadı._"
+        );
+      }
 
       for (const item of collected.slice(0, 3)) {
         await message.client.sendMessage(message.jid, {
