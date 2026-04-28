@@ -1556,17 +1556,10 @@
         const video = r.video_url || r.video || r.url || r.download_url;
         if (!video) throw new Error("Video bağlantısı alınamadı");
 
-        const title = r.title || r.name || "CapCut Video";
-        const desc = r.description || r.desc || "";
-        const usage = r.usage || r.uses || "-";
-        let caption = `🎬 *${title}*\n`;
-        if (desc) caption += `📝 ${desc}\n`;
-        if (usage !== "-") caption += `👤 *Kullanım:* ${fmtCount(usage)}`;
-
         const tempPath = getTempPath(".mp4");
         try {
           await saveToDisk(video, tempPath);
-          await message.client.sendMessage(message.jid, { video: { url: tempPath }, caption }, { quoted: message.data });
+          await message.client.sendMessage(message.jid, { video: { url: tempPath } }, { quoted: message.data });
         } finally {
           cleanTempFile(tempPath);
         }
@@ -1579,7 +1572,7 @@
             const tempPath = getTempPath(".mp4");
             try {
               await saveToDisk(videoUrl, tempPath);
-              await message.client.sendMessage(message.jid, { video: { url: tempPath }, caption: "*CapCut*" }, { quoted: message.data });
+              await message.client.sendMessage(message.jid, { video: { url: tempPath } }, { quoted: message.data });
             } finally {
               cleanTempFile(tempPath);
             }
@@ -1624,6 +1617,61 @@
   }
 
   const VIDEO_SIZE_LIMIT = 150 * 1024 * 1024;
+
+  // ─────────────────────────────────────────────────────────
+  // Bekleyen video kalite seçimleri (mesaj key.id -> videoId)
+  // Kullanıcı kalite listesinden numara seçtiğinde videoId'yi
+  // mesaj metnine yazmak yerine bu Map'ten alıyoruz.
+  // 10 dk TTL, max 200 giriş.
+  // ─────────────────────────────────────────────────────────
+  const pendingVideoSelections = new Map();
+  const PENDING_VIDEO_TTL = 10 * 60 * 1000;
+  const PENDING_VIDEO_MAX = 200;
+
+  function rememberPendingVideo(msgId, videoId) {
+    if (!msgId || !videoId) return;
+    pendingVideoSelections.set(msgId, { videoId, expires: Date.now() + PENDING_VIDEO_TTL });
+    if (pendingVideoSelections.size > PENDING_VIDEO_MAX) {
+      const now = Date.now();
+      for (const [k, v] of pendingVideoSelections) {
+        if (v.expires < now) pendingVideoSelections.delete(k);
+      }
+      if (pendingVideoSelections.size > PENDING_VIDEO_MAX) {
+        const firstKey = pendingVideoSelections.keys().next().value;
+        if (firstKey) pendingVideoSelections.delete(firstKey);
+      }
+    }
+  }
+
+  function getPendingVideo(msgId) {
+    if (!msgId) return null;
+    const entry = pendingVideoSelections.get(msgId);
+    if (!entry) return null;
+    if (entry.expires < Date.now()) {
+      pendingVideoSelections.delete(msgId);
+      return null;
+    }
+    return entry.videoId;
+  }
+
+  // İngilizce "X ago" ifadelerini Türkçeye çevirir
+  function translateAgo(en) {
+    if (!en) return null;
+    return String(en)
+      .replace(/(\d+)\s+years?\s+ago/i, "$1 yıl önce")
+      .replace(/(\d+)\s+months?\s+ago/i, "$1 ay önce")
+      .replace(/(\d+)\s+weeks?\s+ago/i, "$1 hafta önce")
+      .replace(/(\d+)\s+days?\s+ago/i, "$1 gün önce")
+      .replace(/(\d+)\s+hours?\s+ago/i, "$1 saat önce")
+      .replace(/(\d+)\s+minutes?\s+ago/i, "$1 dakika önce")
+      .replace(/(\d+)\s+seconds?\s+ago/i, "$1 saniye önce")
+      .replace(/a\s+year\s+ago/i, "1 yıl önce")
+      .replace(/a\s+month\s+ago/i, "1 ay önce")
+      .replace(/a\s+week\s+ago/i, "1 hafta önce")
+      .replace(/a\s+day\s+ago/i, "1 gün önce")
+      .replace(/an\s+hour\s+ago/i, "1 saat önce")
+      .replace(/a\s+minute\s+ago/i, "1 dakika önce");
+  }
 
   function formatViews(views) {
     if (views >= 1000000) {
@@ -1868,8 +1916,7 @@
         const uniqueQualities = [...new Set(videoFormats.map((f) => f.quality))];
         const videoId = info.videoId || url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\s/?]+)/)?.[1] || "";
 
-        let qualityText = info.isFallback ? "⚠️ _Video bilgileri kısıtlı (Standart Mod)_\n\n" : "✨ _Video Kalitesini Seçiniz_\n\n";
-        qualityText += `✍🏻 _*${censorBadWords(info.title)}*_\n\nID: \`${videoId}\`\n\n`;
+        let qualityText = info.isFallback ? "⚠️ _Video bilgileri kısıtlı (Standart Mod)_\n\n" : "✨ _*Video Kalitesini Seçin*_\n\n";
 
         uniqueQualities.forEach((quality, index) => {
           const format = videoFormats.find((f) => f.quality === quality);
@@ -1888,6 +1935,7 @@
         if (info.isFallback) qualityText += "\n\n_Not: Sunucu yoğunluğu nedeniyle sadece temel kaliteler listelendi._";
 
         await message.edit(qualityText, message.jid, downloadMsg.key);
+        rememberPendingVideo(downloadMsg.key.id, videoId);
       } catch (error) {
         console.error("YouTube ytvideo indirme hatası:", error);
         if (downloadMsg) {
@@ -1984,7 +2032,11 @@
           let metadataStr = "";
           try {
             if (info) {
-              metadataStr = `_Kanal:_ ${info.channel || "Bilinmiyor"}\n_Süre:_ \`${info.duration || "Bilinmiyor"}\` | _Görüntülenme:_ \`${info.views || "Bilinmiyor"}\`\n\n`;
+              const ch = info.channel ? `📺 _Kanal:_ ${info.channel}\n` : "";
+              const du = info.duration ? `⏱️ _Süre:_ \`${info.duration}\`` : "";
+              const vw = info.views ? `${du ? " | " : ""}👁️ _Görüntülenme:_ \`${info.views}\`` : "";
+              const line2 = (du + vw).trim();
+              metadataStr = (ch || line2) ? `${ch}${line2 ? line2 + "\n" : ""}\n` : "";
             }
           } catch (_) { }
 
@@ -2428,14 +2480,14 @@
 
           const safeTitle = censorBadWords(selectedVideo.title);
           let caption = `_*${safeTitle}*_\n\n`;
-          caption += `*Kanal:* ${selectedVideo.channel}\n`;
-          caption += `*Süre:* \`${selectedVideo.duration}\`\n`;
-          caption += `*Görüntülenme:* \`${selectedVideo.views}\`\n`;
-          caption += `*Yükleme:* ${selectedVideo.upload_at || "Bilinmiyor"}\n\n`;
-          caption += `*URL:* ${selectedVideo.url}\n\n`;
-          caption += "_Yanıtlayın:_\n";
-          caption += "*1.* Ses\n";
-          caption += "*2.* Video";
+          caption += `📺 *Kanal:* ${selectedVideo.channel || "Bilinmiyor"}\n`;
+          caption += `⏱️ *Süre:* \`${selectedVideo.duration || "Bilinmiyor"}\`\n`;
+          caption += `👁️ *Görüntülenme:* \`${selectedVideo.views || "Bilinmiyor"}\`\n`;
+          caption += `📅 *Yükleme:* ${translateAgo(selectedVideo.upload_at) || "Bilinmiyor"}\n\n`;
+          caption += `🔗 *URL:* ${selectedVideo.url}\n\n`;
+          caption += "▶️ _Yanıtlayın:_\n";
+          caption += "*1.* 🎵 Ses\n";
+          caption += "*2.* 🎬 Video";
 
           await message.sendReply({ url: selectedVideo.image_url }, "image", {
             caption: caption,
@@ -2585,7 +2637,6 @@
             const uniqueQualities = [...new Set(videoFormats.map((f) => f.quality))];
 
             let qualityText = "✨ _*Video Kalitesini Seçin*_\n\n";
-            qualityText += `✍🏻 _*${safeTitle}*_\n\n(${selectedVideo.id})\n\n`;
 
             uniqueQualities.forEach((quality, index) => {
               const format = videoFormats.find((f) => f.quality === quality);
@@ -2630,6 +2681,7 @@
             qualityText += "\n▶️ _İndirmek için seçiminizi bir numara ile yanıtlayın._";
 
             await message.edit(qualityText, message.jid, downloadMsg.key);
+            rememberPendingVideo(downloadMsg.key.id, selectedVideo.id);
           } catch (error) {
             console.error("Video bilgi alma hatası:", error);
             if (downloadMsg) {
@@ -2650,31 +2702,33 @@
       ) {
         try {
           const lines = repliedText.split("\n");
-          let videoId = "";
 
-          for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
+          // Önce in-memory Map'ten videoId'yi al (yeni yöntem - mesaj
+          // içinde ID görünmez). Eski mesajlar için (ID metin içindeyse)
+          // geri uyumluluk parser'ı yedek olarak kalıyor.
+          const repliedMsgId =
+            message.reply_message?.data?.key?.id ||
+            message.reply_message?.key?.id;
+          let videoId = getPendingVideo(repliedMsgId) || "";
 
-            // Pattern 1: (videoId)
-            if (line.startsWith("(") && line.endsWith(")") && line.length >= 13 && !line.match(/^\*\d+\./)) {
-              videoId = line.replace(/[()]/g, "").trim();
+          if (!videoId) {
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i].trim();
+              if (line.startsWith("(") && line.endsWith(")") && line.length >= 13 && !line.match(/^\*\d+\./)) {
+                videoId = line.replace(/[()]/g, "").trim();
+              } else if (line.startsWith("ID:") || line.includes("ID: `")) {
+                const m = line.match(/ID:\s*`?([A-Za-z0-9_-]{10,15})`?/);
+                if (m) videoId = m[1];
+              }
+              if (videoId.length >= 10) break;
             }
-            // Pattern 2: ID: videoId or ID: `videoId`
-            else if (line.startsWith("ID:") || line.includes("ID: `")) {
-              const match = line.match(/ID:\s*`?([A-Za-z0-9_-]{10,15})`?/);
-              if (match) videoId = match[1];
-            }
-
-            if (videoId.length >= 10) break;
           }
 
           if (!videoId || videoId.length < 10) {
-            return await message.sendReply("❌ *Video kimliği (ID) alınamadı! Lütfen tekrar deneyin.*");
+            return await message.sendReply("❌ *Video kimliği alınamadı!* _Kalite seçim süresi (10 dk) dolmuş olabilir, lütfen komutu tekrar gönderin._");
           }
 
           const url = `https://www.youtube.com/watch?v=${videoId}`;
-          const titleMatch = repliedText.match(/_\*([^*]+)\*_/);
-          if (!titleMatch) return;
 
           const qualityLines = lines.filter((line) => line.match(/^\*\d+\./));
 
@@ -2768,13 +2822,13 @@
                 await message.sendMessage({ stream }, "document", {
                   fileName: `${safeTitle}.mp4`,
                   mimetype: "video/mp4",
-                  caption: `_*${safeTitle}*_\n\n ✨_Kalite: ${selectedQuality}_`,
+                  caption: `✨ _Kalite: ${selectedQuality}_`,
                 });
                 stream.destroy();
               } else {
                 const stream = fs.createReadStream(videoPath);
                 await message.sendReply({ stream }, "video", {
-                  caption: `_*${safeTitle}*_\n\n✨ _Kalite: ${selectedQuality}_`,
+                  caption: `✨ _Kalite: ${selectedQuality}_`,
                 });
                 stream.destroy();
               }
@@ -2796,7 +2850,7 @@
                   const safeTitle = censorBadWords(fallback.title || "Video");
                   await message.edit(`♻️ _Yedek yöntemle indiriliyor..._ *${safeTitle}*`, message.jid, downloadMsg.key);
                   await message.sendReply({ url: fallback.url }, "video", {
-                    caption: `_*${safeTitle}*_\n\n_✨ Otomatik kalite seçildi._`,
+                    caption: `✨ _Otomatik kalite seçildi._`,
                   });
                   await message.edit("✅ *Video başarıyla indirildi!*", message.jid, downloadMsg.key);
                 } else {
