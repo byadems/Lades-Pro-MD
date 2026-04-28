@@ -1224,15 +1224,26 @@
 
       let mediaItems = [];
 
-      // 1) Birincil: local scraper
+      // 1) Birincil: oturum açıkmış gibi IG private API (tüm hikayeleri verir)
       try {
-        const arr = await downloadGram(userIdentifier);
+        const igSession = require("./utils/ig_session");
+        const arr = await igSession.fetchUserStories(cleanUsername);
         if (Array.isArray(arr) && arr.length) {
-          mediaItems = arr.map(normalizeMediaItem).filter(Boolean);
+          mediaItems = arr;
         }
       } catch (_) { }
 
-      // 2) Nexray /downloader/v2/instagram (her hikayeyi ayrı medya olarak verir)
+      // 2) Yedek: mevcut downloader (ruhend / Nexray v2 zinciri)
+      if (mediaItems.length === 0) {
+        try {
+          const arr = await downloadGram(userIdentifier);
+          if (Array.isArray(arr) && arr.length) {
+            mediaItems = arr.map(normalizeMediaItem).filter(Boolean);
+          }
+        } catch (_) { }
+      }
+
+      // 3) Nexray /downloader/v2/instagram (her hikayeyi ayrı medya olarak verir)
       if (mediaItems.length === 0) {
         try {
         const cleanUrl = userIdentifier.split("?")[0].replace(/\/$/, "");
