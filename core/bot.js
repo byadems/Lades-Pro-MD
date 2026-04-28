@@ -1143,24 +1143,25 @@ async function createBot(sessionId = "lades-session", options = {}) {
             return;
         }
 
-        setTimeout(async () => {
-          // KRİTİK: Eski soketi "atılmış" olarak işaretle — getMessage / cachedGroupMetadata
-          // gibi callback'ler hızlı çıksın, eski buffer DB'yi gereksiz sorgulamasın.
-          try { sock.__discarded = true; } catch { }
-          // Event listener'ları temizle (memory leak önlemi)
-          // NOT: Bu noktada connection.update artık gelmeyecek (bağlantı zaten kapandı)
-          try { sock.ev.removeAllListeners(); } catch { }
-          // Eski WebSocket hala yarı-açık olabilir → tam kapanmasını garantiye al
-          // close() yumuşak; terminate() anında öldürür → buffer ACK'leri hızlı patlar
-          try {
-            if (sock?.ws && sock.ws.readyState !== 3 /* CLOSED */) {
-              if (typeof sock.ws.terminate === 'function') {
-                sock.ws.terminate();
-              } else if (typeof sock.ws.close === 'function') {
-                sock.ws.close();
-              }
+        // ── ANINDA SONLANDIR (RECONNECT GECİKMESİ ÖNCESİ) ──────────────────────
+        // Reconnect gecikmesi (3s/backoff) boyunca eski soketin ACK seli event loop'u
+        // tıkayarak yeni socket kurulumunu engeller. Eski soketi HEMEN işaretleyip
+        // WebSocket bağlantısını HEMEN kes — gecikmeyi beklemeden.
+        try { sock.__discarded = true; } catch {}
+        try { sock.ev.removeAllListeners(); } catch {}
+        try {
+          if (sock?.ws && sock.ws.readyState !== 3 /* CLOSED */) {
+            if (typeof sock.ws.terminate === 'function') {
+              sock.ws.terminate(); // Anında öldür — graceful handshake bekleme
+            } else if (typeof sock.ws.close === 'function') {
+              sock.ws.close();
             }
-          } catch { }
+          }
+        } catch {}
+        // ── ANINDA SONLANDIR SONU ────────────────────────────────────────────────
+
+        setTimeout(async () => {
+          // Eski WebSocket zaten yukarıda terminate edildi — sadece durum değişkenlerini sıfırla
           _isClosing = false; // Yeni socket için sıfırla
           _lastZombieFire = 0; // Yeni bağlantıda zombie debounce sıfırla
           // CC sayaçlarını sıfırla — yeni bağlantıdan sonra eski hatalar baştan sayılsın
@@ -1245,11 +1246,12 @@ async function createBot(sessionId = "lades-session", options = {}) {
   // sessizce düşüyordu. 30dk daha güvenli — gerçekten eski mesajlar yine atlanır.
   const MSG_AGE_LIMIT_SEC = 30 * 60;
 
-  // Tek bir komut/mesajın işlenmesi için maksimum süre (5 dakika).
-  // Hung promise/network çağrısı yüzünden queue slot'unun sonsuza dek dolu
-  // kalmasını engeller. YouTube indirme gibi uzun işlemler bu süre içinde biter.
-  // Süre dolarsa kullanıcıya geri bildirim gönderilir.
-  const HANDLER_TIMEOUT_MS = 5 * 60 * 1000;
+  // Tek bir komut/mesajın işlenmesi için maksimum süre (2 dakika).
+  // 5 dakikadan indirildi — bağlantı koptuğunda kuyruk slotları 5 dakika
+  // işgal ediyordu, bu yüzden yeni gelen komutlar hiç işlenemiyordu.
+  // YouTube indirme gibi uzun işlemler 2 dakika içinde zaten biter veya
+  // kendi timeout'larını halleder. Süre dolarsa kullanıcıya geri bildirim gönderilir.
+  const HANDLER_TIMEOUT_MS = 2 * 60 * 1000;
 
   // Komut ön ekleri (HANDLERS) — log filtreleme ve hata bildirimi için.
   const _handlersList = String(config.HANDLERS || ".").split("");
@@ -1376,6 +1378,12 @@ async function createBot(sessionId = "lades-session", options = {}) {
         }
 
         q.add(async () => {
+          // ── ERKEN ÇIKIŞ: Soket ölmüşse bu mesajı işleme ────────────────────────
+          // Bağlantı kesildiğinde kuyrukta bekleyen tüm işler bu kontrol ile hızla
+          // bitirilir — 5 dakikalık timeout'u beklemek yerine anında boşalır.
+          if (sock.__discarded) return;
+          // ── ERKEN ÇIKIŞ SONU ────────────────────────────────────────────────────
+
           const startMs = Date.now();
           // Komut mesajlarını her zaman logla — production'da da görünür olsun
           if (cmdPreview) {
