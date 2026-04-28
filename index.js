@@ -70,21 +70,68 @@ const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 480; // 420→480MB (Daha 
 let _isShuttingDown = false;
 
 // ─────────────────────────────────────────────────────────
-//  Processed Message Deduplication (Referans: KB-Mini:119-125)
-//  Mesaj tekrarını önlemek için Set tabanlı dedup - 5 dkda bir temizlik
+//  Processed Message Deduplication
+//  Aynı msg.key.id'nin iki kere işlenmesini engeller.
+//  Baileys bağlantı yenilenmelerinde / history-sync'lerde mesaj
+//  "append" tipiyle yeniden yayınlanabiliyor; bu da daha önce
+//  cevaplanmış komutların tekrar çalıştırılmasına neden oluyordu.
+//
+//  Tasarım: Map<msgId, timestamp>
+//   • TTL    : 60 dk — Baileys replay'leri için yeterli güvenlik penceresi
+//   • CAP    : 10.000 — bellek sızıntısı koruması (taşarsa eski %10 atılır)
+//   • PRUNE  : Her 5 dk'da süresi geçmiş ID'leri ayıkla
 // ─────────────────────────────────────────────────────────
-const processedMessages = new Set();
+const processedMessages = new Map();
+const DEDUPE_TTL_MS = 60 * 60 * 1000;   // 1 saat
+const DEDUPE_MAX = 10_000;
 
+function isMessageProcessed(id) {
+  if (!id) return false;
+  const ts = processedMessages.get(id);
+  if (!ts) return false;
+  if (Date.now() - ts > DEDUPE_TTL_MS) {
+    processedMessages.delete(id);
+    return false;
+  }
+  return true;
+}
+
+function markMessageProcessed(id) {
+  if (!id) return;
+  // Bellek kapağı: limit aşılırsa en eski %10 ID'yi at (Map insertion order)
+  if (processedMessages.size >= DEDUPE_MAX) {
+    const dropCount = Math.floor(DEDUPE_MAX * 0.1);
+    let i = 0;
+    for (const k of processedMessages.keys()) {
+      processedMessages.delete(k);
+      if (++i >= dropCount) break;
+    }
+  }
+  processedMessages.set(id, Date.now());
+}
+
+// Periyodik temizlik — sadece TTL'i geçenleri at, taze ID'leri koru
 setInterval(() => {
-  processedMessages.clear();
-  logger.debug('[Dedupe] Processed messages temizlendi.');
+  const now = Date.now();
+  let removed = 0;
+  for (const [id, ts] of processedMessages) {
+    if (now - ts > DEDUPE_TTL_MS) {
+      processedMessages.delete(id);
+      removed++;
+    }
+  }
+  if (removed > 0) {
+    logger.debug(`[Dedupe] ${removed} eski ID temizlendi (mevcut: ${processedMessages.size})`);
+  }
 }, 5 * 60 * 1000);
 
 // Process sonlanırken temizle
 process.on('beforeExit', () => processedMessages.clear());
 
-// Export handler'a erişim için
+// Handler'lar bu yardımcılara global üzerinden ulaşır
 global.processedMessages = processedMessages;
+global.isMessageProcessed = isMessageProcessed;
+global.markMessageProcessed = markMessageProcessed;
 
 scheduler.register('memory_check', () => {
   if (_isShuttingDown) return;

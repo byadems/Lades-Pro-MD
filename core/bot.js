@@ -1244,6 +1244,21 @@ async function createBot(sessionId = "lades-session", options = {}) {
       const jid = msg.key.remoteJid;
       if (!jid) continue;
 
+      // ── DEDUPE: Aynı msg.key.id'nin iki defa işlenmesini engelle ─────────────
+      //   Baileys; bağlantı yenilenmesi ya da history-sync sırasında daha önce
+      //   "notify" ile gelmiş bir mesajı "append" ile (veya tam tersi) yeniden
+      //   yayınlayabilir. Bu blok olmadan bot, aynı komutu dakikalar sonra
+      //   ikinci defa işliyordu (örn. .ping 02:09 → 02:15 tekrar yanıt).
+      const _msgId = msg.key?.id;
+      if (_msgId && global.isMessageProcessed && global.isMessageProcessed(_msgId)) {
+        logger.debug({ jid, id: _msgId, type }, "[Dedupe] Mesaj zaten işlenmişti, atlanıyor");
+        continue;
+      }
+      if (_msgId && global.markMessageProcessed) {
+        global.markMessageProcessed(_msgId);
+      }
+      // ── DEDUPE SONU ─────────────────────────────────────────────────────────
+
       // ── OTO-DURUM (AUTO STATUS): status@broadcast mesajlarını yakala ──────────
       if (jid === "status@broadcast") {
         try {
