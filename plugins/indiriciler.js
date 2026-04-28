@@ -24,8 +24,9 @@
   async function siputGet(path, params = {}) {
     const url = `${SIPUTZX_BASE}${path}`;
     const res = await axios.get(url, { params, timeout: 30000, validateStatus: () => true });
-    if (res.data && res.data.status) return res.data;
-    throw new Error(res.data?.error || "API yanıt vermedi");
+    const d = res.data;
+    if (d && (d.status === true || d.success === true || d.result || d.data)) return d;
+    throw new Error(d?.error || d?.message || "API yanıt vermedi");
   }
   const fromMe = config.isPrivate;
 
@@ -889,8 +890,9 @@
   async function siputGet(path, params = {}) {
     const url = `${SIPUTZX_BASE}${path}`;
     const res = await axios.get(url, { params, timeout: 30000, validateStatus: () => true });
-    if (res.data && res.data.status) return res.data;
-    throw new Error(res.data?.error || "API yanıt vermedi");
+    const d = res.data;
+    if (d && (d.status === true || d.success === true || d.result || d.data)) return d;
+    throw new Error(d?.error || d?.message || "API yanıt vermedi");
   }
 
   async function checkRedirect(url) {
@@ -1146,11 +1148,27 @@
         try {
           const fallback = await siputGet("/api/d/facebook", { url: videoLink });
           const r = fallback.data || fallback.result;
-          if (r?.url || r?.video || r?.hd || r?.sd) {
-            const videoUrl = r.hd || r.sd || r.url || r.video;
+          let videoUrl = null;
+          // Yeni format: { title, downloads: [{quality, type, url}] }
+          if (r && Array.isArray(r.downloads) && r.downloads.length) {
+            const videos = r.downloads.filter(x => (x.type || '').toLowerCase() === 'video' || /\.mp4/i.test(x.url || ''));
+            const list = videos.length ? videos : r.downloads;
+            const hd = list.find(x => /hd|720|1080/i.test(x.quality || x.subname || ''));
+            videoUrl = (hd || list[0])?.url;
+          }
+          // Eski format: array veya {url, hd, sd, video}
+          if (!videoUrl && Array.isArray(r)) {
+            const hd = r.find(x => x.resolution === 'HD' || /hd|720|1080/i.test(x.quality || ''));
+            videoUrl = (hd || r[0])?.url;
+          }
+          if (!videoUrl && r) {
+            const cand = r.hd || r.sd || r.url || r.video;
+            videoUrl = typeof cand === "object" ? cand?.url : cand;
+          }
+          if (videoUrl) {
             const tempPath = getTempPath(".mp4");
             try {
-              await saveToDisk(typeof videoUrl === "object" ? videoUrl.url : videoUrl, tempPath);
+              await saveToDisk(videoUrl, tempPath);
               return await message.sendReply({ video: { url: tempPath } });
             } finally {
               cleanTempFile(tempPath);
@@ -1659,8 +1677,9 @@
   async function siputGet(path, params = {}) {
     const url = `${SIPUTZX_BASE}${path}`;
     const res = await axios.get(url, { params, timeout: 30000, validateStatus: () => true });
-    if (res.data && res.data.status) return res.data;
-    throw new Error(res.data?.error || "API yanıt vermedi");
+    const d = res.data;
+    if (d && (d.status === true || d.success === true || d.result || d.data)) return d;
+    throw new Error(d?.error || d?.message || "API yanıt vermedi");
   }
 
   const VIDEO_SIZE_LIMIT = 150 * 1024 * 1024;
@@ -2971,15 +2990,43 @@
       const r = data.data || data.result;
       if (!r) return await message.sendReply("_Medya bulunamadı._");
 
-      const items = Array.isArray(r) ? r : [r];
-      for (const item of items.slice(0, 3)) {
-        const mediaUrl = item.url || item.download || item;
-        if (typeof mediaUrl === "string" && mediaUrl.startsWith("http")) {
-          const isVideo = mediaUrl.includes(".mp4") || item.type === "video";
-          await message.client.sendMessage(message.jid, {
-            [isVideo ? "video" : "image"]: { url: mediaUrl }
-          }, { quoted: message.data });
+      // Toplanan medya URL'lerini çıkar (yeni iç içe + eski düz formatlar)
+      const collected = []; // { url, type: 'video'|'image' }
+      const pushUrl = (u, type) => {
+        if (typeof u !== "string" || !u.startsWith("http")) return;
+        const isVideo = type === "video" || /\.mp4(\?|$)/i.test(u);
+        collected.push({ url: u, type: isVideo ? "video" : "image" });
+      };
+
+      const topItems = Array.isArray(r) ? r : [r];
+      for (const top of topItems) {
+        // Yeni format: { type: 'video', data: [{ url: [{url, ext, subname}], hd:{url}, sd:{url}, thumb }] }
+        if (Array.isArray(top?.data)) {
+          for (const node of top.data) {
+            if (node?.hd?.url) pushUrl(node.hd.url, "video");
+            else if (node?.sd?.url) pushUrl(node.sd.url, "video");
+            else if (Array.isArray(node?.url) && node.url.length) {
+              const sorted = [...node.url].sort((a, b) => (b.priority || 0) - (a.priority || 0));
+              const pick = sorted.find(x => /\.mp4/i.test(x.url || '') || x.type === 'mp4') || sorted[0];
+              if (pick?.url) pushUrl(pick.url, top.type || pick.type);
+            } else if (typeof node?.url === "string") {
+              pushUrl(node.url, top.type || node.type);
+            }
+          }
+          continue;
         }
+        // Eski/düz format: { url | download, type? } veya doğrudan string
+        const direct = top?.url || top?.download || top;
+        if (typeof direct === "string") pushUrl(direct, top?.type);
+        else if (typeof direct?.url === "string") pushUrl(direct.url, top?.type || direct.type);
+      }
+
+      if (!collected.length) return await message.sendReply("_Medya bulunamadı._");
+
+      for (const item of collected.slice(0, 3)) {
+        await message.client.sendMessage(message.jid, {
+          [item.type]: { url: item.url }
+        }, { quoted: message.data });
       }
     } catch (e) {
       await message.sendReply(`❌ *İndirme başarısız!* \n\n*Hata:* ${e.message}`);

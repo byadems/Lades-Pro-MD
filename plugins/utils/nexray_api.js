@@ -434,6 +434,8 @@ async function downloadFacebook(url, options = {}) {
     const res = await axios.get(`${BASE}/downloader/facebook`, withSignal({
       params: { url },
       timeout: TIMEOUT,
+      maxRedirects: 5,
+      validateStatus: () => true,
     }, options.signal));
     const data = res.data;
     if (data?.status && data?.result) {
@@ -445,18 +447,34 @@ async function downloadFacebook(url, options = {}) {
     if (process.env.DEBUG) console.error("[Nexray facebook]", e?.message);
   }
 
-  // 2. Siputzx FB
+  // 2. Siputzx FB — yeni format: data.data = { title, downloads: [{quality,type,url}, ...] }
   try {
-    const res = await axios.get(`https://api.siputzx.my.id/api/d/facebook`, { params: { url } });
-    if (res.data?.status && res.data?.data) {
-      const d = res.data.data;
+    const res = await axios.get(`https://api.siputzx.my.id/api/d/facebook`, {
+      params: { url },
+      timeout: TIMEOUT,
+      validateStatus: () => true,
+    });
+    const body = res.data;
+    if (body && (body.status === true || body.success === true) && body.data) {
+      const d = body.data;
+      // Yeni format (object): { title, thumbnail, downloads: [{quality, type, url}] }
+      if (d && Array.isArray(d.downloads) && d.downloads.length) {
+        const videos = d.downloads.filter(x => (x.type || '').toLowerCase() === 'video' || /\.mp4/i.test(x.url || ''));
+        const list = videos.length ? videos : d.downloads;
+        const hd = list.find(x => /hd|720|1080/i.test(x.quality || x.subname || ''));
+        const pick = hd || list[0];
+        if (pick?.url) return { url: pick.url, title: d.title || 'Facebook Video' };
+      }
+      // Eski format (array): [{ resolution, url }]
       if (Array.isArray(d)) {
-        const hd = d.find(x => x.resolution === 'HD');
-        if (hd) return { url: hd.url };
+        const hd = d.find(x => x.resolution === 'HD' || /hd|720|1080/i.test(x.quality || ''));
+        if (hd?.url) return { url: hd.url };
         if (d[0]?.url) return { url: d[0].url };
       }
     }
-  } catch (e) { }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Siputzx facebook]", e?.message);
+  }
 
   return null;
 }
