@@ -78,74 +78,79 @@ Module({
 
     await message.send(`*🔍 _${count} görsel aranıyor..._*`);
 
-    // Türkçe karakterleri en iyi sonuç için hem orijinal hem İngilizce'de dene
-    const enTerm = trToEn(searchTerm);
-    const buffer = Math.ceil(count * 0.6);
-
-    let results = await gis(searchTerm, count + buffer);
-
-    // Sonuç bulunamazsa İngilizce versiyonla dene
-    if (results.length < 1 && enTerm !== searchTerm) {
-      results = await gis(enTerm, count + buffer);
-    }
-
-    // GIS de başarısız olursa Nexray görsel API'si ile dene
-    if (results.length < 1) {
+    // İndirme + gönderme işi ağır olduğu için kuyruk slotunu hemen serbest bırak.
+    // setImmediate ile ana döngüye döner; indirme arka planda devam eder.
+    setImmediate(async () => {
       try {
-        const nexQuery = enTerm || searchTerm;
-        const nexRes = await nx(`/search/images?q=${encodeURIComponent(nexQuery)}`);
-        if (Array.isArray(nexRes) && nexRes.length > 0) {
-          results = nexRes.map(r => r.url || r.image || r.thumbnail).filter(Boolean);
+        const enTerm = trToEn(searchTerm);
+        const buffer = Math.ceil(count * 0.6);
+
+        let results = await gis(searchTerm, count + buffer);
+
+        if (results.length < 1 && enTerm !== searchTerm) {
+          results = await gis(enTerm, count + buffer);
         }
-      } catch (_) { }
-    }
 
-    if (results.length < 1) return await message.send("❌ *Sonuç bulunamadı!*");
+        if (results.length < 1) {
+          try {
+            const nexQuery = enTerm || searchTerm;
+            const nexRes = await nx(`/search/images?q=${encodeURIComponent(nexQuery)}`);
+            if (Array.isArray(nexRes) && nexRes.length > 0) {
+              results = nexRes.map(r => r.url || r.image || r.thumbnail).filter(Boolean);
+            }
+          } catch (_) { }
+        }
 
-    // Buffer al ve başarı sayısını takip et
-    let successCount = 0;
-    let i = 0;
-    const imagesToSend = [];
+        if (results.length < 1) return await message.send("❌ *Sonuç bulunamadı!*");
 
-    while (successCount < count && i < results.length) {
-      try {
-        const imageBuffer = await getBuffer(results[i]);
-        if (imageBuffer && imageBuffer.length > 100) {
-          imagesToSend.push({ image: imageBuffer });
-          successCount++;
+        let successCount = 0;
+        let i = 0;
+        const imagesToSend = [];
+
+        while (successCount < count && i < results.length) {
+          try {
+            const imageBuffer = await getBuffer(results[i]);
+            if (imageBuffer && imageBuffer.length > 100) {
+              imagesToSend.push({ image: imageBuffer });
+              successCount++;
+            }
+          } catch (e) {
+            console.log(`${i + 1}. görsel tampona alınamadı:`, e.message);
+          }
+          i++;
+        }
+
+        if (imagesToSend.length === 0) {
+          return await message.send("❌ *Görseller indirilemedi!*");
+        }
+
+        try {
+          await message.client.albumMessage(
+            message.jid,
+            imagesToSend,
+            message.data
+          );
+        } catch (e) {
+          console.log("Albüm gönderilemedi:", e.message);
+          for (const img of imagesToSend) {
+            try {
+              await message.sendMessage(img, "image", { quoted: message.data });
+            } catch (sendErr) {
+              console.log("Tekil görsel gönderilemedi:", sendErr.message);
+            }
+          }
+        }
+
+        if (successCount < count) {
+          await message.send(
+            `⚠️ *Sadece* \`${successCount}/${count}\` *görsel indirilebildi!*`
+          );
         }
       } catch (e) {
-        console.log(`${i + 1}. görsel tampona alınamadı:`, e.message);
+        console.log("[görselara] arka plan hatası:", e.message);
+        await message.send("❌ *Görsel arama sırasında hata oluştu!*");
       }
-      i++;
-    }
-
-    if (imagesToSend.length === 0) {
-      return await message.send("❌ *Görseller indirilemedi!*");
-    }
-
-    try {
-      await message.client.albumMessage(
-        message.jid,
-        imagesToSend,
-        message.data
-      );
-    } catch (e) {
-      console.log("Albüm gönderilemedi:", e.message);
-      for (const img of imagesToSend) {
-        try {
-          await message.sendMessage(img, "image", { quoted: message.data });
-        } catch (sendErr) {
-          console.log("Tekil görsel gönderilemedi:", sendErr.message);
-        }
-      }
-    }
-
-    if (successCount < count) {
-      await message.send(
-        `⚠️ *Sadece* \`${successCount}/${count}\` *görsel indirilebildi!*`
-      );
-    }
+    });
   }
 );
 
@@ -649,11 +654,7 @@ Module({
         audio = await gtts(ttsMessage, LANG);
       }
 
-      await message.client.sendMessage(message.jid, {
-        audio,
-        mimetype: "audio/mpeg",
-        ptt: true,
-      });
+      await message.sendMessage(audio, "audio", { ptt: true });
     } catch (error) {
       console.error("TTS Hatası:", error);
       await message.sendReply("_" + "⚠️ ```Hata! Cümlenin konuşma sentezi yapılamadı!```" + "_");

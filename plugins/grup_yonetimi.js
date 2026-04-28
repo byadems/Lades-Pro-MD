@@ -10,11 +10,11 @@
 // ==========================================
 (function () {
   const { loadBaileys } = require("../core/yardimcilar");
-  let delay, generateWAMessageFromContent, proto, getBinaryNodeChild, getBinaryNodeChildren;
+  let delay, generateWAMessageFromContent, proto, getBinaryNodeChild, getBinaryNodeChildren, downloadMediaMessage, getContentType;
 
   const baileysPromise = loadBaileys()
     .then((baileys) => {
-      ({ delay, generateWAMessageFromContent, proto, getBinaryNodeChild, getBinaryNodeChildren } = baileys);
+      ({ delay, generateWAMessageFromContent, proto, getBinaryNodeChild, getBinaryNodeChildren, downloadMediaMessage, getContentType } = baileys);
     })
     .catch((err) => {
       console.error("Baileys yüklenemedi (Eklenti Hatası):", err.message);
@@ -1367,6 +1367,7 @@
       }
     }
   );
+  const channelCache = require("../core/channel-cache");
   const PIN_DURATIONS = {
     "24s": 86400,
     "7g": 604800,
@@ -1401,6 +1402,142 @@
     const batchCount = Math.floor(groupCount / batchSize);
     const totalMs = groupCount * (perGroupAvg + pinExtraAvg) + batchCount * batchDelayAvg;
     return Math.ceil(totalMs / 1000);
+  };
+
+  /**
+   * Newsletter (kanal) mesajını gruba "taze" göndermek için hazırlar.
+   * Forward metadata'sı OLMAYAN bir mesaj objesi döner — bu sayede WhatsApp'ın
+   * "kanal-forward → spam" filtresi tetiklenmez.
+   *
+   * Medyalar bot tarafından indirilip yeniden yüklenir; metin doğrudan kopyalanır.
+   *
+   * @param {object} channelMsg  Önbellekten gelen WAMessage (cachedMsg)
+   * @param {object} client      Baileys sock — medya indirme için gerekir
+   * @returns {Promise<object|null>}  sendMessage'a verilebilen content objesi
+   */
+  const prepareChannelMessageForFreshSend = async (channelMsg, client) => {
+    if (!channelMsg || !channelMsg.message) return null;
+
+    // Sarmalayıcıları aç: ephemeral / viewOnce / documentWithCaption / edited
+    const unwrap = (msg) => {
+      if (!msg) return msg;
+      if (msg.ephemeralMessage?.message)            return unwrap(msg.ephemeralMessage.message);
+      if (msg.viewOnceMessage?.message)             return unwrap(msg.viewOnceMessage.message);
+      if (msg.viewOnceMessageV2?.message)           return unwrap(msg.viewOnceMessageV2.message);
+      if (msg.viewOnceMessageV2Extension?.message)  return unwrap(msg.viewOnceMessageV2Extension.message);
+      if (msg.documentWithCaptionMessage?.message)  return unwrap(msg.documentWithCaptionMessage.message);
+      if (msg.editedMessage?.message)               return unwrap(msg.editedMessage.message);
+      if (msg.protocolMessage?.editedMessage)       return unwrap(msg.protocolMessage.editedMessage);
+      return msg;
+    };
+    const m = unwrap(channelMsg.message);
+    if (!m) return null;
+
+    // 1) Düz metin — caption/prefix YOK; "Kanaldan iletildi" görselini contextInfo verir
+    if (m.conversation) return { text: m.conversation };
+    if (m.extendedTextMessage?.text) return { text: m.extendedTextMessage.text };
+
+    // 2) Medya — indir + yeniden yükle (spam filtresini bypass eder)
+    const mediaTypes = [
+      { key: "imageMessage",    type: "image",    out: "image",    keepCaption: true },
+      { key: "videoMessage",    type: "video",    out: "video",    keepCaption: true },
+      { key: "audioMessage",    type: "audio",    out: "audio",    keepCaption: false },
+      { key: "documentMessage", type: "document", out: "document", keepCaption: true },
+      { key: "stickerMessage",  type: "sticker",  out: "sticker",  keepCaption: false },
+    ];
+
+    // Newsletter (kanal) medyası ŞİFRESİZ yüklenir → mediaKey YOK.
+    // Bu durumda doğrudan HTTPS GET ile url/directPath üzerinden indiririz.
+    // url süresi dolmuş olabileceği için directPath ile ikinci bir deneme yaparız.
+    const fetchRawUrl = async (downloadUrl) => {
+      const resp = await axios.get(downloadUrl, {
+        responseType: "arraybuffer",
+        timeout: 30000,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        headers: { Origin: "https://web.whatsapp.com" },
+      });
+      const buf = Buffer.from(resp.data);
+      if (!buf.length) throw new Error("Boş yanıt");
+      return buf;
+    };
+
+    const downloadNewsletterRawMedia = async (mediaObj) => {
+      const candidates = [];
+      if (mediaObj?.url && mediaObj.url.startsWith("https://")) {
+        candidates.push(mediaObj.url);
+      }
+      if (mediaObj?.directPath) {
+        candidates.push(`https://mmg.whatsapp.net${mediaObj.directPath}`);
+      }
+      if (!candidates.length) throw new Error("url/directPath yok");
+
+      let lastErr;
+      for (const u of candidates) {
+        try {
+          return await fetchRawUrl(u);
+        } catch (e) {
+          lastErr = e;
+          console.warn(`[Duyuru/Kanal] Ham indirme başarısız (${u.slice(0, 60)}...): ${e?.message}`);
+        }
+      }
+      throw lastErr || new Error("Tüm ham indirme denemeleri başarısız");
+    };
+
+    for (const mt of mediaTypes) {
+      if (!m[mt.key]) continue;
+      try {
+        const mediaObj = m[mt.key];
+        const hasMediaKey = mediaObj.mediaKey && mediaObj.mediaKey.length > 0;
+        let buffer;
+
+        if (hasMediaKey) {
+          // Standart şifreli indirme (normal sohbet/grup mesajları)
+          buffer = await downloadMediaMessage(
+            { message: m, key: channelMsg.key },
+            "buffer",
+            {},
+            { reuploadRequest: client?.updateMediaMessage }
+          );
+        } else {
+          // Kanal/newsletter medyası — ham (şifresiz) indir
+          console.log(`[Duyuru/Kanal] ${mt.key} ham (şifresiz) indiriliyor (newsletter medyası)...`);
+          buffer = await downloadNewsletterRawMedia(mediaObj);
+        }
+
+        if (!buffer || !buffer.length) throw new Error("Boş medya buffer");
+
+        const out = { [mt.out]: buffer };
+        if (mt.keepCaption) {
+          const orig = m[mt.key].caption || "";
+          if (orig) out.caption = orig;
+        }
+        // Medya tipi ekstra alanları
+        if (mt.key === "documentMessage") {
+          out.mimetype = m.documentMessage.mimetype || "application/octet-stream";
+          out.fileName = m.documentMessage.fileName || "dosya";
+        } else if (mt.key === "audioMessage") {
+          out.mimetype = m.audioMessage.mimetype || "audio/ogg; codecs=opus";
+          out.ptt = !!m.audioMessage.ptt;
+        } else if (mt.key === "videoMessage") {
+          if (m.videoMessage.gifPlayback) out.gifPlayback = true;
+        }
+        return out;
+      } catch (e) {
+        console.warn(`[Duyuru/Kanal] ${mt.key} indirilemedi, metne düş:`, e?.message);
+        // Caption varsa metin olarak gönder
+        const caption = m[mt.key]?.caption;
+        if (caption) return { text: caption };
+        return null;
+      }
+    }
+
+    // 3) Bilinmeyen tip — metin alanı varsa onu kullan
+    const fallbackText = m.imageMessage?.caption ||
+                         m.videoMessage?.caption ||
+                         m.documentMessage?.caption;
+    if (fallbackText) return { text: fallbackText };
+    return null;
   };
 
   Module({
@@ -1477,47 +1614,92 @@
           );
         }
 
-        try {
-          // newsletterFetchMessages doğrudan WAMessage[] döndürür
-          const msgs = await message.client.newsletterFetchMessages(channelJid, 5);
+        // ── YÖNTEM 1: Önbellekten oku (timeout riski yok) ───────────────────
+        // Bellekte yoksa DB'den lazy-load eder → Republish/restart sonrası
+        // bot eski kanal mesajını hatırlar.
+        const cachedMsg = await channelCache.loadLastMsgAsync(channelJid);
 
-          if (!msgs || msgs.length === 0) {
-            return await message.sendReply("❌ *Kanaldan mesaj çekilemedi (veya kanal boş).*");
-          }
-
-          // En son mesajı al
-          const lastMsg = msgs[msgs.length - 1];
-
-          // 24 saat kontrolü
-          const msgTs = typeof lastMsg.messageTimestamp === "object"
-            ? lastMsg.messageTimestamp?.low ?? lastMsg.messageTimestamp
-            : lastMsg.messageTimestamp;
+        if (cachedMsg) {
+          const msgTs = typeof cachedMsg.messageTimestamp === "object"
+            ? (cachedMsg.messageTimestamp?.low ?? Number(cachedMsg.messageTimestamp))
+            : Number(cachedMsg.messageTimestamp || 0);
           const nowTs = Math.floor(Date.now() / 1000);
-          if (nowTs - msgTs > 86400) {
-            return await message.sendReply("⚠️ *Kanaldaki son mesaj 24 saatten eski — WhatsApp iletmeye izin vermiyor.*");
+          if (msgTs > 0 && nowTs - msgTs > 86400) {
+            return await message.sendReply(
+              "⚠️ *Önbellekteki kanal mesajı 24 saatten eski.*\n\n" +
+              "📢 _Kanalda yeni bir paylaşım yapıldıktan sonra tekrar deneyin._"
+            );
           }
-
-          // forward için WAMessage objesi hazırla
           reconstructedMsg = {
-            key: lastMsg.key || {
-              remoteJid: channelJid,
-              id: lastMsg.key?.id || String(Date.now()),
-              fromMe: false,
-            },
-            message: lastMsg.message,
-            messageTimestamp: msgTs,
+            key: cachedMsg.key || { remoteJid: channelJid, id: String(Date.now()), fromMe: false },
+            message: cachedMsg.message,
+            messageTimestamp: msgTs || Math.floor(Date.now() / 1000),
           };
-
           isKanalForward = true;
-        } catch (err) {
-          console.error("[Duyuru] Kanal mesajı çekilirken hata:", err);
-          // Hata detayını da logla — debug için
-          const detail = err?.message || String(err);
-          return await message.sendReply(
-            `❌ *Kanal mesajı çekilirken hata oluştu!*\n\n` +
-            `🔍 _Hata:_ \`${detail.slice(0, 200)}\`\n\n` +
-            `💡 _CHANNEL_JID değeri:_ \`${channelJid}\``
-          );
+        } else {
+          // ── YÖNTEM 2: Canlı sorgu — önce abone ol, sonra kısa timeout ile çek ─
+          try {
+            // Önce abone ol (daha güvenilir yanıt alınır)
+            await message.client.subscribeNewsletterUpdates(channelJid).catch(() => {});
+
+            // 20 saniye timeout ile IQ sorgusu (varsayılan 60s'den çok daha kısa)
+            const msgs = await Promise.race([
+              message.client.newsletterFetchMessages(channelJid, 5),
+              new Promise((_, rej) =>
+                setTimeout(() => rej(new Error("Timed Out (20s)")), 20000)
+              ),
+            ]);
+
+            if (!msgs || msgs.length === 0) {
+              return await message.sendReply(
+                "❌ *Kanaldan mesaj çekilemedi.*\n\n" +
+                "📢 _Kanalda henüz mesaj yok veya kanal boş._\n" +
+                `💡 _CHANNEL_JID:_ \`${channelJid}\``
+              );
+            }
+
+            const lastMsg = msgs[msgs.length - 1];
+            const msgTs = typeof lastMsg.messageTimestamp === "object"
+              ? (lastMsg.messageTimestamp?.low ?? Number(lastMsg.messageTimestamp))
+              : Number(lastMsg.messageTimestamp || 0);
+            const nowTs = Math.floor(Date.now() / 1000);
+
+            if (msgTs > 0 && nowTs - msgTs > 86400) {
+              return await message.sendReply(
+                "⚠️ *Kanaldaki son mesaj 24 saatten eski — WhatsApp iletmeye izin vermiyor.*\n\n" +
+                "📢 _Kanalda yeni bir paylaşım yapıldıktan sonra tekrar deneyin._"
+              );
+            }
+
+            reconstructedMsg = {
+              key: lastMsg.key || { remoteJid: channelJid, id: String(Date.now()), fromMe: false },
+              message: lastMsg.message,
+              messageTimestamp: msgTs || Math.floor(Date.now() / 1000),
+            };
+
+            // Bir sonraki kullanım için önbelleğe kaydet
+            channelCache.setLastMsg(channelJid, lastMsg);
+            isKanalForward = true;
+
+          } catch (err) {
+            console.error("[Duyuru] Kanal mesajı çekilirken hata:", err?.message || err);
+            const isTimeout = (err?.message || "").toLowerCase().includes("timed out") ||
+                              (err?.message || "").toLowerCase().includes("timeout");
+            if (isTimeout) {
+              return await message.sendReply(
+                "⏱️ *WhatsApp kanal sorgusu zaman aşımına uğradı.*\n\n" +
+                "📢 _Bot henüz bu kanaldan canlı mesaj almadı._\n" +
+                "💡 _Kanalda yeni bir paylaşım yapıldığında mesaj otomatik önbelleğe alınır ve komut anında çalışır._\n\n" +
+                `📌 _CHANNEL_JID:_ \`${channelJid}\``
+              );
+            }
+            const detail = err?.message || String(err);
+            return await message.sendReply(
+              `❌ *Kanal mesajı çekilirken hata oluştu!*\n\n` +
+              `🔍 _Hata:_ \`${detail.slice(0, 200)}\`\n\n` +
+              `💡 _CHANNEL_JID değeri:_ \`${channelJid}\``
+            );
+          }
         }
       } else {
         const pipeIndex = input.lastIndexOf("-");
@@ -1586,26 +1768,69 @@
       const PIN_RETRY_COUNT = 2;
       const PIN_RETRY_DELAY = 5000;
 
+      // ── KANAL İÇERİĞİNİ BİR KEZ HAZIRLA (medyayı 107x indirmeyelim) ──────
+      // Forward yerine taze mesaj olarak gönderir → WhatsApp spam filtresini bypass eder
+      let preparedKanalContent = null;
+      let kanalAttribution = null; // forwardedNewsletterMessageInfo — yeşil kanal banner'ı
+      if (isKanalForward) {
+        try {
+          preparedKanalContent = await prepareChannelMessageForFreshSend(
+            reconstructedMsg,
+            message.client
+          );
+          if (!preparedKanalContent) {
+            return await message.sendReply(
+              "❌ *Kanal mesajı işlenemedi.*\n\n" +
+              "📢 _Mesaj içeriği boş veya desteklenmeyen bir tipte._"
+            );
+          }
+
+          // Native "Kanal X'ten iletildi" + "Kanalı Görüntüle" görseli için attribution
+          const kanalJid = config.CHANNEL_JID || reconstructedMsg.key?.remoteJid;
+          const kanalAdi = (config.CHANNEL_NAME || "Kanal").trim();
+          const rawId    = reconstructedMsg.key?.id;
+          const serverId = Number.parseInt(rawId, 10);
+          if (kanalJid && Number.isFinite(serverId)) {
+            kanalAttribution = {
+              newsletterJid: kanalJid,
+              serverMessageId: serverId,
+              newsletterName: kanalAdi,
+              contentType: 1, // UPDATE
+            };
+          } else {
+            console.warn(
+              `[Duyuru/Kanal] Attribution kurulamadı (jid=${kanalJid}, rawId=${rawId}) — banner'sız gönderilecek`
+            );
+          }
+        } catch (prepErr) {
+          console.error("[Duyuru/Kanal] Hazırlama hatası:", prepErr?.message);
+          return await message.sendReply(
+            `❌ *Kanal mesajı hazırlanırken hata!*\n\n🔍 \`${(prepErr?.message || "").slice(0, 200)}\``
+          );
+        }
+      }
+
       for (const jid of groupJids) {
         try {
           let sentMsg;
           if (isKanalForward) {
-            // Baileys'te kanal mesajını gruba iletmenin doğru yolu: generateForwardMessageContent + relayMessage
-            try {
-              await message.client.sendMessage(jid, {
-                forward: reconstructedMsg,
-                contextInfo: { isForwarded: true, forwardingScore: 1 }
-              });
-            } catch (_forwardErr) {
-              // Fallback: sadece metin varsa text olarak gönder
-              const textContent = reconstructedMsg?.message?.conversation ||
-                reconstructedMsg?.message?.extendedTextMessage?.text;
-              if (textContent) {
-                await message.client.sendMessage(jid, { text: textContent });
-              } else {
-                throw _forwardErr;
-              }
+            // Taze medya + forwardedNewsletterMessageInfo kombinasyonu:
+            //   • Medya her grup için yeniden upload → her grupta farklı mediaKey → spam (420) yok
+            //   • forwardedNewsletterMessageInfo + isForwarded → görselde yeşil kanal adı
+            //     ("Lades-Pro | Bot kanalından iletildi") + "Kanalı Görüntüle" butonu çıkar
+            // Shallow clone — Baileys'in objeyi değiştirme ihtimaline karşı garantici.
+            const ctxInfo = {
+              ...(preparedKanalContent.contextInfo || {}),
+              isForwarded: true,
+              forwardingScore: 999,
+            };
+            if (kanalAttribution) {
+              ctxInfo.forwardedNewsletterMessageInfo = kanalAttribution;
             }
+            sentMsg = await message.client.sendMessage(jid, {
+              ...preparedKanalContent,
+              contextInfo: ctxInfo,
+            });
           } else if (hasReply) {
             sentMsg = await message.client.sendMessage(jid, {
               forward: message.quoted,

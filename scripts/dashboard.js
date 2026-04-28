@@ -13,7 +13,7 @@ const pino = require('pino');
 const app = express();
 const PORT = process.env.PORT || 3001;
 const envPath = path.join(__dirname, "../config.env");
-const { BotMetrik, KomutIstatistik, KomutKayit, KullaniciVeri, GrupAyar } = require('../core/database');
+const { BotMetrik, KomutIstatistik, KomutKayit, KullaniciVeri, GrupAyar, WhatsappOturum } = require('../core/database');
 const runtime = require('../core/runtime');
 
 // Prevent Baileys unhandled promise rejections / connection timeouts from crashing the Dashboard
@@ -28,6 +28,22 @@ let dashboardStartTime = Date.now();
 
 app.use(express.static(path.join(__dirname, "../public")));
 app.use(express.json());
+
+// ─── Yönetici token doğrulaması ───────────────────────────
+// ADMIN_SYNC_SECRET ayarlandıysa yıkıcı endpoint'ler bu tokeni zorunlu kılar.
+const ADMIN_TOKEN = process.env.ADMIN_SYNC_SECRET || null;
+
+function requireAdminToken(req, res, next) {
+  if (!ADMIN_TOKEN) {
+    return res.status(503).json({ error: 'Bu endpoint devre dışı: ADMIN_SYNC_SECRET ortam değişkeni ayarlanmamış.' });
+  }
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.body && req.body.secret);
+  if (token !== ADMIN_TOKEN) {
+    return res.status(401).json({ error: 'Yetkisiz: Geçersiz yönetici tokeni' });
+  }
+  next();
+}
 
 // Health check endpoint for Northflank/Docker
 app.get('/health', (req, res) => res.json({ status: "ok", uptime: (Date.now() - dashboardStartTime) / 1000 }));
@@ -158,6 +174,7 @@ app.get('/api/logs/stream', (req, res) => {
   });
 });
 
+
 // Emulate store logic
 let authConnectionStatus = 'idle';
 let generatedCodeOrQR = null;
@@ -212,7 +229,7 @@ app.get('/api/status', async (req, res) => {
   const mem = process.memoryUsage();
   const hasLocalSession = fs.existsSync(path.join(__dirname, "../sessions/lades-session/creds.json"));
   const hasDashboardSession = fs.existsSync(path.join(__dirname, "../sessions/dashboard-auth/creds.json"));
-  const hasDb = !!(conf.DATABASE_URL && conf.DATABASE_URL.trim());
+  const hasDb = !!(process.env.EXTERNAL_DB_URL);
   const hasStoredSession = hasLocalSession || hasDashboardSession || hasDb;
 
   // Runtime stats
@@ -257,20 +274,22 @@ app.get('/api/status', async (req, res) => {
     }
   }
 
-  // Use file-based detection only for session existence, not connection.
   const connected = liveBotConnected;
   const phone = liveBotPhone || sessionPhone;
-  
+
+  const uptimeSec = (Date.now() - dashboardStartTime) / 1000;
+  const memStr = Math.round(mem.heapUsed / 1024 / 1024) + " MB";
+
   res.json({
     bot: conf.BOT_NAME || "Lades-Pro",
     botName: conf.BOT_NAME || "Lades-Pro",
     hasSession: isRegistered,
     connected: connected,
-    hasStoredSession,
+    hasStoredSession: hasStoredSession,
     hasDb,
     phone: phone,
-    uptime: (Date.now() - dashboardStartTime) / 1000,
-    memory: Math.round(mem.heapUsed / 1024 / 1024) + " MB",
+    uptime: uptimeSec,
+    memory: memStr,
     nodeVersion: process.version,
     // Runtime stats
     totalMessages,
@@ -310,6 +329,11 @@ app.get('/api/config', (req, res) => {
     ACR_A: conf.ACR_A || '',
     ACR_S: conf.ACR_S || '',
 
+    // Instagram session (for .hikaye full story access)
+    IG_SESSION_ID: conf.IG_SESSION_ID || '',
+    IG_DS_USER_ID: conf.IG_DS_USER_ID || '',
+    IG_CSRF_TOKEN: conf.IG_CSRF_TOKEN || '',
+
     // Advanced / Internal
     MAX_STICKER_SIZE: conf.MAX_STICKER_SIZE || '2',
     MAX_DL_SIZE: conf.MAX_DL_SIZE || '50',
@@ -329,12 +353,70 @@ app.post('/api/config', (req, res) => {
     'BOT_NAME', 'OWNER_NUMBER', 'PREFIX', 'SUDO', 'LANG', 'ALIVE', 'BOT_INFO', 'STICKER_DATA',
     'PUBLIC_MODE', 'AUTO_READ', 'AUTO_TYPING', 'AUTO_RECORDING', 'ANTI_LINK', 'ANTI_SPAM', 'ADMIN_ACCESS',
     'GEMINI_API_KEY', 'OPENAI_API_KEY', 'GROQ_API_KEY', 'AI_MODEL', 'ACR_A', 'ACR_S',
+    'IG_SESSION_ID', 'IG_DS_USER_ID', 'IG_CSRF_TOKEN',
     'MAX_STICKER_SIZE', 'MAX_DL_SIZE', 'PM2_RESTART_LIMIT_MB', 'DEBUG'
   ];
   const updates = {};
   allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
   saveEnvConfig(updates);
+
+  // Apply hot-reloadable env vars in dashboard process AND signal parent.
+  // Without this, IG_SESSION_ID/etc would only take effect on next restart.
+  const hotReloadable = ['IG_SESSION_ID', 'IG_DS_USER_ID', 'IG_CSRF_TOKEN',
+    'GEMINI_API_KEY', 'OPENAI_API_KEY', 'GROQ_API_KEY', 'AI_MODEL', 'ACR_A', 'ACR_S'];
+  const envPatch = {};
+  for (const k of hotReloadable) {
+    if (Object.prototype.hasOwnProperty.call(updates, k)) {
+      process.env[k] = updates[k];
+      envPatch[k] = updates[k];
+    }
+  }
+  if (process.send && Object.keys(envPatch).length) {
+    try { process.send({ type: 'update_env', data: envPatch }); } catch (_) {}
+  }
+
   res.json({ success: true });
+});
+
+// ─── Instagram session validator ──────────────────────────────
+// Lets the dashboard verify a freshly-pasted IG cookie before saving.
+// Body may contain { IG_SESSION_ID, IG_DS_USER_ID, IG_CSRF_TOKEN } overrides;
+// otherwise the currently-saved env values are used.
+app.post('/api/ig-session/test', async (req, res) => {
+  try {
+    const { validateSession } = require('../plugins/utils/ig_session');
+    const body = req.body || {};
+    const overrides = {};
+    if (body.IG_SESSION_ID) overrides.IG_SESSION_ID = String(body.IG_SESSION_ID).trim();
+    if (body.IG_DS_USER_ID) overrides.IG_DS_USER_ID = String(body.IG_DS_USER_ID).trim();
+    if (body.IG_CSRF_TOKEN) overrides.IG_CSRF_TOKEN = String(body.IG_CSRF_TOKEN).trim();
+
+    const result = await validateSession(overrides);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Optional helper: parse a raw `Cookie:` header string into the three pieces
+// so users can paste the full cookie blob from DevTools without hand-splitting.
+app.post('/api/ig-session/parse', (req, res) => {
+  const raw = String((req.body && req.body.cookie) || '').trim();
+  if (!raw) return res.status(400).json({ error: 'cookie alanı boş' });
+  const parts = {};
+  raw.split(/;\s*/).forEach(seg => {
+    const eq = seg.indexOf('=');
+    if (eq <= 0) return;
+    const k = seg.slice(0, eq).trim().toLowerCase();
+    const v = seg.slice(eq + 1).trim();
+    if (k === 'sessionid') parts.IG_SESSION_ID = v;
+    else if (k === 'ds_user_id') parts.IG_DS_USER_ID = v;
+    else if (k === 'csrftoken') parts.IG_CSRF_TOKEN = v;
+  });
+  if (!parts.IG_SESSION_ID) {
+    return res.status(400).json({ error: 'Yapıştırdığınız metinde sessionid bulunamadı.' });
+  }
+  res.json({ ok: true, ...parts });
 });
 
 // ─── Plugins management ──────────────────────────────────
@@ -496,6 +578,21 @@ app.post('/api/auth/restart', (req, res) => {
 app.post('/api/auth/stop', (req, res) => {
   res.json({ ok: true });
   if (process.send) process.send({ type: 'stop', isLogout: true });
+});
+
+app.post('/api/force-repair', requireAdminToken, async (req, res) => {
+  try {
+    const { Op } = require('sequelize');
+    const deletedCount = await WhatsappOturum.destroy({
+      where: { sessionId: { [Op.like]: 'lades-session%' } }
+    });
+    console.log(`[Force-Repair] ${deletedCount} oturum kaydı silindi. Yeniden eşleştirme tetikleniyor...`);
+    res.json({ ok: true, deleted: deletedCount, msg: 'Oturum temizlendi. QR kodu bekleniyor...' });
+    if (process.send) process.send({ type: 'force-repair' });
+  } catch (e) {
+    console.error('[Force-Repair] Hata:', e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 app.get('/api/auth/status', (req, res) => {

@@ -190,6 +190,17 @@ async function deepImg(prompt, options = {}) {
  */
 async function downloadInstagram(url, options = {}) {
   if (process.env.IS_SELF_TEST === 'true') return ["https://example.com/dummy.mp4"];
+  try {
+    const { igdl } = require("ruhend-scraper");
+    const local = await igdl(url);
+    const items = local?.data || local?.result || [];
+    if (Array.isArray(items) && items.length) {
+      const urls = items.map((item) => item?.downloadUrl || item?.url || item?.videoUrl || item?.video_url || item?.thumbnail).filter(Boolean);
+      if (urls.length) return [...new Set(urls)];
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Local instagram]", e?.message);
+  }
   // v1 endpoint
   try {
     const cleanUrl = url.split("?")[0].replace(/\/$/, "");
@@ -225,12 +236,16 @@ async function downloadInstagram(url, options = {}) {
       if (r.media && Array.isArray(r.media)) {
         let urls = [];
         const isSingleStory = cleanUrl.includes("/stories/") && /\d+$/.test(cleanUrl);
+        const isStoryFeed = cleanUrl.includes("/stories/");
 
         if (isSingleStory) {
           // Tekil hikaye bağlantısında sadece asıl medyayı al (videoyu tercih et)
           const video = r.media.find(m => m.type === "video" || m.video_url);
           if (video) urls = [video.video_url || video.url];
           else if (r.media[0]) urls = [r.media[0].url || r.media[0].thumbnail];
+        } else if (isStoryFeed) {
+          // Hikaye akışında her öğe bağımsız bir hikayedir; thumbnail eleme yapma
+          urls = r.media.map(m => (typeof m === 'object' ? (m?.video_url || m?.url || m?.thumbnail) : m));
         } else {
           // Normal postlarda hepsi alınır ama video varsa thumbnail'ı elemek için basit bir kontrol:
           // Eğer sadece 2 öğe varsa ve biri video biri fotoğrafsa, fotoğraf muhtemelen thumbnail'dır.
@@ -404,9 +419,23 @@ async function downloadTiktok(url, options = {}) {
 async function downloadFacebook(url, options = {}) {
   if (process.env.IS_SELF_TEST === 'true') return { url: "https://example.com/dummy.mp4", title: "Test FB" };
   try {
+    const { facebookdl } = require("@bochilteam/scraper-facebook");
+    const local = await facebookdl(url);
+    if (local?.video && Array.isArray(local.video) && local.video.length) {
+      const first = local.video[0];
+      const downloaded = await first.download?.();
+      const videoUrl = typeof downloaded === "string" ? downloaded : downloaded?.url || downloaded?.download;
+      if (videoUrl) return { url: videoUrl, title: local?.title || first?.quality || "Facebook Video" };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Local facebook]", e?.message);
+  }
+  try {
     const res = await axios.get(`${BASE}/downloader/facebook`, withSignal({
       params: { url },
       timeout: TIMEOUT,
+      maxRedirects: 5,
+      validateStatus: () => true,
     }, options.signal));
     const data = res.data;
     if (data?.status && data?.result) {
@@ -418,18 +447,34 @@ async function downloadFacebook(url, options = {}) {
     if (process.env.DEBUG) console.error("[Nexray facebook]", e?.message);
   }
 
-  // 2. Siputzx FB
+  // 2. Siputzx FB — yeni format: data.data = { title, downloads: [{quality,type,url}, ...] }
   try {
-    const res = await axios.get(`https://api.siputzx.my.id/api/d/facebook`, { params: { url } });
-    if (res.data?.status && res.data?.data) {
-      const d = res.data.data;
+    const res = await axios.get(`https://api.siputzx.my.id/api/d/facebook`, {
+      params: { url },
+      timeout: TIMEOUT,
+      validateStatus: () => true,
+    });
+    const body = res.data;
+    if (body && (body.status === true || body.success === true) && body.data) {
+      const d = body.data;
+      // Yeni format (object): { title, thumbnail, downloads: [{quality, type, url}] }
+      if (d && Array.isArray(d.downloads) && d.downloads.length) {
+        const videos = d.downloads.filter(x => (x.type || '').toLowerCase() === 'video' || /\.mp4/i.test(x.url || ''));
+        const list = videos.length ? videos : d.downloads;
+        const hd = list.find(x => /hd|720|1080/i.test(x.quality || x.subname || ''));
+        const pick = hd || list[0];
+        if (pick?.url) return { url: pick.url, title: d.title || 'Facebook Video' };
+      }
+      // Eski format (array): [{ resolution, url }]
       if (Array.isArray(d)) {
-        const hd = d.find(x => x.resolution === 'HD');
-        if (hd) return { url: hd.url };
+        const hd = d.find(x => x.resolution === 'HD' || /hd|720|1080/i.test(x.quality || ''));
+        if (hd?.url) return { url: hd.url };
         if (d[0]?.url) return { url: d[0].url };
       }
     }
-  } catch (e) { }
+  } catch (e) {
+    if (process.env.DEBUG) console.error("[Siputzx facebook]", e?.message);
+  }
 
   return null;
 }
@@ -851,7 +896,7 @@ async function getBuffer(url, options = {}) {
   try {
     const res = await axios.get(
       url,
-      withSignal({ responseType: "arraybuffer", timeout: TIMEOUT }, options.signal)
+      withSignal({ responseType: "arraybuffer", timeout: options.timeout || TIMEOUT }, options.signal)
     );
     return Buffer.from(res.data);
   } catch (e) {

@@ -99,14 +99,17 @@ function setupDashboardBridge(manager, config) {
 
   let isLogging = false;
   const sendLog = (d) => {
-    if (isLogging || !_dashboardRef || !_dashboardRef.connected) return;
+    if (isLogging) return;
     const s = d.toString();
     // Skip very short strings, whitespace-only content, or internal key markers
     if (s.trim().length < 3 || s.includes('rootKey')) return;
     isLogging = true;
-    try { 
-      _dashboardRef.send({ type: 'log', data: s }); 
-    } catch (e) { }
+
+    if (_dashboardRef && _dashboardRef.connected) {
+      try { 
+        _dashboardRef.send({ type: 'log', data: s }); 
+      } catch (e) { }
+    }
     isLogging = false;
   };
 
@@ -293,6 +296,21 @@ function setupDashboardBridge(manager, config) {
         sendIPC('send_result', { success: false, error: 'Bot bağlı değil' }, msg.requestId).catch(() => {});
       }
     }
+    // 2.5 Hot env-var update from dashboard (e.g. IG cookie, API keys)
+    // Lets new credentials take effect mid-flight without a full restart.
+    else if (msg.type === 'update_env') {
+      const patch = msg.data || {};
+      let count = 0;
+      for (const [k, v] of Object.entries(patch)) {
+        if (typeof k === 'string' && /^[A-Z][A-Z0-9_]*$/.test(k)) {
+          process.env[k] = v == null ? '' : String(v);
+          count++;
+        }
+      }
+      if (count > 0) {
+        logger.info(`[Env] ${count} ortam değişkeni canlı güncellendi: ${Object.keys(patch).join(', ')}`);
+      }
+    }
     // 3. Lifecycle Logic (Restart, Stop, Session Transfer)
     else if (msg.type === 'restart') {
       const restartType = msg.restartType || (msg.data && msg.data.type) || 'session';
@@ -359,6 +377,14 @@ function setupDashboardBridge(manager, config) {
       manager.suspend("lades-session");
       await manager.removeSession("lades-session", !!msg.isLogout);
       sendIPC('bot_status', { connected: false }).catch(() => {});
+      sendIPC('ready_to_login').catch(() => {});
+    } else if (msg.type === 'force-repair') {
+      logger.warn('[Force-Repair] Oturum temizlendi, yeniden eşleştirme başlatılıyor...');
+      manager.resume("lades-session");
+      await manager.removeSession("lades-session", false).catch(() => {});
+      sendIPC('bot_status', { connected: false }).catch(() => {});
+      await new Promise(r => setTimeout(r, 1500));
+      await manager.addSession("lades-session", { phoneNumber: process.env.PAIR_PHONE });
       sendIPC('ready_to_login').catch(() => {});
     }
   });

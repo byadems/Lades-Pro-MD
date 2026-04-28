@@ -1227,23 +1227,43 @@
   });
 
   // ══════════════════════════════════════════════════════
-  // Çevrimiçi Durum Değiştirme
+  // Bio (Hakkımda) Yazma — WhatsApp profil durumu
   // ══════════════════════════════════════════════════════
   Module({
-    pattern: "durumyaz ?(.*)",
+    pattern: "bioyaz ?(.*)",
     fromMe: true,
-    desc: "Bot'un durum mesajını değiştirir.",
-    usage: ".durumyaz [mesaj]",
+    desc: "WhatsApp 'Hakkımda' bilgisini (bio) günceller.",
+    usage: ".bioyaz [metin]",
     use: "ayarlar",
   }, async (message, match) => {
     const text = (match[1] || "").trim();
-    if (!text) return await message.sendReply("💬 *Durum mesajı girin:* `.durumyaz Aktif!`");
+    if (!text) return await message.sendReply("💬 *Bio metni girin:* `.bioyaz Aktif!`");
+    if (text.length > 139) {
+      return await message.sendReply(`⚠️ *Bio en fazla 139 karakter olabilir!* \n_Girilen:_ ${text.length} karakter`);
+    }
 
     try {
-      await message.client.updateProfileStatus(text);
-      await message.sendReply(`✅ *Durum güncellendi:* *${text}*`);
+      const sock = message.client;
+      // Baileys updateProfileStatus -> WhatsApp 'About' alanı (bio)
+      if (typeof sock.updateProfileStatus !== "function") {
+        throw new Error("Baileys updateProfileStatus fonksiyonu mevcut değil");
+      }
+      await sock.updateProfileStatus(text);
+
+      // Doğrulama: Hemen geri okumaya çalış
+      let verified = "";
+      try {
+        if (typeof sock.fetchStatus === "function" && sock.user?.id) {
+          const me = sock.user.id;
+          const cur = await sock.fetchStatus(me);
+          const got = cur?.status || cur?.[0]?.status?.status;
+          if (got) verified = `\n\n_Şu anki:_ *${got}*`;
+        }
+      } catch (_) { }
+
+      await message.sendReply(`✅ *Bio güncellendi:* *${text}*${verified}`);
     } catch (e) {
-      await message.sendReply(`❌ *Durum güncellenemedi!* \n\n*Hata:* ${e.message}`);
+      await message.sendReply(`❌ *Bio güncellenemedi!* \n\n*Hata:* ${e.message}`);
     }
   });
 
@@ -1396,64 +1416,47 @@
   });
 
   // ══════════════════════════════════════════════════════
-  // Rastgele Kedi Fotoğrafı
+  // Rastgele Kedi Çıkartması
   // ══════════════════════════════════════════════════════
   Module({
     pattern: "(?:kedi|randomkedi)",
     fromMe: false,
-    desc: "Rastgele bir kedi fotoğrafı gönderir.",
+    desc: "Rastgele bir kedi görselini çıkartmaya dönüştürür.",
     usage: ".kedi",
     use: "eglence",
   }, async (message) => {
+    const { sticker, addExif } = require("./utils");
+    const config = require("../config");
     try {
       let buf;
       try {
         buf = await siputGetBuffer("/api/r/cats");
-      } catch (e) {
-        // Fallback: TheCatAPI
+      } catch (_) {
         const res = await axios.get("https://api.thecatapi.com/v1/images/search");
         const url = res.data?.[0]?.url;
-        if (url) {
-          const imgRes = await axios.get(url, { responseType: "arraybuffer", timeout: 15000 });
-          buf = Buffer.from(imgRes.data);
-        } else {
-          throw new Error("Görsel URL bulunamadı");
-        }
+        if (!url) throw new Error("Görsel URL bulunamadı");
+        const imgRes = await axios.get(url, { responseType: "arraybuffer", timeout: 15000 });
+        buf = Buffer.from(imgRes.data);
       }
 
       if (!buf || buf.length < 500) throw new Error("Geçersiz görsel verisi");
 
-      await message.client.sendMessage(message.jid, {
-        image: buf,
-        caption: "*Miyav!* 🐾"
-      }, { quoted: message.data });
+      const packParts = (config.STICKER_DATA || "Lades-Pro;Lades-Pro").split(";");
+      const stickerBuf = await addExif(
+        await sticker(buf, false),
+        { packname: packParts[0] || "Lades-Pro", author: packParts[1] || "Lades-Pro" }
+      );
+
+      await message.client.sendMessage(
+        message.jid,
+        { sticker: stickerBuf },
+        { quoted: message.data }
+      );
     } catch (e) {
-      await message.sendReply(`❌ *Kedi fotoğrafı alınamadı!* \n\n*Hata:* ${e.message}`);
+      await message.sendReply(`❌ *Kedi çıkartması alınamadı!* \n\n*Hata:* ${e.message}`);
     }
   });
 
-  // ══════════════════════════════════════════════════════
-  // Anime Sözleri
-  // ══════════════════════════════════════════════════════
-  Module({
-    pattern: "animesoz",
-    fromMe: false,
-    desc: "Rastgele anime sözü gönderir.",
-    usage: ".animesoz",
-    use: "eglence",
-  }, async (message) => {
-    try {
-      const data = await siputGet("/api/r/quotesanime");
-      const r = Array.isArray(data.data) ? data.data[0] : (data.data || data.result);
-      if (!r) return await message.sendReply("❌ *Söz bulunamadı!*");
-
-      const quote = r.quotes || r.quote || r.text || (typeof r === "string" ? r : JSON.stringify(r));
-      const char = r.karakter || r.character || r.anime || "";
-      await message.sendReply(`*Anime Sözü*\n\n_"${quote}"_${char ? `\n\n— ${char}` : ""}`);
-    } catch (e) {
-      await message.sendReply(`❌ *Anime sözü alınamadı!* \n\n*Hata:* ${e.message}`);
-    }
-  });
 
   // ══════════════════════════════════════════════════════
   // Çeviri

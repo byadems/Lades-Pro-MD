@@ -9,14 +9,16 @@ const S = {
   stats: { messages: 0, commands: 0, users: 0, groups: 0 },
   activity: [],
   commands: [], cmdStatusFilter: 'all',
-  plugins: [],
+  plugins: [], pluginFilter: 'all',
   ramHistory: [],
   chart: null,
   testProgressPoll: null,
   selectedBroadcastJids: new Set(),
+  broadcastGroups: [],
   activeSingleTarget: null,
   allCommands: [],
-  activeBroadcastMode: 'text'
+  activeBroadcastMode: 'text',
+  prev: {}
 };
 let es = null;
 let pairCountdownTimer = null;
@@ -134,6 +136,12 @@ async function fetchStatus() {
     setText('heroRam', d.memory || '--');
     setText('heroNode', d.nodeVersion || '--');
 
+    // Stats page metrics
+    setText('statsUptime', formatUptime(d.uptime || 0));
+    setText('statsBotStatus', online ? 'BAĞLI' : 'DEĞİL');
+    const botStatusEl = document.getElementById('statsBotStatus');
+    if (botStatusEl) botStatusEl.style.color = online ? 'var(--green)' : 'var(--red)';
+
     // Stats kartları güncelle
     setText('statMessages', d.totalMessages || 0);
     setText('statCommands', d.totalCommands || 0);
@@ -180,21 +188,63 @@ function setupAuth() {
       });
     } catch { toast('İşlem başarısız.', 'error'); }
   });
-  document.getElementById('btnRestartSystem')?.addEventListener('click', async () => {
-    try {
-      toast('Tüm sistem yeniden başlatılıyor (Phoenix)...', 'warn');
-      await fetch('/api/auth/restart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'system' })
-      });
-    } catch { toast('Bağlantı hatası.', 'error'); }
+  document.getElementById('btnRestartSystem')?.addEventListener('click', () => {
+    showConfirm(
+      'Sistemi Yeniden Başlat',
+      'Bot tamamen yeniden başlatılacak. İşlem 30–60 saniye sürebilir ve bot bu süre boyunca yanıt vermez. Devam etmek istiyor musunuz?',
+      'Yeniden Başlat',
+      'warn',
+      async () => {
+        try {
+          toast('Tüm sistem yeniden başlatılıyor (Phoenix)...', 'warn');
+          await fetch('/api/auth/restart', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'system' })
+          });
+        } catch { toast('Bağlantı hatası.', 'error'); }
+      }
+    );
   });
-  document.getElementById('btnStop')?.addEventListener('click', async () => {
-    try {
-      await fetch('/api/auth/stop', { method: 'POST' });
-      toast('Oturum sonlandırıldı.', 'info');
-    } catch { toast('İşlem başarısız.', 'error'); }
+  document.getElementById('btnStop')?.addEventListener('click', () => {
+    showConfirm(
+      'Oturumu Kapat',
+      'WhatsApp oturumu sonlandırılacak ve bot bağlantısı kesilecek. Yeniden bağlanmak için QR kod veya eşleşme kodu gerekecek.',
+      'Oturumu Kapat',
+      'danger',
+      async () => {
+        try {
+          await fetch('/api/auth/stop', { method: 'POST' });
+          toast('Oturum sonlandırıldı.', 'info');
+        } catch { toast('İşlem başarısız.', 'error'); }
+      }
+    );
+  });
+
+  document.getElementById('btnForceRepair')?.addEventListener('click', () => {
+    showConfirm(
+      'Yeniden Eşleştir',
+      'Mevcut WhatsApp oturumu tamamen silinecek ve bot yeni QR kod gösterecek. Telefonunuzda WhatsApp > Bağlı Cihazlar > Cihaz Ekle ile yeniden tarayın. Devam etmek istiyor musunuz?',
+      'Evet, Sil ve Eşleştir',
+      'danger',
+      async () => {
+        try {
+          const secret = prompt('Yönetici şifresini girin (ADMIN_SYNC_SECRET):');
+          if (!secret) return;
+          toast('Oturum temizleniyor, yeni QR bekleniyor...', 'warn');
+          const r = await fetch('/api/force-repair', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${secret}` }
+          });
+          const d = await r.json();
+          if (d.ok) {
+            toast('Oturum silindi! Bağlantı sayfasına geçip QR kodu okutun.', 'success');
+          } else {
+            toast('Hata: ' + (d.error || 'Bilinmeyen'), 'error');
+          }
+        } catch { toast('İşlem başarısız.', 'error'); }
+      }
+    );
   });
 }
 
@@ -460,14 +510,29 @@ async function loadPlugins() {
   }
 }
 
+function setupPluginFilters() {
+  document.querySelectorAll('[data-plugin-f]').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('[data-plugin-f]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      S.pluginFilter = btn.dataset.pluginF;
+      renderPlugins(document.getElementById('pluginSearch')?.value.toLowerCase().trim() || '');
+    };
+  });
+}
+
 function renderPlugins(filter = '') {
   const grid = document.getElementById('pluginGrid');
   const countEl = document.getElementById('pluginCount');
   if (!grid) return;
 
-  const plugins = filter ? S.plugins.filter(p =>
+  let plugins = filter ? S.plugins.filter(p =>
     p.name.toLowerCase().includes(filter) || p.desc.toLowerCase().includes(filter)
   ) : S.plugins;
+
+  const pf = S.pluginFilter || 'all';
+  if (pf === 'active')  plugins = plugins.filter(p => p.active);
+  else if (pf === 'passive') plugins = plugins.filter(p => !p.active);
 
   if (countEl) countEl.textContent = `${plugins.length} eklenti bulundu`;
 
@@ -638,9 +703,52 @@ function setupBroadcast() {
   });
 }
 
+async function loadGroupsForBroadcast() {
+  const container = document.getElementById('bcGroupList');
+  if (!container) return;
+  container.innerHTML = '<p style="color:var(--text-muted); padding:20px; font-size:13px;">Gruplar yükleniyor...</p>';
+  try {
+    const res = await fetch('/api/groups');
+    const data = await res.json();
+    S.broadcastGroups = data.groups || [];
+    renderBroadcastGroups();
+  } catch (e) {
+    container.innerHTML = `<p style="color:var(--red); padding:20px; font-size:13px;">Hata: ${esc(e.message)}</p>`;
+  }
+}
+
+function renderBroadcastGroups(filter = '') {
+  const container = document.getElementById('bcGroupList');
+  if (!container) return;
+  const filtered = filter
+    ? S.broadcastGroups.filter(g => (g.subject || g.name || '').toLowerCase().includes(filter.toLowerCase()))
+    : S.broadcastGroups;
+
+  if (!filtered.length) {
+    container.innerHTML = '<p style="color:var(--text3); padding:20px; font-size:13px;">Grup bulunamadı.</p>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(g => {
+    const jid = g.jid || g.id;
+    const name = g.subject || g.name || jid;
+    const selected = S.selectedBroadcastJids.has(jid);
+    return `
+      <div class="bc-item ${selected ? 'selected' : ''}" onclick="toggleBroadcastGroup('${esc(jid)}')">
+        <div class="bc-checkbox"></div>
+        <div class="bc-item-info">
+          <span class="bc-item-name">${esc(name)}</span>
+          <span class="bc-item-jid">${esc(jid)}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 window.toggleBroadcastGroup = toggleBroadcastGroup;
 window.selectAllGroups = selectAllGroups;
 window.filterBroadcastGroups = filterBroadcastGroups;
+window.loadGroupsForBroadcast = loadGroupsForBroadcast;
 
 // ─── ANALYTICS / CHART ────────────────────────────────────
 function initChart() {
@@ -710,10 +818,22 @@ function connectLogs() {
       const log = JSON.parse(e.data);
 
       if (log.isMetrics) {
-        document.getElementById('statMessages').textContent = log.messages || 0;
-        document.getElementById('statCommands').textContent = log.commands || 0;
-        document.getElementById('statUsers').textContent = log.users || 0;
-        document.getElementById('statGroups').textContent = log.groups || 0;
+        const newMsg = log.messages || 0;
+        const newCmd = log.commands || 0;
+        const newUsr = log.users || 0;
+        const newGrp = log.groups || 0;
+
+        updateTrend('trendMessages', newMsg, S.prev.messages);
+        updateTrend('trendCommands', newCmd, S.prev.commands);
+        updateTrend('trendUsers',    newUsr, S.prev.users);
+        updateTrend('trendGroups',   newGrp, S.prev.groups);
+
+        S.prev = { messages: newMsg, commands: newCmd, users: newUsr, groups: newGrp };
+
+        setText('statMessages', newMsg);
+        setText('statCommands', newCmd);
+        setText('statUsers', newUsr);
+        setText('statGroups', newGrp);
 
         // Masterpiece: Add heap/max metrics
         if (log.memHeap) {
@@ -908,6 +1028,11 @@ async function fetchConfig() {
     setVal('s_ACR_A', d.ACR_A);
     setVal('s_ACR_S', d.ACR_S);
 
+    // Instagram session (for .hikaye)
+    setVal('s_IG_SESSION_ID', d.IG_SESSION_ID);
+    setVal('s_IG_DS_USER_ID', d.IG_DS_USER_ID);
+    setVal('s_IG_CSRF_TOKEN', d.IG_CSRF_TOKEN);
+
     // Systems
     setVal('s_MAX_STICKER_SIZE', d.MAX_STICKER_SIZE);
     setVal('s_MAX_DL_SIZE', d.MAX_DL_SIZE);
@@ -954,6 +1079,10 @@ function setupSettings() {
       ACR_A: getVal('s_ACR_A'),
       ACR_S: getVal('s_ACR_S'),
 
+      IG_SESSION_ID: getVal('s_IG_SESSION_ID'),
+      IG_DS_USER_ID: getVal('s_IG_DS_USER_ID'),
+      IG_CSRF_TOKEN: getVal('s_IG_CSRF_TOKEN'),
+
       MAX_STICKER_SIZE: getVal('s_MAX_STICKER_SIZE'),
       MAX_DL_SIZE: getVal('s_MAX_DL_SIZE'),
       PM2_RESTART_LIMIT_MB: getVal('s_PM2_RESTART_LIMIT_MB'),
@@ -969,6 +1098,68 @@ function setupSettings() {
   });
 
   document.getElementById('btnRefreshEnv')?.addEventListener('click', loadEnvPreview);
+
+  // ── Instagram session helpers ────────────────────────────
+  // "Ayrıştır" : pastes a full Cookie: header into the bulk box, then splits
+  // sessionid/ds_user_id/csrftoken into the three fields below.
+  document.getElementById('ig_bulk_parse_btn')?.addEventListener('click', async () => {
+    const raw = (getVal('ig_bulk_paste') || '').trim();
+    if (!raw) return toast('Önce çerez metnini yapıştır.', 'error');
+    try {
+      const r = await fetch('/api/ig-session/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookie: raw })
+      });
+      const d = await r.json();
+      if (!r.ok || !d.ok) {
+        toast(d.error || 'Ayrıştırma başarısız.', 'error');
+        return;
+      }
+      setVal('s_IG_SESSION_ID', d.IG_SESSION_ID || '');
+      if (d.IG_DS_USER_ID) setVal('s_IG_DS_USER_ID', d.IG_DS_USER_ID);
+      if (d.IG_CSRF_TOKEN) setVal('s_IG_CSRF_TOKEN', d.IG_CSRF_TOKEN);
+      setVal('ig_bulk_paste', '');
+      toast('Çerez parçalandı. Şimdi "Test Et" yap, sonra Kaydet.', 'success');
+    } catch (e) { toast('Bağlantı hatası.', 'error'); }
+  });
+
+  // "Çerezi Test Et" : verifies the cookie against IG's current_user endpoint
+  // BEFORE the user commits with Save. Tests the form values, not what's on disk.
+  document.getElementById('ig_test_btn')?.addEventListener('click', async () => {
+    const out = document.getElementById('ig_test_result');
+    const sid = (getVal('s_IG_SESSION_ID') || '').trim();
+    if (!sid) {
+      if (out) { out.textContent = '✗ sessionid alanı boş.'; out.style.color = '#e74c3c'; }
+      return;
+    }
+    if (out) { out.textContent = '⏳ test ediliyor...'; out.style.color = '#9aa3b2'; }
+    try {
+      const r = await fetch('/api/ig-session/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          IG_SESSION_ID: sid,
+          IG_DS_USER_ID: (getVal('s_IG_DS_USER_ID') || '').trim(),
+          IG_CSRF_TOKEN: (getVal('s_IG_CSRF_TOKEN') || '').trim(),
+        })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        if (out) {
+          out.textContent = `✓ Geçerli: @${d.username}` + (d.fullName ? ` (${d.fullName})` : '');
+          out.style.color = '#2ecc71';
+        }
+      } else {
+        if (out) {
+          out.textContent = '✗ ' + (d.error || 'Çerez doğrulanamadı.');
+          out.style.color = '#e74c3c';
+        }
+      }
+    } catch (e) {
+      if (out) { out.textContent = '✗ Bağlantı hatası: ' + e.message; out.style.color = '#e74c3c'; }
+    }
+  });
 }
 
 function toggleVisibility(id) {
@@ -976,6 +1167,51 @@ function toggleVisibility(id) {
   inp.type = inp.type === 'password' ? 'text' : 'password';
 }
 window.toggleVisibility = toggleVisibility;
+
+// ══════════════════════════════
+//  CONFIRM DIALOG
+// ══════════════════════════════
+function showConfirm(title, message, okLabel, type, onConfirm) {
+  const overlay = document.getElementById('confirmOverlay');
+  const dialog = overlay?.querySelector('.confirm-dialog');
+  if (!overlay) { if (confirm(message)) onConfirm(); return; }
+
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent = message;
+  document.getElementById('confirmOkLabel').textContent = okLabel;
+
+  const okBtn = document.getElementById('confirmOk');
+  okBtn.className = `ctrl-btn confirm-ok-btn ${type}`;
+
+  if (dialog) {
+    dialog.className = type === 'danger' ? 'confirm-dialog glass-panel danger' : 'confirm-dialog glass-panel';
+  }
+
+  overlay.classList.add('active');
+
+  const close = () => overlay.classList.remove('active');
+  const handleOk = () => { close(); onConfirm(); };
+  const handleCancel = () => close();
+  const handleBg = (e) => { if (e.target === overlay) close(); };
+
+  okBtn.onclick = handleOk;
+  document.getElementById('confirmCancel').onclick = handleCancel;
+  overlay.onclick = handleBg;
+}
+
+// ══════════════════════════════
+//  TREND INDICATOR
+// ══════════════════════════════
+function updateTrend(id, newVal, oldVal) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (!oldVal || oldVal === 0) { el.className = 'stat-trend'; el.textContent = ''; return; }
+  const diff = newVal - oldVal;
+  if (diff === 0) { el.className = 'stat-trend'; el.textContent = ''; return; }
+  const isUp = diff > 0;
+  el.textContent = (isUp ? '↑' : '↓') + Math.abs(diff);
+  el.className = 'stat-trend ' + (isUp ? 'up' : 'down');
+}
 
 // ══════════════════════════════
 //  TOAST
@@ -1027,6 +1263,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSettings();
   setupBroadcast();
   setupRemoteTabs();
+  setupPluginFilters();
   connectLogs();
   fetchStatus();
   setInterval(fetchStatus, 5000);
@@ -1050,9 +1287,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function updateHealth() {
   const scoreEl = document.getElementById('healthScore');
   if (!scoreEl) return;
-  // Simple logic: Base 100 - (small random jitter) - (if offline -20)
   let health = 98 + (Math.random() * 2);
-  const isOnline = document.getElementById('heroBadge')?.textContent.includes('Bağlı');
+  const isOnline = document.getElementById('heroBadge')?.classList.contains('online');
   if (!isOnline) health -= 30;
   scoreEl.textContent = Math.min(100, Math.floor(health)) + '%';
 }
@@ -1065,15 +1301,18 @@ let _lastAiCode = '';
 
 async function generateAiCommand() {
   const desc = document.getElementById('aiCmdDesc')?.value?.trim();
-  if (!desc) { showToast('Komut açıklaması girin.', 'warning'); return; }
+  if (!desc) { showToast('Komut açıklaması girin.', 'warn'); return; }
 
   const btn = document.getElementById('btnAiGenerate');
   const resultPanel = document.getElementById('aiResultPanel');
   const resultCode = document.getElementById('aiResultCode');
   const saveBtn = document.getElementById('btnAiSave');
 
+  const loadingHTML = `<svg viewBox="0 0 24 24" fill="none" width="16" height="16" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 11-6.22-8.56" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> Üretiliyor...`;
+  const defaultHTML = `<svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="currentColor"/></svg> Komut Üret`;
+
   btn.disabled = true;
-  btn.textContent = 'Üretiliyor...';
+  btn.innerHTML = loadingHTML;
 
   try {
     const res = await fetch('/api/ai/generate-command', {
@@ -1100,13 +1339,29 @@ async function generateAiCommand() {
     showToast('AI hatası: ' + e.message, 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Komut Üret';
+    btn.innerHTML = defaultHTML;
   }
 }
 
+window.copyAiCode = function() {
+  if (!_lastAiCode) { toast('Kopyalanacak kod yok.', 'warn'); return; }
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(_lastAiCode).then(() => toast('Kod kopyalandı!', 'success')).catch(() => fallbackCopy());
+  } else { fallbackCopy(); }
+  function fallbackCopy() {
+    const ta = document.createElement('textarea');
+    ta.value = _lastAiCode;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('Kod kopyalandı!', 'success');
+  }
+};
+
 async function saveAiCommand() {
   const name = document.getElementById('aiCmdName')?.value?.trim();
-  if (!name || !_lastAiCode) { showToast('İsim ve kod gerekli.', 'warning'); return; }
+  if (!name || !_lastAiCode) { showToast('İsim ve kod gerekli.', 'warn'); return; }
 
   try {
     const res = await fetch('/api/ai/save-command', {
@@ -1238,7 +1493,7 @@ async function sendRemoteCommand() {
   const jid = document.getElementById('remoteJid')?.value?.trim();
   const cmd = document.getElementById('remoteCmd')?.value?.trim();
   if (!jid) { toast('Önce bir hedef seçin!', 'warn'); return; }
-  if (!cmd) { toast('Komut girin.', 'warning'); return; }
+  if (!cmd) { toast('Komut girin.', 'warn'); return; }
 
   const resultDiv = document.getElementById('remoteResult');
   try {
@@ -1264,7 +1519,7 @@ async function sendRemoteMessage() {
   const jid = document.getElementById('remoteJid')?.value?.trim();
   const text = document.getElementById('remoteCmd')?.value?.trim();
   if (!jid) { toast('Önce bir hedef seçin!', 'warn'); return; }
-  if (!text) { toast('Mesaj yazın.', 'warning'); return; }
+  if (!text) { toast('Mesaj yazın.', 'warn'); return; }
 
   try {
     const res = await fetch('/api/send-message', {

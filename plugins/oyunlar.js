@@ -35,133 +35,115 @@
   }
 
   // ══════════════════════════════════════════════════════
-  // Bilgi Yarışması (Family 100 tarzı)
+  // Yanıtla-cevapla altyapısı (Matematik & Bayrak)
+  // Gönderdiğimiz oyun mesajının ID'sine göre cevabı saklarız.
   // ══════════════════════════════════════════════════════
-  Module({
-    pattern: "bilgiyarismasi",
-    fromMe: false,
-    desc: "Bilgi yarışması sorusu sorar. (Family 100 tarzı)",
-    usage: ".bilgiyarismasi",
-    use: "oyun",
-  }, async (message) => {
-    try {
-      const data = await siputGet("/api/games/family100");
-      const r = data.data || data.result;
-      if (!r || !r.soal) return await message.sendReply("❌ *Soru alınamadı!*");
+  if (!global._oyunYanitla) global._oyunYanitla = new Map();
+  const OYUN_TTL = 5 * 60 * 1000; // 5 dakika
+  const OYUN_MAX = 500;
 
-      const answers = Array.isArray(r.jawaban) ? r.jawaban : [];
-      const hiddenAnswers = answers.map((a, i) => `${i + 1}. ${"*".repeat(a.length)}`).join("\n");
-
-      await message.sendReply(
-        `*Bilgi Yarışması*\n\n` +
-        `*Soru:* ${r.soal}\n\n` +
-        `*Cevaplar (${answers.length} adet):*\n${hiddenAnswers}\n\n` +
-        `_60 saniye içinde "cevap [yanıtınız]" yazın!_`
-      );
-
-      // Store answers for later validation
-      if (!global._gameAnswers) global._gameAnswers = new Map();
-      global._gameAnswers.set(message.jid, {
-        answers: answers.map(a => a.toLowerCase()),
-        question: r.soal,
-        found: [],
-        expires: Date.now() + 60000
-      });
-    } catch (e) {
-      await message.sendReply(`❌ *Oyun başlatılamadı!* \n\n*Hata:* ${e.message}`);
-    }
-  });
-
-  // Cevap kontrolü
-  Module({
-    pattern: "cevap ?(.*)",
-    fromMe: false,
-    desc: "Bilgi yarışması cevabı verir.",
-    usage: "cevap [yanıt]",
-    use: "oyun",
-  }, async (message, match) => {
-    if (!global._gameAnswers) return;
-    const game = global._gameAnswers.get(message.jid);
-    if (!game) return await message.sendReply("❌ *Aktif bir oyun bulunamadı!* \n\nℹ️ \`.bilgiyarismasi\` _ile başlatabilirsiniz._");
-    if (Date.now() > game.expires) {
-      global._gameAnswers.delete(message.jid);
-      return await message.sendReply(`⏳ *Süre doldu!* \n\n*Doğru Cevaplar:* \n${game.answers.map(a => `• ${a}`).join("\n")}`);
-    }
-
-    const answer = (match[1] || "").trim().toLowerCase();
-    if (!answer) return;
-
-    const idx = game.answers.findIndex(a => a.includes(answer) || answer.includes(a));
-    if (idx !== -1 && !game.found.includes(idx)) {
-      game.found.push(idx);
-      if (game.found.length === game.answers.length) {
-        global._gameAnswers.delete(message.jid);
-        await message.sendReply(`✅ *Tebrikler! Tüm cevapları buldunuz!* \n\n*Cevaplar:* \n${game.answers.map(a => `• ${a}`).join("\n")}`);
-      } else {
-        await message.sendReply(`✅ *Doğru!* \`"${game.answers[idx]}"\` bulundu! (${game.found.length}/${game.answers.length})`);
+  function oyunHatirla(msgId, payload) {
+    if (!msgId || !payload) return;
+    global._oyunYanitla.set(msgId, { ...payload, expires: Date.now() + OYUN_TTL });
+    if (global._oyunYanitla.size > OYUN_MAX) {
+      const now = Date.now();
+      for (const [k, v] of global._oyunYanitla) {
+        if (v.expires < now) global._oyunYanitla.delete(k);
       }
-    } else if (game.found.includes(idx)) {
-      await message.sendReply("ℹ️ _Bu cevap zaten bulundu._");
-    } else {
-      await message.sendReply("❌ *Yanlış cevap!* _Tekrar deneyin._");
+      if (global._oyunYanitla.size > OYUN_MAX) {
+        const firstKey = global._oyunYanitla.keys().next().value;
+        if (firstKey) global._oyunYanitla.delete(firstKey);
+      }
     }
-  });
+  }
+
+  function oyunGetir(msgId) {
+    if (!msgId) return null;
+    const e = global._oyunYanitla.get(msgId);
+    if (!e) return null;
+    if (e.expires < Date.now()) {
+      global._oyunYanitla.delete(msgId);
+      return null;
+    }
+    return e;
+  }
+
+  function oyunSil(msgId) {
+    if (msgId) global._oyunYanitla.delete(msgId);
+  }
+
+  // Türkçe sayı kelimelerini sayıya çevirir (basit)
+  const TR_NUM_WORDS = {
+    "sıfır": 0, "sifir": 0,
+    "bir": 1, "iki": 2, "üç": 3, "uc": 3, "dört": 4, "dort": 4,
+    "beş": 5, "bes": 5, "altı": 6, "alti": 6, "yedi": 7, "sekiz": 8,
+    "dokuz": 9, "on": 10, "yirmi": 20, "otuz": 30, "kırk": 40, "kirk": 40,
+    "elli": 50, "altmış": 60, "altmis": 60, "yetmiş": 70, "yetmis": 70,
+    "seksen": 80, "doksan": 90, "yüz": 100, "yuz": 100, "bin": 1000
+  };
+
+  function trSozcuktenSayi(s) {
+    const k = String(s || "").trim().toLowerCase();
+    return TR_NUM_WORDS.hasOwnProperty(k) ? TR_NUM_WORDS[k] : null;
+  }
 
   // ══════════════════════════════════════════════════════
-  // Matematik Oyunu
+  // Matematik Oyunu (yerel üretim — siputzx maths bozuk)
   // ══════════════════════════════════════════════════════
   Module({
     pattern: "matoyun",
     fromMe: false,
-    desc: "Matematik sorusu sorar.",
+    desc: "Türkçe matematik sorusu sorar. Soruyu yanıtlayarak cevap verin.",
     usage: ".matoyun",
     use: "oyun",
   }, async (message) => {
     try {
-      const data = await siputGet("/api/games/maths");
-      const r = data.data || data.result;
-      if (!r) return await message.sendReply("❌ *Soru alınamadı!*");
+      // Rastgele zorlukta soru üret
+      const ops = [
+        { sym: "+", fn: (a, b) => a + b },
+        { sym: "−", fn: (a, b) => a - b },
+        { sym: "×", fn: (a, b) => a * b },
+        { sym: "÷", fn: (a, b) => a / b },
+      ];
+      const op = ops[Math.floor(Math.random() * ops.length)];
+      let a, b, soru, dogru;
+      if (op.sym === "÷") {
+        b = Math.floor(Math.random() * 9) + 2;     // 2..10
+        dogru = Math.floor(Math.random() * 12) + 2; // 2..13
+        a = b * dogru;
+      } else if (op.sym === "×") {
+        a = Math.floor(Math.random() * 12) + 2;    // 2..13
+        b = Math.floor(Math.random() * 12) + 2;
+        dogru = a * b;
+      } else if (op.sym === "−") {
+        a = Math.floor(Math.random() * 90) + 10;   // 10..99
+        b = Math.floor(Math.random() * a);          // 0..a
+        dogru = a - b;
+      } else {
+        a = Math.floor(Math.random() * 90) + 10;
+        b = Math.floor(Math.random() * 90) + 10;
+        dogru = a + b;
+      }
+      soru = `${a} ${op.sym} ${b}`;
 
-      const question = r.soal || r.question || r.problem;
-      const answer = r.jawaban || r.answer;
+      const sent = await message.client.sendMessage(message.jid, {
+        text:
+          `🧮 *Matematik Oyunu*\n\n` +
+          `*Soru:* ${soru} = ?\n\n` +
+          `↩️ _Bu mesajı yanıtlayarak cevabınızı yazın._`
+      }, { quoted: message.data });
 
-      if (!global._mathAnswers) global._mathAnswers = new Map();
-      global._mathAnswers.set(message.jid, {
-        answer: String(answer).toLowerCase(),
-        expires: Date.now() + 30000
-      });
-
-      await message.sendReply(
-        `🧮 *Matematik Sorusu*\n\n` +
-        `*Soru:* ${question}\n\n` +
-        `⏳ _30 saniye içinde "sonuc [yanıt]" yazın!_`
-      );
+      const sentId = sent?.key?.id;
+      if (sentId) {
+        oyunHatirla(sentId, {
+          tip: "math",
+          soru,
+          dogru: String(dogru),
+          dogruSayi: dogru,
+        });
+      }
     } catch (e) {
       await message.sendReply(`❌ *Oyun başlatılamadı!* \n\n*Hata:* ${e.message}`);
-    }
-  });
-
-  Module({
-    pattern: "sonuc ?(.*)",
-    fromMe: false,
-    desc: "Matematik sorusu cevabı.",
-    usage: "sonuc [yanıt]",
-    use: "oyun",
-  }, async (message, match) => {
-    if (!global._mathAnswers) return;
-    const game = global._mathAnswers.get(message.jid);
-    if (!game) return;
-    if (Date.now() > game.expires) {
-      global._mathAnswers.delete(message.jid);
-      return await message.sendReply(`⏳ *Süre doldu!* \n\n*Doğru cevap:* \`${game.answer}\``);
-    }
-
-    const answer = (match[1] || "").trim().toLowerCase();
-    if (answer === game.answer) {
-      global._mathAnswers.delete(message.jid);
-      await message.sendReply("✅ *Doğru cevap! Tebrikler!*");
-    } else {
-      await message.sendReply("❌ *Yanlış cevap!* _Tekrar deneyin._");
     }
   });
 
@@ -263,12 +245,27 @@
   });
 
   // ══════════════════════════════════════════════════════
-  // Bayrak Tahmin
+  // Bayrak Tahmin (yanıtla-cevapla, Türkçe ülke adları)
   // ══════════════════════════════════════════════════════
+  let ULKELER_TR = {};
+  try { ULKELER_TR = require("./data/ulkeler_tr.json"); } catch (_) { ULKELER_TR = {}; }
+
+  // Türkçe karakterleri sadeleştirip lowercase'e çevirir
+  function normalizeTR(s) {
+    return String(s || "")
+      .toLowerCase()
+      .replace(/i̇/g, "i")
+      .replace(/ç/g, "c").replace(/ğ/g, "g").replace(/ı/g, "i")
+      .replace(/ö/g, "o").replace(/ş/g, "s").replace(/ü/g, "u")
+      .replace(/[^a-z0-9 ]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   Module({
     pattern: "bayraktahmin",
     fromMe: false,
-    desc: "Bayrak tahmin oyunu.",
+    desc: "Bayrak tahmin oyunu. Bayrağı yanıtlayarak cevap verin.",
     usage: ".bayraktahmin",
     use: "oyun",
   }, async (message) => {
@@ -278,19 +275,36 @@
       if (!r) return await message.sendReply("❌ *Soru alınamadı!*");
 
       const imageUrl = r.img || r.image || r.url;
-      const answer = r.jawaban || r.answer;
+      const enName = r.name || r.country || r.jawaban || r.answer || "";
+      // Bayrak URL'sinden ülke kodunu çıkar (örn. .../mk.png → mk)
+      const codeMatch = String(imageUrl || "").match(/\/([a-z]{2})\.(png|svg|jpg|jpeg|webp)$/i);
+      const code = codeMatch ? codeMatch[1].toLowerCase() : null;
+      const trNames = (code && ULKELER_TR[code]) ? ULKELER_TR[code] : [];
 
-      if (!global._guessAnswers) global._guessAnswers = new Map();
-      global._guessAnswers.set(message.jid, {
-        answer: String(answer).toLowerCase(),
-        expires: Date.now() + 60000
-      });
+      // Kabul edilen tüm cevap formları
+      const acceptable = new Set();
+      if (enName) acceptable.add(normalizeTR(enName));
+      for (const n of trNames) acceptable.add(normalizeTR(n));
 
-      if (imageUrl) {
-        await message.client.sendMessage(message.jid, {
-          image: { url: imageUrl },
-          caption: `🚩 *Bayrak Tahmin Oyunu*\n\n_Bu bayrak hangi ülkeye ait?_\n⏳ _60 saniye içinde "tahmin [yanıt]" yazın._`
-        }, { quoted: message.data });
+      if (!imageUrl) return await message.sendReply("❌ *Bayrak görseli alınamadı!*");
+
+      const trDisplay = trNames[0] || enName || "?";
+      const sent = await message.client.sendMessage(message.jid, {
+        image: { url: imageUrl },
+        caption:
+          `🚩 *Bayrak Tahmin Oyunu*\n\n` +
+          `_Bu bayrak hangi ülkeye ait?_\n\n` +
+          `↩️ _Bu mesajı yanıtlayarak cevabınızı yazın._`
+      }, { quoted: message.data });
+
+      const sentId = sent?.key?.id;
+      if (sentId) {
+        oyunHatirla(sentId, {
+          tip: "flag",
+          dogru: trDisplay,
+          enName,
+          kabul: Array.from(acceptable),
+        });
       }
     } catch (e) {
       await message.sendReply(`❌ *Oyun başlatılamadı!* \n\n*Hata:* ${e.message}`);
@@ -298,60 +312,58 @@
   });
 
   // ══════════════════════════════════════════════════════
-  // Bulmaca / Teka-teki
+  // Yanıt yakalayıcı: Matematik & Bayrak oyunlarına yanıt
   // ══════════════════════════════════════════════════════
   Module({
-    pattern: "bulmaca",
+    on: "text",
     fromMe: false,
-    desc: "Bulmaca sorar.",
-    usage: ".bulmaca",
-    use: "oyun",
   }, async (message) => {
     try {
-      const data = await siputGet("/api/games/tekateki");
-      const r = data.data || data.result;
-      if (!r) return await message.sendReply("❌ *Bulmaca alınamadı!*");
+      if (!message.reply_message || !message.reply_message.fromMe) return;
+      const repliedId =
+        message.reply_message?.data?.key?.id ||
+        message.reply_message?.key?.id;
+      if (!repliedId) return;
+      const game = oyunGetir(repliedId);
+      if (!game) return;
 
-      const question = r.soal || r.question;
-      const answer = r.jawaban || r.answer;
+      const userAnswer = (message.text || "").trim();
+      if (!userAnswer) return;
 
-      if (!global._puzzleAnswers) global._puzzleAnswers = new Map();
-      global._puzzleAnswers.set(message.jid, {
-        answer: String(answer).toLowerCase(),
-        expires: Date.now() + 60000
-      });
+      if (game.tip === "math") {
+        // Sayıyı ya da kelimeyi parse et
+        const cleaned = userAnswer.replace(/[^\-0-9.,]/g, "").replace(",", ".");
+        let userNum = cleaned ? Number(cleaned) : NaN;
+        if (Number.isNaN(userNum)) {
+          const w = trSozcuktenSayi(userAnswer);
+          if (w !== null) userNum = w;
+        }
+        if (Number.isNaN(userNum)) {
+          return await message.sendReply("⚠️ _Sadece sayısal bir cevap yazın._");
+        }
+        if (userNum === game.dogruSayi) {
+          oyunSil(repliedId);
+          await message.sendReply(`✅ *Doğru cevap!* \`${game.soru} = ${game.dogru}\` 🎉`);
+        } else {
+          await message.sendReply("❌ *Yanlış cevap!* _Tekrar deneyin (yanıtlayarak)._");
+        }
+        return;
+      }
 
-      await message.sendReply(
-        `❓ *Bulmaca*\n\n` +
-        `${question}\n\n` +
-        `⏳ _60 saniye içinde "bulmacacevap [yanıt]" yazın._`
-      );
+      if (game.tip === "flag") {
+        const u = normalizeTR(userAnswer);
+        if (!u) return;
+        const ok = (game.kabul || []).some((k) => k && (k === u || k.includes(u) || u.includes(k)));
+        if (ok) {
+          oyunSil(repliedId);
+          await message.sendReply(`✅ *Doğru!* Bu bayrak *${game.dogru}* ülkesine ait. 🎉`);
+        } else {
+          await message.sendReply("❌ *Yanlış cevap!* _Tekrar deneyin (yanıtlayarak)._");
+        }
+        return;
+      }
     } catch (e) {
-      await message.sendReply(`❌ *Bulmaca alınamadı!* \n\n*Hata:* ${e.message}`);
-    }
-  });
-
-  Module({
-    pattern: "bulmacacevap ?(.*)",
-    fromMe: false,
-    desc: "Bulmaca cevabı.",
-    usage: "bulmacacevap [yanıt]",
-    use: "oyun",
-  }, async (message, match) => {
-    if (!global._puzzleAnswers) return;
-    const game = global._puzzleAnswers.get(message.jid);
-    if (!game) return;
-    if (Date.now() > game.expires) {
-      global._puzzleAnswers.delete(message.jid);
-      return await message.sendReply(`⏳ *Süre doldu!* \n\n*Doğru cevap:* \`${game.answer}\``);
-    }
-
-    const answer = (match[1] || "").trim().toLowerCase();
-    if (answer === game.answer || game.answer.includes(answer)) {
-      global._puzzleAnswers.delete(message.jid);
-      await message.sendReply("✅ *Doğru cevap! Tebrikler!*");
-    } else {
-      await message.sendReply("❌ *Yanlış cevap!* _Tekrar deneyin._");
+      // sessizce yut, normal mesaj akışını bozma
     }
   });
 
@@ -595,87 +607,6 @@
     );
 
     Module({
-      pattern: "beyin",
-      fromMe: false,
-      desc: "Zeka gelişimine katkıda bulunan rastgele bir beyin jimnastiği sorusu sorar.",
-      usage: ".beyin",
-      use: "oyun",
-    },
-      async (message) => {
-        try {
-          const r = await nx("/games/asahotak");
-          const question = r.question || r.soal || r.pertanyaan || JSON.stringify(r);
-          const answer = r.answer || r.jawaban || r.kunci || "?";
-          await message.sendReply(
-            `🧠 *Beyin Jimnastiği*\n\n` +
-            `❓ ${question}\n\n` +
-            `💡 _10 saniye sonra cevap..._\n\n_(Not: Sorular/Cevaplar yabancı dilde olabilir)_`
-          );
-          setTimeout(async () => {
-            await message.sendReply(`✅ *Cevap:* ${answer}`);
-          }, 10000);
-        } catch (e) {
-          await message.sendReply(`❌ *Soru alınamadı:* \n\n${e.message}`);
-        }
-      }
-    );
-
-    Module({
-      pattern: "bilmece",
-      fromMe: false,
-      desc: "Keyifli vakit geçirmeniz için rastgele ve düşündürücü bir bilmece sorar.",
-      usage: ".bilmece",
-      use: "oyun",
-    },
-      async (message) => {
-        try {
-          const r = await nx("/games/tebaktebakan");
-          const question = r.question || r.soal || r.pertanyaan || JSON.stringify(r);
-          const answer = r.answer || r.jawaban || r.kunci || "?";
-          await message.sendReply(
-            `🎯 *Bilmece*\n\n` +
-            `❓ ${question}\n\n` +
-            `⏳ _15 saniye sonra cevap..._\n\n_(Not: Sorular/Cevaplar yabancı dilde olabilir)_`
-          );
-          setTimeout(async () => {
-            await message.sendReply(`✅ *Cevap:* ${answer}`);
-          }, 15000);
-        } catch (e) {
-          await message.sendReply(`❌ *Bilmece alınamadı:* \n\n${e.message}`);
-        }
-      }
-    );
-
-    Module({
-      pattern: "kimyasoru",
-      fromMe: false,
-      desc: "Kimya bilginizi tazeleyecek element sembolleri üzerine bir soru sorar.",
-      usage: ".kimyasoru",
-      use: "oyun",
-    },
-      async (message) => {
-        try {
-          const r = await nx("/games/tebakkimia");
-          const element = r.element || r.question || r.soal || JSON.stringify(r);
-          const symbol = r.symbol || r.jawaban || r.answer || "?";
-          const number = r.atomicNumber || r.atomic_number || r.nomor || "";
-
-          await message.sendReply(
-            `⚗️ *Kimya Sorusu*\n\n` +
-            `Bu elementin sembolü nedir?\n` +
-            `🧪 *${element}*${number ? ` (Atom No: ${number})` : ""}\n\n` +
-            `⏳ _10 saniye sonra cevap..._`
-          );
-          setTimeout(async () => {
-            await message.sendReply(`✅ *Cevap:* ${symbol}`);
-          }, 10000);
-        } catch (e) {
-          await message.sendReply(`❌ *Soru alınamadı:* \n\n${e.message}`);
-        }
-      }
-    );
-
-    Module({
       pattern: "dragonyazı ?(.*)",
       fromMe: false,
       desc: "Yazdığınız metni Dragon Ball tarzında şık bir logoya dönüştürür.",
@@ -786,3 +717,220 @@
       }
     );
   })();
+
+// ==========================================
+// FILE: sihirlikure.js + adamasmaca.js
+// ==========================================
+(function () {
+  const { Module } = require("../main");
+
+  // ══════════════════════════════════════════════════════
+  // Sihirli Küre (Magic 8-Ball)
+  // ══════════════════════════════════════════════════════
+  const SEKIZLI_CEVAPLAR = [
+    // Olumlu
+    "🔮 Kesinlikle evet!",
+    "🔮 Evet, bundan emin olabilirsin.",
+    "🔮 İşaretler bunu gösteriyor.",
+    "🔮 Görünüşe göre evet.",
+    "🔮 Benim görüşüm: evet.",
+    "🔮 Çok olası.",
+    "🔮 Evet, kesinlikle.",
+    "🔮 Tabii ki!",
+    // Tarafsız
+    "🔮 Şimdilik cevap belirsiz, tekrar sor.",
+    "🔮 Şimdi tahmin etmek zor.",
+    "🔮 Şu an konsantre olamıyorum, tekrar sor.",
+    "🔮 Daha sonra tekrar sor.",
+    "🔮 Bunu şu an tahmin edemiyorum.",
+    "🔮 Daha iyi odaklan ve tekrar sor.",
+    // Olumsuz
+    "🔮 Çok da iyi değil.",
+    "🔮 Hayır diyebilirim.",
+    "🔮 Görünüşe göre hayır.",
+    "🔮 Çok şüpheliyim.",
+    "🔮 Hayır.",
+    "🔮 İşaretler hayır diyor.",
+  ];
+
+  Module({
+    pattern: "sihirlikure ?(.*)",
+    fromMe: false,
+    desc: "Sihirli küreye bir soru sorun, mistik cevabını alın! (8-Ball)",
+    usage: ".sihirlikure [sorunuz]",
+    use: "oyun",
+  },
+    async (message, match) => {
+      const soru = (match[1] || "").trim();
+      if (!soru) {
+        return await message.sendReply(
+          "🔮 *Sihirli Küre*\n\n_Bana bir soru sormalısın!_\n\n💬 _Örnek:_ `.sihirlikure Bu ay şansım açık olacak mı?`"
+        );
+      }
+      const cevap = SEKIZLI_CEVAPLAR[Math.floor(Math.random() * SEKIZLI_CEVAPLAR.length)];
+      return await message.sendReply(`🔮 *Soru:* _${soru}_\n\n${cevap}`);
+    }
+  );
+
+  // ══════════════════════════════════════════════════════
+  // Adam Asmaca (Hangman)
+  // ══════════════════════════════════════════════════════
+  const KELIME_LISTESI = [
+    "araba", "bilgisayar", "telefon", "müzik", "sinema", "tatil",
+    "yazılım", "internet", "uçak", "deniz", "dağ", "şehir",
+    "kitap", "spor", "yemek", "çiçek", "hayvan", "gezegen",
+    "oyun", "dans", "şarkı", "sanat", "fotoğraf", "kamera",
+    "güneş", "yıldız", "nehir", "orman", "köprü", "müze",
+    "bisiklet", "tren", "gemi", "roket", "kalem", "defter",
+    "elma", "portakal", "çilek", "muz", "karpuz", "kavun",
+    "aslan", "kaplan", "fil", "penguen", "yunus", "kartal",
+    "futbol", "basketbol", "tenis", "yüzme", "koşu", "satranç",
+  ];
+
+  // Aktif oyunlar: chatJid -> oyun durumu
+  const adamAsmacaOyunlari = new Map();
+
+  const DARAGINLAR = [
+    "```\n  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========```",
+    "```\n  +---+\n  |   |\n  O   |\n      |\n      |\n      |\n=========```",
+    "```\n  +---+\n  |   |\n  O   |\n  |   |\n      |\n      |\n=========```",
+    "```\n  +---+\n  |   |\n  O   |\n /|   |\n      |\n      |\n=========```",
+    "```\n  +---+\n  |   |\n  O   |\n /|\\  |\n      |\n      |\n=========```",
+    "```\n  +---+\n  |   |\n  O   |\n /|\\  |\n /    |\n      |\n=========```",
+    "```\n  +---+\n  |   |\n  O   |\n /|\\  |\n / \\  |\n      |\n=========```",
+  ];
+
+  function maskele(kelime, tahminler) {
+    return kelime.split("").map(h => tahminler.includes(h) ? h : "_").join(" ");
+  }
+
+  function oyunDurumu(oyun) {
+    const daraginStr = DARAGINLAR[oyun.yanlislar] || DARAGINLAR[DARAGINLAR.length - 1];
+    const maskStr = maskele(oyun.kelime, oyun.tahminler);
+    const harf = oyun.tahminler.length ? oyun.tahminler.join(", ") : "-";
+    return (
+      `${daraginStr}\n\n` +
+      `📝 *Kelime:* \`${maskStr}\`\n` +
+      `❌ *Yanlış hak:* ${oyun.yanlislar}/${oyun.maxYanlis}\n` +
+      `🔤 *Denenen harfler:* ${harf}`
+    );
+  }
+
+  Module({
+    pattern: "adamasmaca ?(.*)",
+    fromMe: false,
+    desc: "Adam asmaca oyunu başlatır. `.adamasmaca` ile yeni oyun, `.harf X` ile harf tahmini.",
+    usage: ".adamasmaca",
+    use: "oyun",
+  },
+    async (message) => {
+      const jid = message.jid;
+
+      if (adamAsmacaOyunlari.has(jid)) {
+        const oyun = adamAsmacaOyunlari.get(jid);
+        return await message.sendReply(
+          `⚠️ *Bu sohbette zaten devam eden bir oyun var!*\n\n` +
+          `${oyunDurumu(oyun)}\n\n` +
+          `💬 _Harf tahmin etmek için_ \`.harf [harf]\` _yazın._\n` +
+          `💬 _Oyunu bitirmek için_ \`.adamasmacabitti\` _yazın._`
+        );
+      }
+
+      const kelime = KELIME_LISTESI[Math.floor(Math.random() * KELIME_LISTESI.length)];
+      const oyun = { kelime, tahminler: [], yanlislar: 0, maxYanlis: 6 };
+      adamAsmacaOyunlari.set(jid, oyun);
+
+      // Timeout: 10 dakika sonra oyunu otomatik bitir
+      setTimeout(() => {
+        if (adamAsmacaOyunlari.has(jid)) {
+          adamAsmacaOyunlari.delete(jid);
+        }
+      }, 10 * 60 * 1000);
+
+      return await message.sendReply(
+        `🎮 *Adam Asmaca Başladı!*\n\n` +
+        `${oyunDurumu(oyun)}\n\n` +
+        `💬 _Harf tahmin etmek için_ \`.harf [harf]\` _yazın._\n` +
+        `💬 _Kelimeyi direkt tahmin etmek için_ \`.tahmin [kelime]\` _yazın._`
+      );
+    }
+  );
+
+  Module({
+    pattern: "harf ?(.*)",
+    fromMe: false,
+    desc: "Adam asmaca oyununda harf tahmini yapar.",
+    usage: ".harf [harf]",
+    use: "oyun",
+    dontAddCommandList: true,
+  },
+    async (message, match) => {
+      const jid = message.jid;
+      if (!adamAsmacaOyunlari.has(jid)) {
+        return await message.sendReply("🎮 _Aktif bir oyun yok. Yeni oyun için_ `.adamasmaca` _yazın._");
+      }
+
+      const harf = (match[1] || "").trim().toLowerCase().replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ş/g, "s").replace(/ı/g, "i").replace(/ö/g, "o").replace(/ç/g, "c");
+      if (!harf || harf.length !== 1 || !/[a-z]/.test(harf)) {
+        return await message.sendReply("❌ _Lütfen tek bir harf girin._ Örnek: `.harf a`");
+      }
+
+      const oyun = adamAsmacaOyunlari.get(jid);
+      const kelimeNorm = oyun.kelime.replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ş/g, "s").replace(/ı/g, "i").replace(/ö/g, "o").replace(/ç/g, "c");
+
+      if (oyun.tahminler.includes(harf)) {
+        return await message.sendReply(`⚠️ *"${harf}"* harfini zaten denediniz!\n\n${oyunDurumu(oyun)}`);
+      }
+
+      oyun.tahminler.push(harf);
+
+      if (kelimeNorm.includes(harf)) {
+        // Doğru harf — kazandı mı kontrol et
+        const kazandi = kelimeNorm.split("").every(h => oyun.tahminler.includes(h));
+        if (kazandi) {
+          adamAsmacaOyunlari.delete(jid);
+          return await message.sendReply(
+            `🎉 *Tebrikler! Kelimeyi buldunuz!*\n\n` +
+            `✅ *Kelime:* \`${oyun.kelime}\`\n\n` +
+            `💬 _Yeni oyun için_ \`.adamasmaca\` _yazın._`
+          );
+        }
+        return await message.sendReply(`✅ *"${harf}"* doğru!\n\n${oyunDurumu(oyun)}`);
+      } else {
+        // Yanlış harf
+        oyun.yanlislar++;
+        if (oyun.yanlislar >= oyun.maxYanlis) {
+          adamAsmacaOyunlari.delete(jid);
+          return await message.sendReply(
+            `${DARAGINLAR[DARAGINLAR.length - 1]}\n\n` +
+            `💀 *Oyun Bitti!* Kelimeyi bulamadınız.\n\n` +
+            `✅ *Doğru kelime:* \`${oyun.kelime}\`\n\n` +
+            `💬 _Tekrar oynamak için_ \`.adamasmaca\` _yazın._`
+          );
+        }
+        return await message.sendReply(`❌ *"${harf}"* yanlış!\n\n${oyunDurumu(oyun)}`);
+      }
+    }
+  );
+
+  Module({
+    pattern: "adamasmacabitti",
+    fromMe: false,
+    desc: "Devam eden adam asmaca oyununu iptal eder.",
+    usage: ".adamasmacabitti",
+    use: "oyun",
+    dontAddCommandList: true,
+  },
+    async (message) => {
+      const jid = message.jid;
+      if (!adamAsmacaOyunlari.has(jid)) {
+        return await message.sendReply("🎮 _Bu sohbette aktif bir oyun yok._");
+      }
+      const oyun = adamAsmacaOyunlari.get(jid);
+      adamAsmacaOyunlari.delete(jid);
+      return await message.sendReply(
+        `🛑 *Oyun iptal edildi.*\n\n✅ *Doğru kelime:* \`${oyun.kelime}\``
+      );
+    }
+  );
+}());

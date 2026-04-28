@@ -24,8 +24,9 @@
   async function siputGet(path, params = {}) {
     const url = `${SIPUTZX_BASE}${path}`;
     const res = await axios.get(url, { params, timeout: 30000, validateStatus: () => true });
-    if (res.data && res.data.status) return res.data;
-    throw new Error(res.data?.error || "API yanıt vermedi");
+    const d = res.data;
+    if (d && (d.status === true || d.success === true || d.result || d.data)) return d;
+    throw new Error(d?.error || d?.message || "API yanıt vermedi");
   }
   const fromMe = config.isPrivate;
 
@@ -889,8 +890,9 @@
   async function siputGet(path, params = {}) {
     const url = `${SIPUTZX_BASE}${path}`;
     const res = await axios.get(url, { params, timeout: 30000, validateStatus: () => true });
-    if (res.data && res.data.status) return res.data;
-    throw new Error(res.data?.error || "API yanıt vermedi");
+    const d = res.data;
+    if (d && (d.status === true || d.success === true || d.result || d.data)) return d;
+    throw new Error(d?.error || d?.message || "API yanıt vermedi");
   }
 
   async function checkRedirect(url) {
@@ -973,11 +975,10 @@
           let found = false;
 
           try {
-            const r = await axios.get('https://api.nexray.web.id/downloader/v2/instagram?url=' + encodeURIComponent(url), { timeout: 40000 });
-            const media = r.data.result?.media || r.data.result;
-            if (media && Array.isArray(media)) {
-              for (const item of media.slice(0, 10)) {
-                if (item.url) allMediaUrls.push(item.url);
+            const local = await downloadGram(url);
+            if (Array.isArray(local) && local.length) {
+              for (const item of local.slice(0, 10)) {
+                if (item) allMediaUrls.push(typeof item === "string" ? item : (item.url || item.video_url || item.thumbnail));
               }
               if (allMediaUrls.length > 0) found = true;
             }
@@ -985,10 +986,10 @@
 
           if (!found) {
             try {
-              const r = await axios.get('https://api.nexray.web.id/downloader/instagram?url=' + encodeURIComponent(url), { timeout: 40000 });
-              const nexrayData = r.data.result;
-              if (nexrayData && Array.isArray(nexrayData)) {
-                for (const item of nexrayData.slice(0, 10)) {
+              const r = await axios.get('https://api.nexray.web.id/downloader/v2/instagram?url=' + encodeURIComponent(url), { timeout: 40000 });
+              const media = r.data.result?.media || r.data.result;
+              if (media && Array.isArray(media)) {
+                for (const item of media.slice(0, 10)) {
                   if (item.url) allMediaUrls.push(item.url);
                 }
                 if (allMediaUrls.length > 0) found = true;
@@ -1147,11 +1148,27 @@
         try {
           const fallback = await siputGet("/api/d/facebook", { url: videoLink });
           const r = fallback.data || fallback.result;
-          if (r?.url || r?.video || r?.hd || r?.sd) {
-            const videoUrl = r.hd || r.sd || r.url || r.video;
+          let videoUrl = null;
+          // Yeni format: { title, downloads: [{quality, type, url}] }
+          if (r && Array.isArray(r.downloads) && r.downloads.length) {
+            const videos = r.downloads.filter(x => (x.type || '').toLowerCase() === 'video' || /\.mp4/i.test(x.url || ''));
+            const list = videos.length ? videos : r.downloads;
+            const hd = list.find(x => /hd|720|1080/i.test(x.quality || x.subname || ''));
+            videoUrl = (hd || list[0])?.url;
+          }
+          // Eski format: array veya {url, hd, sd, video}
+          if (!videoUrl && Array.isArray(r)) {
+            const hd = r.find(x => x.resolution === 'HD' || /hd|720|1080/i.test(x.quality || ''));
+            videoUrl = (hd || r[0])?.url;
+          }
+          if (!videoUrl && r) {
+            const cand = r.hd || r.sd || r.url || r.video;
+            videoUrl = typeof cand === "object" ? cand?.url : cand;
+          }
+          if (videoUrl) {
             const tempPath = getTempPath(".mp4");
             try {
-              await saveToDisk(typeof videoUrl === "object" ? videoUrl.url : videoUrl, tempPath);
+              await saveToDisk(videoUrl, tempPath);
               return await message.sendReply({ video: { url: tempPath } });
             } finally {
               cleanTempFile(tempPath);
@@ -1203,65 +1220,113 @@
         return await message.sendReply("_⚠️ Bir Instagram kullanıcı adı veya bağlantısı gerekli!_");
 
       const urls = extractUrls(userIdentifier);
+      const cleanUsername = String(userIdentifier).trim().replace(/^@/, "");
       userIdentifier = urls.length === 0
-        ? `https://instagram.com/stories/${userIdentifier}/`
+        ? `https://instagram.com/stories/${cleanUsername}/`
         : urls[0];
 
-      let storyData = [];
+      // Yardımcı: medya öğesini { url, isImage } haline getir
+      const normalizeMediaItem = (m) => {
+        if (!m) return null;
+        if (typeof m === "string") return { url: m, isImage: isMediaImage(m) };
+        // type: "video" / "image" / "jpg" / "mp4" gibi farklı şemalar
+        const url = m.video_url || m.url || m.thumbnail || m.src;
+        if (!url || typeof url !== "string") return null;
+        const t = String(m.type || "").toLowerCase();
+        let isImage;
+        if (t === "video" || t === "mp4" || m.video_url) isImage = false;
+        else if (t === "image" || t === "img" || t === "jpg" || t === "jpeg" || t === "png") isImage = true;
+        else isImage = isMediaImage(url);
+        return { url, isImage };
+      };
+
+      let mediaItems = [];
+
+      // 1) Birincil: oturum açıkmış gibi IG private API (tüm hikayeleri verir)
       try {
-        // Öncelikli olarak hikaye (story) API'sini dene
-        const res = await story(userIdentifier);
-        if (Array.isArray(res)) {
-          storyData = res;
-        } else if (res && typeof res === 'object') {
-          storyData = res.urls || res.media || (res.url ? [res.url] : []);
+        const igSession = require("./utils/ig_session");
+        const arr = await igSession.fetchUserStories(cleanUsername);
+        if (Array.isArray(arr) && arr.length) {
+          mediaItems = arr;
         }
+      } catch (_) { }
 
-        // Eğer sonuç yoksa genel Instagram indiriciyi dene
-        if (!storyData || storyData.length === 0) {
-          storyData = await downloadGram(userIdentifier);
-        }
-      } catch (e) {
-        // Hata durumunda genel indiriciyi fallback olarak kullan
+      // 2) Yedek: mevcut downloader (ruhend / Nexray v2 zinciri)
+      if (mediaItems.length === 0) {
         try {
-          storyData = await downloadGram(userIdentifier);
-        } catch (_) {
-          return await message.sendReply("❌ *Üzgünüm, hikayeler alınamadı!*");
-        }
+          const arr = await downloadGram(userIdentifier);
+          if (Array.isArray(arr) && arr.length) {
+            mediaItems = arr.map(normalizeMediaItem).filter(Boolean);
+          }
+        } catch (_) { }
       }
-      if (!storyData || !storyData.length)
-        return await message.sendReply("❌ *Medya bulunamadı!*");
 
-      storyData = [...new Set(storyData)];
-      if (storyData.length === 1) {
-        const isImage = isMediaImage(storyData[0]);
-        const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
+      // 3) Nexray /downloader/v2/instagram (her hikayeyi ayrı medya olarak verir)
+      if (mediaItems.length === 0) {
         try {
-          await saveToDisk(storyData[0], tempPath);
-          return await message.sendReply(
-            { [isImage ? "image" : "video"]: { url: tempPath } }
-          );
-        } finally {
-          cleanTempFile(tempPath);
+        const cleanUrl = userIdentifier.split("?")[0].replace(/\/$/, "");
+        const res = await axios.get(`https://api.nexray.web.id/downloader/v2/instagram`, {
+          params: { url: cleanUrl },
+          timeout: 30000,
+          validateStatus: () => true,
+        });
+        const r = res.data?.result;
+        if (res.data?.status && r?.media && Array.isArray(r.media)) {
+          // Stories endpoint'inde her öğe bağımsız bir hikayedir, hiçbirini eleme
+          mediaItems = r.media.map(normalizeMediaItem).filter(Boolean);
         }
+        } catch (_) { }
       }
-      const storyMatch = userIdentifier.match(/stories\/([A-Za-z0-9._]+)/i);
-      userIdentifier = storyMatch ? storyMatch[1] : userIdentifier;
-      await message.sendReply(`⏳ _${userIdentifier} kullanıcısının (${storyData.length} hikayesi iletiliyor...)_`, { quoted: message.data });
-      for (const storyMediaUrl of storyData) {
-        const isImage = isMediaImage(storyMediaUrl);
-        const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
+
+      // 3) Son çare: kullanıcı adıyla v2/instagram (son gönderiler)
+      if (mediaItems.length === 0 && urls.length === 0) {
         try {
-          await saveToDisk(storyMediaUrl, tempPath);
-          await message.sendReply({ [isImage ? "image" : "video"]: { url: tempPath } });
-          await new Promise(r => setTimeout(r, 1000));
+          const res = await axios.get(`https://api.nexray.web.id/downloader/v2/instagram`, {
+            params: { url: `https://www.instagram.com/${cleanUsername}/` },
+            timeout: 30000,
+            validateStatus: () => true,
+          });
+          const r = res.data?.result;
+          if (res.data?.status && r?.media && Array.isArray(r.media)) {
+            mediaItems = r.media.map(normalizeMediaItem).filter(Boolean);
+          }
+        } catch (_) { }
+      }
+
+      if (!mediaItems.length) {
+        return await message.sendReply(
+          "❌ *Hikaye bulunamadı!*\n\n_Hesap gizli olabilir, son 24 saatte hikaye paylaşılmamış olabilir veya kullanıcı adı yanlış yazılmış olabilir._"
+        );
+      }
+
+      // Yinelenenleri at
+      const seen = new Set();
+      mediaItems = mediaItems.filter((it) => {
+        if (seen.has(it.url)) return false;
+        seen.add(it.url);
+        return true;
+      });
+
+      const displayName = cleanUsername;
+      if (mediaItems.length > 1) {
+        await message.sendReply(
+          `⏳ _${displayName} kullanıcısının ${mediaItems.length} hikayesi iletiliyor..._`,
+          { quoted: message.data }
+        );
+      }
+
+      for (const item of mediaItems) {
+        const tempPath = getTempPath(item.isImage ? ".jpg" : ".mp4");
+        try {
+          await saveToDisk(item.url, tempPath);
+          await message.sendReply({ [item.isImage ? "image" : "video"]: { url: tempPath } });
+          if (mediaItems.length > 1) await new Promise(r => setTimeout(r, 800));
         } catch (err) {
-          console.error("Hikaye medyaları indirilemedi:", err);
+          console.error("Hikaye medyası indirilemedi:", err?.message);
         } finally {
           cleanTempFile(tempPath);
         }
       }
-      return;
     }
   );
 
@@ -1283,22 +1348,48 @@
         try {
           const url = await nexray.downloadPinterest(pinUrl);
           if (!url) {
+            // Yedek 1: Siputzx /api/d/pinterest (çeşitli format çıkarma)
+            let fbUrl = null;
             try {
               const fallback = await siputGet("/api/d/pinterest", { url: pinUrl });
               const r = fallback.data || fallback.result;
-              if (r?.url || r?.image || r?.video) {
-                const mediaUrl = r.url || r.image || r.video;
-                const isImage = !mediaUrl.includes(".mp4") && r.type !== "video";
-                const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
-                try {
-                  await saveToDisk(mediaUrl, tempPath);
-                  await message.sendReply({ [isImage ? "image" : "video"]: { url: tempPath } });
-                } finally {
-                  cleanTempFile(tempPath);
-                }
-                return;
-              }
+              if (typeof r === "string") fbUrl = r;
+              else if (Array.isArray(r)) fbUrl = r[0]?.url || r[0]?.image || r[0]?.video || (typeof r[0] === "string" ? r[0] : null);
+              else if (r) fbUrl = r.video || r.url || r.image || r.thumbnail || r.media?.[0]?.url;
             } catch (_) { }
+
+            // Yedek 2: Siputzx /api/d/savefrom (yeni iç içe format)
+            if (!fbUrl) {
+              try {
+                const fallback = await siputGet("/api/d/savefrom", { url: pinUrl });
+                const arr = fallback.data || fallback.result;
+                const tops = Array.isArray(arr) ? arr : [arr];
+                for (const top of tops) {
+                  if (top?.type === "error") continue;
+                  if (Array.isArray(top?.data)) {
+                    for (const node of top.data) {
+                      fbUrl = node?.hd?.url || node?.sd?.url
+                        || (Array.isArray(node?.url) && (node.url.find(x => /\.(mp4|jpg|jpeg|png|webp)/i.test(x.url || ''))?.url || node.url[0]?.url))
+                        || node?.thumb;
+                      if (fbUrl) break;
+                    }
+                  }
+                  if (fbUrl) break;
+                }
+              } catch (_) { }
+            }
+
+            if (fbUrl) {
+              const isImage = !/\.mp4(\?|$)/i.test(fbUrl);
+              const tempPath = getTempPath(isImage ? ".jpg" : ".mp4");
+              try {
+                await saveToDisk(fbUrl, tempPath);
+                await message.sendReply({ [isImage ? "image" : "video"]: { url: tempPath } });
+              } finally {
+                cleanTempFile(tempPath);
+              }
+              return;
+            }
             return await message.sendReply("❌ *İndirilebilir medya bulunamadı veya sunucu hatası.*");
           }
 
@@ -1395,11 +1486,50 @@
       if (!videoLink || !/twitter\.com|x\.com/i.test(videoLink))
         return await message.sendReply("⚠️ *Geçerli bir Twitter/X bağlantısı gerekli!*");
       try {
-        const result = await nexray.downloadTwitter(videoLink);
-        if (result?.url) {
+        // 1) Birincil: TwDown + Nexray (downloadTwitter içinde)
+        let videoUrl = (await nexray.downloadTwitter(videoLink))?.url;
+
+        // 2) Yedek: Siputzx /api/d/twitter
+        if (!videoUrl) {
+          try {
+            const fb = await siputGet("/api/d/twitter", { url: videoLink });
+            const r = fb.data || fb.result;
+            if (Array.isArray(r)) {
+              const hd = r.find(x => /hd|720|1080/i.test(x.quality || x.label || ''));
+              videoUrl = (hd || r[0])?.url;
+            } else if (r) {
+              videoUrl = r.hd || r.sd || r.url || r.video
+                || (Array.isArray(r.media) && (r.media.find(m => /hd|720|1080/i.test(m.quality || ''))?.url || r.media[0]?.url))
+                || (Array.isArray(r.downloads) && r.downloads[0]?.url);
+              if (typeof videoUrl === "object") videoUrl = videoUrl?.url;
+            }
+          } catch (_) { }
+        }
+
+        // 3) Yedek: Siputzx /api/d/savefrom (yeni iç içe format)
+        if (!videoUrl) {
+          try {
+            const fb = await siputGet("/api/d/savefrom", { url: videoLink });
+            const arr = fb.data || fb.result;
+            const tops = Array.isArray(arr) ? arr : [arr];
+            for (const top of tops) {
+              if (top?.type === "error") continue;
+              if (Array.isArray(top?.data)) {
+                for (const node of top.data) {
+                  videoUrl = node?.hd?.url || node?.sd?.url
+                    || (Array.isArray(node?.url) && (node.url.find(x => /\.mp4/i.test(x.url || ''))?.url || node.url[0]?.url));
+                  if (videoUrl) break;
+                }
+              }
+              if (videoUrl) break;
+            }
+          } catch (_) { }
+        }
+
+        if (videoUrl) {
           const tempPath = getTempPath(".mp4");
           try {
-            await saveToDisk(result.url, tempPath);
+            await saveToDisk(videoUrl, tempPath);
             await message.sendReply({ video: { url: tempPath } });
           } finally {
             cleanTempFile(tempPath);
@@ -1556,17 +1686,10 @@
         const video = r.video_url || r.video || r.url || r.download_url;
         if (!video) throw new Error("Video bağlantısı alınamadı");
 
-        const title = r.title || r.name || "CapCut Video";
-        const desc = r.description || r.desc || "";
-        const usage = r.usage || r.uses || "-";
-        let caption = `🎬 *${title}*\n`;
-        if (desc) caption += `📝 ${desc}\n`;
-        if (usage !== "-") caption += `👤 *Kullanım:* ${fmtCount(usage)}`;
-
         const tempPath = getTempPath(".mp4");
         try {
           await saveToDisk(video, tempPath);
-          await message.client.sendMessage(message.jid, { video: { url: tempPath }, caption }, { quoted: message.data });
+          await message.client.sendMessage(message.jid, { video: { url: tempPath } }, { quoted: message.data });
         } finally {
           cleanTempFile(tempPath);
         }
@@ -1579,7 +1702,7 @@
             const tempPath = getTempPath(".mp4");
             try {
               await saveToDisk(videoUrl, tempPath);
-              await message.client.sendMessage(message.jid, { video: { url: tempPath }, caption: "*CapCut*" }, { quoted: message.data });
+              await message.client.sendMessage(message.jid, { video: { url: tempPath } }, { quoted: message.data });
             } finally {
               cleanTempFile(tempPath);
             }
@@ -1619,11 +1742,67 @@
   async function siputGet(path, params = {}) {
     const url = `${SIPUTZX_BASE}${path}`;
     const res = await axios.get(url, { params, timeout: 30000, validateStatus: () => true });
-    if (res.data && res.data.status) return res.data;
-    throw new Error(res.data?.error || "API yanıt vermedi");
+    const d = res.data;
+    if (d && (d.status === true || d.success === true || d.result || d.data)) return d;
+    throw new Error(d?.error || d?.message || "API yanıt vermedi");
   }
 
   const VIDEO_SIZE_LIMIT = 150 * 1024 * 1024;
+
+  // ─────────────────────────────────────────────────────────
+  // Bekleyen video kalite seçimleri (mesaj key.id -> videoId)
+  // Kullanıcı kalite listesinden numara seçtiğinde videoId'yi
+  // mesaj metnine yazmak yerine bu Map'ten alıyoruz.
+  // 10 dk TTL, max 200 giriş.
+  // ─────────────────────────────────────────────────────────
+  const pendingVideoSelections = new Map();
+  const PENDING_VIDEO_TTL = 10 * 60 * 1000;
+  const PENDING_VIDEO_MAX = 200;
+
+  function rememberPendingVideo(msgId, videoId) {
+    if (!msgId || !videoId) return;
+    pendingVideoSelections.set(msgId, { videoId, expires: Date.now() + PENDING_VIDEO_TTL });
+    if (pendingVideoSelections.size > PENDING_VIDEO_MAX) {
+      const now = Date.now();
+      for (const [k, v] of pendingVideoSelections) {
+        if (v.expires < now) pendingVideoSelections.delete(k);
+      }
+      if (pendingVideoSelections.size > PENDING_VIDEO_MAX) {
+        const firstKey = pendingVideoSelections.keys().next().value;
+        if (firstKey) pendingVideoSelections.delete(firstKey);
+      }
+    }
+  }
+
+  function getPendingVideo(msgId) {
+    if (!msgId) return null;
+    const entry = pendingVideoSelections.get(msgId);
+    if (!entry) return null;
+    if (entry.expires < Date.now()) {
+      pendingVideoSelections.delete(msgId);
+      return null;
+    }
+    return entry.videoId;
+  }
+
+  // İngilizce "X ago" ifadelerini Türkçeye çevirir
+  function translateAgo(en) {
+    if (!en) return null;
+    return String(en)
+      .replace(/(\d+)\s+years?\s+ago/i, "$1 yıl önce")
+      .replace(/(\d+)\s+months?\s+ago/i, "$1 ay önce")
+      .replace(/(\d+)\s+weeks?\s+ago/i, "$1 hafta önce")
+      .replace(/(\d+)\s+days?\s+ago/i, "$1 gün önce")
+      .replace(/(\d+)\s+hours?\s+ago/i, "$1 saat önce")
+      .replace(/(\d+)\s+minutes?\s+ago/i, "$1 dakika önce")
+      .replace(/(\d+)\s+seconds?\s+ago/i, "$1 saniye önce")
+      .replace(/a\s+year\s+ago/i, "1 yıl önce")
+      .replace(/a\s+month\s+ago/i, "1 ay önce")
+      .replace(/a\s+week\s+ago/i, "1 hafta önce")
+      .replace(/a\s+day\s+ago/i, "1 gün önce")
+      .replace(/an\s+hour\s+ago/i, "1 saat önce")
+      .replace(/a\s+minute\s+ago/i, "1 dakika önce");
+  }
 
   function formatViews(views) {
     if (views >= 1000000) {
@@ -1868,8 +2047,7 @@
         const uniqueQualities = [...new Set(videoFormats.map((f) => f.quality))];
         const videoId = info.videoId || url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&\s/?]+)/)?.[1] || "";
 
-        let qualityText = info.isFallback ? "⚠️ _Video bilgileri kısıtlı (Standart Mod)_\n\n" : "✨ _Video Kalitesini Seçiniz_\n\n";
-        qualityText += `✍🏻 _*${censorBadWords(info.title)}*_\n\nID: \`${videoId}\`\n\n`;
+        let qualityText = info.isFallback ? "⚠️ _Video bilgileri kısıtlı (Standart Mod)_\n\n" : "✨ _*Video Kalitesini Seçin*_\n\n";
 
         uniqueQualities.forEach((quality, index) => {
           const format = videoFormats.find((f) => f.quality === quality);
@@ -1888,6 +2066,7 @@
         if (info.isFallback) qualityText += "\n\n_Not: Sunucu yoğunluğu nedeniyle sadece temel kaliteler listelendi._";
 
         await message.edit(qualityText, message.jid, downloadMsg.key);
+        rememberPendingVideo(downloadMsg.key.id, videoId);
       } catch (error) {
         console.error("YouTube ytvideo indirme hatası:", error);
         if (downloadMsg) {
@@ -1984,7 +2163,11 @@
           let metadataStr = "";
           try {
             if (info) {
-              metadataStr = `_Kanal:_ ${info.channel || "Bilinmiyor"}\n_Süre:_ \`${info.duration || "Bilinmiyor"}\` | _Görüntülenme:_ \`${info.views || "Bilinmiyor"}\`\n\n`;
+              const ch = info.channel ? `📺 _Kanal:_ ${info.channel}\n` : "";
+              const du = info.duration ? `⏱️ _Süre:_ \`${info.duration}\`` : "";
+              const vw = info.views ? `${du ? " | " : ""}👁️ _Görüntülenme:_ \`${info.views}\`` : "";
+              const line2 = (du + vw).trim();
+              metadataStr = (ch || line2) ? `${ch}${line2 ? line2 + "\n" : ""}\n` : "";
             }
           } catch (_) { }
 
@@ -2428,14 +2611,14 @@
 
           const safeTitle = censorBadWords(selectedVideo.title);
           let caption = `_*${safeTitle}*_\n\n`;
-          caption += `*Kanal:* ${selectedVideo.channel}\n`;
-          caption += `*Süre:* \`${selectedVideo.duration}\`\n`;
-          caption += `*Görüntülenme:* \`${selectedVideo.views}\`\n`;
-          caption += `*Yükleme:* ${selectedVideo.upload_at || "Bilinmiyor"}\n\n`;
-          caption += `*URL:* ${selectedVideo.url}\n\n`;
-          caption += "_Yanıtlayın:_\n";
-          caption += "*1.* Ses\n";
-          caption += "*2.* Video";
+          caption += `📺 *Kanal:* ${selectedVideo.channel || "Bilinmiyor"}\n`;
+          caption += `⏱️ *Süre:* \`${selectedVideo.duration || "Bilinmiyor"}\`\n`;
+          caption += `👁️ *Görüntülenme:* \`${selectedVideo.views || "Bilinmiyor"}\`\n`;
+          caption += `📅 *Yükleme:* ${translateAgo(selectedVideo.upload_at) || "Bilinmiyor"}\n\n`;
+          caption += `🔗 *URL:* ${selectedVideo.url}\n\n`;
+          caption += "▶️ _Yanıtlayın:_\n";
+          caption += "*1.* 🎵 Ses\n";
+          caption += "*2.* 🎬 Video";
 
           await message.sendReply({ url: selectedVideo.image_url }, "image", {
             caption: caption,
@@ -2446,7 +2629,8 @@
         }
       } else if (
         repliedText.includes("Yanıtlayın:") &&
-        repliedText.includes("* Ses")
+        /\bSes\b/i.test(repliedText) &&
+        /\bVideo\b/i.test(repliedText)
       ) {
         if (selectedNumber !== 1 && selectedNumber !== 2) {
           return await message.sendReply("🎬 _Ses için 1'i Video için 2'yi seçin_"
@@ -2515,7 +2699,6 @@
               await message.client.sendMessage(message.jid, {
                 video: { url: result.url },
                 mimetype: "video/mp4",
-                caption: `_*${safeTitle}*_\n\n_Nexray Downloader_`,
               }, { quoted: message.data });
 
               await message.edit(
@@ -2586,7 +2769,6 @@
             const uniqueQualities = [...new Set(videoFormats.map((f) => f.quality))];
 
             let qualityText = "✨ _*Video Kalitesini Seçin*_\n\n";
-            qualityText += `✍🏻 _*${safeTitle}*_\n\n(${selectedVideo.id})\n\n`;
 
             uniqueQualities.forEach((quality, index) => {
               const format = videoFormats.find((f) => f.quality === quality);
@@ -2631,6 +2813,7 @@
             qualityText += "\n▶️ _İndirmek için seçiminizi bir numara ile yanıtlayın._";
 
             await message.edit(qualityText, message.jid, downloadMsg.key);
+            rememberPendingVideo(downloadMsg.key.id, selectedVideo.id);
           } catch (error) {
             console.error("Video bilgi alma hatası:", error);
             if (downloadMsg) {
@@ -2651,31 +2834,33 @@
       ) {
         try {
           const lines = repliedText.split("\n");
-          let videoId = "";
 
-          for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
+          // Önce in-memory Map'ten videoId'yi al (yeni yöntem - mesaj
+          // içinde ID görünmez). Eski mesajlar için (ID metin içindeyse)
+          // geri uyumluluk parser'ı yedek olarak kalıyor.
+          const repliedMsgId =
+            message.reply_message?.data?.key?.id ||
+            message.reply_message?.key?.id;
+          let videoId = getPendingVideo(repliedMsgId) || "";
 
-            // Pattern 1: (videoId)
-            if (line.startsWith("(") && line.endsWith(")") && line.length >= 13 && !line.match(/^\*\d+\./)) {
-              videoId = line.replace(/[()]/g, "").trim();
+          if (!videoId) {
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i].trim();
+              if (line.startsWith("(") && line.endsWith(")") && line.length >= 13 && !line.match(/^\*\d+\./)) {
+                videoId = line.replace(/[()]/g, "").trim();
+              } else if (line.startsWith("ID:") || line.includes("ID: `")) {
+                const m = line.match(/ID:\s*`?([A-Za-z0-9_-]{10,15})`?/);
+                if (m) videoId = m[1];
+              }
+              if (videoId.length >= 10) break;
             }
-            // Pattern 2: ID: videoId or ID: `videoId`
-            else if (line.startsWith("ID:") || line.includes("ID: `")) {
-              const match = line.match(/ID:\s*`?([A-Za-z0-9_-]{10,15})`?/);
-              if (match) videoId = match[1];
-            }
-
-            if (videoId.length >= 10) break;
           }
 
           if (!videoId || videoId.length < 10) {
-            return await message.sendReply("❌ *Video kimliği (ID) alınamadı! Lütfen tekrar deneyin.*");
+            return await message.sendReply("❌ *Video kimliği alınamadı!* _Kalite seçim süresi (10 dk) dolmuş olabilir, lütfen komutu tekrar gönderin._");
           }
 
           const url = `https://www.youtube.com/watch?v=${videoId}`;
-          const titleMatch = repliedText.match(/_\*([^*]+)\*_/);
-          if (!titleMatch) return;
 
           const qualityLines = lines.filter((line) => line.match(/^\*\d+\./));
 
@@ -2769,13 +2954,13 @@
                 await message.sendMessage({ stream }, "document", {
                   fileName: `${safeTitle}.mp4`,
                   mimetype: "video/mp4",
-                  caption: `_*${safeTitle}*_\n\n ✨_Kalite: ${selectedQuality}_`,
+                  caption: `✨ _Kalite: ${selectedQuality}_`,
                 });
                 stream.destroy();
               } else {
                 const stream = fs.createReadStream(videoPath);
                 await message.sendReply({ stream }, "video", {
-                  caption: `_*${safeTitle}*_\n\n✨ _Kalite: ${selectedQuality}_`,
+                  caption: `✨ _Kalite: ${selectedQuality}_`,
                 });
                 stream.destroy();
               }
@@ -2797,7 +2982,7 @@
                   const safeTitle = censorBadWords(fallback.title || "Video");
                   await message.edit(`♻️ _Yedek yöntemle indiriliyor..._ *${safeTitle}*`, message.jid, downloadMsg.key);
                   await message.sendReply({ url: fallback.url }, "video", {
-                    caption: `_*${safeTitle}*_\n\n_✨ Otomatik kalite seçildi._`,
+                    caption: `✨ _Otomatik kalite seçildi._`,
                   });
                   await message.edit("✅ *Video başarıyla indirildi!*", message.jid, downloadMsg.key);
                 } else {
@@ -2870,15 +3055,55 @@
       const r = data.data || data.result;
       if (!r) return await message.sendReply("_Medya bulunamadı._");
 
-      const items = Array.isArray(r) ? r : [r];
-      for (const item of items.slice(0, 3)) {
-        const mediaUrl = item.url || item.download || item;
-        if (typeof mediaUrl === "string" && mediaUrl.startsWith("http")) {
-          const isVideo = mediaUrl.includes(".mp4") || item.type === "video";
-          await message.client.sendMessage(message.jid, {
-            [isVideo ? "video" : "image"]: { url: mediaUrl }
-          }, { quoted: message.data });
+      // Toplanan medya URL'lerini çıkar (yeni iç içe + eski düz formatlar)
+      const collected = []; // { url, type: 'video'|'image' }
+      let upstreamError = null;
+      const pushUrl = (u, type) => {
+        if (typeof u !== "string" || !u.startsWith("http")) return;
+        const isVideo = type === "video" || /\.mp4(\?|$)/i.test(u);
+        collected.push({ url: u, type: isVideo ? "video" : "image" });
+      };
+
+      const topItems = Array.isArray(r) ? r : [r];
+      for (const top of topItems) {
+        // SaveFrom upstream'in iç hata cevabı: { type:'error', data:{ html, response_type, success:false } }
+        if (top?.type === "error" || top?.data?.success === false) {
+          upstreamError = top?.data?.html || top?.data?.response_type || upstreamError;
+          continue;
         }
+        // Yeni format: { type: 'video', data: [{ url: [{url, ext, subname}], hd:{url}, sd:{url}, thumb }] }
+        if (Array.isArray(top?.data)) {
+          for (const node of top.data) {
+            if (node?.hd?.url) pushUrl(node.hd.url, "video");
+            else if (node?.sd?.url) pushUrl(node.sd.url, "video");
+            else if (Array.isArray(node?.url) && node.url.length) {
+              const sorted = [...node.url].sort((a, b) => (b.priority || 0) - (a.priority || 0));
+              const pick = sorted.find(x => /\.mp4/i.test(x.url || '') || x.type === 'mp4') || sorted[0];
+              if (pick?.url) pushUrl(pick.url, top.type || pick.type);
+            } else if (typeof node?.url === "string") {
+              pushUrl(node.url, top.type || node.type);
+            }
+          }
+          continue;
+        }
+        // Eski/düz format: { url | download, type? } veya doğrudan string
+        const direct = top?.url || top?.download || top;
+        if (typeof direct === "string") pushUrl(direct, top?.type);
+        else if (typeof direct?.url === "string") pushUrl(direct.url, top?.type || direct.type);
+      }
+
+      if (!collected.length) {
+        return await message.sendReply(
+          upstreamError
+            ? `❌ *İndirilemedi:* ${upstreamError}`
+            : "_Medya bulunamadı._"
+        );
+      }
+
+      for (const item of collected.slice(0, 3)) {
+        await message.client.sendMessage(message.jid, {
+          [item.type]: { url: item.url }
+        }, { quoted: message.data });
       }
     } catch (e) {
       await message.sendReply(`❌ *İndirme başarısız!* \n\n*Hata:* ${e.message}`);

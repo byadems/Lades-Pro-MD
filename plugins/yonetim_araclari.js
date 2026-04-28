@@ -343,7 +343,7 @@ const GRUP_AYARLARI = [
     }
   },
   {
-    key: "antibaglantilink",
+    key: "antibağlantı",
     title: "Anti-Bağlantı",
     desc: "Grup içi link paylaşımını engeller",
     icon: "🔗",
@@ -419,6 +419,25 @@ const GRUP_AYARLARI = [
       return message.sendReply("❌ *Anti-Numara kapatıldı!*");
     }
   },
+  {
+    key: "otogoruldu",
+    cmd: "otogörüldü",
+    title: "Oto-Görüldü",
+    desc: "Gelen mesajları otomatik okundu işaretler (mavi tik)",
+    icon: "👁️",
+    getStatus: async () => {
+      const v = await BotVariable.get("AUTO_READ_ENABLED", "false");
+      return v === "true";
+    },
+    toggle: async (jid, enable, message) => {
+      await BotVariable.set("AUTO_READ_ENABLED", enable ? "true" : "false");
+      return message.sendReply(
+        enable
+          ? "✅ *Oto-Görüldü açıldı!*\n\nℹ️ _Bottaki tüm gelen mesajlar otomatik okundu olarak işaretlenecek._"
+          : "❌ *Oto-Görüldü kapatıldı!*"
+      );
+    }
+  },
 ];
 
 // Yardımcı: Durum metni üret
@@ -442,28 +461,15 @@ Module({
 
     const jid = message.jid;
 
-    // .ayarlar 1  →  doğrudan bir özellik seçimi
-    const argNum = parseInt(match[1]);
-    if (!isNaN(argNum) && argNum > 0 && argNum <= GRUP_AYARLARI.length) {
-      const feat = GRUP_AYARLARI[argNum - 1];
-      const status = await feat.getStatus(jid);
-      const statusStr = statusText(status);
-      const msg =
-        `${feat.icon} *${feat.title} Ayarı*\n` +
-        `_${feat.desc}_\n\n` +
-        `ℹ️ *Mevcut Durum:* ${statusStr}\n\n` +
-        `1️⃣ Aç\n2️⃣ Kapat`;
-      return message.sendReply(msg + `\n\n_🤖 Bu mesaja 1 veya 2 yazarak yanıt verin._`);
-    }
-
-    // Ana menüyü göster
+    // Ana menüyü göster — komut adları ile
     const statuses = await Promise.all(GRUP_AYARLARI.map(f => f.getStatus(jid)));
     let msg = `⚙️ *Grup Koruma Ayarları*\n\n`;
-    msg += `_Numarayla bu mesaja yanıt vererek ayarı değiştirin:_\n\n`;
+    msg += `_Aşağıdaki komutları yazarak ilgili ayarı yönetin:_\n\n`;
     GRUP_AYARLARI.forEach((feat, i) => {
-      msg += `${i + 1}. ${feat.icon} *${feat.title}* — ${statusText(statuses[i])}\n`;
+      const cmdName = feat.cmd || feat.key;
+      msg += `${feat.icon} \`.${cmdName}\` *${feat.title}* — ${statusText(statuses[i])}\n`;
     });
-    msg += `\n💡 _Örnek: Mesaja yanıt olarak_ \`1\` _yazarsanız Anti-Spam ayarına girersiniz._`;
+    msg += `\n💡 _Örnek: Anti-Spam'ı açmak için_ \`.antispam aç\` _yazın._`;
     return message.sendReply(msg);
   }
 );
@@ -508,7 +514,17 @@ Module({
       const db = await antidelete.get();
       const status = db.some(d => d.jid === message.jid) ? "Açık ✅" : "Kapalı ❌";
       return await message.sendReply(
-        `🚨 *Anti-Mesaj Silme Engellemesi*\n\nℹ️ *Mevcut Durum:* ${status}\n\n💬 *Kullanım:* \`.antisilme aç/kapat\``
+        `🚨 *Anti-Mesaj Silme Koruma*\n\n` +
+        `ℹ️ *Mevcut Durum:* ${status}\n\n` +
+        `📋 *Özellikler:*\n` +
+        `• Silinen mesajın içeriğini kurtarır ve iletir\n` +
+        `• Kimin sildiğini ve mesajın sahibini gösterir\n` +
+        `• İçerik bulunamazsa yine de kim sildi bilgisini verir\n` +
+        `• Mesaj türünü (fotoğraf, video, metin vb.) gösterir\n\n` +
+        `💬 *Kullanım:*\n` +
+        `\`.antisilme aç\` — sohbette göster\n` +
+        `\`.antisilme sudo\` — ilk yöneticiye gönder\n` +
+        `\`.antisilme kapat\` — kapat`
       );
     }
 
@@ -1542,71 +1558,6 @@ Module({
 },
   async (message, match) => {
     try {
-      const sMatch = message.text?.trim().match(/^\d+$/);
-      const quotedText = message.reply_message?.text || "";
-      const isFromBot = message.quoted?.key?.fromMe;
-
-      // ── YENİ: Grup Ayarları menüsüne yanıt ──────────────────────────────
-      const isGrupAyarMenu =
-        sMatch &&
-        isFromBot &&
-        message.isGroup &&
-        quotedText.includes("Grup Koruma Ayarları");
-
-      if (isGrupAyarMenu) {
-        const adminOk = await isAdmin(message);
-        if (!message.fromOwner && !adminOk) return;
-
-        const featIndex = parseInt(sMatch[0]) - 1;
-        if (featIndex < 0 || featIndex >= GRUP_AYARLARI.length) return;
-
-        const feat = GRUP_AYARLARI[featIndex];
-        const status = await feat.getStatus(message.jid);
-        const statusStr = statusText(status);
-        const msg =
-          `${feat.icon} *${feat.title} Ayarı*\n` +
-          `_${feat.desc}_\n\n` +
-          `ℹ️ *Mevcut Durum:* ${statusStr}\n\n` +
-          `1️⃣ Aç\n2️⃣ Kapat\n\n` +
-          `_🤖 Bu mesaja 1 veya 2 yazarak yanıt verin._`;
-        return await message.sendReply(msg);
-      }
-
-      // ── YENİ: Özellik açma/kapatma yanıtı ──────────────────────────────
-      const isToggleReply =
-        message.text?.match(/^(1|2)$/) &&
-        isFromBot &&
-        message.isGroup &&
-        quotedText.includes("1️⃣ Aç") &&
-        quotedText.includes("2️⃣ Kapat");
-
-      if (isToggleReply) {
-        const adminOk = await isAdmin(message);
-        if (!message.fromOwner && !adminOk) return;
-
-        const enable = message.text.trim() === "1";
-        const feat = GRUP_AYARLARI.find(f => quotedText.includes(f.title));
-        if (!feat) return;
-        return await feat.toggle(message.jid, enable, message);
-      }
-
-      // ── Detay menüsüne (feat bazlı) yanıt ───────────────────────────────
-      const isFeatDetailReply =
-        sMatch &&
-        isFromBot &&
-        message.isGroup &&
-        GRUP_AYARLARI.some(f => quotedText.includes(f.title) && quotedText.includes(f.desc));
-
-      if (isFeatDetailReply) {
-        const adminOk = await isAdmin(message);
-        if (!message.fromOwner && !adminOk) return;
-
-        const feat = GRUP_AYARLARI.find(f => quotedText.includes(f.title));
-        if (!feat) return;
-        const enable = parseInt(sMatch[0]) === 1;
-        return await feat.toggle(message.jid, enable, message);
-      }
-
       // --- 1. LİNK/REKLAM KORUMASI (ÖNCELİKLİ VE DB BEKLEMEDEN) ---
       const foundLinks = linkDetector.detectLinks(message.text);
 
@@ -1949,39 +1900,43 @@ Module({
         console.error("[ADMIN-CHECK] Error:", e);
       }
 
-      // ---------------- ANTI-SPAM SISTEMI ----------------
+      // ---------------- ANTI-SPAM SISTEMI (sliding window) ----------------
+      // Her kullanıcı için son 10 saniye içindeki mesaj timestamp'leri tutulur.
+      // Eski timestamp'ler her mesajda otomatik temizlenir → gerçek bir kayan
+      // pencere. Önceki tumbling window'da görülen "eski sayımın yeni teste
+      // bleed etmesi" (limit 10'ken 5 mesajda atma) sorunu bu sayede biter.
       if (isAntispamActive) {
         if (!global.spamMonitor) global.spamMonitor = new Map();
-        const spamKey = message.jid + "_" + message.sender;
-        let userData = global.spamMonitor.get(spamKey) || { count: 0, firstMessageAt: Date.now() };
-
+        const WINDOW_MS = 10_000;
+        // Sender'ın @lid / @s.whatsapp.net farkı ve cihaz suffix'i olabilir;
+        // sadece numerik kısmı anahtarla → aynı kişi için tek sayaç.
+        const senderNumeric = (message.sender || "").split("@")[0].split(":")[0];
+        const spamKey = `${message.jid}_${senderNumeric}`;
         const now = Date.now();
-        // 10 saniyelik pencere
-        if (now - userData.firstMessageAt > 10000) {
-          userData.count = 1;
-          userData.firstMessageAt = now;
-        } else {
-          userData.count += 1;
-        }
-        global.spamMonitor.set(spamKey, userData);
+
+        let timestamps = global.spamMonitor.get(spamKey) || [];
+        // Pencere dışında kalan eski mesajları at
+        timestamps = timestamps.filter(t => now - t <= WINDOW_MS);
+        timestamps.push(now);
+        global.spamMonitor.set(spamKey, timestamps);
 
         const { BotVariable } = require("../core/database");
         const limitStr = await BotVariable.get(`SPAMLIMIT_${message.jid}`, "10");
         const limit = parseInt(limitStr) || 10;
 
-        if (userData.count >= limit) {
-          // Atma işleminden sonra sayacı sıfırla ki peş peşe tetiklenmesin
+        if (timestamps.length >= limit) {
+          // Atma sonrası sayacı sıfırla → arka arkaya tetiklenmesin
           global.spamMonitor.delete(spamKey);
 
           if (botIsAdmin) {
             await message.client.sendMessage(message.jid, {
-              text: `🚨 *Anti-Spam Sistemi Devrede!*\n\n🚫 @${message.sender.split("@")[0]} kısa sürede çok fazla mesaj gönderdiği için gruptan uzaklaştırıldı.\n_(Limit: 10 saniyede ${limit} mesaj)_`,
+              text: `🚨 *Anti-Spam Sistemi Devrede!*\n\n🚫 @${senderNumeric} kısa sürede çok fazla mesaj gönderdiği için gruptan uzaklaştırıldı.\n_(Limit: 10 saniyede ${limit} mesaj)_`,
               mentions: [message.sender]
             });
             await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove");
           } else {
             await message.client.sendMessage(message.jid, {
-              text: `🚨 *Anti-Spam Tespit Edildi!*\n\n🚫 @${message.sender.split("@")[0]} spam yapıyor ancak yönetici olmadığım için gruptan atamıyorum!`,
+              text: `🚨 *Anti-Spam Tespit Edildi!*\n\n🚫 @${senderNumeric} spam yapıyor ancak yönetici olmadığım için gruptan atamıyorum!`,
               mentions: [message.sender]
             });
           }
@@ -2133,6 +2088,62 @@ Module({
         quoted: message.data,
       });
     }
+  }
+);
+
+// ─────────────────────────────────────────────────────────
+//  OTO-DURUM (Auto Status View)
+// ─────────────────────────────────────────────────────────
+Module({
+  pattern: "otodurum ?(.*)",
+  fromMe: true,
+  desc: "Kişilerin durumlarını (status) otomatik olarak görür ve isteğe bağlı tepki verir.",
+  usage: ".otodurum [aç/kapat/tepki aç/tepki kapat]",
+  use: "sistem",
+},
+  async (message, match) => {
+    const sub = (match[1] || "").trim().toLowerCase();
+
+    const enabled = await BotVariable.get("AUTO_STATUS_ENABLED", "false") === "true";
+    const react   = await BotVariable.get("AUTO_STATUS_REACT",    "false") === "true";
+
+    if (!sub) {
+      return await message.sendReply(
+        `👁️ *Oto-Durum Ayarları*\n\n` +
+        `📱 *Otomatik Görüntüleme:* ${enabled ? "Açık ✅" : "Kapalı ❌"}\n` +
+        `💚 *Otomatik Tepki:* ${react ? "Açık ✅" : "Kapalı ❌"}\n\n` +
+        `💬 *Kullanım:*\n` +
+        `• \`.otodurum aç\` — durumları otomatik görüntüle\n` +
+        `• \`.otodurum kapat\` — otomatik görüntülemeyi kapat\n` +
+        `• \`.otodurum tepki aç\` — görüntülenen durumlara 💚 tepki ver\n` +
+        `• \`.otodurum tepki kapat\` — tepkiyi kapat`
+      );
+    }
+
+    if (sub === "aç") {
+      await BotVariable.set("AUTO_STATUS_ENABLED", "true");
+      return await message.sendReply("✅ *Oto-Durum açıldı!*\n\nℹ️ _Bot artık kişilerin durumlarını otomatik olarak görüntüleyecek._");
+    }
+
+    if (sub === "kapat") {
+      await BotVariable.set("AUTO_STATUS_ENABLED", "false");
+      return await message.sendReply("❌ *Oto-Durum kapatıldı!*");
+    }
+
+    if (sub === "tepki aç") {
+      await BotVariable.set("AUTO_STATUS_REACT", "true");
+      return await message.sendReply("💚 *Oto-Durum tepkisi açıldı!*\n\nℹ️ _Görüntülenen durumlara 💚 emojisiyle tepki verilecek._");
+    }
+
+    if (sub === "tepki kapat") {
+      await BotVariable.set("AUTO_STATUS_REACT", "false");
+      return await message.sendReply("❌ *Oto-Durum tepkisi kapatıldı!*");
+    }
+
+    return await message.sendReply(
+      `❌ *Geçersiz seçenek!*\n\n` +
+      `ℹ️ _Kullanım:_ \`.otodurum aç/kapat\` veya \`.otodurum tepki aç/kapat\``
+    );
   }
 );
 

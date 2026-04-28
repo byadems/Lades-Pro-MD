@@ -71,6 +71,36 @@ async function convertM4aToMp3(inputPath, metadata = null) {
   });
 }
 
+function _formatDurationSec(seconds) {
+  const sec = Number(seconds);
+  if (!sec || isNaN(sec) || sec <= 0) return null;
+  const s = Math.floor(sec % 60);
+  const m = Math.floor((sec / 60) % 60);
+  const h = Math.floor(sec / 3600);
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function _formatViewsCount(views) {
+  const n = Number(views);
+  if (!n || isNaN(n) || n <= 0) return null;
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + 'B';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+  return n.toString();
+}
+
+function _formatUploadDateYYYYMMDD(yyyymmdd) {
+  if (!yyyymmdd || typeof yyyymmdd !== 'string' || yyyymmdd.length < 8) return null;
+  const y = yyyymmdd.slice(0, 4);
+  const mo = yyyymmdd.slice(4, 6);
+  const d = yyyymmdd.slice(6, 8);
+  const monthsTr = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+  const idx = parseInt(mo, 10) - 1;
+  if (idx < 0 || idx > 11) return `${d}.${mo}.${y}`;
+  return `${parseInt(d, 10)} ${monthsTr[idx]} ${y}`;
+}
+
 async function searchYoutube(query) {
   const yts = require('yt-search');
   try {
@@ -110,7 +140,15 @@ async function getVideoInfo(url) {
           url: f.url
         };
       });
-      return { formats, title: info.title, videoId: info.id };
+      return {
+        formats,
+        title: info.title,
+        videoId: info.id,
+        channel: info.uploader || info.channel || info.creator || null,
+        duration: _formatDurationSec(info.duration),
+        views: _formatViewsCount(info.view_count),
+        uploadDate: _formatUploadDateYYYYMMDD(info.upload_date)
+      };
     } catch (error) {
       console.error('youtube-dl getInfo error:', error.message);
       return getVideoInfoFallback(url);
@@ -127,6 +165,10 @@ async function getVideoInfoFallback(url) {
       return {
         title: v.title || search.title || 'YouTube Videosu',
         videoId: v.videoId,
+        channel: v.author?.name || null,
+        duration: v.timestamp || null,
+        views: _formatViewsCount(v.views),
+        uploadDate: null,
         isFallback: true,
         formats: [
           { type: 'video', quality: '360p', size: 'Standart' },
@@ -195,6 +237,19 @@ async function downloadAudio(url) {
       return { path: outputPath, title: info.title };
     } catch (error) {
       console.error('youtube-dl downloadAudio error:', error.message);
+      try {
+        const { ytdl } = require("@distube/ytdl-core");
+        const info = await ytdl.getInfo(url);
+        const format = ytdl.chooseFormat(info.formats, { quality: "highestaudio" });
+        if (format?.url) {
+          const safeTitle = (info.videoDetails?.title || 'audio').replace(/[^\w\s]/gi, '').trim() || 'audio';
+          const outputPath = getTempPath(`${safeTitle}_${Date.now()}.m4a`);
+          await saveToDisk(format.url, outputPath);
+          return { path: outputPath, title: info.videoDetails?.title || 'YouTube Sesi' };
+        }
+      } catch (localErr) {
+        if (process.env.DEBUG) console.error("[Local YouTube audio]", localErr?.message);
+      }
       try {
         const fallback = await nexray.downloadYtMp3(url);
         if (fallback && fallback.url) {

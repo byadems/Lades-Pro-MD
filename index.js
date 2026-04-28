@@ -70,21 +70,68 @@ const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 480; // 420→480MB (Daha 
 let _isShuttingDown = false;
 
 // ─────────────────────────────────────────────────────────
-//  Processed Message Deduplication (Referans: KB-Mini:119-125)
-//  Mesaj tekrarını önlemek için Set tabanlı dedup - 5 dkda bir temizlik
+//  Processed Message Deduplication
+//  Aynı msg.key.id'nin iki kere işlenmesini engeller.
+//  Baileys bağlantı yenilenmelerinde / history-sync'lerde mesaj
+//  "append" tipiyle yeniden yayınlanabiliyor; bu da daha önce
+//  cevaplanmış komutların tekrar çalıştırılmasına neden oluyordu.
+//
+//  Tasarım: Map<msgId, timestamp>
+//   • TTL    : 60 dk — Baileys replay'leri için yeterli güvenlik penceresi
+//   • CAP    : 10.000 — bellek sızıntısı koruması (taşarsa eski %10 atılır)
+//   • PRUNE  : Her 5 dk'da süresi geçmiş ID'leri ayıkla
 // ─────────────────────────────────────────────────────────
-const processedMessages = new Set();
+const processedMessages = new Map();
+const DEDUPE_TTL_MS = 60 * 60 * 1000;   // 1 saat
+const DEDUPE_MAX = 10_000;
 
+function isMessageProcessed(id) {
+  if (!id) return false;
+  const ts = processedMessages.get(id);
+  if (!ts) return false;
+  if (Date.now() - ts > DEDUPE_TTL_MS) {
+    processedMessages.delete(id);
+    return false;
+  }
+  return true;
+}
+
+function markMessageProcessed(id) {
+  if (!id) return;
+  // Bellek kapağı: limit aşılırsa en eski %10 ID'yi at (Map insertion order)
+  if (processedMessages.size >= DEDUPE_MAX) {
+    const dropCount = Math.floor(DEDUPE_MAX * 0.1);
+    let i = 0;
+    for (const k of processedMessages.keys()) {
+      processedMessages.delete(k);
+      if (++i >= dropCount) break;
+    }
+  }
+  processedMessages.set(id, Date.now());
+}
+
+// Periyodik temizlik — sadece TTL'i geçenleri at, taze ID'leri koru
 setInterval(() => {
-  processedMessages.clear();
-  logger.debug('[Dedupe] Processed messages temizlendi.');
+  const now = Date.now();
+  let removed = 0;
+  for (const [id, ts] of processedMessages) {
+    if (now - ts > DEDUPE_TTL_MS) {
+      processedMessages.delete(id);
+      removed++;
+    }
+  }
+  if (removed > 0) {
+    logger.debug(`[Dedupe] ${removed} eski ID temizlendi (mevcut: ${processedMessages.size})`);
+  }
 }, 5 * 60 * 1000);
 
 // Process sonlanırken temizle
 process.on('beforeExit', () => processedMessages.clear());
 
-// Export handler'a erişim için
+// Handler'lar bu yardımcılara global üzerinden ulaşır
 global.processedMessages = processedMessages;
+global.isMessageProcessed = isMessageProcessed;
+global.markMessageProcessed = markMessageProcessed;
 
 scheduler.register('memory_check', () => {
   if (_isShuttingDown) return;
@@ -267,6 +314,38 @@ function startKeepAlive() {
     res.json({ ok: true, t: Date.now() });
   });
 
+  // ─── Yönetici token doğrulaması ───────────────────────────
+  const _adminToken = process.env.ADMIN_SYNC_SECRET || null;
+  const _requireAdminToken = (req, res, next) => {
+    if (!_adminToken) return res.status(503).json({ error: 'Bu endpoint devre dışı: ADMIN_SYNC_SECRET ortam değişkeni ayarlanmamış.' });
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.body && req.body.secret);
+    if (token !== _adminToken) return res.status(401).json({ error: 'Yetkisiz: Geçersiz yönetici tokeni' });
+    next();
+  };
+  // Force re-pair: DB'deki oturumu temizle ve yeniden eşleştir
+  app.post('/api/force-repair', express.json(), _requireAdminToken, async (req, res) => {
+    try {
+      const { Op } = require('sequelize');
+      const deletedCount = await WhatsappOturum.destroy({
+        where: { sessionId: { [Op.like]: 'lades-session%' } }
+      });
+      logger.warn(`[Force-Repair] ${deletedCount} oturum kaydı silindi. Yeniden eşleştirme başlatılıyor...`);
+
+      const mgr = runtime.manager;
+      if (mgr) {
+        mgr.resume('lades-session');
+        await mgr.removeSession('lades-session', false).catch(() => {});
+        await new Promise(r => setTimeout(r, 1000));
+        await mgr.addSession('lades-session', { phoneNumber: process.env.PAIR_PHONE });
+      }
+      res.json({ ok: true, deleted: deletedCount, msg: 'Oturum temizlendi. QR kodu bekleniyor...' });
+    } catch (e) {
+      logger.error({ err: e.message }, '[Force-Repair] Hata');
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
   // Serve static files with caching
   app.use(express.static(publicDir, {
     maxAge: '1h',
@@ -330,8 +409,52 @@ function isRecoverableError(err) {
   return KNOWN_RECOVERABLE.some(s => msg.includes(s));
 }
 
+// ─────────────────────────────────────────────────────────
+//  ENOSPC (disk dolu) durumunda acil temizlik
+// ─────────────────────────────────────────────────────────
+async function cleanupDiskSpace() {
+  const fs = await import("fs");
+  const path = await import("path");
+  const dirs = ["/tmp", "./temp", "./uploads", "./downloads"].filter(d => {
+    try { return fs.existsSync(d); } catch { return false; }
+  });
+  let freed = 0;
+  for (const dir of dirs) {
+    try {
+      const files = fs.readdirSync(dir);
+      for (const f of files) {
+        const fp = path.join(dir, f);
+        try {
+          const stat = fs.statSync(fp);
+          // 30 dakikadan eski dosyaları sil
+          if (Date.now() - stat.mtimeMs > 30 * 60 * 1000) {
+            if (stat.isDirectory()) fs.rmSync(fp, { recursive: true, force: true });
+            else fs.unlinkSync(fp);
+            freed++;
+          }
+        } catch { /* dosyaya erişilemiyorsa geç */ }
+      }
+    } catch { /* dizine erişilemiyorsa geç */ }
+  }
+  logger.warn(`[ENOSPC] Disk temizlendi. ${freed} dosya silindi.`);
+}
+
+function isEnospc(err) {
+  if (!err) return false;
+  return err.code === "ENOSPC" || err.errno === -28 ||
+    String(err.message || "").includes("ENOSPC") ||
+    String(err.message || "").includes("no space left");
+}
+
 process.on("uncaughtException", (err) => {
   if (err.code === "ERR_IPC_DISCONNECTED") return;
+
+  // Disk dolu hatası — temizle ve devam et, botu çökertme
+  if (isEnospc(err)) {
+    logger.error("[ENOSPC] Disk dolu! Acil temizlik başlatılıyor...");
+    cleanupDiskSpace().catch(() => {});
+    return;
+  }
 
   // Bilinen geçici Baileys hatalarını sessizce logla — bot çökmesin
   if (isRecoverableError(err)) {
@@ -351,6 +474,13 @@ process.on("uncaughtException", (err) => {
 
 process.on("unhandledRejection", (reason, promise) => {
   if (reason?.code === "ERR_IPC_DISCONNECTED") return;
+
+  // Disk dolu hatası — temizle ve devam et
+  if (isEnospc(reason)) {
+    logger.error("[ENOSPC] Disk dolu (rejection)! Acil temizlik başlatılıyor...");
+    cleanupDiskSpace().catch(() => {});
+    return;
+  }
 
   // Bilinen geçici Baileys hatalarını sessizce logla
   if (isRecoverableError(reason)) {

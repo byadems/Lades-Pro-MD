@@ -66,6 +66,35 @@ async function useDbAuthState(sessionId) {
     logger.warn(`[Auth] Session yükleme hatası: ${e.message}`);
   }
 
+  // ── KRİTİK: Signal Key Yokluğu Kontrolü (Zombie State Önlemi) ──────────────
+  // Creds var (telefon eşleştirilmiş) ama Signal key'leri DB'de yok ise
+  // bot bağlanır ama mesaj ALAMAz → zombie state. Bu durumu başlangıçta
+  // tespit edip oturumu tamamen sıfırlıyoruz (yeniden QR/pair gerekecek).
+  // ─────────────────────────────────────────────────────────────────────────────
+  if (creds && creds.me) {
+    try {
+      const { Op } = require('sequelize');
+      const keyRowCount = await WhatsappOturum.count({
+        where: { sessionId: { [Op.like]: `${sessionId}:%` } }
+      });
+      if (keyRowCount === 0) {
+        logger.error(
+          `[Auth] ⚠️  KRİTİK UYARI: Creds mevcut (${creds.me.id}) ` +
+          `ama Signal key'leri DB'de SIFIR! Bu zombie state'e yol açar. ` +
+          `Oturum tamamen sıfırlanıyor → yeniden eşleştirme gerekecek.`
+        );
+        // clearState tanımlanmadan önce çağrılıyor — inline temizle
+        await WhatsappOturum.destroy({ where: { sessionId: { [Op.like]: `${sessionId}%` } } });
+        creds = {};
+        logger.info(`[Auth] Oturum sıfırlandı. Dashboard üzerinden yeniden eşleştirin.`);
+      } else {
+        logger.info(`[Auth] Sağlık kontrolü: ${keyRowCount} signal key bulundu ✓`);
+      }
+    } catch (e) {
+      logger.warn(`[Auth] Signal key kontrol hatası (devam ediliyor): ${e.message}`);
+    }
+  }
+
   let isSaving = false;
   let saveRequested = false;
 
@@ -103,18 +132,27 @@ async function useDbAuthState(sessionId) {
       return data;
     },
     set: async (data) => {
+      const retryDelay = (ms) => new Promise(r => setTimeout(r, ms));
       for (const category in data) {
         for (const id in data[category]) {
           const val = data[category][id];
           const keyId = `${sessionId}:${category}:${id}`;
-          try {
-            if (val) {
-              await WhatsappOturum.upsert({ sessionId: keyId, sessionData: JSON.stringify(val, BufferJSON.replacer) });
-            } else {
-              await WhatsappOturum.destroy({ where: { sessionId: keyId } });
+          let saved = false;
+          for (let attempt = 1; attempt <= 3 && !saved; attempt++) {
+            try {
+              if (val) {
+                await WhatsappOturum.upsert({ sessionId: keyId, sessionData: JSON.stringify(val, BufferJSON.replacer) });
+              } else {
+                await WhatsappOturum.destroy({ where: { sessionId: keyId } });
+              }
+              saved = true;
+            } catch (e) {
+              if (attempt < 3) {
+                await retryDelay(attempt * 500); // 500ms, 1000ms
+              } else {
+                logger.warn(`[Auth] Key yazma başarısız (3 deneme) (${keyId}): ${e.message}`);
+              }
             }
-          } catch (e) {
-            logger.warn(`[Auth] Key yazma hatası (${keyId}): ${e.message}`);
           }
         }
       }
