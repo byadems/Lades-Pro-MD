@@ -1139,13 +1139,14 @@
   const axios = require("axios");
 
   const SIPUTZX_BASE = "https://api.siputzx.my.id";
+  const NEXRAY_BASE = "https://api.nexray.web.id";
   const TIMEOUT = 30000;
 
   async function siputGet(path, params = {}) {
     const url = `${SIPUTZX_BASE}${path}`;
     const res = await axios.get(url, { params, timeout: TIMEOUT, validateStatus: () => true });
     if (res.data && res.data.status) return res.data;
-    throw new Error(res.data?.error || "API yanıt vermedi");
+    throw new Error(res.data?.error || `API yanıt vermedi (HTTP ${res.status})`);
   }
 
   async function siputGetBuffer(path, params = {}) {
@@ -1153,6 +1154,46 @@
     const res = await axios.get(url, { params, timeout: TIMEOUT, responseType: "arraybuffer", validateStatus: () => true });
     if (res.status === 200 && res.data) return Buffer.from(res.data);
     throw new Error("Veri alınamadı");
+  }
+
+  // Nexray AI fallback helper — returns the `result` field on success
+  async function nexrayAiGet(path, params = {}) {
+    const url = `${NEXRAY_BASE}${path}`;
+    const res = await axios.get(url, { params, timeout: TIMEOUT, validateStatus: () => true });
+    if (res.data && res.data.status === true && res.data.result !== undefined) {
+      return res.data.result;
+    }
+    throw new Error(res.data?.error || `Nexray API hatası (HTTP ${res.status})`);
+  }
+
+  // Extract a plain-text answer from various AI response shapes
+  function extractAnswer(result) {
+    if (result == null) return "";
+    if (typeof result === "string") return result;
+    return (
+      (result.parts && result.parts[0]?.text) ||
+      result.response ||
+      result.message ||
+      result.text ||
+      result.answer ||
+      result.content ||
+      JSON.stringify(result)
+    );
+  }
+
+  // Strip <think>...</think> reasoning blocks (used by DeepSeek R1 / QwQ).
+  // Behavior:
+  //  - Remove fully-paired <think>…</think> blocks.
+  //  - If the model returned only an unclosed <think>… (no closing tag), keep
+  //    the content but drop the bare tag so the user still sees a reply.
+  function stripThinkTags(s = "") {
+    if (!s) return s;
+    let out = s;
+    // Remove fully closed reasoning blocks
+    out = out.replace(/<think>[\s\S]*?<\/think>/gi, "");
+    // Drop any leftover bare opening/closing tags but keep the prose
+    out = out.replace(/<\/?think>/gi, "");
+    return out.trim();
   }
 
   function turkceHata(msg = "") {
@@ -1206,17 +1247,19 @@
     let sent;
     try {
       sent = await message.sendReply("🧐 _DeepSeek düşünüyor..._");
-      const data = await siputGet("/api/ai/deepseekr1", { text });
-      const result = data.data || data.result;
-      if (!result) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
-      const answer = typeof result === "string" ? result : result.response || result.text || result.answer || JSON.stringify(result);
-      
-      // DeepSeek R1 thinking tags
-      let finalAnswer = answer;
-      if (finalAnswer.includes("<think>")) {
-        finalAnswer = finalAnswer.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+      let answer = "";
+      try {
+        // Siputzx now requires `prompt` (was `text`)
+        const data = await siputGet("/api/ai/deepseekr1", { prompt: text, text });
+        const result = data.data || data.result;
+        answer = extractAnswer(result);
+      } catch (primaryErr) {
+        // Fallback: Nexray /ai/turbochat (DeepSeek endpoint on Nexray is broken)
+        const result = await nexrayAiGet("/ai/turbochat", { text });
+        answer = extractAnswer(result);
       }
-      
+      const finalAnswer = stripThinkTags(answer);
+      if (!finalAnswer) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
       await message.edit(`🤖 *DeepSeek R1*\n\n${finalAnswer}`, message.jid, sent.key);
     } catch (e) {
       const errTr = turkceHata(e.message);
@@ -1241,10 +1284,18 @@
     let sent;
     try {
       sent = await message.sendReply("🧐 _Llama düşünüyor..._");
-      const data = await siputGet("/api/ai/llama33", { text });
-      const result = data.data || data.result;
-      if (!result) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
-      const answer = typeof result === "string" ? result : result.text || result.answer || JSON.stringify(result);
+      let answer = "";
+      try {
+        // Siputzx now requires `prompt` (was `text`) — send both for safety
+        const data = await siputGet("/api/ai/llama33", { prompt: text, text });
+        const result = data.data || data.result;
+        answer = extractAnswer(result);
+      } catch (primaryErr) {
+        // Fallback: Nexray /ai/llamacoder
+        const result = await nexrayAiGet("/ai/llamacoder", { text });
+        answer = extractAnswer(result);
+      }
+      if (!answer) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
       await message.edit(`🤖 *Llama 3.3*\n\n${answer}`, message.jid, sent.key);
     } catch (e) {
       const errTr = turkceHata(e.message);
@@ -1269,10 +1320,18 @@
     let sent;
     try {
       sent = await message.sendReply("🧐 _Meta AI düşünüyor..._");
-      const data = await siputGet("/api/ai/metaai", { query: text });
-      const result = data.data || data.result;
-      if (!result) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
-      const answer = typeof result === "string" ? result : result.text || result.answer || JSON.stringify(result);
+      let answer = "";
+      try {
+        // Siputzx metaai uses `query`; also send `prompt` for compatibility
+        const data = await siputGet("/api/ai/metaai", { query: text, prompt: text });
+        const result = data.data || data.result;
+        answer = extractAnswer(result);
+      } catch (primaryErr) {
+        // Fallback: Nexray /ai/turbochat (no native metaai on Nexray)
+        const result = await nexrayAiGet("/ai/turbochat", { text });
+        answer = extractAnswer(result);
+      }
+      if (!answer) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
       await message.edit(`🤖 *Meta YZ*\n\n${answer}`, message.jid, sent.key);
     } catch (e) {
       const errTr = turkceHata(e.message);
@@ -1322,11 +1381,18 @@
     let sent;
     try {
       sent = await message.sendReply("🧐 _Gemini düşünüyor..._");
-      const data = await siputGet("/api/ai/gemini-lite", { text });
-      const result = data.data || data.result;
-      if (!result) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
-      
-      const answer = (result.parts && result.parts[0]?.text) || result.text || result.answer || (typeof result === "string" ? result : JSON.stringify(result));
+      let answer = "";
+      try {
+        // Primary: Nexray /ai/gemini (more reliable than Siputzx gemini-lite)
+        const result = await nexrayAiGet("/ai/gemini", { text });
+        answer = extractAnswer(result);
+      } catch (primaryErr) {
+        // Fallback: Siputzx gemini-lite (now requires `prompt`)
+        const data = await siputGet("/api/ai/gemini-lite", { prompt: text, text });
+        const result = data.data || data.result;
+        answer = extractAnswer(result);
+      }
+      if (!answer) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
       await message.edit(`🤖 *Gemini Lite*\n\n${answer}`, message.jid, sent.key);
     } catch (e) {
       const errTr = turkceHata(e.message);
@@ -1348,27 +1414,22 @@
     const text = (match[1] || "").trim() || message.reply_message?.text;
     if (!text) return await message.sendReply("_Soru girin:_ `.qwq Fibonacci dizisi nedir?`");
 
+    let sent;
     try {
-      const sent = await message.sendReply("🧐 _QwQ düşünüyor..._");
-      const data = await siputGet("/api/ai/qwq32b", { text });
+      sent = await message.sendReply("🧐 _QwQ düşünüyor..._");
+      // Siputzx now requires `prompt` (was `text`) — send both for safety
+      const data = await siputGet("/api/ai/qwq32b", { prompt: text, text });
       const result = data.data || data.result;
       if (!result) return await message.edit("❌ *Yanıt alınamadı!*", message.jid, sent.key);
-      
-      let answer = result.response || result.text || result.answer || (typeof result === "string" ? result : JSON.stringify(result));
-      
-      // Robust <think> tags removal
-      if (answer.includes("<think>") || answer.includes("</think>")) {
-        answer = answer.replace(/<think>[\s\S]*?<\/think>/gi, "");
-        answer = answer.replace(/<think>[\s\S]*/gi, ""); // Remove stray start tags
-        answer = answer.replace(/[\s\S]*?<\/think>/gi, ""); // Remove stray end tags
-        answer = answer.trim();
-      }
-      
+
+      let answer = stripThinkTags(extractAnswer(result));
       if (!answer) answer = "⚠️ _Düşünme süreci bitti fakat net bir yanıt üretilemedi._";
-      
+
       await message.edit(`🤖 *QwQ 32B*\n\n${answer}`, message.jid, sent.key);
     } catch (e) {
-      await message.sendReply(`❌ *Hata:* _YZ yanıtı alınamadı:_ ${e.message}`);
+      const errTr = turkceHata(e.message);
+      if (sent) await message.edit(`❌ *Hata:* ${errTr}`, message.jid, sent.key).catch(() => {});
+      else await message.sendReply(`❌ *Hata:* _YZ yanıtı alınamadı:_ ${e.message}`);
     }
   });
 })();
