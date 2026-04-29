@@ -493,7 +493,7 @@ Module({
       await message.sendMessage(audioResult, "audio", { quoted: message.data });
       await message.edit("✅ *Bass başarıyla artırıldı!*", message.jid, processingMsg.key);
     } catch (e) {
-      console.error("Basartır komutu hatası:", e);
+      console.error("Basarıtır komutu hatası:", e);
       await message.sendReply("❌ *Hata oluştu!*\n\n⚠️ *Detay:* " + e.message);
     }
   }
@@ -512,23 +512,28 @@ Module({
     try {
       const savedFile = await message.reply_message.download();
 
-      // If it's already an image (jpg/png/etc), send it directly as image
+      // Eğer zaten resim ise — buffer olarak okuyup gönder (Sharp hatasını önler)
       if (message.reply_message.image) {
-        return await message.sendMessage({ url: savedFile }, "image", { quoted: message.quoted });
+        const imgBuf = fs.readFileSync(savedFile);
+        return await message.sendMessage(imgBuf, "image", { quoted: message.quoted });
       }
 
-      // Otherwise (sticker, webp) - convert via ffmpeg
+      // Aksi halde (sticker, webp) — ffmpeg ile PNG'ye dönüştür
       const outPng = getTempPath(`foto_${Date.now()}.png`);
       await ffmpegLimit(() => new Promise((resolve, reject) => {
         ffmpeg(savedFile)
+          .outputOptions(["-vframes", "1"]) // ilk kareyi al (animated sticker için)
           .save(outPng)
           .on("end", resolve)
           .on("error", reject);
       }));
-      await message.sendMessage({ url: outPng }, "image", { quoted: message.quoted });
+      // Buffer olarak oku — Sharp'a dosya yolu verme
+      const pngBuf = fs.readFileSync(outPng);
+      await message.sendMessage(pngBuf, "image", { quoted: message.quoted });
+      try { fs.unlinkSync(savedFile); fs.unlinkSync(outPng); } catch (_) { }
     } catch (e) {
       console.error("Foto dönüştürme hatası:", e);
-      await message.sendReply("❌ *Görsel dönüştürülemedi!*\n\n⚠️ *Hata:* " + e.message);
+      await message.sendReply("❌ *Görsel dönüştürlemedi!*\n\n⚠️ *Hata:* " + e.message);
     }
   }
 );
@@ -650,20 +655,31 @@ Module({
     }
 
     try {
-      let audio;
+      let audioBuf;
       try {
         const ttsResult = await aiTTS(ttsMessage, VOICE, SPEED.toFixed(2));
         if (ttsResult.url) {
-          audio = { url: ttsResult.url };
+          // aiTTS URL'sini buffer'a çek — boş dosya CDN hatasını önler
+          const resp = await axios.get(ttsResult.url, { responseType: "arraybuffer", timeout: 20000 });
+          audioBuf = Buffer.from(resp.data);
+          if (!audioBuf || audioBuf.length < 100) throw new Error("YZ ses yanıtı boş döndü");
         } else {
           throw new Error(ttsResult.error || "YZ Ses Sunucu Hatası!");
         }
       } catch (e) {
         console.log("YZ TTS hatası, Google TTS'e geçiliyor:", e.message);
-        audio = await gtts(ttsMessage, LANG);
+        // gtts() bir URL string döndürür — axios ile buffer'a çek
+        const gUrl = await gtts(ttsMessage, LANG);
+        const gResp = await axios.get(gUrl, {
+          responseType: "arraybuffer",
+          timeout: 15000,
+          headers: { "User-Agent": "Mozilla/5.0" },
+        });
+        audioBuf = Buffer.from(gResp.data);
+        if (!audioBuf || audioBuf.length < 100) throw new Error("Google TTS boş yanıt döndürdü");
       }
 
-      await message.sendMessage(audio, "audio", { ptt: true });
+      await message.sendMessage(audioBuf, "audio", { ptt: true });
     } catch (error) {
       console.error("TTS Hatası:", error);
       await message.sendReply("_" + "⚠️ ```Hata! Cümlenin konuşma sentezi yapılamadı!```" + "_");

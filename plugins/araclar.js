@@ -684,7 +684,17 @@ ${cmdmenu}`;
       }
 
       const { emoji, label } = KATEGORILER[kategoriKey];
-      const gonderenJid = message.participant || message.key?.participant || message.sender || message.jid;
+      // Gönderenin JID'sini al — LID ise telefon numarasına çözümle
+      let gonderenJid = message.participant || message.key?.participant || message.sender || message.jid;
+      if (gonderenJid.includes("@lid")) {
+        try {
+          const { resolveLidToPn } = require("../core/yardimcilar");
+          const resolved = await resolveLidToPn(message.client, gonderenJid);
+          if (resolved && resolved !== gonderenJid) gonderenJid = resolved;
+        } catch (e) {
+          // LID çözülemediyse olduğu gibi kullan
+        }
+      }
       const tarih = new Date().toLocaleString("tr-TR", {
         day: "2-digit",
         month: "2-digit",
@@ -703,10 +713,13 @@ ${cmdmenu}`;
         }
       }
 
+      // Gönderen JID'yi tam formatta sakla (yanıt handler'ı bunu ayrıştıracak)
+      const gonderenDisplay = gonderenJid.split("@")[0];
       const bildirimMesaji =
         `${emoji} *Yeni ${label} Bildirimi!*\n` +
         `${"─".repeat(30)}\n` +
-        `👤 *Gönderen:* @${gonderenJid.split("@")[0]}\n` +
+        `👤 *Gönderen:* @${gonderenDisplay}\n` +
+        `👤 *Gönderen JID:* ${gonderenJid}\n` +
         `${grupBilgisi}\n` +
         `🔖 *Ref ID:* ${message.jid}|${message.key.id}\n` +
         `🕐 *Tarih:* ${tarih}\n` +
@@ -752,9 +765,24 @@ ${cmdmenu}`;
         const [targetJid, targetMsgId] = refMatch[1].split("|");
 
         if (targetJid && targetMsgId) {
-          const senderMatch = repliedText.match(/👤 \*Gönderen:\* @([0-9]+)/);
-          const hedeflenenKullanici = senderMatch ? `${senderMatch[1]}@s.whatsapp.net` : null;
-          const yollananKullanici = hedeflenenKullanici || message.reply_message?.mentions?.[0];
+          // Önce tam JID satırından çözümle (en güvenilir)
+          const jidLineMatch = repliedText.match(/👤 \*Gönderen JID:\* ([^\n]+)/);
+          let yollananKullanici = jidLineMatch ? jidLineMatch[1].trim() : null;
+          
+          // Fallback: eski formattan numara çek
+          if (!yollananKullanici) {
+            const senderMatch = repliedText.match(/👤 \*Gönderen:\* @([^\n]+)/);
+            if (senderMatch) {
+              const senderBare = senderMatch[1].trim();
+              // Eğer @s.whatsapp.net veya @lid içermiyorsa ekle
+              yollananKullanici = senderBare.includes("@") ? senderBare : `${senderBare}@s.whatsapp.net`;
+            }
+          }
+          
+          // Son fallback: mentions dizisinden
+          if (!yollananKullanici) {
+            yollananKullanici = message.reply_message?.mentions?.[0];
+          }
 
           const etiket = yollananKullanici ? `@${yollananKullanici.split("@")[0]} ` : "";
           const yanitMetni = `📬 *MESAJINIZ VAR!*\n💬 _Geliştiriciden yanıt geldi!_\n\n${etiket}${message.text}\n\nℹ️ _Bu mesaj sistem tarafından iletilmiştir._`;

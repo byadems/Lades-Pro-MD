@@ -113,7 +113,20 @@
 
       const groupJid  = message.jid;
       const userJid   = message.sender;
-      const { count, rank, total, totalUsers } = getUserStats(groupJid, userJid);
+      
+      // Önce direkt JID ile dene, bulunamazsa participant JID'si ile dene
+      let stats = getUserStats(groupJid, userJid);
+      
+      // Eğer hiç mesaj bulunamadıysa, key.participant farklı JID formatı olabilir
+      if (stats.count === 0 && message.data?.key?.participant) {
+        const altJid = message.data.key.participant;
+        if (altJid !== userJid) {
+          const altStats = getUserStats(groupJid, altJid);
+          if (altStats.count > 0) stats = altStats;
+        }
+      }
+      
+      const { count, rank, total, totalUsers } = stats;
 
       if (total === 0) {
         return await message.sendReply(

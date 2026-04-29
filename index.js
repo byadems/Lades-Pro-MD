@@ -66,7 +66,7 @@ try {
 suppressLibsignalLogs();
 runtime.startTime = Date.now();
 
-const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 460; // 24/7: ecosystem.config max_memory_restart=480M ile uyumlu; 20MB güvenlik marjı
+const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 400; // Cloud Run 512MB limit: heap(280)+native(~140)=~420MB peak. 400'de restart = OOM'dan önce temiz çıkış
 let _isShuttingDown = false;
 
 // ─────────────────────────────────────────────────────────
@@ -82,8 +82,8 @@ let _isShuttingDown = false;
 //   • PRUNE  : Her 5 dk'da süresi geçmiş ID'leri ayıkla
 // ─────────────────────────────────────────────────────────
 const processedMessages = new Map();
-const DEDUPE_TTL_MS = 30 * 60 * 1000;   // 30 dakika (1 saat→30dk: Baileys replay penceresi için yeterli, bellek yarıya iner)
-const DEDUPE_MAX = 5_000;               // 10K→5K: ~500KB yerine ~250KB (her entry ~50 byte)
+const DEDUPE_TTL_MS = 15 * 60 * 1000;   // 30dk→15dk: Baileys replay penceresi için yeterli, bellek yarıya iner
+const DEDUPE_MAX = 3_000;               // 5K→3K: ~150KB (her entry ~50 byte)
 
 function isMessageProcessed(id) {
   if (!id) return false;
@@ -124,7 +124,7 @@ setInterval(() => {
   if (removed > 0) {
     logger.debug(`[Dedupe] ${removed} eski ID temizlendi (mevcut: ${processedMessages.size})`);
   }
-}, 3 * 60 * 1000);
+}, 2 * 60 * 1000);  // 3dk→2dk: Daha sık temizlik = daha düşük ortalama bellek
 
 // Process sonlanırken temizle
 process.on('beforeExit', () => processedMessages.clear());
@@ -529,6 +529,63 @@ async function startSessionCleanup() {
   };
   await cleanup(); // Run at startup
   scheduler.register('session_cleanup', cleanup, 24 * 60 * 60 * 1000); // 1x per day
+
+  // ─────────────────────────────────────────────────────────
+  //  Veritabanı Bakım Zamanlayıcısı (SQLite + PostgreSQL Uyumlu)
+  //
+  //  SQLite:     WAL checkpoint — WAL dosyası büyüdükçe sorgu yavaşlar
+  //              ve mmap belleğe alınır → RAM basıncı. PASSIVE checkpoint
+  //              okuma/yazma bloğu olmadan arka planda WAL'ı temizler.
+  //
+  //  PostgreSQL: VACUUM ANALYZE — Dead tuple'ları temizler ve tablo
+  //              istatistiklerini günceller → sorgu planlaması hızlanır.
+  //              Yoğun bot trafiğinde critical — yoksa sequential scan'e düşer.
+  // ─────────────────────────────────────────────────────────
+  scheduler.register('db_maintenance', async () => {
+    try {
+      const { sequelize, isPostgres } = require('./core/database');
+      if (isPostgres) {
+        // PostgreSQL: sadece en yoğun tabloları VACUUM et (tam VACUUM çok ağır)
+        await sequelize.query('VACUUM ANALYZE mesaj_istatistikler');
+        await sequelize.query('VACUUM ANALYZE bot_metrikler');
+        logger.debug('[DB] PostgreSQL VACUUM ANALYZE tamamlandı.');
+      } else {
+        // SQLite: WAL checkpoint
+        await sequelize.query('PRAGMA wal_checkpoint(PASSIVE)');
+        logger.debug('[DB] SQLite WAL checkpoint tamamlandı.');
+      }
+    } catch (e) {
+      // DB bakım hatası kritik değil — sessizce atla, sonraki turda tekrar dener
+      logger.debug(`[DB] Bakım başarısız: ${e.message}`);
+    }
+  }, 10 * 60 * 1000); // 10 dakikada bir
+
+  // ─────────────────────────────────────────────────────────
+  //  Runtime metrics LRU Periyodik Temizlik
+  //  Problem: LRUCache TTL ile otomatik temizlense de, yoğun
+  //  trafikte cache sürekli dolup GC basıncı artıyor.
+  //  Çözüm: 4 saatte bir tamamen sıfırla. Dashboard'daki "aktif
+  //  kullanıcı" sayısı geçici olarak düşer ama DB'deki istatistikler korunur.
+  // ─────────────────────────────────────────────────────────
+  scheduler.register('metrics_users_reset', () => {
+    if (runtime.metrics) {
+      const prevUsers = runtime.metrics.users?.size || 0;
+      const prevGroups = runtime.metrics.groups?.size || 0;
+      // LRUCache.clear() — tüm entry'leri anında serbest bırak
+      if (runtime.metrics.users && typeof runtime.metrics.users.clear === 'function') {
+        runtime.metrics.users.clear();
+      }
+      if (runtime.metrics.groups && typeof runtime.metrics.groups.clear === 'function') {
+        runtime.metrics.groups.clear();
+      }
+      // allGroupsCache de büyük obje — periyodik olarak serbest bırak
+      runtime.metrics.allGroupsCache = null;
+      runtime.metrics.allGroupsLastFetch = 0;
+      if (prevUsers > 0 || prevGroups > 0) {
+        logger.debug(`[Metrics] LRU temizlendi: ${prevUsers} kullanıcı, ${prevGroups} grup sıfırlandı.`);
+      }
+    }
+  }, 4 * 60 * 60 * 1000); // 4 saatte bir (6h→4h: daha sık temizlik)
 }
 
 (async () => {

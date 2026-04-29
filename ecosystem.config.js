@@ -3,20 +3,18 @@ module.exports = {
     {
       name: "lades-pro",
       script: "index.js",
-      // ─── 24/7 ULTRA PERFORMANS V8 AYARLARI ───────────────────────────
-      // --max-old-space-size=384 : Heap sınırı — GC'nin sık tetiklenmesini
-      //   sağlarken PM2 restart'a kadar yeterli headroom bırakır.
+      // ─── Cloud Run 0.2 vCPU / 512MB V8 AYARLARI ─────────────────────
+      // --max-old-space-size=280 : Heap sınırı — 280MB heap + ~150MB native
+      //   (sharp/ffmpeg/sqlite3) = ~430MB RSS. 512MB container'da güvenli.
       // --expose-gc              : Manuel GC çağrısına izin ver (scheduler kullanır)
       // --optimize-for-size      : V8 daha küçük kod üretir, bellek ayak izi düşer.
-      //   Marginal hız kaybı vs büyük bellek kazanımı: 24/7'de kritik.
-      // --max-semi-space-size=16 : Young generation (nursery) boyutu 16MB.
-      //   Kısa ömürlü objeler (mesaj parse, buffer) daha hızlı toplanır.
+      // --max-semi-space-size=8  : Young generation 8MB — kısa ömürlü objeler hızlı toplanır.
       // --no-compilation-cache   : JIT derleme cache'ini bellekte tutma.
-      //   Disk-first felsefesiyle uyumlu: kod gerektiğinde yeniden derlenir.
-      node_args: "--max-old-space-size=384 --expose-gc --optimize-for-size --max-semi-space-size=16 --no-compilation-cache",
+      // --gc-interval=100        : Her 100 allocation'da GC kontrolü — proaktif temizlik.
+      node_args: "--max-old-space-size=280 --expose-gc --optimize-for-size --max-semi-space-size=8 --no-compilation-cache --gc-interval=100",
       watch: false,
       ignore_watch: ["node_modules", "sessions", "plugins/ai-generated", "*.log", "temp", "scratch"],
-      max_memory_restart: "480M", // 380M→480M: 24/7 için daha geniş tolerans, gereksiz restart döngüsü önlenir
+      max_memory_restart: "420M", // 280MB heap + ~140MB native overhead = ~420MB safe restart threshold
       restart_delay: 3000,        // 5s→3s: Restart sonrası daha hızlı geri dönüş
       max_restarts: 25,           // 10→25: 24/7 çalışma için uzun vadeli tolerans
       min_uptime: "30s",          // 15s→30s: Restart storm koruması (30s altında yaşayan instance restart sayılmaz)

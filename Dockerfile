@@ -42,4 +42,4 @@ EXPOSE 3000 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
-CMD ["node", "--no-warnings", "--max-old-space-size=400", "--max-semi-space-size=16", "--optimize-for-size", "--expose-gc", "index.js"]
+CMD ["node", "--no-warnings", "--max-old-space-size=280", "--max-semi-space-size=8", "--optimize-for-size", "--expose-gc", "--gc-interval=100", "index.js"]

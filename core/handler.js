@@ -38,6 +38,8 @@ async function _refreshAntideleteCache() {
 // Dışarıya açık getter — yonetim_araclari.js getStatus() bunu kullanır
 // (her .ayarlar çağrısında antidelete.get() DB sorgusu yerine)
 function getAntideleteCache() { return _antideleteCache; }
+// Cache'i zorla yenile — antisilme aç/kapat sonrası anında efektif
+async function invalidateAntideleteCache() { await _refreshAntideleteCache(); }
 
 // Point 5 & 17: Redundant commandQueue removed. Concurrency is handled in bot.js.
 
@@ -1564,6 +1566,7 @@ module.exports = {
   getStats, recordStat, getRuntimeStats,
   getAntideleteCache,
   invalidateStickcmdCache,
+  invalidateAntideleteCache,
   onHandlers,
   commands,
 };

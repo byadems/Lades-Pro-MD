@@ -278,14 +278,73 @@
         if (!hasApi) return;
 
         // Yalnızca mikrofon ile kaydedilmiş sesli mesajlarda (PTT) otomatik çeviri yap.
-        // Paylaşılan şarkı / müzik / ses dosyası (ptt: false) otomatik analize dahil değil.
         const isPtt = message.ptt || audioMsg?.ptt === true;
         if (!isPtt) return;
+
+        // ── GRUP AYARI: otoSesAnaliz kapalıysa bu grupta çalışma ─────────────
+        // Gruplarda grup ayarına bak; DM'lerde (isGroup=false) her zaman çalış.
+        if (message.isGroup) {
+          try {
+            const { getGroupSettings } = require("../core/db-cache");
+            const gs = await getGroupSettings(message.jid);
+            // otoSesAnaliz null/undefined → varsayılan AÇIK (true)
+            if (gs.otoSesAnaliz === false) return;
+          } catch (_e) { /* DB hatası → varsayılan açık */ }
+        }
 
         return await transcribeVoiceMessage(message, message);
       } catch (err) {
         console.error("Otomatik dinle hatası:", err);
       }
+    });
+
+  // ── OTO-DİNLE TOGGLE KOMUTU ──────────────────────────────────────────────
+  Module({
+    pattern: "otodinle ?(.*)",
+    fromMe: false,
+    desc: "Otomatik ses analizi özelliğini bu grup için açar veya kapatır.",
+    usage: ".otodinle [aç/kapat]",
+    use: "grup",
+  },
+    async (message, match) => {
+      if (!message.isGroup)
+        return await message.sendReply("⚠️ *Bu komut yalnızca gruplarda kullanılabilir!*");
+
+      const { isAdmin } = require("./utils");
+      const adminOk = await isAdmin(message);
+      if (!message.fromOwner && !adminOk)
+        return await message.sendReply("🔒 *Bu komut yalnızca yöneticilere aittir!*");
+
+      const { getGroupSettings, updateGroupSettings } = require("../core/db-cache");
+      const arg = (match[1] || "").trim().toLowerCase();
+
+      if (!arg) {
+        const gs = await getGroupSettings(message.jid);
+        const durum = gs.otoSesAnaliz !== false ? "Açık ✅" : "Kapalı ❌";
+        const apiVar = (config.GROQ_API_KEY && config.GROQ_API_KEY !== '') || (config.OPENAI_API_KEY && config.OPENAI_API_KEY !== '');
+        return await message.sendReply(
+          `🎙️ *Otomatik Ses Analizi*\n\n` +
+          `📊 *Durum:* ${durum}\n` +
+          `🔑 *API:* ${apiVar ? "Tanımlı ✅" : "Tanımsız ❌"}\n\n` +
+          `💡 _Kullanım:_\n` +
+          `• \`.otodinle aç\` — Bu grupta otomatik ses analizini açar\n` +
+          `• \`.otodinle kapat\` — Bu grupta otomatik ses analizini kapatır\n\n` +
+          `ℹ️ _Açıkken bot, gruba gelen tüm sesli mesajları otomatik olarak metne çevirir._`
+        );
+      }
+
+      const enable = ["aç", "ac", "1"].includes(arg);
+      const disable = ["kapat", "0"].includes(arg);
+
+      if (!enable && !disable)
+        return await message.sendReply("❌ *Geçersiz seçenek!* Kullanım: `.otodinle aç` veya `.otodinle kapat`");
+
+      await updateGroupSettings(message.jid, { otoSesAnaliz: enable });
+      return await message.sendReply(
+        enable
+          ? "✅ *Otomatik ses analizi açıldı!*\n\nℹ️ _Artık bu gruba gelen sesli mesajlar otomatik olarak metne çevrilecek._"
+          : "❌ *Otomatik ses analizi kapatıldı!*\n\nℹ️ _Sesli mesajları manuel çevirmek için_ `.dinle` _komutunu kullanabilirsiniz._"
+      );
     });
 
   Module({

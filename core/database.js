@@ -108,7 +108,13 @@ const GrupAyar = sequelize.define("GrupAyar", {
   warnLimit: { type: DataTypes.INTEGER, defaultValue: 3 },
   maxWarn: { type: DataTypes.INTEGER, defaultValue: 3 },
   prefix: { type: DataTypes.STRING(5), defaultValue: "." },
+  // ─── Otomatik özellikler (varsayılan: AÇIK) ────────────────────────────────
+  // otoSesAnaliz: Gruptaki ptt seslerini otomatik metne çevirir (Groq/OpenAI)
+  otoSesAnaliz: { type: DataTypes.BOOLEAN, defaultValue: true },
+  // otoBaglanti: Grup davet linklerini otomatik siler (WhatsApp invite links)
+  otoBaglanti: { type: DataTypes.BOOLEAN, defaultValue: true },
 }, { tableName: "grup_ayarlar", timestamps: true });
+
 
 /** Per-user data */
 const KullaniciVeri = sequelize.define("KullaniciVeri", {

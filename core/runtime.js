@@ -22,10 +22,10 @@ const state = {
   metrics: {
     messages: 0,
     commands: 0,
-    // 24/7 OPT: Daha sıkı LRU sınırları — stale JID'ler hızla atılır
+    // Cloud Run 512MB OPT: Sıkı LRU sınırları — stale JID'ler hızla atılır
     // Aktif kullanıcı sayımı DB-backed (MesajIstatistik); bu sadece anlık snapshot.
-    users: new LRUCache({ max: 100,  ttl: 20 * 60 * 1000 }),   // 150→100, 30dk→20dk TTL
-    groups: new LRUCache({ max: 40, ttl: 60 * 60 * 1000 }),     // 50→40, 2h→1h TTL
+    users: new LRUCache({ max: 60,  ttl: 15 * 60 * 1000 }),   // 100→60, 20dk→15dk TTL
+    groups: new LRUCache({ max: 30, ttl: 30 * 60 * 1000 }),    // 40→30, 1h→30dk TTL
     allGroupsCache: null,
     allGroupsLastFetch: 0,
     errors: 0,
@@ -37,8 +37,8 @@ const state = {
   /** Cached parsed SUDO_MAP (Set for O(1) matching) */
   sudoSet: new Set(),
 
-  /** LRU cache for LID -> PN resolutions — 24/7 OPT: daha sıkı */
-  lidCache: new LRUCache({ max: 100, ttl: 60 * 60 * 1000 }), // 150→100, 2h→1h
+  /** LRU cache for LID -> PN resolutions — Cloud Run OPT */
+  lidCache: new LRUCache({ max: 60, ttl: 60 * 60 * 1000 }), // 100→60, aynı TTL
 
   /** Batch for command performance metrics — plain Map prevents data loss from LRU eviction before flush */
   commandStatsBatch: new Map(),

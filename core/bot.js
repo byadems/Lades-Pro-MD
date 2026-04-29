@@ -30,9 +30,9 @@ const AUTO_STATUS_REFRESH_MS = 2 * 60 * 1000; // 2 dakikada bir DB'den yenile
 async function _refreshAutoStatusState() {
   try {
     const enabled = await BotVariable.get("AUTO_STATUS_ENABLED", "false");
-    const react   = await BotVariable.get("AUTO_STATUS_REACT",    "false");
+    const react = await BotVariable.get("AUTO_STATUS_REACT", "false");
     _autoStatus.enabled = enabled === "true";
-    _autoStatus.react   = react   === "true";
+    _autoStatus.react = react === "true";
     _autoStatus.lastRefresh = Date.now();
   } catch { /* DB bağlantısı yoksa mevcut durumu koru */ }
 }
@@ -67,14 +67,14 @@ let _queue = null;
 let _queueReady = false;
 let _firstConnectDone = false; // loadPlugins + startSchedulers sadece 1 kez çalışsın
 
-// ─── 24/7 ULTRA PERFORMANS PQueue AYARLARI ────────────────────────────────
-// concurrency: 30  — 40→30: Eşzamanlı görev sayısı azaltıldı → her görev
-//   daha az bellek baskısı altında çalışır. 300+ grupta 30 eşzamanlı slot
-//   yeterli; tıkanma olursa backpressure devreye girer.
-// intervalCap: 60  — 100→60: Saniyede max 60 mesaj işle.
-//   WhatsApp rate-limit'e daha az maruz kalınır.
+// ─── Cloud Run 0.2 vCPU / 512MB PQueue AYARLARI ──────────────────────────
+// concurrency: 20  — 30→20: 0.2 vCPU'da 30 eşzamanlı slot event loop'u
+//   doyurur. 20 slot daha az bellek basıncı altında çalışır.
+//   Tıkanma olursa backpressure devreye girer.
+// intervalCap: 40  — 60→40: Saniyede max 40 mesaj işle.
+//   WhatsApp rate-limit'e daha az maruz kalınır + CPU %33 azalır.
 // throwOnTimeout: false — Timeout'ta hata fırlatma, sessizce geç.
-const PQUEUE_OPTS = { concurrency: 30, intervalCap: 60, interval: 1000, throwOnTimeout: false };
+const PQUEUE_OPTS = { concurrency: 20, intervalCap: 40, interval: 1000, throwOnTimeout: false };
 
 // Pre-warm: Bot başlar başlamaz queue'yu hazırla
 import('p-queue').then(({ default: PQueue }) => {
@@ -162,19 +162,19 @@ async function createBot(sessionId = "lades-session", options = {}) {
   let selfTestRan = false;
   let pairCodeRequested = false;
   // Load Baileys library dynamically (ESM)
-  const { 
-    default: makeWASocket, 
-    DisconnectReason, 
-    fetchLatestBaileysVersion, 
-    makeCacheableSignalKeyStore, 
-    Browsers, 
-    proto 
+  const {
+    default: makeWASocket,
+    DisconnectReason,
+    fetchLatestBaileysVersion,
+    makeCacheableSignalKeyStore,
+    Browsers,
+    proto
   } = await loadBaileys();
 
   // --- SESSION MIGRATION & HEALTH CHECK ---
   const sessionsDir = path.join(__dirname, "..", "sessions", sessionId);
   const credsFile = path.join(sessionsDir, "creds.json");
-  
+
   // 1. Migration: If file exists but DB is empty, migrate to DB
   const MIGRATION_FLAG = path.join(sessionsDir, ".migrated");
   const credsExists = await fsp.access(credsFile).then(() => true).catch(() => false);
@@ -183,7 +183,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
   if (credsExists && !flagExists) {
     try {
       let shouldMove = false;
-      
+
       await sequelize.transaction(async (t) => {
         // Use lock to prevent concurrent migrations during multi-instance boot
         const existingInDb = await WhatsappOturum.findByPk(sessionId, { transaction: t, lock: true });
@@ -191,9 +191,9 @@ async function createBot(sessionId = "lades-session", options = {}) {
           logger.info(`Oturum senkronizasyonu: Yerel dosyadan veri tabanına aktarılıyor (${sessionId})...`);
           const data = await fsp.readFile(credsFile, 'utf-8');
           const creds = JSON.parse(data);
-          await WhatsappOturum.create({ 
-            sessionId, 
-            sessionData: JSON.stringify({ creds, keys: {} }) 
+          await WhatsappOturum.create({
+            sessionId,
+            sessionData: JSON.stringify({ creds, keys: {} })
           }, { transaction: t });
           shouldMove = true;
         }
@@ -212,14 +212,14 @@ async function createBot(sessionId = "lades-session", options = {}) {
   }
 
   const { state, saveCreds, clearState, clearSessions } = await getAuthState(config, sessionId);
-  
+
   // SESSION VALIDATION: Sadece 'me' (bağlı telefon) varlığını kontrol et.
   // signedPreKey gibi kriptografik alanları zorunlu kılmıyoruz — deploy sonrası
   // DB'den yüklenen session'da bu alanlar geçici olarak eksik gelebilir ve
   // Baileys bunları handshake sırasında kendisi yeniler.
   // KURAL: Eğer 'me' yoksa (hiç giriş yapılmamış), o zaman QR/pair code iste.
   const hasValidSession = !!(state.creds && state.creds.me);
-    
+
   if (!hasValidSession) {
     logger.info(`[${sessionId}] Kayıtlı oturum bulunamadı. Dashboard üzerinden giriş yapılması bekleniyor...`);
     const fakeSock = createFakeSocket(sessionId);
@@ -307,14 +307,14 @@ async function createBot(sessionId = "lades-session", options = {}) {
       const raw = chunk.toString();
       try {
         const logData = JSON.parse(raw);
-        
+
         // Event buffer ve receipt log'larını bastır (spam önleme)
         const logMsg = JSON.stringify(logData);
-        if (logMsg.includes('Event buffer') || 
-            logMsg.includes('Flushing') || 
-            logMsg.includes('sending receipt') ||
-            logMsg.includes('communication recv') ||
-            logMsg.includes('sent ack')) {
+        if (logMsg.includes('Event buffer') ||
+          logMsg.includes('Flushing') ||
+          logMsg.includes('sending receipt') ||
+          logMsg.includes('communication recv') ||
+          logMsg.includes('sent ack')) {
           return;
         }
 
@@ -335,25 +335,25 @@ async function createBot(sessionId = "lades-session", options = {}) {
         const isBoom428 =
           logData.error?.isBoom === true &&
           (logData.error?.output?.statusCode === 428 ||
-           logData.error?.output?.payload?.statusCode === 428);
+            logData.error?.output?.payload?.statusCode === 428);
 
         const isTraceConnError =
           typeof logData.trace === 'string' &&
           (logData.trace.includes('ECONNRESET') || logData.trace.includes('Connection Closed')) &&
           (logData.trace.includes('sendRawMessage') || logData.trace.includes('sendNode') ||
-           logData.trace.includes('sendMessageAck') || logData.trace.includes('processNodeWithBuffer') ||
-           (logData.key?.fromMe === true));
+            logData.trace.includes('sendMessageAck') || logData.trace.includes('processNodeWithBuffer') ||
+            (logData.key?.fromMe === true));
 
         const isClosedSocketAckError =
           isBoom428 ||
           isTraceConnError ||
           (logData.err?.message === 'Connection Closed' &&
-          (logMsg.includes('handling receipt') ||
-           logMsg.includes('handling notification') ||
-           logMsg.includes('handling message') ||
-           logMsg.includes('processNodeWithBuffer') ||
-           logMsg.includes('sendMessageAck') ||
-           logMsg.includes('sendRawMessage')));
+            (logMsg.includes('handling receipt') ||
+              logMsg.includes('handling notification') ||
+              logMsg.includes('handling message') ||
+              logMsg.includes('processNodeWithBuffer') ||
+              logMsg.includes('sendMessageAck') ||
+              logMsg.includes('sendRawMessage')));
 
         if (isClosedSocketAckError) {
           const now = Date.now();
@@ -374,29 +374,29 @@ async function createBot(sessionId = "lades-session", options = {}) {
           // SIKIŞMA TESPİTİ: 30s pencerede 200+ hata = eski buffer event loop'u tıkıyor
           // Reserved VM otomatik kalkar — temiz başlangıç garantili.
           if (_ccErrorWindow.length >= CC_BURST_THRESHOLD) {
-            logger.error(`[KRİTİK] Eski soket ACK seli (${_ccErrorWindow.length}/${Math.round(CC_BURST_WINDOW_MS/1000)}s) — event loop tıkalı. Süreç temiz yeniden başlatılıyor...`);
+            logger.error(`[KRİTİK] Eski soket ACK seli (${_ccErrorWindow.length}/${Math.round(CC_BURST_WINDOW_MS / 1000)}s) — event loop tıkalı. Süreç temiz yeniden başlatılıyor...`);
             _ccErrorWindow = []; // tekrar tetiklemeyi engelle
             // Zaman ver ki son loglar yazılsın, sonra süreç kapansın
             setTimeout(() => {
               try {
                 if (process.send) process.send({ type: 'bot_status', data: { connected: false, error: 'ACK seli — yeniden başlatma' } });
-              } catch {}
+              } catch { }
               process.exit(1);
             }, 500);
           }
           return; // Sessizce yut
         }
-        
+
         // Şifre çözme veya oturum hatalarını yakala
-        const isDecryptionError = 
-           logData.err?.type === 'MessageCounterError' || 
-           logData.err?.type === 'SessionError' ||
-           (logData.msg && logData.msg.includes('failed to decrypt')) ||
-           (logData.err?.message && (
-             logData.err.message.includes('No session') ||
-             logData.err.message.includes('known session') ||
-             logData.err.message.includes('decrypt')
-           ));
+        const isDecryptionError =
+          logData.err?.type === 'MessageCounterError' ||
+          logData.err?.type === 'SessionError' ||
+          (logData.msg && logData.msg.includes('failed to decrypt')) ||
+          (logData.err?.message && (
+            logData.err.message.includes('No session') ||
+            logData.err.message.includes('known session') ||
+            logData.err.message.includes('decrypt')
+          ));
 
         if (isDecryptionError) {
           const now = Date.now();
@@ -423,17 +423,17 @@ async function createBot(sessionId = "lades-session", options = {}) {
             }, 300);
           }
           */
-          
+
           // UYARI EKRANINI KİRLETMEMEK İÇİN BU LOGU SESSİZCE YUT
-          return; 
+          return;
         }
 
         // ZOMBIE SOKET KORUMASI: Uzun süreli çalışmada soketin donup kalmasını (keep-alive hatası vs) engeller
-        const isDeadSocket = 
-          logData.msg === 'error in sending keep alive' || 
+        const isDeadSocket =
+          logData.msg === 'error in sending keep alive' ||
           logData.msg === 'socket connection timeout' ||
           (logData.err && logData.err.message === 'Timed Out');
-          
+
         if (isDeadSocket) {
           // Soket zaten kapanıyor/kapalıysa (readyState !== 1) Baileys kendi reconnect'ini
           // hallediyordur. gracefulClose çağırmak çift reconnect döngüsüne neden olur.
@@ -455,7 +455,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
         // Lades-Pro'nun diğer gereksiz Baileys loglarını engelleme (konsol spam engeli)
         const strLog = JSON.stringify(logData);
         if (strLog.includes("signalstore") || strLog.includes("libsignal") || strLog.includes("SessionEntry")) {
-           return;
+          return;
         }
 
         // ── Katman 5: Pre-key sağlık izleme ──
@@ -484,7 +484,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
 
   // Özel pino instance'ını stream ile oluştur
   const pino = require('pino');
-  const baileysLogger = pino({ 
+  const baileysLogger = pino({
     level: config.DEBUG ? "debug" : "warn",
     name: "baileys"
   }, baileysLogDestination);
@@ -515,10 +515,10 @@ async function createBot(sessionId = "lades-session", options = {}) {
       creds: state.creds,
       // Baileys 'useMultiFileAuthState' ve 'useDbAuthState' zaten state.keys'i cache ile sarmalar.
       // Çift önbellekleme (double-cache) durumunu ve bellek sızıntısını önlemek için direkt kullanıyoruz:
-      keys: state.keys, 
+      keys: state.keys,
     },
-    msgRetryCounterCache: createNodeCacheAdapter(80, 5 * 60 * 1000),  // 100→80: Retry sayacı, bellek tasarrufu
-    userDevicesCache: createNodeCacheAdapter(80, 5 * 60 * 1000),      // 100→80: Cihaz cache, bellek tasarrufu
+    msgRetryCounterCache: createNodeCacheAdapter(50, 5 * 60 * 1000),  // 80→50: Retry sayacı, bellek tasarrufu
+    userDevicesCache: createNodeCacheAdapter(50, 5 * 60 * 1000),      // 80→50: Cihaz cache, bellek tasarrufu
     cachedGroupMetadata, // ← Store ile birleşik cache: rate-overlimit'i önler
     // macOS/Safari: WhatsApp'ın multi-device korelasyon algoritmasının
     // istatistiksel olarak en az "şüpheli" gördüğü kombinasyon. Hermit-bot
@@ -590,7 +590,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
   sock.sendMessage = async (jid, content, options) => {
     if (content && content.audio && content.ptt) {
       const mime = content.mimetype || '';
-      
+
       // Eğer PTT ise ancak doğru kodek değilse dönüştürmemiz gerekir
       if (!mime.includes('ogg') && !mime.includes('opus')) {
         let audioBuf = null;
@@ -637,14 +637,14 @@ async function createBot(sessionId = "lades-session", options = {}) {
     }
     const { generateWAMessageFromContent, prepareWAMessageMedia, proto } = _baileysCache;
     const albumMedias = [];
-    
+
     for (const media of medias) {
       try {
         const type = media.image ? "imageMessage" : "videoMessage";
         const content = media.image || media.video;
-        
+
         let mediaPayload;
-        
+
         if (content.url) {
           // If it's a URL (local path or http), pass it directly so Baileys can use it for ffmpeg
           mediaPayload = { url: content.url };
@@ -660,15 +660,15 @@ async function createBot(sessionId = "lades-session", options = {}) {
         const prepared = await prepareWAMessageMedia({
           [media.image ? "image" : "video"]: mediaPayload
         }, { upload: sock.waUploadToServer });
-        
+
         const msg = prepared[type];
         if (media.caption) msg.caption = media.caption;
-        
+
         // Add mimetype if missing (required for correct rendering in album)
         if (!msg.mimetype) {
           msg.mimetype = media.image ? "image/jpeg" : "video/mp4";
         }
-        
+
         albumMedias.push({ type, msg });
       } catch (err) {
         logger.error({ err: err.message }, "Albüm medya hazırlama hatası");
@@ -695,7 +695,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
     // Send each media as a child of the AlbumMessage
     for (let i = 0; i < albumMedias.length; i++) {
       const { type, msg } = albumMedias[i];
-      
+
       const childContent = {
         [type]: msg,
         messageContextInfo: {
@@ -710,7 +710,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
       };
 
       const individualMsg = await generateWAMessageFromContent(jid, childContent, { quoted: options.quoted || options });
-      
+
       await sock.relayMessage(jid, individualMsg.message, { messageId: individualMsg.key.id });
       await new Promise(r => setTimeout(r, 200)); // Small delay to maintain order
     }
@@ -743,7 +743,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
       if (options.manager) {
         options.manager.emit("qr", { sessionId, qr });
       }
-      
+
       // If pair code is enabled and not yet requested
       if (options.phoneNumber && !pairCodeRequested) {
         pairCodeRequested = true;
@@ -767,17 +767,17 @@ async function createBot(sessionId = "lades-session", options = {}) {
       pairCodeRequested = false;
       logger.info(`✅ Bot bağlandı! JID: ${sock.user?.id}`);
       if (process.send) process.send({ type: 'bot_status', data: { connected: true, phone: sock.user.id } });
-      
+
       // MIGRATION: Convert SUDO numbers to LIDs (Lades-Pro style)
       try {
         await migrateSudoToLID(sock);
       } catch (e) {
         logger.warn({ err: e.message }, "SUDO'dan LID'e geçiş başarısız");
       }
-      
+
       // Force "Online" state on connect to update Last Seen
-      await sock.sendPresenceUpdate('available').catch(() => {});
-      
+      await sock.sendPresenceUpdate('available').catch(() => { });
+
       startTempCleanup();
 
       // ── PLANLI MESAJ GÖNDERİCİSİ ────────────────────────────
@@ -797,18 +797,18 @@ async function createBot(sessionId = "lades-session", options = {}) {
                 delete msgData._mediaType;
 
                 const toBuffer = (b64) => Buffer.isBuffer(b64) ? b64 : Buffer.from(b64, 'base64');
-                if (msgData.image)    msgData.image    = toBuffer(msgData.image);
-                if (msgData.video)    msgData.video    = toBuffer(msgData.video);
-                if (msgData.audio)    msgData.audio    = toBuffer(msgData.audio);
+                if (msgData.image) msgData.image = toBuffer(msgData.image);
+                if (msgData.video) msgData.video = toBuffer(msgData.video);
+                if (msgData.audio) msgData.audio = toBuffer(msgData.audio);
                 if (msgData.document) msgData.document = toBuffer(msgData.document);
-                if (msgData.sticker)  msgData.sticker  = toBuffer(msgData.sticker);
+                if (msgData.sticker) msgData.sticker = toBuffer(msgData.sticker);
 
                 await sock.sendMessage(item.jid, msgData);
                 logger.info(`[Planlı] Mesaj gönderildi → ${item.jid}`);
               } catch (e) {
                 logger.error({ err: e.message, jid: item.jid }, '[Planlı] Mesaj gönderilemedi');
               } finally {
-                await scheduledMessages.markAsSent(item.id).catch(() => {});
+                await scheduledMessages.markAsSent(item.id).catch(() => { });
               }
             }
           } catch (e) {
@@ -834,8 +834,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
               if (item.time === currentTime) {
                 try {
                   await sock.groupSettingUpdate(item.chat, "announcement");
-                  await sock.sendMessage(item.chat, { 
-                    text: `🔒 *Otomatik Grup Kapatma*\n\n⏰ Saat: \`${now.format("HH:mm")}\`\nℹ️ _Sohbet otomatik olarak kapatıldı._` 
+                  await sock.sendMessage(item.chat, {
+                    text: `🔒 *Otomatik Grup Kapatma*\n\n⏰ Saat: \`${now.format("HH:mm")}\`\nℹ️ _Sohbet otomatik olarak kapatıldı._`
                   });
                   logger.info(`[Otomasyon] Grup susturuldu: ${item.chat}`);
                 } catch (e) {
@@ -850,8 +850,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
               if (item.time === currentTime) {
                 try {
                   await sock.groupSettingUpdate(item.chat, "not_announcement");
-                  await sock.sendMessage(item.chat, { 
-                    text: `🔓 *Otomatik Grup Açma*\n\n⏰ Saat: \`${now.format("HH:mm")}\`\nℹ️ _Sohbet otomatik olarak açıldı. Keyifli sohbetler!_` 
+                  await sock.sendMessage(item.chat, {
+                    text: `🔓 *Otomatik Grup Açma*\n\n⏰ Saat: \`${now.format("HH:mm")}\`\nℹ️ _Sohbet otomatik olarak açıldı. Keyifli sohbetler!_`
                   });
                   logger.info(`[Otomasyon] Grup açıldı: ${item.chat}`);
                 } catch (e) {
@@ -914,8 +914,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
       // sonra yeniden oluştur. Bu sayede her reconnect'te biriken
       // interval'lar önlenir.
       if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
-      if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
-      if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
+      if (_ntpTimer) { clearInterval(_ntpTimer); _ntpTimer = null; }
+      if (_proactiveTimer) { clearInterval(_proactiveTimer); _proactiveTimer = null; }
 
       // 1) Periyodik presence güncellemesi (her 5 dakikada bir)
       // 24/7 OPT: 4dk→5dk: WA sorgu sayısı %20 azalır, bağlantı daha sessiz kalır
@@ -951,7 +951,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
         const timeSinceLastActivity = Date.now() - lastActivity;
 
         if (timeSinceLastActivity > INACTIVITY_TIMEOUT && sock.ws.readyState === 1) {
-          logger.warn(`[Watchdog] ${Math.round(timeSinceLastActivity/60000)} dk inaktif. Yeniden bağlanılıyor...`);
+          logger.warn(`[Watchdog] ${Math.round(timeSinceLastActivity / 60000)} dk inaktif. Yeniden bağlanılıyor...`);
           if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
           if (_ntpTimer) { clearInterval(_ntpTimer); _ntpTimer = null; }
           if (_proactiveTimer) { clearInterval(_proactiveTimer); _proactiveTimer = null; }
@@ -996,7 +996,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
                 logger.error(`[Zombie] Deneme ${zombieRecoveryCount}: clearSessions sonrası hâlâ zombie! Süreç temiz yeniden başlatılıyor...`);
                 try {
                   if (process.send) process.send({ type: 'bot_status', data: { connected: false, error: 'Zombie soket — yeniden başlatma' } });
-                } catch {}
+                } catch { }
                 setTimeout(() => process.exit(1), 500);
               }
             }
@@ -1007,7 +1007,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
       // 2) Saat kayması izleyicisi — 24/7 OPT: 3 saatte bir (60dk→180dk)
       //    timeout 3s'e düşürüldü (event-loop blokajını azaltır)
       //    Saatte 1 HTTP sorgusu yerine 3 saatte 1: CPU + ağ tasarrufu
-      const NTP_CHECK_INTERVAL_MS  = 3 * 60 * 60 * 1000; // 180 dakika
+      const NTP_CHECK_INTERVAL_MS = 3 * 60 * 60 * 1000; // 180 dakika
       // 24/7 OPT: Proaktif reconnect 12 saatte bir (6h→12h)
       // Günde 4 reconnect yerine 2: Mesaj kaybı penceresi %50 azalır
       const PROACTIVE_RECONNECT_MS = 12 * 60 * 60 * 1000;
@@ -1019,8 +1019,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
           if (hasDrift) {
             logger.warn('[NTP] Saat kayması kritik. Graceful reconnect başlatılıyor...');
             if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
-            if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
-            if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
+            if (_ntpTimer) { clearInterval(_ntpTimer); _ntpTimer = null; }
+            if (_proactiveTimer) { clearInterval(_proactiveTimer); _proactiveTimer = null; }
             gracefulClose("NTP Time Drift");
           }
         } catch {
@@ -1032,8 +1032,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
         if (!sock.user) return;
         logger.info('[Proaktif] 12 saatlik oturum yenileme...');
         if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
-        if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
-        if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
+        if (_ntpTimer) { clearInterval(_ntpTimer); _ntpTimer = null; }
+        if (_proactiveTimer) { clearInterval(_proactiveTimer); _proactiveTimer = null; }
         gracefulClose("Proactive 12h reconnect");
       }, PROACTIVE_RECONNECT_MS);
 
@@ -1055,8 +1055,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
             logger.error(`[KeyHealth] ⚠️  Signal key'ler DB'den SİLİNMİŞ (${keyCount})! Zombie önlemi: clearState → yeniden eşleştirme.`);
             clearInterval(keyHealthInterval);
             if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
-            if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
-            if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
+            if (_ntpTimer) { clearInterval(_ntpTimer); _ntpTimer = null; }
+            if (_proactiveTimer) { clearInterval(_proactiveTimer); _proactiveTimer = null; }
             try { if (clearState) await clearState(); } catch { }
             try { sock.end(new Error('key-health-zero')); } catch { }
           } else if (keyCount < 5) {
@@ -1080,8 +1080,8 @@ async function createBot(sessionId = "lades-session", options = {}) {
     if (connection === "close") {
       // Timer Leak: bağlantı kesilince tüm interval'ları temizle
       if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
-      if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
-      if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
+      if (_ntpTimer) { clearInterval(_ntpTimer); _ntpTimer = null; }
+      if (_proactiveTimer) { clearInterval(_proactiveTimer); _proactiveTimer = null; }
       stopTempCleanup();
       // Bağlantı kapanınca bekleyen mesaj işlemleri temizle (bellek aşımı engellenir)
       if (_queue) { try { _queue.clear(); } catch { } }
@@ -1152,21 +1152,21 @@ async function createBot(sessionId = "lades-session", options = {}) {
         logger.info(`${delay}ms içinde yeniden bağlanılıyor (Deneme ${reconnectCount})...`);
 
         if (reconnectCount > 15) {
-            logger.error("Maksimum yeniden bağlanma denemesine ulaşıldı. Oturum duraklatılıyor.");
-            if (process.send) process.send({ type: 'bot_status', data: { connected: false, error: 'Maksimum yeniden bağlanma denemesi aşıldı.' } });
-            if (options.manager) {
-              options.manager.suspend(sessionId);
-              options.manager.removeSession(sessionId, false);
-            }
-            return;
+          logger.error("Maksimum yeniden bağlanma denemesine ulaşıldı. Oturum duraklatılıyor.");
+          if (process.send) process.send({ type: 'bot_status', data: { connected: false, error: 'Maksimum yeniden bağlanma denemesi aşıldı.' } });
+          if (options.manager) {
+            options.manager.suspend(sessionId);
+            options.manager.removeSession(sessionId, false);
+          }
+          return;
         }
 
         // ── ANINDA SONLANDIR (RECONNECT GECİKMESİ ÖNCESİ) ──────────────────────
         // Reconnect gecikmesi (3s/backoff) boyunca eski soketin ACK seli event loop'u
         // tıkayarak yeni socket kurulumunu engeller. Eski soketi HEMEN işaretleyip
         // WebSocket bağlantısını HEMEN kes — gecikmeyi beklemeden.
-        try { sock.__discarded = true; } catch {}
-        try { sock.ev.removeAllListeners(); } catch {}
+        try { sock.__discarded = true; } catch { }
+        try { sock.ev.removeAllListeners(); } catch { }
         try {
           if (sock?.ws && sock.ws.readyState !== 3 /* CLOSED */) {
             if (typeof sock.ws.terminate === 'function') {
@@ -1175,7 +1175,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
               sock.ws.close();
             }
           }
-        } catch {}
+        } catch { }
         // ── ANINDA SONLANDIR SONU ────────────────────────────────────────────────
 
         setTimeout(async () => {
@@ -1191,7 +1191,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
           }
         }, delay);
       } else if (statusCode === DisconnectReason.connectionReplaced ||
-                 statusCode === DisconnectReason.forbidden) {
+        statusCode === DisconnectReason.forbidden) {
         // Kalıcı hata → suspend, dashboard'a haber ver, yeniden bağlanma DENEME
         try { sock.ev.removeAllListeners(); } catch { }
         try { if (sock?.ws?.readyState !== 3) sock.ws.close(); } catch { }
@@ -1207,7 +1207,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
         // Manual dashboard stop/logout - still clear state if it's a full logout
         if (sock.__intentionalLogout) {
           logger.info("Oturum manuel olarak kapatıldı. Veriler temizleniyor...");
-          await clearState().catch(() => {});
+          await clearState().catch(() => { });
           return;
         }
 
@@ -1221,7 +1221,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
             fs.unlinkSync(credsFile);
             logger.info("Geçersiz creds.json silindi.");
           }
-          
+
           // NEW: Trigger a fresh connection attempt to get the QR code
           // BUT: Only if NOT suspended (dashboard should handle it otherwise)
           if (options.manager && options.manager.isSuspended(sessionId)) {
@@ -1243,7 +1243,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
         } catch (e) {
           logger.warn({ err: e.message }, "Oturum verileri temizlenemedi");
         }
-        
+
         if (process.send) process.send({ type: 'bot_status', data: { connected: false } });
         return;
       }
@@ -1265,10 +1265,11 @@ async function createBot(sessionId = "lades-session", options = {}) {
   // Daha az eski mesaj işlenir → kuyruk daha az dolar → daha hızlı yanıt
   const MSG_AGE_LIMIT_SEC = 15 * 60;
 
-  // 24/7 OPT: Handler timeout 90 saniye (2dk→90s)
-  // Hung komut daha hızlı temizlenir → kuyruk slotları daha çabuk boşalır.
-  // Medya indirme komutları kendi internal timeout'larını kullanır (60s).
-  const HANDLER_TIMEOUT_MS = 90 * 1000;
+  // 24/7 OPT: Handler timeout 3 dakika (90s→180s)
+  // 90s çok kısaydı: medya indirme, ses analizi, üyetemizle gibi ağır komutlar
+  // 90s içinde tamamlanamıyordu ve kullanıcıya hatalı "timeout" mesajı gidiyordu.
+  // 180s: Tüm komutların tamamlanması için yeterli, gerçek hung komutları yakalar.
+  const HANDLER_TIMEOUT_MS = 300 * 1000;
 
   // Komut ön ekleri (HANDLERS) — log filtreleme ve hata bildirimi için.
   const _handlersList = String(config.HANDLERS || ".").split("");
@@ -1285,12 +1286,12 @@ async function createBot(sessionId = "lades-session", options = {}) {
   // çevirir — yoksa kullanıcı sonsuza kadar ⏳ görür.
   const _safeNotifyError = async (jid, msgKey, errLabel) => {
     // 1) ⏳ → ❌ tepki güncellemesi (fire-and-forget)
-    sock.sendMessage(jid, { react: { text: "❌", key: msgKey } }).catch(() => {});
+    sock.sendMessage(jid, { react: { text: "❌", key: msgKey } }).catch(() => { });
     // 2) Açıklayıcı metin cevabı
     try {
       await sock.sendMessage(jid, {
         text: `⚠️ *Komut işlenemedi:* ${errLabel}\n_Lütfen birkaç saniye sonra tekrar deneyin._`,
-      }).catch(() => {});
+      }).catch(() => { });
     } catch { /* yut */ }
   };
 
@@ -1321,12 +1322,12 @@ async function createBot(sessionId = "lades-session", options = {}) {
         try {
           const autoSt = await getAutoStatusState();
           if (autoSt.enabled) {
-            await sock.readMessages([msg.key]).catch(() => {});
+            await sock.readMessages([msg.key]).catch(() => { });
             if (autoSt.react) {
               // WhatsApp durum reaksiyonu: kalp emojisi
               await sock.sendMessage("status@broadcast", {
                 react: { text: "💚", key: msg.key }
-              }).catch(() => {});
+              }).catch(() => { });
             }
           }
         } catch (e) {
@@ -1349,7 +1350,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
       try {
         const autoRd = await getAutoReadState();
         if (autoRd.enabled && type === "notify" && !msg.key?.fromMe) {
-          sock.readMessages([msg.key]).catch(() => {});
+          sock.readMessages([msg.key]).catch(() => { });
         }
       } catch (e) {
         logger.debug({ err: e?.message }, "[OtoGörüldü] Okundu işaretleme hatası");
@@ -1377,7 +1378,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
         if (q.size >= MAX_QUEUE_SIZE) {
           logger.warn(`[Queue] Kuyruk dolu (${q.size}/${MAX_QUEUE_SIZE}). Mesaj düşürüldü: ${jid}`);
           if (isCmd && !msg.key.fromMe) {
-            _safeNotifyError(jid, msg.key, "Bot şu an çok yoğun (kuyruk dolu)").catch(() => {});
+            _safeNotifyError(jid, msg.key, "Bot şu an çok yoğun (kuyruk dolu)").catch(() => { });
           }
           continue;
         }
@@ -1416,7 +1417,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
             }
 
             // Tek bir komut hung olsa bile queue slot'u sonsuza dek dolu kalmasın.
-            // 5 dakikayı aşan handler'a TimeoutError fırlat → catch'e düşer →
+            // Timeout'u aşan handler'a TimeoutError fırlat → catch'e düşer →
             // kullanıcıya geri bildirim gönderilir.
             let timeoutHandle;
             const timeoutPromise = new Promise((_, rej) => {
@@ -1452,10 +1453,11 @@ async function createBot(sessionId = "lades-session", options = {}) {
             // Komut mesajıysa kullanıcıya görünür geri bildirim ver
             // (sessiz başarısızlığı kırar)
             if (cmdPreview && !msgCopy.key.fromMe) {
+              const timeoutSec = Math.round(HANDLER_TIMEOUT_MS / 1000);
               const label = isTimeout
-                ? "İşlem 5 dakikayı aştı"
+                ? `İşlem ${timeoutSec} saniyeyi aştı`
                 : `Beklenmeyen hata (${errMsg.slice(0, 80)})`;
-              _safeNotifyError(jidCopy, msgCopy.key, label).catch(() => {});
+              _safeNotifyError(jidCopy, msgCopy.key, label).catch(() => { });
             }
           }
         });
@@ -1465,7 +1467,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
         handleMessage(sock, msg).catch((e) => {
           logger.error({ err: e?.message }, "[bot] Fallback handleMessage hatası");
           if (isCmd && !msg.key.fromMe) {
-            _safeNotifyError(jid, msg.key, "Mesaj kuyruğu hatası").catch(() => {});
+            _safeNotifyError(jid, msg.key, "Mesaj kuyruğu hatası").catch(() => { });
           }
         });
       }
@@ -1513,7 +1515,7 @@ async function createBot(sessionId = "lades-session", options = {}) {
         const callerNumber = call.from.split("@")[0];
         const allowedRaw = liveConfig.ALLOWED_CALLS || "";
         const allowedNumbers = allowedRaw ? allowedRaw.split(",").map(n => n.trim()).filter(Boolean) : [];
-        
+
         // Eğer arayan beyaz listedeyse reddetme
         if (allowedNumbers.includes(callerNumber)) continue;
 
@@ -1523,13 +1525,13 @@ async function createBot(sessionId = "lades-session", options = {}) {
         } catch (e) {
           logger.debug({ err: e.message }, "[Aramaengel] rejectCall hatası");
         }
-        
+
         // Eğer bir reddetme mesajı belirlenmişse arayana gönder
         const rejectMsg = liveConfig.CALL_REJECT_MESSAGE;
         if (rejectMsg && rejectMsg.trim() !== "") {
-          await sock.sendMessage(call.from, { 
-            text: rejectMsg.trim() 
-          }).catch(() => {});
+          await sock.sendMessage(call.from, {
+            text: rejectMsg.trim()
+          }).catch(() => { });
         }
       }
     }
@@ -1547,14 +1549,14 @@ module.exports = { createBot };
 function createFakeSocket(sessionId) {
   const { EventEmitter } = require('events');
   const ev = new EventEmitter();
-  
+
   return new Proxy(ev, {
     get(target, prop) {
       if (prop === 'ev') return ev;
       if (prop === 'user') return null;
       if (prop === '__isWaitingForLogin') return true;
       if (prop === 'ws') return { close: () => { }, readyState: 3 };
-      
+
       // Methods that must return promises to avoid 'await' crashes
       const asyncMethods = ['sendMessage', 'groupMetadata', 'profilePictureUrl', 'groupFetchAllParticipating'];
       if (asyncMethods.includes(prop)) {
@@ -1569,7 +1571,7 @@ function createFakeSocket(sessionId) {
       if (typeof prop === 'string') {
         logger.debug({ sessionId, prop }, `FakeSocket: ${prop} called but not active`);
       }
-      
+
       return typeof target[prop] === 'function' ? target[prop].bind(target) : target[prop];
     }
   });

@@ -11,11 +11,11 @@ const { logger } = require("../config");
 //  Daha büyük cache = daha az DB hit = daha düşük latency.
 //  Her cache entry ~200-500 byte; toplam ~120KB kullanım.
 // ─────────────────────────────────────────────────────────
-const groupCache  = new LRUCache({ max: 120, ttl: 5 * 60 * 1000 });    // 50→120: 300+ grupta %60→%96 cache hit oranı
-const userCache   = new LRUCache({ max: 80,  ttl: 5 * 60 * 1000 });    // 100→80: Aktif kullanıcılar yeterli
-const configCache = new LRUCache({ max: 30,  ttl: 30 * 60 * 1000 });   // TTL 15dk→30dk: Bot config nadiren değişir
-const filterCache = new LRUCache({ max: 80,  ttl: 5 * 60 * 1000 });    // 50→80: Filtre yoğun gruplarda hit oranı artar
-const adminCache  = new LRUCache({ max: 80,  ttl: 3 * 60 * 1000 });    // 50→80, 2dk→3dk: Admin listesi sık değişmez
+const groupCache  = new LRUCache({ max: 80,  ttl: 5 * 60 * 1000 });    // 120→80: 300 grupta en aktif 80 gruba odaklan, miss durumunda DB'ye git
+const userCache   = new LRUCache({ max: 60,  ttl: 5 * 60 * 1000 });    // 80→60: En aktif kullanıcılar yeterli
+const configCache = new LRUCache({ max: 30,  ttl: 30 * 60 * 1000 });   // Aynı kalıyor: Bot config nadiren değişir
+const filterCache = new LRUCache({ max: 60,  ttl: 5 * 60 * 1000 });    // 80→60: Filtre yoğun gruplarda yeterli
+const adminCache  = new LRUCache({ max: 60,  ttl: 3 * 60 * 1000 });    // 80→60: Admin listesi sık değişmez
 
 // ─────────────────────────────────────────────────────────
 //  Group settings helpers

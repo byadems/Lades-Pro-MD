@@ -1137,21 +1137,21 @@
       let memorySkipCount = 0;
       let results = [];
       const filteredLinks = [];
-      
+
       for (let link of links) {
         const codeMatch = link.match(
           /(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]+)/
         );
         if (!codeMatch || !codeMatch[1]) continue;
         const code = codeMatch[1];
-        
+
         try {
           const logEntry = await GrupKatilimLog.findOne({ where: { inviteCode: code } });
           if (logEntry) {
             memorySkipCount++;
             continue;
           }
-        } catch(e) { } // DB hatası olursa yine de listeye al
+        } catch (e) { } // DB hatası olursa yine de listeye al
 
         filteredLinks.push({ link, code });
       }
@@ -1172,22 +1172,22 @@
       for (let i = 0; i < filteredLinks.length; i++) {
         const { link, code } = filteredLinks[i];
         let groupName = null;
-        
+
         try {
           const inviteInfo = await message.client.groupGetInviteInfo(code);
           groupName = inviteInfo.subject || "Bilinmeyen Grup";
-        } catch(e) {
+        } catch (e) {
           // İptal edilmiş link veya fetch hatası
         }
 
         try {
           await message.client.groupAcceptInvite(code);
-          
+
           await GrupKatilimLog.create({
             inviteCode: code,
             groupName: groupName,
             status: "success"
-          }).catch(()=>{});
+          }).catch(() => { });
 
           successCount++;
           results.push(`✅ [${i + 1}] başarıyla girildi${groupName ? ` (${groupName})` : ''}`);
@@ -1198,7 +1198,7 @@
               groupName: groupName,
               status: "success",
               reason: "Zaten üyesiniz"
-            }).catch(()=>{});
+            }).catch(() => { });
 
             skipCount++;
             results.push(`♻ [${i + 1}] zaten üyesiniz${groupName ? ` (${groupName})` : ''}`);
@@ -1209,8 +1209,8 @@
               groupName: groupName,
               status: "failed",
               reason: reason
-            }).catch(()=>{});
-            
+            }).catch(() => { });
+
             failCount++;
             results.push(`❌ [${i + 1}] ${reason}${groupName ? ` (${groupName})` : ''}`);
           }
@@ -1440,13 +1440,13 @@
     // Sarmalayıcıları aç: ephemeral / viewOnce / documentWithCaption / edited
     const unwrap = (msg) => {
       if (!msg) return msg;
-      if (msg.ephemeralMessage?.message)            return unwrap(msg.ephemeralMessage.message);
-      if (msg.viewOnceMessage?.message)             return unwrap(msg.viewOnceMessage.message);
-      if (msg.viewOnceMessageV2?.message)           return unwrap(msg.viewOnceMessageV2.message);
-      if (msg.viewOnceMessageV2Extension?.message)  return unwrap(msg.viewOnceMessageV2Extension.message);
-      if (msg.documentWithCaptionMessage?.message)  return unwrap(msg.documentWithCaptionMessage.message);
-      if (msg.editedMessage?.message)               return unwrap(msg.editedMessage.message);
-      if (msg.protocolMessage?.editedMessage)       return unwrap(msg.protocolMessage.editedMessage);
+      if (msg.ephemeralMessage?.message) return unwrap(msg.ephemeralMessage.message);
+      if (msg.viewOnceMessage?.message) return unwrap(msg.viewOnceMessage.message);
+      if (msg.viewOnceMessageV2?.message) return unwrap(msg.viewOnceMessageV2.message);
+      if (msg.viewOnceMessageV2Extension?.message) return unwrap(msg.viewOnceMessageV2Extension.message);
+      if (msg.documentWithCaptionMessage?.message) return unwrap(msg.documentWithCaptionMessage.message);
+      if (msg.editedMessage?.message) return unwrap(msg.editedMessage.message);
+      if (msg.protocolMessage?.editedMessage) return unwrap(msg.protocolMessage.editedMessage);
       return msg;
     };
     const m = unwrap(channelMsg.message);
@@ -1458,11 +1458,11 @@
 
     // 2) Medya — indir + yeniden yükle (spam filtresini bypass eder)
     const mediaTypes = [
-      { key: "imageMessage",    type: "image",    out: "image",    keepCaption: true },
-      { key: "videoMessage",    type: "video",    out: "video",    keepCaption: true },
-      { key: "audioMessage",    type: "audio",    out: "audio",    keepCaption: false },
+      { key: "imageMessage", type: "image", out: "image", keepCaption: true },
+      { key: "videoMessage", type: "video", out: "video", keepCaption: true },
+      { key: "audioMessage", type: "audio", out: "audio", keepCaption: false },
       { key: "documentMessage", type: "document", out: "document", keepCaption: true },
-      { key: "stickerMessage",  type: "sticker",  out: "sticker",  keepCaption: false },
+      { key: "stickerMessage", type: "sticker", out: "sticker", keepCaption: false },
     ];
 
     // Newsletter (kanal) medyası ŞİFRESİZ yüklenir → mediaKey YOK.
@@ -1553,8 +1553,8 @@
 
     // 3) Bilinmeyen tip — metin alanı varsa onu kullan
     const fallbackText = m.imageMessage?.caption ||
-                         m.videoMessage?.caption ||
-                         m.documentMessage?.caption;
+      m.videoMessage?.caption ||
+      m.documentMessage?.caption;
     if (fallbackText) return { text: fallbackText };
     return null;
   };
@@ -1659,7 +1659,7 @@
           // ── YÖNTEM 2: Canlı sorgu — önce abone ol, sonra kısa timeout ile çek ─
           try {
             // Önce abone ol (daha güvenilir yanıt alınır)
-            await message.client.subscribeNewsletterUpdates(channelJid).catch(() => {});
+            await message.client.subscribeNewsletterUpdates(channelJid).catch(() => { });
 
             // 20 saniye timeout ile IQ sorgusu (varsayılan 60s'den çok daha kısa)
             const msgs = await Promise.race([
@@ -1703,7 +1703,7 @@
           } catch (err) {
             console.error("[Duyuru] Kanal mesajı çekilirken hata:", err?.message || err);
             const isTimeout = (err?.message || "").toLowerCase().includes("timed out") ||
-                              (err?.message || "").toLowerCase().includes("timeout");
+              (err?.message || "").toLowerCase().includes("timeout");
             if (isTimeout) {
               return await message.sendReply(
                 "⏱️ *WhatsApp kanal sorgusu zaman aşımına uğradı.*\n\n" +
@@ -1807,7 +1807,7 @@
           // Native "Kanal X'ten iletildi" + "Kanalı Görüntüle" görseli için attribution
           const kanalJid = config.CHANNEL_JID || reconstructedMsg.key?.remoteJid;
           const kanalAdi = (config.CHANNEL_NAME || "Kanal").trim();
-          const rawId    = reconstructedMsg.key?.id;
+          const rawId = reconstructedMsg.key?.id;
           const serverId = Number.parseInt(rawId, 10);
           if (kanalJid && Number.isFinite(serverId)) {
             kanalAttribution = {
@@ -3610,8 +3610,8 @@
 (function () {
   const { Module } = require("../main");
   const config = require("../config");
-  const { SUDO } = config;
   const { uploadToCatbox } = require('./utils/dosya_yukleme');
+  const { isAdmin } = require("./utils");
 
   const fs = require("fs");
   const path = require("path");
@@ -3619,28 +3619,53 @@
   const handler = config.HANDLER_PREFIX;
 
   const { setVar, delVar } = require('./yonetim_araclari');
+  const { BotVariable } = require('../core/database');
 
-  function getMentionReply() {
+  // ── Grup başına ayrı bahsetme yanıtı ──────────────────────────────────────
+  // Anahtar: MENTION_REPLY_<groupJid>   (ör. MENTION_REPLY_120363...@g.us)
+  // Fallback: Genel MENTION_REPLY (sahip tarafından ayarlanmış global mesaj)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  async function getMentionReply(jid) {
     try {
-      return config.MENTION_REPLY ? JSON.parse(config.MENTION_REPLY) : null;
+      // 1) Gruba özel ayar
+      if (jid) {
+        const groupKey = `MENTION_REPLY_${jid}`;
+        // in-memory cache'de var mı?
+        let raw = config[groupKey];
+        // yoksa DB'den çek
+        if (!raw) {
+          const row = await BotVariable.findByPk(groupKey);
+          if (row?.value) {
+            config[groupKey] = row.value; // bellekte önbelleğe al
+            raw = row.value;
+          }
+        }
+        if (raw) return JSON.parse(raw);
+      }
+      // 2) Global fallback (sahip tarafından ayarlanan varsayılan)
+      const globalRaw = config.MENTION_REPLY;
+      return globalRaw ? JSON.parse(globalRaw) : null;
     } catch (error) {
       console.error("Etiket yanıtı ayrıştırma hatası:", error);
       return null;
     }
   }
 
-  async function setMentionReply(data) {
+  async function setMentionReply(jid, data) {
     try {
-      return await setVar("MENTION_REPLY", JSON.stringify(data));
+      const key = jid ? `MENTION_REPLY_${jid}` : "MENTION_REPLY";
+      return await setVar(key, JSON.stringify(data));
     } catch (error) {
       console.error("Etiket yanıtı ayarlama hatası:", error);
       return false;
     }
   }
 
-  async function deleteMentionReply() {
+  async function deleteMentionReply(jid) {
     try {
-      return await delVar("MENTION_REPLY");
+      const key = jid ? `MENTION_REPLY_${jid}` : "MENTION_REPLY";
+      return await delVar(key);
     } catch (error) {
       console.error("Etiket yanıtı silme hatası:", error);
       return false;
@@ -3654,7 +3679,7 @@
     if (config.SUDO_MAP) {
       try {
         sudoMap = JSON.parse(config.SUDO_MAP);
-        if (!Array.isArray(sudoMap)) sudoMap = [];
+        if (!Array.isArray(sudoMap)) sudoMap = []
       } catch (e) {
         sudoMap = [];
       }
@@ -3666,52 +3691,70 @@
   Module({
     pattern: "bahsetme ?(.*)",
     fromMe: false,
-    desc: "Biri sizi etiketlediğinde botun vereceği otomatik yanıtı ayarlamanıza, görüntülemenize veya silmenize olanak tanır.",
-    use: "araçlar",
+    desc: "Grupta biri botu etiketlediğinde botun vereceği otomatik yanıtı ayarlar. Grup yöneticileri kendi grupları için özelleştirebilir.",
+    use: "grup",
     usage: ".bahsetme [mesaj/getir/sil/yardım]",
   },
     async (message, match) => {
+      // İzin kontrolü: Grup yöneticisi VEYA sahip/sudo
+      const adminOk = await isAdmin(message);
+      if (!message.fromOwner && !message.fromSudo && !adminOk) {
+        return await message.sendReply("🔒 *Bu komut yalnızca grup yöneticilerine aittir!*");
+      }
+
       const args = match[1]?.trim().split(" ");
       const subcommand = args?.[0]?.toLowerCase();
       const input = args?.slice(1).join(" ");
+      // Gruba özel JID: grup içinde group JID, DM'de null (global)
+      const targetJid = message.isGroup ? message.jid : null;
 
       if (!subcommand) {
-        return await message.sendReply(`⚠️ *Lütfen bir alt komut belirtin!*\n\n*Mevcut komutlar:*\n• \`${handler}bahsetme mesaj\` - _Bahsetme mesajını ayarla_\n• \`${handler}bahsetme getir\` - _Mevcut bahsetme mesajını görüntüle_\n• \`${handler}bahsetme sil\` - _Bahsetme mesajını sil_\n• \`${handler}bahsetme yardım\` - _Ayrıntılı yardımı göster_`
+        return await message.sendReply(
+          `⚠️ *Lütfen bir alt komut belirtin!*\n\n` +
+          `*Mevcut komutlar:*\n` +
+          `• \`${handler}bahsetme mesaj\` - _Bu grup için bahsetme mesajını ayarla_\n` +
+          `• \`${handler}bahsetme getir\` - _Mevcut bahsetme mesajını görüntüle_\n` +
+          `• \`${handler}bahsetme sil\` - _Bu grubun bahsetme mesajını sil_\n` +
+          `• \`${handler}bahsetme yardım\` - _Ayrıntılı yardımı göster_\n\n` +
+          `ℹ️ _Her grup kendi özel bahsetme mesajını ayarlayabilir._`
         );
       }
 
       switch (subcommand) {
-        case "sil":
-          const success = await deleteMentionReply();
+        case "sil": {
+          const success = await deleteMentionReply(targetJid);
           if (success) {
-            return await message.sendReply("✅ *Bahsetme mesajı başarıyla silindi!*");
+            return await message.sendReply(
+              targetJid
+                ? "✅ *Bu grubun bahsetme mesajı başarıyla silindi!*\n\nℹ️ _Artık bot bu grupta etiketlenince varsayılan (global) mesaj kullanılacak ya da hiç yanıt verilmeyecek._"
+                : "✅ *Global bahsetme mesajı başarıyla silindi!*"
+            );
           } else {
             return await message.sendReply("❌ *Bahsetme mesajı silinemedi!*");
           }
+        }
 
         case "getir":
-        case "göster":
-          const mentionData = getMentionReply();
+        case "göster": {
+          const mentionData = await getMentionReply(targetJid);
           if (!mentionData) {
-            return await message.sendReply("⚙️ *Bahsetme mesajı ayarlanmadı!*\n\n*Kullanım:*\n• _Bir mesajı yanıtlayıp_ *.bahsetme mesaj* _yazın_\n• _Veya metin mesajı için_ *.bahsetme mesaj <metin>* _kullanın_"
+            return await message.sendReply(
+              `⚙️ *${targetJid ? "Bu grup için" : "Global"} bahsetme mesajı ayarlanmamış!*\n\n` +
+              `*Kullanım:*\n• _Bir mesajı yanıtlayıp_ \`${handler}bahsetme mesaj\` _yazın_\n• _Veya metin mesajı için_ \`${handler}bahsetme mesaj <metin>\` _kullanın_`
             );
           }
 
-          let responseText = "*Mevcut Bahsetme Mesajı:*\n\n";
+          let responseText = `*${targetJid ? "Bu Grubun" : "Global"} Bahsetme Mesajı:*\n\n`;
           responseText += `*Tür:* \`${mentionData.type.toUpperCase()}\`\n`;
-          if (mentionData.caption) {
-            responseText += `*Başlık:* _${mentionData.caption}_\n`;
-          }
-          if (mentionData.url) {
-            responseText += `*Medya URL:* \`${mentionData.url}\`\n`;
-          }
-          responseText += `*Ayarlandı:* _${new Date(
-            mentionData.timestamp
-          ).toLocaleString("tr-TR")}_`;
+          if (mentionData.content) responseText += `*Mesaj:* _${mentionData.content}_\n`;
+          if (mentionData.caption) responseText += `*Başlık:* _${mentionData.caption}_\n`;
+          if (mentionData.url) responseText += `*Medya URL:* \`${mentionData.url}\`\n`;
+          responseText += `*Ayarlandı:* _${new Date(mentionData.timestamp).toLocaleString("tr-TR")}_`;
 
           return await message.sendReply(responseText);
+        }
 
-        case "mesaj":
+        case "mesaj": {
           if (message.reply_message) {
             try {
               const replyMsg = message.reply_message;
@@ -3737,38 +3780,37 @@
                 else if (replyMsg.sticker) mediaType = "sticker";
 
                 const downloadedFilePath = await replyMsg.download();
-
                 const uploadResult = await uploadToCatbox(downloadedFilePath);
 
-                fs.unlinkSync(downloadedFilePath);
+                try { fs.unlinkSync(downloadedFilePath); } catch (_) { }
 
                 if (uploadResult && uploadResult.url) {
                   mentionData.type = mediaType;
                   mentionData.url = uploadResult.url;
                   mentionData.caption = censorBadWords(replyMsg.text || "");
                 } else {
-                  return await message.sendReply("⚠️ *Medya yüklenemedi! Lütfen tekrar deneyin.*"
-                  );
+                  return await message.sendReply("⚠️ *Medya yüklenemedi! Lütfen tekrar deneyin.*");
                 }
               } else if (replyMsg.text) {
                 mentionData.type = "text";
                 mentionData.content = censorBadWords(replyMsg.text);
               } else {
-                return await message.sendReply("❌ *Bahsetme mesajı için desteklenmeyen mesaj türü!*"
-                );
+                return await message.sendReply("❌ *Bahsetme mesajı için desteklenmeyen mesaj türü!*");
               }
 
-              const success = await setMentionReply(mentionData);
+              const success = await setMentionReply(targetJid, mentionData);
               if (success) {
-                return await message.sendReply(`✅ *Bahsetme mesajı başarıyla ayarlandı!*\n\nℹ️ _Tür:_ *${mentionData.type.toUpperCase()}*\nℹ️ _Mesaj:_ *${mentionData.content || mentionData.caption || "Medya dosyası"}*`
+                return await message.sendReply(
+                  `✅ *${targetJid ? "Bu grubun" : "Global"} bahsetme mesajı başarıyla ayarlandı!*\n\n` +
+                  `ℹ️ _Tür:_ *${mentionData.type.toUpperCase()}*\n` +
+                  `ℹ️ _İçerik:_ *${mentionData.content || mentionData.caption || "Medya dosyası"}*`
                 );
               } else {
                 return await message.sendReply("⚙ Bahsetme mesajı ayarlanamadı!");
               }
             } catch (error) {
               console.error("Etiket yanıtı ayarlama hatası:", error);
-              return await message.sendReply("❌ *Bahsetme mesajı ayarlanırken bir hata oluştu! Lütfen tekrar deneyin.*"
-              );
+              return await message.sendReply("❌ *Bahsetme mesajı ayarlanırken bir hata oluştu! Lütfen tekrar deneyin.*");
             }
           }
 
@@ -3781,55 +3823,53 @@
               timestamp: new Date().toISOString(),
             };
 
-            const success = await setMentionReply(mentionData);
+            const success = await setMentionReply(targetJid, mentionData);
             if (success) {
               return await message.sendReply(
-                `✅ *Bahsetme mesajı başarıyla ayarlandı!*\n\nℹ️ _Mesaj:_ *${mentionData.content}*`
+                `✅ *${targetJid ? "Bu grubun" : "Global"} bahsetme mesajı başarıyla ayarlandı!*\n\nℹ️ _Mesaj:_ *${mentionData.content}*`
               );
             } else {
               return await message.sendReply("⚙ Bahsetme yanıtı ayarlanamadı!");
             }
           }
 
-          return await message.sendReply(`💬 Lütfen 'mesaj' komutu için içerik sağlayın!\n\n*Kullanım:*\n• Herhangi bir mesajı yanıtlayın ve \`${handler}bahsetme mesaj\` yazın\n• Veya metin mesajı için \`${handler}bahsetme mesaj <metin>\` kullanın`);
+          return await message.sendReply(
+            `💬 Lütfen 'mesaj' komutu için içerik sağlayın!\n\n*Kullanım:*\n• Herhangi bir mesajı yanıtlayın ve \`${handler}bahsetme mesaj\` yazın\n• Veya metin mesajı için \`${handler}bahsetme mesaj <metin>\` kullanın`
+          );
+        }
 
-        case "yardım":
-          const helpText = `🏷 *Otomatik @Bahsetme (Etiket) Cevaplama Yardımı*
-
-*Nedir?*
-Birisi botu veya yöneticileri etiketlediğinde, bot otomatik olarak kaydedilmiş yanıtı gönderir.
-
-*Komutlar:* _(Sadece sahip)_
-• \`${handler}bahsetme mesaj\` - Etiket yanıtı olarak ayarlamak için herhangi bir mesajı yanıtlayın
-• \`${handler}bahsetme mesaj <text>\` - Metni etiket yanıtı olarak ayarla
-• \`${handler}bahsetme getir\` - Mevcut etiket yanıtını görüntüle
-• \`${handler}bahsetme sil\` - Etiket yanıtını sil
-
-*Desteklenen Türler:*
-• Metin mesajları
-• Görseller _(başlıklı)_
-• Videolar _(başlıklı)_
-• Ses dosyaları
-• Çıkartmalar
-• Belgeler
-
-*Nasıl çalışır:*
-1. Yukarıdaki komutları kullanarak etiket yanıtı ayarlayın
-2. Birisi mesajda botu veya yöneticileri etiketlediğinde
-3. Bot otomatik olarak kaydedilmiş yanıtı gönderir
-
-*Örnekler:*
-• Bir resmi yanıtlayıp şunu yazın \`${handler}bahsetme mesaj\`
-• \`${handler}bahsetme mesaj Efendim kanka?\`
-• \`${handler}bahsetme getir\` - mevcut yanıtı görmek için
-• \`${handler}bahsetme sil\` - yanıtı kaldırmak için
-
-_ℹ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
+        case "yardım": {
+          const helpText =
+            `🏷 *Otomatik @Bahsetme (Etiket) Cevaplama Yardımı*\n\n` +
+            `*Nedir?*\n` +
+            `Bot bu grupta etiketlendiğinde otomatik olarak ayarlanan yanıtı gönderir.\n` +
+            `Her grup kendi özel yanıtını ayarlayabilir — grup yöneticileri tarafından yönetilir.\n\n` +
+            `*Komutlar:*\n` +
+            `• \`${handler}bahsetme mesaj\` - Yanıtlamak istediğiniz mesajı yanıtlayıp yazın\n` +
+            `• \`${handler}bahsetme mesaj <metin>\` - Metin mesajı ayarla\n` +
+            `• \`${handler}bahsetme getir\` - Mevcut yanıtı görüntüle\n` +
+            `• \`${handler}bahsetme sil\` - Bu grubun yanıtını sil\n\n` +
+            `*Desteklenen Türler:*\n` +
+            `• Metin mesajları\n• Görseller _(başlıklı)_\n• Videolar _(başlıklı)_\n` +
+            `• Ses dosyaları\n• Çıkartmalar\n• Belgeler\n\n` +
+            `*Örnekler:*\n` +
+            `• \`${handler}bahsetme mesaj Efendim kanka?\`\n` +
+            `• Bir resmi yanıtlayıp → \`${handler}bahsetme mesaj\`\n` +
+            `• \`${handler}bahsetme getir\` - mevcut yanıtı görmek için\n` +
+            `• \`${handler}bahsetme sil\` - yanıtı kaldırmak için\n\n` +
+            `_ℹ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
 
           return await message.sendReply(helpText);
+        }
 
         default:
-          return await message.sendReply(`❌ *Bilinmeyen alt komut:* \`${subcommand}\` \n\n*Mevcut komutlar:*\n• \`${handler}bahsetme mesaj\` - _Etiket yanıtını ayarla_\n• \`${handler}bahsetme getir\` - _Mevcut etiket yanıtını görüntüle_\n• \`${handler}bahsetme sil\` - _Etiket yanıtını sil_\n• \`${handler}bahsetme yardım\` - _Yardımı göster_`
+          return await message.sendReply(
+            `❌ *Bilinmeyen alt komut:* \`${subcommand}\`\n\n` +
+            `*Mevcut komutlar:*\n` +
+            `• \`${handler}bahsetme mesaj\` - _Etiket yanıtını ayarla_\n` +
+            `• \`${handler}bahsetme getir\` - _Mevcut etiket yanıtını görüntüle_\n` +
+            `• \`${handler}bahsetme sil\` - _Etiket yanıtını sil_\n` +
+            `• \`${handler}bahsetme yardım\` - _Yardımı göster_`
           );
       }
     }
@@ -3849,15 +3889,19 @@ _ℹ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
           return;
         }
 
-        const botId = message.client.user?.lid?.split(":")[0] + "@s.whatsapp.net";
-        const botNumericId = botId?.split("@")[0];
+        // Bot'un tüm olası JID varyantlarını topla (id, lid, device-suffix'li)
+        const botIdRaw = message.client.user?.id || "";
+        const botLidRaw = message.client.user?.lid || "";
+        const botNums = new Set();
+        if (botIdRaw) botNums.add(botIdRaw.split(":")[0].split("@")[0]);
+        if (botLidRaw) botNums.add(botLidRaw.split(":")[0].split("@")[0]);
 
         let isMentioned = false;
 
         for (const mentionedJid of message.mention) {
-          const mentionedNumericId = mentionedJid?.split("@")[0];
+          const mentionedNum = mentionedJid?.split(":")[0]?.split("@")[0];
 
-          if (mentionedNumericId === botNumericId || mentionedJid === botId) {
+          if (mentionedNum && botNums.has(mentionedNum)) {
             isMentioned = true;
             break;
           }
@@ -3868,14 +3912,11 @@ _ℹ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
           }
         }
 
-        if (!isMentioned) {
-          return;
-        }
+        if (!isMentioned) return;
 
-        const mentionData = getMentionReply();
-        if (!mentionData) {
-          return;
-        }
+        // Gruba özel yanıtı getir; yoksa global fallback; ikisi de yoksa sessiz geç
+        const mentionData = await getMentionReply(message.jid);
+        if (!mentionData) return;
 
         switch (mentionData.type) {
           case "text":
@@ -3929,6 +3970,8 @@ _ℹ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
     }
   );
 })();
+
+
 
 // ==========================================
 // FILE: message-stats.js
@@ -4039,8 +4082,17 @@ _ℹ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
       let userStats = await fetchFromStore(message.jid);
       let usersWithMessages = [];
 
+      // JID normalleştirme: LID ve PN formatlarını eşleştirmek için
+      // device suffix'i (":XX") kaldır ve bare numara ile karşılaştır
+      const normalizeJid = (jid) => (jid || "").split(":")[0].split("@")[0];
+
       for (let user of users) {
-        let userStat = userStats.find((stat) => stat.userJid === user);
+        const userBare = normalizeJid(user);
+        // Hem tam JID hem de normalize edilmiş numara ile eşleşme dene
+        let userStat = userStats.find((stat) => {
+          if (stat.userJid === user) return true;
+          return normalizeJid(stat.userJid) === userBare;
+        });
         if (userStat && userStat.totalMessages > 0) {
           usersWithMessages.push({
             jid: user,
@@ -4146,6 +4198,12 @@ _ℹ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
         const participants = groupMetadata.participants.map((p) => p.id);
         const admins = groupMetadata.participants.filter((p) => p.admin !== null).map((p) => p.id);
         const userStats = await fetchFromStore(message.jid);
+
+        // JID normalleştirme: LID ve PN formatlarını eşleştirmek için
+        const normalizeJid = (jid) => (jid || "").split(":")[0].split("@")[0];
+        // Admin JID'lerini normalize et — LID formatındaki admin'ler de doğru tanınsın
+        const adminBareSet = new Set(admins.map(a => normalizeJid(a)));
+
         let oldestMessageDate = null;
         if (userStats.length > 0) {
           const oldest = userStats.reduce((oldest, current) => {
@@ -4158,8 +4216,13 @@ _ℹ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
         const dataWarning = oldestMessageDate && cutoffDate < oldestMessageDate;
         let inactiveMembers = [];
         for (const user of participants) {
-          if (admins.includes(user)) continue;
-          const userStat = userStats.find((stat) => stat.userJid === user);
+          // Admin kontrolü: hem tam JID hem normalize edilmiş karşılaştır
+          if (admins.includes(user) || adminBareSet.has(normalizeJid(user))) continue;
+          const userBare = normalizeJid(user);
+          const userStat = userStats.find((stat) => {
+            if (stat.userJid === user) return true;
+            return normalizeJid(stat.userJid) === userBare;
+          });
           if (!userStat || !userStat.lastMessageAt) {
             inactiveMembers.push({ jid: user, lastMessage: "*Hiç mesaj yok*", totalMessages: userStat?.totalMessages || 0 });
             continue;
@@ -4170,7 +4233,9 @@ _ℹ Not: Medya dosyaları bulut depolama alanına yüklenir._`;
           }
         }
         if (shouldKick) {
-          const botIsAdmin = await isAdmin(message);
+          // Bot'un yönetici olup olmadığını kontrol et
+          const botJid = message.client.user.id.split(":")[0] + "@s.whatsapp.net";
+          const botIsAdmin = admins.some(a => normalizeJid(a) === normalizeJid(botJid));
           if (!botIsAdmin) {
             return await message.sendReply("❌ *Üzgünüm! Üyeleri çıkarabilmesi için botun yönetici olması gerekiyor.*");
           }

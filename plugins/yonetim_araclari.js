@@ -162,6 +162,10 @@ async function getCachedAntilinkConfig(jid) {
 function invalidateManageCache() {
   _antiwordJidsCache = null;
   _antilinkCache.clear();
+  // BUG FIX: antifake cache de temizlenmeli
+  // antinumara toggle sonrası .ayarlar menüsü yanlış durum gösteriyordu
+  _antifakeJidsCache = null;
+  _antifakeCacheTime = 0;
 }
 
 async function setVar(key, value, message = false) {
@@ -522,6 +526,52 @@ const GRUP_AYARLARI = [
       );
     }
   },
+  {
+    key: "otodinle",
+    cmd: "otodinle",
+    title: "Oto-Ses Analizi",
+    desc: "Sesli mesajları (ptt) otomatik metne çevirir",
+    icon: "🎙️",
+    getStatus: async (jid) => {
+      try {
+        const { getGroupSettings } = require("../core/db-cache");
+        const gs = await getGroupSettings(jid);
+        return gs.otoSesAnaliz !== false; // varsayılan true
+      } catch (_) { return true; }
+    },
+    toggle: async (jid, enable, message) => {
+      const { updateGroupSettings } = require("../core/db-cache");
+      await updateGroupSettings(jid, { otoSesAnaliz: enable });
+      return message.sendReply(
+        enable
+          ? "✅ *Oto-Ses Analizi açıldı!*\n\nℹ️ _Bu gruba gelen sesli mesajlar otomatik olarak metne çevrilecek._"
+          : "❌ *Oto-Ses Analizi kapatıldı!*\n\n💡 _Manuel çeviri için_ `.dinle` _komutunu kullanın._"
+      );
+    }
+  },
+  {
+    key: "otogbağlantı",
+    cmd: "otogbağlantı",
+    title: "Oto-Bağlantı Silici",
+    desc: "WhatsApp grup davet bağlantılarını otomatik siler",
+    icon: "🔗",
+    getStatus: async (jid) => {
+      try {
+        const { getGroupSettings } = require("../core/db-cache");
+        const gs = await getGroupSettings(jid);
+        return gs.otoBaglanti !== false; // varsayılan true
+      } catch (_) { return true; }
+    },
+    toggle: async (jid, enable, message) => {
+      const { updateGroupSettings } = require("../core/db-cache");
+      await updateGroupSettings(jid, { otoBaglanti: enable });
+      return message.sendReply(
+        enable
+          ? "✅ *Oto-Bağlantı Silici açıldı!*\n\nℹ️ _Bu grupta paylaşılan WhatsApp grup daveti bağlantıları otomatik silinecek ve üye gruptan çıkarılacak._"
+          : "❌ *Oto-Bağlantı Silici kapatıldı!*\n\n💡 _Gelişmiş ayarlar için_ `.antibağlantı` _komutunu kullanın._"
+      );
+    }
+  },
 ];
 
 // Yardımcı: Durum metni üret
@@ -555,6 +605,56 @@ Module({
     });
     msg += `\n💡 _Örnek: Anti-Spam'ı açmak için_ \`.antispam aç\` _yazın._`;
     return message.sendReply(msg);
+  }
+);
+
+Module({
+  pattern: "otogbağlantı ?(.*)",
+  fromMe: false,
+  desc: "WhatsApp davet bağlantılarını otomatik silme ve üyeyi gruptan çıkarma özelliğini açar veya kapatır.",
+  usage: ".otogbağlantı [aç/kapat]",
+  use: "grup",
+},
+  async (message, match) => {
+    if (!message.isGroup)
+      return await message.sendReply("⚠️ *Bu komut yalnızca gruplarda kullanılabilir!*");
+
+    const adminOk = await isAdmin(message);
+    if (!message.fromOwner && !adminOk)
+      return await message.sendReply("🔒 *Bu komut yalnızca yöneticilere aittir!*");
+
+    const { getGroupSettings, updateGroupSettings } = require("../core/db-cache");
+    const arg = (match[1] || "").trim().toLowerCase();
+
+    if (!arg) {
+      const gs = await getGroupSettings(message.jid);
+      const durum = gs.otoBaglanti !== false ? "Açık ✅" : "Kapalı ❌";
+      return await message.sendReply(
+        `🔗 *Oto-Bağlantı Silici*\n\n` +
+        `📊 *Durum:* ${durum}\n\n` +
+        `💡 _Kullanım:_\n` +
+        `• \`.otogbağlantı aç\` — Bu grupta oto bağlantı silici ve çıkarıcıyı açar\n` +
+        `• \`.otogbağlantı kapat\` — Bu grupta oto bağlantı silici ve çıkarıcıyı kapatır\n\n` +
+        `ℹ️ _Açıkken bot, gruba gönderilen WhatsApp grup davet bağlantılarını otomatik siler ve kullanıcıyı gruptan çıkarır._\n` +
+        `💡 _Gelişmiş bağlantı kontrolü için_ \`.antibağlantı\` _komutunu kullanın._`
+      );
+    }
+
+    const enable = ["aç", "ac", "1"].includes(arg);
+    const disable = ["kapat", "0"].includes(arg);
+
+    if (!enable && !disable)
+      return await message.sendReply("❌ *Geçersiz seçenek!* Kullanım: `.otogbağlantı aç` veya `.otogbağlantı kapat`");
+
+    if (enable && !message.isBotAdmin)
+      return await message.sendReply("🙁 *Beni önce yönetici yapın! (Davet bağlantılarını otomatik silmem ve üye çıkarmam için yönetici olmam gerekiyor.)*");
+
+    await updateGroupSettings(message.jid, { otoBaglanti: enable });
+    return await message.sendReply(
+      enable
+        ? "✅ *Oto-Bağlantı Silici açıldı!*\n\nℹ️ _Bu grupta paylaşılan WhatsApp davet bağlantıları otomatik silinecek ve kullanıcı gruptan çıkarılacak._\n💡 _Gelişmiş ayarlar için_ `.antibağlantı yardım` _yazın._"
+        : "❌ *Oto-Bağlantı Silici kapatıldı!*\n\nℹ️ _Grup davet bağlantıları için artık işlem yapılmayacak._"
+    );
   }
 );
 
@@ -616,10 +716,15 @@ Module({
     if (target === "kapat") {
       await antidelete.delete(message.jid);
       await setVar(`ANTI_DELETE_MODE_${message.jid}`, "off");
+      // BUG FIX: handler.js _antideleteCache Set'ini aninda yenile
+      const { invalidateAntideleteCache } = require("../core/handler");
+      await invalidateAntideleteCache();
       return await message.sendReply("❌ *Mesaj silme engeli kapatıldı!*");
     } else if (target === "sohbet" || target === "aç") {
       await antidelete.set(message.jid);
       await setVar(`ANTI_DELETE_MODE_${message.jid}`, "chat");
+      const { invalidateAntideleteCache } = require("../core/handler");
+      await invalidateAntideleteCache();
       return await message.sendReply("✅ *Mesaj silme koruması açıldı!*\n\nℹ️ _Kurtarılan mesajlar orijinal sohbete gönderilecek_"
       );
     } else {
@@ -964,23 +1069,24 @@ Module({
     let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
       match[1] = match[1] ? match[1].toLowerCase() : "";
+      // OPT + BUG FIX: antipdm.get() (findAll) yerine getCachedAntispamJids benzeri
+      // anlık DB hit yerine in-memory cache kullan
       const db = await antipdm.get();
-      const jids = [];
-      db.map((data) => {
-        jids.push(data.jid);
-      });
+      const jidsSet = new Set(db.map(d => d.jid));
       if (match[1] === "aç") {
         await antipdm.set(message.jid);
+        jidsSet.add(message.jid);
       }
       if (match[1] === "kapat") {
         await antipdm.delete(message.jid);
+        jidsSet.delete(message.jid);
       }
       if (match[1] !== "aç" && match[1] !== "kapat") {
-        const status = jids.includes(message.jid) ? "Açık" : "Kapalı";
+        const status = jidsSet.has(message.jid) ? "Açık" : "Kapalı";
         const { subject } = await message.client.groupMetadata(message.jid);
         return await message.sendReply(
           `🚨 *Yetki Değişikliği Uyarısı (Anti-PDM)*` +
-          "\n\nℹ️ *Mevcut Durum:* " + status + " " + (jids.includes(message.jid) ? "✅" : "❌") +
+          "\n\nℹ️ *Mevcut Durum:* " + status + " " + (jidsSet.has(message.jid) ? "✅" : "❌") +
           "\n💬 *Kullanım:* `.antipdm aç/kapat`"
         );
       }
@@ -1003,23 +1109,17 @@ Module({
     let adminAccesValidated = await isAdmin(message);
     if (!message.fromOwner && !adminAccesValidated) return;
     match[1] = match[1] ? match[1].toLowerCase() : "";
+    // OPT + BUG FIX: antidemote.get() (findAll) yerine anlık Set oluştur
     const db = await antidemote.get();
-    const jids = [];
-    db.map((data) => {
-      jids.push(data.jid);
-    });
-    if (match[1] === "aç") {
-      await antidemote.set(message.jid);
-    }
-    if (match[1] === "kapat") {
-      await antidemote.delete(message.jid);
-    }
+    const jidsSet = new Set(db.map(d => d.jid));
+    if (match[1] === "aç") { await antidemote.set(message.jid); jidsSet.add(message.jid); }
+    if (match[1] === "kapat") { await antidemote.delete(message.jid); jidsSet.delete(message.jid); }
     if (match[1] !== "aç" && match[1] !== "kapat") {
-      const status = jids.includes(message.jid) ? "Açık" : "Kapalı";
+      const status = jidsSet.has(message.jid) ? "Açık" : "Kapalı";
       const { subject } = await message.client.groupMetadata(message.jid);
       return await message.sendReply(
         `🚨 *Anti Yetki Düşürme Tespit Menüsü*` +
-        "\n\nℹ️ *Mevcut Durum:* " + status + " " + (jids.includes(message.jid) ? "✅" : "❌") +
+        "\n\nℹ️ *Mevcut Durum:* " + status + " " + (jidsSet.has(message.jid) ? "✅" : "❌") +
         "\n💬 *Kullanım:* `.antiyetkidüşürme aç/kapat`"
       );
     }
@@ -1041,30 +1141,22 @@ Module({
     let adminAccesValidated = await isAdmin(message);
     if (!message.fromOwner && !adminAccesValidated) return;
     match[1] = match[1] ? match[1].toLowerCase() : "";
+    // OPT + BUG FIX: antipromote.get() (findAll) yerine anlık Set
     const db = await antipromote.get();
-    const jids = [];
-    db.map((data) => {
-      jids.push(data.jid);
-    });
-    if (match[1] === "aç") {
-      await antipromote.set(message.jid);
-    }
-    if (match[1] === "kapat") {
-      await antipromote.delete(message.jid);
-    }
+    const jidsSet = new Set(db.map(d => d.jid));
+    if (match[1] === "aç") { await antipromote.set(message.jid); jidsSet.add(message.jid); }
+    if (match[1] === "kapat") { await antipromote.delete(message.jid); jidsSet.delete(message.jid); }
     if (match[1] !== "aç" && match[1] !== "kapat") {
-      const status = jids.includes(message.jid) ? "Açık" : "Kapalı";
+      const status = jidsSet.has(message.jid) ? "Açık" : "Kapalı";
       const { subject } = await message.client.groupMetadata(message.jid);
       return await message.sendReply(
         `🚨 *Anti Yetki Verme Tespit Menüsü*` +
-        "\n\nℹ️ *Mevcut Durum:* " + status + " " + (jids.includes(message.jid) ? "✅" : "❌") +
+        "\n\nℹ️ *Mevcut Durum:* " + status + " " + (jidsSet.has(message.jid) ? "✅" : "❌") +
         "\n💬 *Kullanım:* `.antiyetkiverme aç/kapat`"
       );
     }
     await message.sendReply(
-      (match[1] === "aç")
-        ? "✅ *Anti Yetki Verme Tespit etkinleştirildi!*"
-        : "❌ *Anti Yetki Verme Tespit kapatıldı!*"
+      (match[1] === "aç") ? "✅ *Anti Yetki Verme Tespit etkinleştirildi!*" : "❌ *Anti Yetki Verme Tespit kapatıldı!*"
     );
   }
 );
@@ -1094,20 +1186,12 @@ Module({
           if (!message.isBotAdmin) {
             return await message.sendReply("🙁 *Üzgünüm! Öncelikle yönetici olmalısınız.*");
           }
-
           if (!config) {
-            config = await antilinkConfig.set(message.jid, {
-              mode: "delete",
-              enabled: true,
-              updatedBy: message.sender,
-            });
+            config = await antilinkConfig.set(message.jid, { mode: "delete", enabled: true, updatedBy: message.sender });
           } else {
-            config = await antilinkConfig.update(message.jid, {
-              enabled: true,
-              updatedBy: message.sender,
-            });
+            config = await antilinkConfig.update(message.jid, { enabled: true, updatedBy: message.sender });
           }
-
+          invalidateManageCache(); // BUG FIX: link config cache'ini temizle
           return await message.sendReply(`✅ *Anti-Bağlantı Engelleme Etkin!*\n\n` +
             `• Mod: *${config.mode.toUpperCase()}*\n` +
             `• Tür: *${config.isWhitelist ? "BEYAZ LİSTE" : "KARA LİSTE"}*\n` +
@@ -1115,12 +1199,9 @@ Module({
           );
         case "kapat":
           if (config) {
-            await antilinkConfig.update(message.jid, {
-              enabled: false,
-              updatedBy: message.sender,
-            });
+            await antilinkConfig.update(message.jid, { enabled: false, updatedBy: message.sender });
           }
-
+          invalidateManageCache(); // BUG FIX
           return await message.sendReply("❌ *Anti-Bağlantı Engelleme Kapatıldı!*");
 
         case "mod":
@@ -1138,26 +1219,14 @@ Module({
           }
 
           if (!config) {
-            config = await antilinkConfig.set(message.jid, {
-              mode: value,
-              enabled: true,
-              updatedBy: message.sender,
-            });
+            config = await antilinkConfig.set(message.jid, { mode: value, enabled: true, updatedBy: message.sender });
           } else {
-            config = await antilinkConfig.update(message.jid, {
-              mode: value,
-              updatedBy: message.sender,
-            });
+            config = await antilinkConfig.update(message.jid, { mode: value, updatedBy: message.sender });
           }
-
+          invalidateManageCache(); // BUG FIX
           return await message.sendReply(
             `✅ *Anti-Bağlantı Engelleme modu ${value.toUpperCase()} olarak ayarlandı!*\n\n` +
-            `${value === "uyar"
-              ? "⚠️ _Bağlantı gönderen kullanıcılar uyarılacak._"
-              : value === "çıkar"
-                ? "👢 _Bağlantı gönderen kullanıcılar atılacak._"
-                : "🗑️ _Bağlantılar işlem yapılmadan silinecek._"
-            }`
+            `${value === "uyar" ? "⚠️ _Bağlantı gönderen kullanıcılar uyarılacak._" : value === "çıkar" ? "👢 _Bağlantı gönderen kullanıcılar atılacak._" : "🗑️ _Bağlantılar işlem yapılmadan silinecek._"}`
           );
 
         case "istisna":
@@ -1174,24 +1243,12 @@ Module({
             .filter((d) => d);
 
           if (!config) {
-            config = await antilinkConfig.set(message.jid, {
-              allowedLinks: allowedDomains.join(","),
-              isWhitelist: true,
-              enabled: true,
-              updatedBy: message.sender,
-            });
+            config = await antilinkConfig.set(message.jid, { allowedLinks: allowedDomains.join(","), isWhitelist: true, enabled: true, updatedBy: message.sender });
           } else {
-            config = await antilinkConfig.update(message.jid, {
-              allowedLinks: allowedDomains.join(","),
-              isWhitelist: true,
-              updatedBy: message.sender,
-            });
+            config = await antilinkConfig.update(message.jid, { allowedLinks: allowedDomains.join(","), isWhitelist: true, updatedBy: message.sender });
           }
-
-          return await message.sendReply(`✅ *İzin verilen bağlantılar güncellendi!*\n\n` +
-            `*Beyaz liste modu:* Sadece bu alan adlarına izin verilir\n` +
-            `*Alan adları:* ${allowedDomains.join(", ")}`
-          );
+          invalidateManageCache(); // BUG FIX
+          return await message.sendReply(`✅ *İzin verilen bağlantılar güncellendi!*\n\n*Beyaz liste modu:* Sadece bu alan adlarına izin verilir.\n*Alan adları:* ${allowedDomains.join(", ")}`);
 
         case "engelle":
           if (!value) {
@@ -1207,24 +1264,12 @@ Module({
             .filter((d) => d);
 
           if (!config) {
-            config = await antilinkConfig.set(message.jid, {
-              blockedLinks: blockedDomains.join(","),
-              isWhitelist: false,
-              enabled: true,
-              updatedBy: message.sender,
-            });
+            config = await antilinkConfig.set(message.jid, { blockedLinks: blockedDomains.join(","), isWhitelist: false, enabled: true, updatedBy: message.sender });
           } else {
-            config = await antilinkConfig.update(message.jid, {
-              blockedLinks: blockedDomains.join(","),
-              isWhitelist: false,
-              updatedBy: message.sender,
-            });
+            config = await antilinkConfig.update(message.jid, { blockedLinks: blockedDomains.join(","), isWhitelist: false, updatedBy: message.sender });
           }
-
-          return await message.sendReply(`✅ *Engellenen bağlantılar güncellendi!*\n\n` +
-            `*Kara liste modu:* Bu alan adları engellendi\n` +
-            `*Alan adları:* ${blockedDomains.join(", ")}`
-          );
+          invalidateManageCache(); // BUG FIX
+          return await message.sendReply(`✅ *Engellenen bağlantılar güncellendi!*\n\n*Kara liste modu:* Şu alan adları engellendi.\n*Alan adları:* ${blockedDomains.join(", ")}`);
 
         case "mesaj":
         case "msj":
@@ -1236,27 +1281,17 @@ Module({
           }
 
           if (!config) {
-            config = await antilinkConfig.set(message.jid, {
-              customMessage: value,
-              enabled: true,
-              updatedBy: message.sender,
-            });
+            config = await antilinkConfig.set(message.jid, { customMessage: value, enabled: true, updatedBy: message.sender });
           } else {
-            config = await antilinkConfig.update(message.jid, {
-              customMessage: value,
-              updatedBy: message.sender,
-            });
+            config = await antilinkConfig.update(message.jid, { customMessage: value, updatedBy: message.sender });
           }
-
-          return await message.sendReply(`✅ *Özel mesaj ayarlandı!*\n\n` + `*Mesaj:* ${value}`
-          );
+          invalidateManageCache(); // BUG FIX
+          return await message.sendReply(`✅ *Özel mesaj ayarlandı!*\n\n*Mesaj:* ${value}`);
 
         case "sıfırla":
-          if (config) {
-            await antilinkConfig.delete(message.jid);
-          }
-          return await message.sendReply("🔄 *Anti-Bağlantı Engelleme ayarları sıfırlandı!*"
-          );
+          if (config) { await antilinkConfig.delete(message.jid); }
+          invalidateManageCache(); // BUG FIX
+          return await message.sendReply("🔄 *Anti-Bağlantı Engelleme ayarları sıfırlandı!*");
 
         case "yardım":
           return await message.sendReply(`🛡️ *Anti-Bağlantı Engelleme Sistemi Yardımı*\n\n` +
@@ -1643,78 +1678,89 @@ Module({
           : process.env.AUTO_DEL.split(",").includes(message.jid);
 
         if (isAutoDelActive) {
-          let currentGroupCode = null;
+          // ── GRUP AYARI: otoBaglanti kapalıysa bu grupta çalışma ─────────────
+          // return yerine flag kullan — antikelime vb. kontroller devam etsin
+          let skipAutoDel = false;
           if (message.isGroup) {
             try {
-              currentGroupCode = await message.client.groupInviteCode(message.jid);
-            } catch (_) { }
+              const { getGroupSettings } = require("../core/db-cache");
+              const gs = await getGroupSettings(message.jid);
+              // otoBaglanti null/undefined → varsayılan AÇIK (true)
+              if (gs.otoBaglanti === false) skipAutoDel = true;
+            } catch (_e) { /* DB hatası → varsayılan açık */ }
           }
 
-          for (const link of foundLinks) {
-            const inviteMatch = (link || "").match(
-              /^(https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]+)(\?.*)?$/i
-            );
-            if (!inviteMatch) continue;
-
-            const botIsAdmin = message.isBotAdmin;
-            const senderIsAdmin = message.isAdmin;
-            if (!botIsAdmin || senderIsAdmin) return;
-
-            if (currentGroupCode && inviteMatch[2] === currentGroupCode) continue;
-
-            // fetchGroupMeta → store'un cache'li versiyonu (5 dk TTL)
-            // groupMetadata() yerine kullanarak her WA link tespitinde
-            // gereksiz Baileys sorgusu atmıyoruz.
-            const _groupMeta = await fetchGroupMeta(message.client, message.jid).catch(() => ({ subject: "Grup" }));
-            const groupMetadata = _groupMeta || { subject: "Grup" };
-
-            let senderNumber = message.sender.split("@")[0];
-            let senderName = message.senderName || senderNumber;
-
-            if (!global.antilink_warned_senders) global.antilink_warned_senders = new Set();
-            const senderKey = message.jid + "_" + message.sender;
-            const shouldWarn = !global.antilink_warned_senders.has(senderKey);
-
-            // Kritik mesaj işlemleri (Ban / Uyarı / Silme) try/catch içerisine alındı ve hatalar loglanarak bloke edildi
-            if (shouldWarn) {
-              global.antilink_warned_senders.add(senderKey);
-              // Spamları ve patlamaları önlemek için 60 saniye beklet
-              setTimeout(() => global.antilink_warned_senders.delete(senderKey), 60000);
-
-              const infoMessage =
-                `*${groupMetadata.subject}* grubunda ` +
-                `şu şahsı *${senderName}* (+${senderNumber}) suçüstü yakaladım. 😈\n\n🔗 ${message.text}`;
-
-              const adminGroupJid = config.ADMIN_GROUP_JID;
-              if (adminGroupJid) {
-                try {
-                  await message.client.sendMessage(adminGroupJid, { text: infoMessage });
-                } catch (_) { }
-              }
-              try { await message.send("🚨 *Hey! Grup reklamı yapmamalısın.* 🤐"); } catch (_) { }
-            }
-
-            try {
-              await message.client.sendMessage(message.jid, { delete: message.data.key });
-            } catch (e) {
-              const em = e?.message || String(e);
-              // rate-overlimit ve forbidden gibi tekrarlayan / sessiz tolere edilebilir hataları log spam'ı yapma
-              if (em.includes('rate-overlimit') || em.includes('forbidden')) { /* ignore */ }
-              else console.error("Link Silme Hatası:", em);
-            }
-
-            if (shouldWarn) {
+          if (!skipAutoDel) {
+            let currentGroupCode = null;
+            if (message.isGroup) {
               try {
-                await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove");
+                currentGroupCode = await message.client.groupInviteCode(message.jid);
+              } catch (_) { }
+            }
+
+            for (const link of foundLinks) {
+              const inviteMatch = (link || "").match(
+                /^(https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([a-zA-Z0-9_-]+)(\?.*)?$/i
+              );
+              if (!inviteMatch) continue;
+
+              const botIsAdmin = message.isBotAdmin;
+              const senderIsAdmin = message.isAdmin;
+              if (!botIsAdmin || senderIsAdmin) continue; // return → continue: diğer linkler de kontrol edilsin
+
+              if (currentGroupCode && inviteMatch[2] === currentGroupCode) continue;
+
+              // fetchGroupMeta → store'un cache'li versiyonu (5 dk TTL)
+              const _groupMeta = await fetchGroupMeta(message.client, message.jid).catch(() => ({ subject: "Grup" }));
+              const groupMetadata = _groupMeta || { subject: "Grup" };
+
+              let senderNumber = message.sender.split("@")[0];
+              let senderName = message.senderName || senderNumber;
+
+              if (!global.antilink_warned_senders) global.antilink_warned_senders = new Set();
+              const senderKey = message.jid + "_" + message.sender;
+              const shouldWarn = !global.antilink_warned_senders.has(senderKey);
+
+              // Kritik mesaj işlemleri (Ban / Uyarı / Silme) try/catch içerisine alındı
+              if (shouldWarn) {
+                global.antilink_warned_senders.add(senderKey);
+                // Spamları ve patlamaları önlemek için 60 saniye beklet
+                setTimeout(() => global.antilink_warned_senders.delete(senderKey), 60000);
+
+                const infoMessage =
+                  `*${groupMetadata.subject}* grubunda ` +
+                  `şu şahsı *${senderName}* (+${senderNumber}) suçüstü yakaladım. 😈\n\n🔗 ${message.text}`;
+
+                const adminGroupJid = config.ADMIN_GROUP_JID;
+                if (adminGroupJid) {
+                  try {
+                    await message.client.sendMessage(adminGroupJid, { text: infoMessage });
+                  } catch (_) { }
+                }
+                try { await message.send("🚨 *Hey! Grup reklamı yapmamalısın.* 🤐"); } catch (_) { }
+              }
+
+              try {
+                await message.client.sendMessage(message.jid, { delete: message.data.key });
               } catch (e) {
                 const em = e?.message || String(e);
                 if (em.includes('rate-overlimit') || em.includes('forbidden')) { /* ignore */ }
-                else console.error("Kullanıcı Çıkarma Hatası:", em);
+                else console.error("Link Silme Hatası:", em);
               }
+
+              if (shouldWarn) {
+                try {
+                  await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove");
+                } catch (e) {
+                  const em = e?.message || String(e);
+                  if (em.includes('rate-overlimit') || em.includes('forbidden')) { /* ignore */ }
+                  else console.error("Kullanıcı Çıkarma Hatası:", em);
+                }
+              }
+              return; // AUTO_DEL tespit edildi, kelime kontrolü yapmaya gerek yok
             }
-            return; // AUTO_DEL tespit edildi, kelime kontrolü yapmaya gerek yok
-          }
-        }
+          } // end if (!skipAutoDel)
+        } // end if (isAutoDelActive)
 
         // --- 2. GRUBA ÖZEL ANTİLİNK (DB GEREKTİRİR) ---
         try {

@@ -215,9 +215,49 @@
 
       if (!imageUrl) return await message.sendReply("❌ *Bayrak görseli alınamadı!*");
 
+      // SVG ve desteklenmeyen formatı Sharp çözemiyor — URL'yi buffer'a çek
+      let imagePayload;
+      try {
+        const isSvg = /\.svg(\?.*)?$/i.test(imageUrl);
+        const imgResp = await axios.get(imageUrl, {
+          responseType: "arraybuffer",
+          timeout: 15000,
+          headers: { "User-Agent": "Mozilla/5.0" },
+          validateStatus: (s) => s === 200,
+        });
+        const imgBuf = Buffer.from(imgResp.data);
+        const contentType = imgResp.headers["content-type"] || "";
+        // SVG veya bilinmeyen format geldiyse — Baileys thumbnail sorunasını önlemek için
+        // resmi sharp ile png'ye dönüştür
+        if (isSvg || contentType.includes("svg") || imgBuf.length < 200) {
+          // Minimal fallback: emoji bayrağı olan a text mesajı gönder
+          const sentText = await message.client.sendMessage(message.jid, {
+            text:
+              `🚩 *Bayrak Tahmin Oyunu*\n\n` +
+              `_Bu bayrak hangi ülkeye ait?_\n\n` +
+              `🔗 Bayrak: ${imageUrl}\n\n` +
+              `↩️ _Bu mesajı yanıtlayarak cevabınızı yazın._`
+          }, { quoted: message.data });
+          const sentId = sentText?.key?.id;
+          if (sentId) {
+            oyunHatirla(sentId, {
+              tip: "flag",
+              dogru: trNames[0] || enName || "?",
+              enName,
+              kabul: Array.from(acceptable),
+            });
+          }
+          return;
+        }
+        imagePayload = imgBuf;
+      } catch (fetchErr) {
+        console.error("Bayrak görseli indirilemedi:", fetchErr.message);
+        return await message.sendReply("❌ *Bayrak görseli yüklenemedi!* Lütfen tekrar deneyin.");
+      }
+
       const trDisplay = trNames[0] || enName || "?";
       const sent = await message.client.sendMessage(message.jid, {
-        image: { url: imageUrl },
+        image: imagePayload,
         caption:
           `🚩 *Bayrak Tahmin Oyunu*\n\n` +
           `_Bu bayrak hangi ülkeye ait?_\n\n` +
