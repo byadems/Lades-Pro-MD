@@ -72,9 +72,11 @@ Module({
     const target = (match[1] || "").trim();
     if (!target) return await message.sendReply("🌍 _IP adresi girin:_ `.siteip 8.8.8.8`");
 
+    const processingMsg = await message.sendReply("⏳ _IP adresi sorgulanıyor..._");
     try {
       const result = await nexGet(`/tools/trackip?target=${encodeURIComponent(target)}`);
       if (result) {
+        await message.edit("✅ *Sorgu tamamlandı!*", message.jid, processingMsg.key);
         const info = typeof result === "string" ? result :
           `📍 *Konum Bilgisi*\n\n` +
           (result.ip ? `🌐 IP: ${result.ip}\n` : "") +
@@ -89,7 +91,7 @@ Module({
         await message.sendReply("❌ *IP bilgisi bulunamadı!*");
       }
     } catch (e) {
-      await message.sendReply(`❌ *IP takibi başarısız:* \n\n${e.message}`);
+      await message.edit(`❌ *IP sorgusu başarısız:* \n\n${e.message}`, message.jid, processingMsg.key);
     }
   }
 );
@@ -108,9 +110,10 @@ Module({
     const username = (match[1] || "").trim().replace(/^@/, "");
     if (!username) return await message.sendReply("📸 _Instagram kullanıcı adı girin:_ `.igara zuck`");
 
+    const processingMsg = await message.sendReply("⏳ _Instagram profili sorgulanıyor..._");
     try {
       const result = await nexGet(`/stalker/instagram?username=${encodeURIComponent(username)}`);
-      if (!result) return await message.sendReply("❌ *Kullanıcı bulunamadı!*");
+      if (!result) return await message.edit("❌ *Kullanıcı bulunamadı!*", message.jid, processingMsg.key);
 
       const name = result.full_name || result.fullname || result.name || username;
       const bio = result.biography || result.bio || "-";
@@ -134,12 +137,13 @@ Module({
       const avatar = result.profile_pic_url || result.hd_profile_picture || result.profile_pic || result.avatar || result.profile?.avatar || result.profilePic || result.profile_image || result.profile_image_url || result.image_url || result.image || result.thumbnail;
       if (avatar) {
         await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
+        await message.edit("✅ *Sorgu tamamlandı!*", message.jid, processingMsg.key);
       } else {
-        await message.sendReply(caption);
+        await message.edit(caption, message.jid, processingMsg.key);
       }
     } catch (e) {
       const msg = e.message.includes("429") ? "⏳ *Instagram yoğunluk nedeniyle cevap vermiyor!* _Lütfen biraz sonra tekrar deneyin._" : `❌ *Sorgu başarısız:* \n\n${e.message}`;
-      await message.sendReply(msg);
+      await message.edit(msg, message.jid, processingMsg.key);
     }
   }
 );
@@ -158,6 +162,7 @@ Module({
     const username = (match[1] || "").trim().replace(/^@/, "");
     if (!username) return await message.sendReply("𝕏 _Twitter kullanıcı adı girin:_ `.twara elonmusk`");
 
+    const processingMsg = await message.sendReply("⏳ _Twitter profili sorgulanıyor..._");
     let result = null;
     try {
       result = await nexGet(`/stalker/twitter?username=${encodeURIComponent(username)}`);
@@ -170,7 +175,7 @@ Module({
       } catch (_) { }
     }
 
-    if (!result) return await message.sendReply("❌ *Kullanıcı bulunamadı!*");
+    if (!result) return await message.edit("❌ *Kullanıcı bulunamadı!*", message.jid, processingMsg.key);
 
     const name = result.name || result.full_name || username;
     const bio = result.description || result.bio || result.biography || "-";
@@ -195,8 +200,9 @@ Module({
     const avatar = result.profile?.avatar || result.avatar || result.profile_image_url_https || result.profile_image_url || result.profile_image || result.profile_pic_url || result.profile_pic || result.profilePic || result.image_url || result.image || result.thumbnail;
     if (avatar) {
       await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
+      await message.edit("✅ *Sorgu tamamlandı!*", message.jid, processingMsg.key);
     } else {
-      await message.sendReply(caption);
+      await message.edit(caption, message.jid, processingMsg.key);
     }
   }
 );
@@ -215,23 +221,23 @@ Module({
     const uid = (match[1] || "").trim();
     if (!uid) return await message.sendReply("🎮 _Free Fire oyuncu numarası girin:_ `.freefire 1234567890`");
 
+    const processingMsg = await message.sendReply("⏳ _Free Fire oyuncusu sorgulanıyor..._");
     try {
       let result;
       try {
         result = await nexGet(`/stalker/freefire?uid=${encodeURIComponent(uid)}`);
       } catch (err) {
-        // 5xx (özellikle 523 = upstream Free Fire sunucusu kapalı) durumunda
-        // anlamlı bir Türkçe mesaj göster
         const msg = String(err.message || "");
         if (/5\d\d/.test(msg) || /status code 5\d\d/i.test(msg)) {
-          return await message.sendReply(
+          return await message.edit(
             "❌ *Free Fire sunucularına şu an ulaşılamıyor!*\n\n" +
-            "_Garena tarafındaki sorgu servisi geçici olarak yanıt vermiyor (HTTP 523). Lütfen birkaç dakika sonra tekrar deneyin._"
+            "_Garena tarafındaki sorgu servisi geçici olarak yanıt vermiyor (HTTP 523). Lütfen birkaç dakika sonra tekrar deneyin._",
+            message.jid, processingMsg.key
           );
         }
         throw err;
       }
-      if (!result) return await message.sendReply("❌ *Oyuncu bulunamadı!*");
+      if (!result) return await message.edit("❌ *Oyuncu bulunamadı!*", message.jid, processingMsg.key);
 
       const caption =
         `🎮 *Free Fire Bilgileri*\n\n` +
@@ -267,6 +273,7 @@ Module({
     const username = (match[1] || "").trim();
     if (!username) return await message.sendReply("🐙 _GitHub kullanıcı adı girin:_ `.github mrbeast`");
 
+    const processingMsg = await message.sendReply("⏳ _GitHub profili sorgulanıyor..._");
     let result = null;
     let usedApi = "";
 
@@ -288,7 +295,7 @@ Module({
       } catch (_) { }
     }
 
-    if (!result) return await message.sendReply("❌ *Kullanıcı bulunamadı!*");
+    if (!result) return await message.edit("❌ *Kullanıcı bulunamadı!*", message.jid, processingMsg.key);
 
     const caption = [
       `🐙 *GitHub Profili*`,
@@ -310,8 +317,9 @@ Module({
     const avatar = result.avatar_url || result.avatar || result.profile_pic_url || result.profile_pic || result.profilePic || result.profile_image || result.profile_image_url || result.image_url || result.image || result.thumbnail;
     if (avatar) {
       await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
+      await message.edit("✅ *Sorgu tamamlandı!*", message.jid, processingMsg.key);
     } else {
-      await message.sendReply(caption);
+      await message.edit(caption, message.jid, processingMsg.key);
     }
   }
 );
@@ -334,9 +342,10 @@ Module({
 
     if (!id) return await message.sendReply("🎮 _Mobile Legends ID ve zone girin:_\n`.mlbb 807663005 12230`");
 
+    const processingMsg = await message.sendReply("⏳ _Mobile Legends oyuncusu sorgulanıyor..._");
     try {
       const result = await nexGet(`/stalker/mlbb?id=${encodeURIComponent(id)}&zone=${encodeURIComponent(zone)}`);
-      if (!result) return await message.sendReply("❌ *Oyuncu bulunamadı!*");
+      if (!result) return await message.edit("❌ *Oyuncu bulunamadı!*", message.jid, processingMsg.key);
 
       // API alan isimleri tutarsız: nickname/username/name; region/server vs.
       const nick = result.nickname || result.username || result.name;
@@ -359,7 +368,7 @@ Module({
         await message.sendReply(caption || JSON.stringify(result));
       }
     } catch (e) {
-      await message.sendReply(`❌ *Sorgu başarısız:* \n\n${e.message}`);
+      await message.edit(`❌ *Sorgu başarısız:* \n\n${e.message}`, message.jid, processingMsg.key);
     }
   }
 );
@@ -378,9 +387,10 @@ Module({
     const username = (match[1] || "").trim();
     if (!username) return await message.sendReply("🧸 _Roblox kullanıcı adı girin:_ `.roblox Builderman`");
 
+    const processingMsg = await message.sendReply("⏳ _Roblox profili sorgulanıyor..._");
     try {
       const result = await nexGet(`/stalker/roblox?username=${encodeURIComponent(username)}`);
-      if (!result) return await message.sendReply("❌ *Kullanıcı bulunamadı!*");
+      if (!result) return await message.edit("❌ *Kullanıcı bulunamadı!*", message.jid, processingMsg.key);
 
       let username_str = result.basic?.name || result.username;
       let displayname_str = result.basic?.displayName || result.displayname;
@@ -436,7 +446,7 @@ Module({
         await message.sendReply(caption);
       }
     } catch (e) {
-      await message.sendReply(`❌ *Sorgu başarısız:* \n\n${e.message}`);
+      await message.edit(`❌ *Sorgu başarısız:* \n\n${e.message}`, message.jid, processingMsg.key);
     }
   }
 );
@@ -455,9 +465,10 @@ Module({
     const username = (match[1] || "").trim();
     if (!username) return await message.sendReply("🧵 _Threads kullanıcı adı girin:_ `.thara zuck`");
 
+    const processingMsg = await message.sendReply("⏳ _Threads profili sorgulanıyor..._");
     try {
       const result = await nexGet(`/stalker/threads?username=${encodeURIComponent(username)}`);
-      if (!result) return await message.sendReply("❌ *Kullanıcı bulunamadı!*");
+      if (!result) return await message.edit("❌ *Kullanıcı bulunamadı!*", message.jid, processingMsg.key);
 
       const name = result.name || result.username || username;
       const bio = result.bio || result.biography || "-";
@@ -483,7 +494,7 @@ Module({
         await message.sendReply(caption);
       }
     } catch (e) {
-      await message.sendReply(`❌ *Sorgu başarısız:* \n\n${e.message}`);
+      await message.edit(`❌ *Sorgu başarısız:* \n\n${e.message}`, message.jid, processingMsg.key);
     }
   }
 );
@@ -502,6 +513,7 @@ Module({
     const username = (match[1] || "").trim();
     if (!username) return await message.sendReply("📺 _YouTube kanal adı girin:_ `.ytkanal mrbeast`");
 
+    const processingMsg = await message.sendReply("⏳ _YouTube kanalı sorgulanıyor..._");
     let result = null;
     let usedApi = "";
 
@@ -523,7 +535,7 @@ Module({
       } catch (_) { }
     }
 
-    if (!result) return await message.sendReply("❌ *Kanal bulunamadı!*");
+    if (!result) return await message.edit("❌ *Kanal bulunamadı!*", message.jid, processingMsg.key);
 
     const channel = result.channel || result;
     const caption = [
@@ -541,8 +553,9 @@ Module({
     const avatar = result.channel?.avatarUrl || result.avatar || result.thumbnail || result.profile_picture || result.profile_pic_url || result.profile_pic || result.profilePic || result.profile_image || result.profile_image_url || result.image_url || result.image;
     if (avatar) {
       await message.client.sendMessage(message.jid, { image: { url: avatar }, caption }, { quoted: message.data });
+      await message.edit("✅ *Sorgu tamamlandı!*", message.jid, processingMsg.key);
     } else {
-      await message.sendReply(caption);
+      await message.edit(caption, message.jid, processingMsg.key);
     }
   }
 );
@@ -593,11 +606,12 @@ Module({
         return null;
       } catch { return null; }
     };
+    const processingMsg = await message.sendReply("⏳ _TikTok profili sorgulanıyor..._");
     try {
       let input = (match?.[1] || '').trim() || (message.reply_message?.text || message.reply_message?.caption || '').trim();
       if (!input) return await message.sendReply('⚠️ *Lütfen bir TikTok @kullanıcı adı veya profil bağlantısı girin!* \n\n*💡 Örnek:* \`.ttara mrbeast\`');
       const username = extractUsername(input);
-      if (!username) return await message.sendReply('❌ *Geçersiz TikTok kullanıcı adı!*');
+      if (!username) return await message.edit("❌ *Geçersiz TikTok kullanıcı adı!*", message.jid, processingMsg.key);
       const apis = [
         `https://api.nexray.web.id/stalker/tiktok?username=${encodeURIComponent(username)}`,
         `https://api.princetechn.com/api/stalk/tiktokstalk?apikey=prince&username=${encodeURIComponent(username)}`,
@@ -611,13 +625,13 @@ Module({
           if (user) break;
         } catch { continue; }
       }
-      if (!user) return await message.sendReply('⚠️ *Kullanıcı bulunamadı veya tüm API\'ler şu an erişilemiyor. Lütfen daha sonra tekrar deneyin.*');
+      if (!user) return await message.edit("⚠️ *Kullanıcı bulunamadı veya tüm API'ler şu an erişilemiyor. Lütfen daha sonra tekrar deneyin.*", message.jid, processingMsg.key);
       let caption = `👤 *Kullanıcı Adı:* @${user.username}\n🆔 *Kullanıcı ID:* ${user.id}\n📝 *İsim:* ${user.name}\n👥 *Takipçi:* ${formatNumber(user.followers)}\n➕ *Takip:* ${formatNumber(user.following)}\n❤️ *Beğeni:* ${formatNumber(user.likes)}\nℹ️ *BİYOGRAFİ*\n_${user.bio || 'Biyografi yok'}_\n` + (user.verified ? '✅ *Doğrulanmış Hesap*\n' : '') + (user.private ? '🔒 *Gizli Hesap*\n' : '');
       if (user.avatar) await message.sendMessage({ url: user.avatar }, 'image', { caption, quoted: message.data });
       else await message.sendReply(caption);
     } catch (error) {
       console.error('[TikTok] Kritik Hata:', error);
-      return await message.sendReply('❌ *Bilgiler getirilirken bir hata oluştu! Lütfen daha sonra tekrar deneyin.*');
+      return await message.edit("❌ *Bilgiler getirilirken bir hata oluştu! Lütfen daha sonra tekrar deneyin.*", message.jid, processingMsg.key);
     }
   }
 );

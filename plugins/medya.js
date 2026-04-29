@@ -309,15 +309,17 @@
       const start = parts[0]?.trim();
       const end = parts[1]?.trim();
       const savedFile = await message.reply_message.download();
-      await message.sendMessage("⏳ _Kesme işlemi yapılıyor..._");
+      const processingMsg = await message.sendReply("⏳ _Kesme işlemi yapılıyor..._");
       if (message.reply_message.audio) {
         const out = getTempPath("trim.ogg");
         await trim(savedFile, start, end, out);
         await message.sendReply({ stream: fs.createReadStream(out) }, "audio");
+        await message.edit("✅ *Kesme işlemi tamamlandı!*", message.jid, processingMsg.key);
       } else if (message.reply_message.video) {
         const out = getTempPath("trim.mp4");
         await trim(savedFile, start, end, out);
         await message.send({ stream: fs.createReadStream(out) }, "video");
+        await message.edit("✅ *Kesme işlemi tamamlandı!*", message.jid, processingMsg.key);
       }
     }
   );
@@ -435,11 +437,13 @@
         return await message.sendReply("✅ *Birleştirilecek video veritabanına eklendi. Ses bekleniyor...*");
       }
       if (files.length >= 2 || !message.reply_message) {
+        const processingMsg = await message.sendReply("⏳ _Ses ve video birleştiriliyor..._");
         let video = await avMix(
           getTempPath("avmix/video.mp4"),
           getTempPath("avmix/audio.mp3")
         );
         await message.sendReply(video, "video");
+        await message.edit("✅ *Birleştirme tamamlandı!*", message.jid, processingMsg.key);
         await fs.promises.unlink(getTempPath("avmix/video.mp4")).catch(() => { });
         await fs.promises.unlink(getTempPath("avmix/audio.mp3")).catch(() => { });
         await fs.promises.unlink("./merged.mp4").catch(() => { });
@@ -497,13 +501,14 @@
         });
       }
       if (files.length === 2) {
-        await message.sendReply("⏳ _Videolar birleştiriliyor..._");
+        const processingMsg = await message.sendReply("⏳ _Videolar birleştiriliyor..._");
         const mergedFile = await merge(
           [getTempPath("vmix/video1.mp4"), getTempPath("vmix/video2.mp4")],
           getTempSubdir(""),
           "merged.mp4"
         );
         await message.send(mergedFile, "video");
+        await message.edit("✅ *Birleştirme tamamlandı!*", message.jid, processingMsg.key);
         await fs.promises.unlink(getTempPath("vmix/video1.mp4")).catch(() => { });
         await fs.promises.unlink(getTempPath("vmix/video2.mp4")).catch(() => { });
         return;
@@ -521,7 +526,7 @@
       if (!message.reply_message || !message.reply_message.video)
         return await message.sendReply("⚠️ *Lütfen bir videoya yanıtlayın!*");
       const savedFile = await message.reply_message.download();
-      await message.sendReply("⏳ _Hareket enterpolasyonu işleniyor..._");
+      const processingMsg = await message.sendReply("⏳ _Ağır çekim işleniyor..._");
       // ffmpegLimit: CPU aşımını önler
       const outPath = getTempPath("slowmo.mp4");
       await ffmpegLimit(() => new Promise((resolve, reject) => {
@@ -536,6 +541,7 @@
       }));
       const buf = await fs.promises.readFile(outPath);
       await message.send(buf, "video");
+      await message.edit("✅ *Ağır çekim tamamlandı!*", message.jid, processingMsg.key);
       await fs.promises.unlink(outPath).catch(() => { });
       await fs.promises.unlink(savedFile).catch(() => { });
     }
@@ -564,14 +570,14 @@
     pattern: "gif",
     fromMe: false,
     use: "medya",
-    desc: "Videoyu sesli bir GIF (hareketli resim) formatına dönüştürür.",
+    desc: "Çıkartmayı bir GIF (hareketli resim) formatına dönüştürür.",
     usage: ".gif [yanıtla]",
   },
     async (message, match) => {
       if (!message.reply_message || !message.reply_message.video)
         return await message.sendReply("⚠️ *Lütfen bir videoya yanıtlayın!*");
       const savedFile = await message.reply_message.download();
-      await message.sendReply("⏳ _İşleniyor..._");
+      const processingMsg = await message.sendReply("⏳ _İşleniyor..._");
       const outPath = getTempPath("agif.mp4");
       // ffmpegLimit: eş zamanlı CPU aşımını önler
       await ffmpegLimit(() => new Promise((resolve, reject) => {
@@ -584,6 +590,7 @@
       }));
       const buf = await fs.promises.readFile(outPath);
       await message.client.sendMessage(message.jid, { video: buf, gifPlayback: true });
+      await message.edit("✅ *GIF dönüştürme tamamlandı!*", message.jid, processingMsg.key);
       await fs.promises.unlink(outPath).catch(() => { });
       await fs.promises.unlink(savedFile).catch(() => { });
     }
@@ -603,7 +610,7 @@
       if (match[1] >= 500)
         return await message.send("❌ *FPS değeri çok yüksek!* \n\nℹ️ _Maksimum: 500_");
       const savedFile = await message.reply_message.download();
-      await message.sendReply("⏳ _FPS işleniyor..._");
+      const processingMsg = await message.sendReply("⏳ _FPS işleniyor..._");
       const outPath = getTempPath("interp.mp4");
       // ffmpegLimit: eş zamanlı CPU aşımını önler
       await ffmpegLimit(() => new Promise((resolve, reject) => {
@@ -616,6 +623,7 @@
       }));
       const buf = await fs.promises.readFile(outPath);
       await message.send(buf, "video");
+      await message.edit("✅ *FPS işlemi tamamlandı!*", message.jid, processingMsg.key);
       await fs.promises.unlink(outPath).catch(() => { });
       await fs.promises.unlink(savedFile).catch(() => { });
     }
@@ -637,12 +645,13 @@
           "❌ *Ses çok uzun!* \n\nℹ️ _Müzik tanıma için sesi 60 saniyenin altına düşürün._"
         );
 
-      await message.send("🙂‍↔️ _Şarkıyı dinliyorum..._");
+      const processingMsg = await message.sendReply("🙂‍↔️ _Şarkıyı dinliyorum..._");
       const audio = await message.reply_message.download("buffer");
       const data = await findMusic(audio);
       if (!data)
-        return await message.sendReply(
-          "❌ *Eşleşen bir sonuç bulunamadı!* \nℹ️ _Daha iyi analiz için sesi 15 saniyeden uzun gönderin._"
+        return await message.edit(
+          "❌ *Eşleşen bir sonuç bulunamadı!* \nℹ️ _Daha iyi analiz için sesi 15 saniyeden uzun gönderin._",
+          message.jid, processingMsg.key
         );
 
       function getDuration(millis) {
@@ -665,6 +674,7 @@
       };
 
       await message.client.sendMessage(message.jid, Message);
+      await message.edit("✅ *Şarkı bulundu!*", message.jid, processingMsg.key);
     }
   );
   Module({
@@ -678,6 +688,7 @@
       if (!match[1] || !message.reply_message || !message.reply_message.video)
         return await message.sendReply("⚠️ *Kullanım:* \`.döndür sol|sağ|ters\` _(bir videoya yanıtlayarak)_"
         );
+      const processingMsg = await message.sendReply("⏳ _Döndürme işlemi yapılıyor..._");
       const file = await message.reply_message.download();
       let angle = "1";
       const dir = (match[1] || "").toLowerCase();
@@ -688,20 +699,22 @@
         await fs.promises.readFile(rotatedFilePath),
         "video"
       );
+      await message.edit("✅ *Döndürme tamamlandı!*", message.jid, processingMsg.key);
       await fs.promises.unlink(file).catch(() => { });
       await fs.promises.unlink(rotatedFilePath).catch(() => { });
     }
   );
   Module({
-    pattern: "flip ?(.*)",
+    pattern: "vters ?(.*)",
     fromMe: false,
     use: "medya",
     desc: "Videoyu yatay veya dikey eksende aynalayarak ters çevirir.",
-    usage: ".flip [yanıtla]",
+    usage: ".vters [yanıtla]",
   },
     async (message, match) => {
       if (!message.reply_message || !message.reply_message.video)
         return await message.sendReply("*🎬 Bir videoyu yanıtla*");
+      const processingMsg = await message.sendReply("⏳ _Video ters çevriliyor..._");
       const file = await message.reply_message.download();
       const angle = "3";
       const flippedFilePath = await rotate(file, angle);
@@ -709,6 +722,7 @@
         await fs.promises.readFile(flippedFilePath),
         "video"
       );
+      await message.edit("✅ *Video ters çevrildi!*", message.jid, processingMsg.key);
       await fs.promises.unlink(file).catch(() => { });
       await fs.promises.unlink(flippedFilePath).catch(() => { });
     }
@@ -1847,8 +1861,8 @@
     usage: ".url (bir görsele, videoya veya sese yanıt vererek)",
     use: "medya",
   },
-async (m, match) => {
-      let result, sent;
+    async (m, match) => {
+      let result, q;
       if (!m.reply_message) {
         return await m.sendReply(
           "⚠️ *Bir medyayı yanıtlayın!*\n\n" +
@@ -1857,27 +1871,41 @@ async (m, match) => {
           "Örnek: Bir medyaya yanıt verip `.url` yazın."
         );
       }
-      if (m.reply_message?.image || m.reply_message?.sticker) {
-        let q = await m.reply_message.download();
-        const sent = await m.sendReply("🔄 _Bağlantı oluşturuluyor..._");
-        result = await uploadToImgbb(q);
-        const outUrl = result?.url || result?.display_url || result?.image?.url || result?.image?.display_url;
-        if (!outUrl) return await m.sendReply("❌ *Bağlantı oluşturulamadı! Tekrar deneyin.*");
-        return await m.edit(`🔗 ${outUrl}`, m.jid, sent.key);
-      } else if (
-        m.reply_message?.video ||
-        m.reply_message?.document ||
-        m.reply_message?.audio ||
-        m.reply_message?.ptt
-      ) {
-        let q = await m.reply_message.download();
-        const sent = await m.sendReply("🔄 _Bağlantı oluşturuluyor..._");
-        result = await uploadToCatbox(q);
-        const outUrl = result?.url || (typeof result === "string" ? result : null);
-        if (!outUrl || outUrl.includes("_Dosya")) return await m.sendReply("❌ *Bağlantı oluşturulamadı! Tekrar deneyin.*");
-        return await m.edit(`🔗 ${outUrl}`, m.jid, sent.key);
+
+      try {
+        if (m.reply_message?.image || m.reply_message?.sticker) {
+          q = await m.reply_message.download();
+          const sent = await m.sendReply("🔄 _Bağlantı oluşturuluyor..._");
+          result = await uploadToImgbb(q);
+          const outUrl = result?.url || result?.display_url || result?.image?.url || result?.image?.display_url;
+          if (!outUrl) return await m.edit("❌ *Bağlantı oluşturulamadı! Tekrar deneyin.*", m.jid, sent.key);
+          return await m.edit(`🔗 ${outUrl}`, m.jid, sent.key);
+        } else if (
+          m.reply_message?.video ||
+          m.reply_message?.document ||
+          m.reply_message?.audio ||
+          m.reply_message?.ptt
+        ) {
+          q = await m.reply_message.download();
+          const sent = await m.sendReply("🔄 _Bağlantı oluşturuluyor..._");
+          result = await uploadToCatbox(q);
+          const outUrl = result?.url || (typeof result === "string" ? result : null);
+          if (!outUrl || outUrl.includes("_Dosya") || outUrl.includes("başarısız")) {
+            return await m.edit("❌ *Bağlantı oluşturulamadı! Tekrar deneyin.*" + (result?.url ? `\n\n*Hata:* ${result.url}` : ""), m.jid, sent.key);
+          }
+          return await m.edit(`🔗 ${outUrl}`, m.jid, sent.key);
+        } else {
+          return await m.sendReply("⚠️ *Medya türü desteklenmiyor.*");
+        }
+      } catch (e) {
+        console.error("URL komutu hatası:", e);
+        return await m.sendReply(`❌ *Beklenmedik bir hata oluştu:* ${e.message}`);
+      } finally {
+        if (q && typeof q === 'string') {
+          const fs = require('fs');
+          if (fs.existsSync(q)) fs.unlinkSync(q);
+        }
       }
-      return await m.sendReply("⚠️ *Medya türü desteklenmiyor.*");
     }
   );
 })();

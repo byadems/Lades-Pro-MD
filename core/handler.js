@@ -363,7 +363,11 @@ class ReplyMessage {
     if (this.type === "stickerMessage" || mime.includes("webp")) return ".webp";
     if (mime.includes("image")) return ".jpg";
     if (mime.includes("video")) return ".mp4";
-    if (mime.includes("audio")) return ".mp3";
+    if (mime.includes("audio")) {
+      if (mime.includes("ogg")) return ".ogg";
+      if (mime.includes("mp4") || mime.includes("aac")) return ".m4a";
+      return ".mp3";
+    }
     if (mime.includes("pdf")) return ".pdf";
     return "";
   }

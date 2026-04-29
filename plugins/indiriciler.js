@@ -1264,17 +1264,17 @@
       // 3) Nexray /downloader/v2/instagram (her hikayeyi ayrı medya olarak verir)
       if (mediaItems.length === 0) {
         try {
-        const cleanUrl = userIdentifier.split("?")[0].replace(/\/$/, "");
-        const res = await axios.get(`https://api.nexray.web.id/downloader/v2/instagram`, {
-          params: { url: cleanUrl },
-          timeout: 30000,
-          validateStatus: () => true,
-        });
-        const r = res.data?.result;
-        if (res.data?.status && r?.media && Array.isArray(r.media)) {
-          // Stories endpoint'inde her öğe bağımsız bir hikayedir, hiçbirini eleme
-          mediaItems = r.media.map(normalizeMediaItem).filter(Boolean);
-        }
+          const cleanUrl = userIdentifier.split("?")[0].replace(/\/$/, "");
+          const res = await axios.get(`https://api.nexray.web.id/downloader/v2/instagram`, {
+            params: { url: cleanUrl },
+            timeout: 30000,
+            validateStatus: () => true,
+          });
+          const r = res.data?.result;
+          if (res.data?.status && r?.media && Array.isArray(r.media)) {
+            // Stories endpoint'inde her öğe bağımsız bir hikayedir, hiçbirini eleme
+            mediaItems = r.media.map(normalizeMediaItem).filter(Boolean);
+          }
         } catch (_) { }
       }
 
