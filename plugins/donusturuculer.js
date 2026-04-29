@@ -76,7 +76,7 @@ Module({
     let count = parseInt(splitInput[1]) || 5;
     const searchTerm = splitInput[0].trim();
 
-    await message.send(`*🔍 _${count} görsel aranıyor..._*`);
+    const searchMsg = await message.sendReply(`*🔍 _${count} görsel aranıyor..._*`);
 
     // İndirme + gönderme işi ağır olduğu için kuyruk slotunu hemen serbest bırak.
     // setImmediate ile ana döngüye döner; indirme arka planda devam eder.
@@ -101,7 +101,7 @@ Module({
           } catch (_) { }
         }
 
-        if (results.length < 1) return await message.send("❌ *Sonuç bulunamadı!*");
+        if (results.length < 1) return await message.edit("❌ *Sonuç bulunamadı!*", message.jid, searchMsg.key);
 
         let successCount = 0;
         let i = 0;
@@ -121,8 +121,10 @@ Module({
         }
 
         if (imagesToSend.length === 0) {
-          return await message.send("❌ *Görseller indirilemedi!*");
+          return await message.edit("❌ *Görseller indirilemedi!*", message.jid, searchMsg.key);
         }
+
+        await message.edit(`_🔻 ${imagesToSend.length} görsel yükleniyor..._`, message.jid, searchMsg.key);
 
         try {
           await message.client.albumMessage(
@@ -142,13 +144,13 @@ Module({
         }
 
         if (successCount < count) {
-          await message.send(
-            `⚠️ *Sadece* \`${successCount}/${count}\` *görsel indirilebildi!*`
-          );
+          await message.edit(`⚠️ *Sadece* \`${successCount}/${count}\` *görsel indirilebildi!*`, message.jid, searchMsg.key);
+        } else {
+          await message.edit("✅ *Görseller indirildi.*", message.jid, searchMsg.key);
         }
       } catch (e) {
         console.log("[görselara] arka plan hatası:", e.message);
-        await message.send("❌ *Görsel arama sırasında hata oluştu!*");
+        await message.edit("❌ *Görsel arama sırasında hata oluştu!*", message.jid, searchMsg.key);
       }
     });
   }
@@ -266,7 +268,7 @@ Module({
         return await message.send("❌ *Albümde video bulunamadı! MP3 için video/ses dosyası gerekir.*");
       }
 
-      await message.send(`⏳ _${videoFiles.length} dosya MP3'e dönüştürülüyor..._`);
+      const processingMsg = await message.sendReply(`⏳ _${videoFiles.length} dosya MP3'e dönüştürülüyor..._`);
       for (let i = 0; i < videoFiles.length; i++) {
         try {
           const file = videoFiles[i];
@@ -286,10 +288,12 @@ Module({
           console.error("Albüm MP3'e dönüştürülemedi:", err);
         }
       }
-      return;
+      return await message.edit("✅ *Dönüştürme tamamlandı!*", message.jid, processingMsg.key);
     }
 
+    let processingMsg;
     try {
+      processingMsg = await message.sendReply("⏳ _Sese dönüştürülüyor..._");
       const savedFile = await message.reply_message.download();
       const outPath = getTempPath(`tomp3_${Date.now()}.mp3`);
       await ffmpegLimit(() => new Promise((resolve, reject) => {
@@ -303,9 +307,14 @@ Module({
         "audio",
         { quoted: message.quoted }
       );
+      return await message.edit("✅ *Dönüştürme tamamlandı!*", message.jid, processingMsg.key);
     } catch (e) {
       console.error("MP3 dönüştürme hatası:", e);
-      await message.sendReply("❌ *Ses dönüştürülemedi!* \n\nℹ️ _Dosya formatı desteklenmiyor olabilir._");
+      if (processingMsg) {
+        await message.edit("❌ *Ses dönüştürülemedi!* \n\nℹ️ _Dosya formatı desteklenmiyor olabilir._", message.jid, processingMsg.key);
+      } else {
+        await message.sendReply("❌ *Ses dönüştürülemedi!*");
+      }
     }
   }
 );
