@@ -54,23 +54,12 @@ if (isPostgres && !isMongoDB) {
   });
   logger.info(`[DB] PostgreSQL bağlantısı hazırlanıyor — pool: max=3 (${DATABASE_URL.split('@')[1] || 'host gizli'})`);
 } else {
-  // SQLite (varsayılan — yerel geliştirme ve MongoDB URL fallback)
-  sequelize = new Sequelize({
-    dialect: "sqlite",
-    storage: path.join(__dirname, "../database.sqlite"),
-    logging: false,
-    pool: {
-      max: 1,
-      min: 0,
-      acquire: 30000,
-      idle: 10000,
-    },
-    retry: {
-      max: 10,
-      match: [/SQLITE_BUSY/],
-    },
-  });
-  if (!isMongoDB) logger.info("[DB] SQLite veritabanı kullanılıyor (database.sqlite)");
+  // PostgreSQL zorunlu - SQLite bu ortamda çalışmıyor (GLIBC uyumsuzluğu)
+  logger.error("[DB] HATA: DATABASE_URL (PostgreSQL) tanımlı değil!");
+  logger.error("[DB] Bu ortamda SQLite desteklenmiyor.");
+  logger.error("[DB] Lütfen POSTGRES_URL veya DATABASE_URL ortam değişkenini ayarlayın.");
+  logger.error("[DB] Örnek: postgresql://kullanici:sifre@host:5432/veritabani");
+  throw new Error("PostgreSQL DATABASE_URL gerekli! SQLite bu ortamda çalışmıyor.");
 }
 
 // ─────────────────────────────────────────────────────────
@@ -249,22 +238,7 @@ async function initializeDatabase() {
   while (retries > 0) {
     try {
       await sequelize.authenticate();
-      logger.info("Veritabanı bağlantısı kuruldu.");
-
-      // SQLite pragmaları: WAL modu ve busy_timeout
-      if (sequelize.getDialect() === 'sqlite') {
-        await sequelize.query("PRAGMA journal_mode = WAL;");         // Concurrent reads
-        await sequelize.query("PRAGMA busy_timeout = 5000;");         // Retry on lock
-        await sequelize.query("PRAGMA synchronous = NORMAL;");        // Safe + fast
-        await sequelize.query("PRAGMA cache_size = -2000;");          // 2MB page cache (RAM tasarrufu)
-        await sequelize.query("PRAGMA temp_store = FILE;");           // Temp tablolar diske (RAM koruma!)
-        await sequelize.query("PRAGMA mmap_size = 0;");               // Mmap kapalı (tamamen diske güven, RAM koru)
-        await sequelize.query("PRAGMA wal_autocheckpoint = 200;");    // Daha sık checkpoint (500→200: WAL dosyasını küçük tut)
-        await sequelize.query("PRAGMA optimize;");                    // Sorgu planlamasını optimize et
-        await sequelize.query("PRAGMA foreign_keys = OFF;");          // FK kontrolü gereksiz overhead
-        logger.info("SQLite pragmaları ayarlandı (WAL, cache=2MB, temp=FILE, mmap=0MB, checkpoint=200).");
-      }
-
+      logger.info("Veritabanı bağlantısı kuruldu (PostgreSQL).");
       break;
     } catch (err) {
       retries--;

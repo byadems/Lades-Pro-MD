@@ -8,6 +8,12 @@ const fs = require("fs");
  * Tüm ayarlar burada merkezi olarak yönetilir.
  */
 
+// Vercel ortamı için env dosyalarını yükle
+const vercelEnvPath = "/vercel/share/.env.project";
+if (fs.existsSync(vercelEnvPath)) {
+  require("dotenv").config({ path: vercelEnvPath });
+}
+
 // .env veya config.env varsa yükle (isteğe bağlı kullanım için)
 if (fs.existsSync(path.join(__dirname, "config.env"))) {
   require("dotenv").config({ path: path.join(__dirname, "config.env") });
@@ -91,7 +97,8 @@ const config = {
   CHANNEL_NAME: process.env.CHANNEL_NAME || "Lades-Pro | Bot",
 
   // Database instance (core/database.js tarafından ayağa kaldırılır)
-  DATABASE_URL: process.env.EXTERNAL_DB_URL || null,
+  // Supabase/Neon/Vercel Postgres için POSTGRES_URL kullan, yoksa EXTERNAL_DB_URL'e bak
+  DATABASE_URL: process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.EXTERNAL_DB_URL || null,
   logger,
 };
 
