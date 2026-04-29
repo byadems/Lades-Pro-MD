@@ -3,14 +3,15 @@ const { logger, ...config } = require("../../../config");
 
 const FakeDB = sequelize.define("fake", {
   jid: {
-    type: DataTypes.TEXT,
+    type: DataTypes.STRING(64),
     allowNull: false,
+    primaryKey: true,
   },
   allowed: {
     type: DataTypes.TEXT,
     allowNull: true,
   }
-}, { tableName: "sahte_numaralar", indexes: [{ fields: ['jid'] }] });
+}, { tableName: "sahte_numaralar", timestamps: false });
 
 // Advanced antilink system
 const AntilinkConfigDB = sequelize.define("antilink_config", {
@@ -61,52 +62,59 @@ const AntilinkConfigDB = sequelize.define("antilink_config", {
 
 const antiSpamDB = sequelize.define("antispam", {
   jid: {
-    type: DataTypes.TEXT,
+    type: DataTypes.STRING(64),
     allowNull: false,
+    primaryKey: true,
   },
-}, { tableName: "antispam_ayarlari", indexes: [{ fields: ['jid'] }] });
+}, { tableName: "antispam_ayarlari", timestamps: false });
 
 const PDMDB = sequelize.define("pdm", {
   jid: {
-    type: DataTypes.TEXT,
+    type: DataTypes.STRING(64),
     allowNull: false,
+    primaryKey: true,
   },
-}, { tableName: "antipdm_ayarlari", indexes: [{ fields: ['jid'] }] });
+}, { tableName: "antipdm_ayarlari", timestamps: false });
 
 const antiDemote = sequelize.define("antidemote", {
   jid: {
-    type: DataTypes.TEXT,
+    type: DataTypes.STRING(64),
     allowNull: false,
+    primaryKey: true,
   },
-}, { tableName: "antiyetkial_ayarlari", indexes: [{ fields: ['jid'] }] });
+}, { tableName: "antiyetkial_ayarlari", timestamps: false });
 
 const antiPromote = sequelize.define("antipromote", {
   jid: {
-    type: DataTypes.TEXT,
+    type: DataTypes.STRING(64),
     allowNull: false,
+    primaryKey: true,
   },
-}, { tableName: "antiyetkiver_ayarlari", indexes: [{ fields: ['jid'] }] });
+}, { tableName: "antiyetkiver_ayarlari", timestamps: false });
 
 const antiBotDB = sequelize.define("antibot", {
   jid: {
-    type: DataTypes.TEXT,
+    type: DataTypes.STRING(64),
     allowNull: false,
+    primaryKey: true,
   },
-}, { tableName: "antibot_ayarlari", indexes: [{ fields: ['jid'] }] });
+}, { tableName: "antibot_ayarlari", timestamps: false });
 
 const antiWordDB = sequelize.define("antiword", {
   jid: {
-    type: DataTypes.TEXT,
+    type: DataTypes.STRING(64),
     allowNull: false,
+    primaryKey: true,
   },
-}, { tableName: "antikelime_ayarlari", indexes: [{ fields: ['jid'] }] });
+}, { tableName: "antikelime_ayarlari", timestamps: false });
 
 const antiDeleteDB = sequelize.define("antidelete", {
   jid: {
-    type: DataTypes.TEXT,
+    type: DataTypes.STRING(64),
     allowNull: false,
+    primaryKey: true,
   },
-}, { tableName: "antisilme_ayarlari", indexes: [{ fields: ['jid'] }] });
+}, { tableName: "antisilme_ayarlari", timestamps: false });
 
 const WelcomeDB = sequelize.define("welcome", {
   jid: {

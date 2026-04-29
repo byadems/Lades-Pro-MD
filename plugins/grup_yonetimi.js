@@ -3107,7 +3107,11 @@
   async function extractData(message) {
     const sha256 = message.quoted?.message?.stickerMessage?.fileSha256;
     if (!sha256) throw new Error("Çıkartmadan SHA256 alınamadı — geçerli bir çıkartmaya yanıt verin.");
-    return sha256.toString();
+    // BUG FIX: Uint8Array/Buffer → base64 string (handler ile aynı format)
+    // .toString() latin1 çıkar, DB ile hiçbir zaman eşleşmez
+    return Buffer.isBuffer(sha256)
+      ? sha256.toString('base64')
+      : Buffer.from(sha256).toString('base64');
   }
   Module({
     pattern: "otoçıkartma ?(.*)",
@@ -3123,13 +3127,17 @@
         );
       try {
         await stickcmd.set(match[1], await extractData(message));
+        // BUG FIX: Yeni sticker eklendi — handler cache'ini anında sıfırla
+        // Aksi hâlde 2 dakika boyunca eski liste döner, sticker çalışmaz.
+        const { invalidateStickcmdCache } = require("../../core/handler");
+        invalidateStickcmdCache();
       } catch {
         return await message.sendReply("❌ *İşlem başarısız oldu!*");
       }
       await message.client.sendMessage(
         message.jid,
         {
-          text: `✨ *${match[1]} komutu bu çıkartmaya yapıştırıldı!* ✅\n\nℹ️ _Yeniden bağlanılıyor..._`,
+          text: `✨ *${match[1]} komutu bu çıkartmaya yapıştırıldı!* ✅`,
         },
         {
           quoted: message.quoted,
@@ -3146,37 +3154,35 @@
     use: "araçlar",
   },
     async (message, match) => {
+      const { invalidateStickcmdCache } = require("../../core/handler");
       if (message.reply_message && message.reply_message.sticker) {
         let deleted = await stickcmd.delete(await extractData(message), "file");
-        if (deleted)
+        if (deleted) {
+          // BUG FIX: Silinen sticker'ı cache'den hemen kaldır
+          invalidateStickcmdCache();
           return await message.client.sendMessage(
             message.jid,
-            {
-              text: `🗑️ *Çıkartma komutlardan kaldırıldı!*`,
-            },
-            {
-              quoted: message.quoted,
-            }
+            { text: `🗑️ *Çıkartma komutlardan kaldırıldı!*` },
+            { quoted: message.quoted }
           );
+        }
         if (!deleted && match[1]) {
           const delete_again = await stickcmd.delete(match[1], "command");
-          if (delete_again)
-            return await message.sendReply(
-              `🗑️ *${match[1]} sabit komutlardan kaldırıldı!*`
-            );
-          if (!delete_again)
-            return await message.sendReply("❌ *Böyle bir çıkartma/komut bulunamadı!*");
+          if (delete_again) {
+            invalidateStickcmdCache();
+            return await message.sendReply(`🗑️ *${match[1]} sabit komutlardan kaldırıldı!*`);
+          }
+          return await message.sendReply("❌ *Böyle bir çıkartma/komut bulunamadı!*");
         }
         if (!deleted && !match[1])
-          return await message.send("❌ *Böyle bir çıkartma bulunamadı!*");
+          return await message.sendReply("❌ *Böyle bir çıkartma bulunamadı!*");
       } else if (match[1] && !message.reply_message) {
         let deleted = await stickcmd.delete(match[1], "command");
-        if (deleted)
-          return await message.sendReply(
-            `✅ *${match[1]} sabit komutlardan başarıyla kaldırıldı!*`
-          );
-        if (!deleted)
-          return await message.sendReply("❌ *Böyle bir komut bulunamadı!*");
+        if (deleted) {
+          invalidateStickcmdCache();
+          return await message.sendReply(`✅ *${match[1]} sabit komutlardan başarıyla kaldırıldı!*`);
+        }
+        return await message.sendReply("❌ *Böyle bir komut bulunamadı!*");
       } else
         return await message.sendReply("💬 *Çıkartmaya yanıt verin veya komut girin!*\n\n💬 _Örn:_ *.otoçıkartmasil .ban*"
         );
@@ -3191,9 +3197,13 @@
   },
     async (message, match) => {
       const all = await stickcmd.get();
-      const commands = all.map((element) => element.dataValues.command);
-      const msg = commands.join("_\n_");
-      message.sendReply("✨ *Çıkartma yapılmış komutlar:*\n\n" + msg + "");
+      if (!all || all.length === 0)
+        return await message.sendReply("ℹ️ *Henüz hiçbir çıkartmaya komut yapıştırılmamış.*");
+      // BUG FIX: .dataValues.command yerine güvenli erişim
+      // Sequelize instance veya plain object her ikisini de destekler
+      const commands = all.map((el) => (el.dataValues ? el.dataValues.command : el.command));
+      const msg = commands.map((c, i) => `${i + 1}. \`${c}\``).join("\n");
+      await message.sendReply("✨ *Çıkartmaya Yapıştırılmış Komutlar:*\n\n" + msg);
     }
   );
 
@@ -3300,27 +3310,19 @@
   },
     async (message, match) => {
       message.myjid = message.client.user.lid ? message.client.user.lid.split(":")[0] : message.client.user.id.split(":")[0];
-      const db = await antifake.get();
+      // OPT: Her event'te antifake.get()/antipdm.get() vb. (findAll) yerine
+      // cache'li Set sorgulaması — DB'ye gitmez (60sn TTL)
+      const [antifakeDb, antipdmDb, apDb, adDb] = await Promise.all([
+        antifake.get(),
+        antipdm.get(),
+        antipromote.get(),
+        antidemote.get(),
+      ]);
       let sudos = SUDO.split(",");
-      const jids = [];
-      db.map((data) => {
-        jids.push(data.jid);
-      });
-      const antipdmdb = await antipdm.get();
-      const antipdmjids = [];
-      antipdmdb.map((data) => {
-        antipdmjids.push(data.jid);
-      });
-      const apdb = await antipromote.get();
-      const apjids = [];
-      apdb.map((data) => {
-        apjids.push(data.jid);
-      });
-      const addb = await antidemote.get();
-      const adjids = [];
-      addb.map((data) => {
-        adjids.push(data.jid);
-      });
+      const jids = antifakeDb.map((data) => data.jid);
+      const antipdmjids = antipdmDb.map((data) => data.jid);
+      const apjids = apDb.map((data) => data.jid);
+      const adjids = adDb.map((data) => data.jid);
       const admin_jids = [];
       const admins = ((await message.client.groupMetadata(message.jid).catch(() => ({ participants: [] }))).participants || [])
         .filter((v) => v.admin !== null)
@@ -3540,11 +3542,11 @@
         if (groupPending.size === 0) pendingAntiFakeUsers.delete(message.jid);
 
         // DB'den antifake ayarını kontrol et
-        const db = await antifake.get();
-        const jids = db.map(d => d.jid);
-        if (!jids.includes(message.jid)) return;
-
-        const fakeRecord = db.find(d => d.jid === message.jid);
+        // NOT: antifake.get() burada kaçınılmaz — allowed değerini (izin verilen prefix) okumak için
+        // tam kayıt gerekiyor. findAll yerine findOne(jid) ile sadece bu grubun kaydı çekilir.
+        const { FakeDB } = require("../utils/db/modeller");
+        const fakeRecord = await FakeDB.findByPk(message.jid).catch(() => null);
+        if (!fakeRecord) return; // Bu grup antifake'de kayıtlı değil
         const groupAllowed = (fakeRecord && fakeRecord.allowed) ? fakeRecord.allowed : (ALLOWED || "90");
         const allowed = groupAllowed.split(",").map(p => p.trim()).filter(Boolean);
 

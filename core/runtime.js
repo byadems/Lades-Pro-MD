@@ -4,6 +4,9 @@
  * core/runtime.js
  * Centralized state management for the bot's runtime.
  * Eliminates global namespace pollution.
+ * 
+ * 24/7 ULTRA PERFORMANS: Tüm LRU cache boyutları minimize edildi.
+ * Stale veri daha hızlı temizlenir, GC baskısı azalır.
  */
 
 const { LRUCache } = require("lru-cache");
@@ -19,9 +22,10 @@ const state = {
   metrics: {
     messages: 0,
     commands: 0,
-    // RAM OPT: TTL kısaltıldı, max düşürüldü — stale JID'ler daha hızlı siliniyor
-    users: new LRUCache({ max: 150,  ttl: 30 * 60 * 1000 }),   // 500→150 max
-    groups: new LRUCache({ max: 50, ttl: 2 * 60 * 60 * 1000 }), // 100→50 max
+    // 24/7 OPT: Daha sıkı LRU sınırları — stale JID'ler hızla atılır
+    // Aktif kullanıcı sayımı DB-backed (MesajIstatistik); bu sadece anlık snapshot.
+    users: new LRUCache({ max: 100,  ttl: 20 * 60 * 1000 }),   // 150→100, 30dk→20dk TTL
+    groups: new LRUCache({ max: 40, ttl: 60 * 60 * 1000 }),     // 50→40, 2h→1h TTL
     allGroupsCache: null,
     allGroupsLastFetch: 0,
     errors: 0,
@@ -33,14 +37,13 @@ const state = {
   /** Cached parsed SUDO_MAP (Set for O(1) matching) */
   sudoSet: new Set(),
 
-  /** LRU cache for LID -> PN resolutions — RAM OPT: 500→150, TTL 6h→2h */
-  lidCache: new LRUCache({ max: 150, ttl: 2 * 60 * 60 * 1000 }),
+  /** LRU cache for LID -> PN resolutions — 24/7 OPT: daha sıkı */
+  lidCache: new LRUCache({ max: 100, ttl: 60 * 60 * 1000 }), // 150→100, 2h→1h
 
   /** Batch for command performance metrics — plain Map prevents data loss from LRU eviction before flush */
-  // RAM OPT: 1000→200 giriş FIFO sınırı
   commandStatsBatch: new Map(),
   /** Max entries for commandStatsBatch before FIFO eviction */
-  MAX_STATS_BATCH: 200, // 1000→200
+  MAX_STATS_BATCH: 150, // 200→150: Flush aralığı 30s; bu sürede 150 farklı komut yeterli
 
   /** Self-test progress (moved from global namespace) */
   testProgress: { status: 'idle', currentIndex: 0, totalCommands: 0, currentCommand: '' },

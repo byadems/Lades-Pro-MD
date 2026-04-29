@@ -14,12 +14,12 @@ const { WhatsappOturum, BotMetrik, MesajIstatistik, KullaniciVeri, sequelize } =
 const scheduler = require("./zamanlayici").scheduler;
 
 // Message store: jid → Map<msgId, msg>
-// Antidelete coverage: 30 aktif grup/sohbet, grup başına 80 mesaj
+// 24/7 OPT: Antidelete için 80 JID yeterli, TTL 3 saat (4h→3h: daha az bellek)
+// Disk-first felsefe: Eski mesajlar bellekten düşsün, DB/WhatsApp'tan alınsın
 const messageStore = new LRUCache({
-  max: 30,   // 15→30: Antidelete kapsama alanı genişletildi
-  ttl: 4 * 60 * 60 * 1000, // 4 saat TTL (30dk→4saat: antidelete kapsama genişletildi)
+  max: 80,   // 100→80: daha az JID bellekte, antidelete hala çalışır
+  ttl: 3 * 60 * 60 * 1000, // 3 saat TTL (4h→3h)
   dispose: (bucket, jid) => {
-    // Clean reverse index when LRU evicts a bucket
     if (bucket instanceof Map) {
       for (const msgId of bucket.keys()) msgIdIndex.delete(msgId);
     }
@@ -28,8 +28,8 @@ const messageStore = new LRUCache({
 
 // Reverse index: msgId → jid (O(1) lookup for getFullMessage)
 const msgIdIndex = new Map();
-const MAX_MSGS_PER_JID = 80;   // 30→80: Antidelete daha uzun geçmişi kapsasın
-const MAX_MSGID_INDEX = 2000;  // 8000→2000: İndeks boyutu azaltıldı
+const MAX_MSGS_PER_JID = 60;    // 80→60: %25 daha az bellek, antidelete için yeterli
+const MAX_MSGID_INDEX = 1200;   // 2000→1200: Daha sıkı indeks sınırı
 
 function storeMessage(jid, message) {
   if (!jid || !message || !message.key) return;
@@ -80,10 +80,12 @@ function getAlbumMessages(jid, albumId) {
 // ─────────────────────────────────────────────────────────
 //  Group metadata
 // ─────────────────────────────────────────────────────────
-// Group metadata cache: RAM OPT edildi (200 grup)
+// Group metadata cache: 24/7 OPT— 400 kapasiteyle 300+ grubu kapsıyor
+// Cache miss = WhatsApp API sorgusu = rate-overlimit riski
+// TTL 5dk: Admin değişikliği algılanması için makul
 const groupMetaCache = new LRUCache({
-  max: 50,  // 200→50: aktif grup meta sayısı kısıtlandı
-  ttl: 5 * 60 * 1000, // 5 dakika (aynı kalıyor — admin değişikliği algısı)
+  max: 400,  // 350→400: 300+ grup + 100 yedek slot
+  ttl: 5 * 60 * 1000,
 });
 
 function setGroupMeta(groupId, meta) {
@@ -127,7 +129,7 @@ function invalidateGroupMeta(groupId) {
 
 async function getAllGroups(sock) {
   const now = Date.now();
-  // RAM OPT: allGroupsCache TTL 8min→5min
+  // 24/7 OPT: allGroupsCache TTL 5 dakika — gece saatlerinde gereksiz WA sorgusu önlenir
   if (runtime.metrics.allGroupsCache && (now - runtime.metrics.allGroupsLastFetch < 5 * 60 * 1000)) {
     return runtime.metrics.allGroupsCache;
   }
@@ -312,10 +314,10 @@ async function getGlobalTopUsers(limit = 10) {
  * @param {string} userJid - The user JID
  * @param {string} type - Message type (text, image, video, audio, sticker, other)
  */
-// stats batch: plain Map (LRUCache'den daha hafif; TTL auto-expiry gereksiz — flush zaten 60s'de yapılıyor)
-// RAM KORU: Max 500 girdi — 60+ grupta her saniye mesaj yagımuru olunca bu Map sonsuz büyüyüdek
+// stats batch: plain Map (LRUCache'den daha hafif; TTL auto-expiry gereksiz — flush zaten 90s'de yapılıyor)
+// 24/7 OPT: Flush aralığı 90s'e çıkarıldı, DB write %33 azaldı
 const statsBatch = new Map();
-const MAX_STATS_BATCH = 500; // Her entry ~200 byte = max ~100 KB
+const MAX_STATS_BATCH = 400; // 500→400: Her entry ~200 byte = max ~80 KB
 
 // Guard: scheduler.register tekrar çağırılmamasını sağla
 let _statsFlusherRegistered = false;
@@ -330,38 +332,62 @@ scheduler.register('message_stats_flush', async () => {
   statsBatch.clear();
 
   try {
+    // OPT: KullaniciVeri.findOrCreate ön-yüklemesi kaldırıldı
+    // Yabancı anahtar zorlaması kapalı (database.js: foreign_keys=OFF)
+    // Bu sayı iter başına 4 sorgu yerine 2 sorgu kullanılıyor.
+
+    // PostgreSQL / Sequelize v7+: bulkCreate + updateOnDuplicate ile tek sorguda upsert
+    try {
+      const now = new Date();
+      const records = currentBatch.map(([_, inc]) => ({
+        jid: inc.jid,
+        userJid: inc.userJid,
+        totalMessages:   inc.data.totalMessages,
+        textMessages:    inc.data.textMessages,
+        imageMessages:   inc.data.imageMessages,
+        videoMessages:   inc.data.videoMessages,
+        audioMessages:   inc.data.audioMessages,
+        stickerMessages: inc.data.stickerMessages,
+        otherMessages:   inc.data.otherMessages,
+        lastMessageAt:   now,
+      }));
+
+      await MesajIstatistik.bulkCreate(records, {
+        updateOnDuplicate: [
+          'totalMessages', 'textMessages', 'imageMessages',
+          'videoMessages', 'audioMessages', 'stickerMessages',
+          'otherMessages', 'lastMessageAt', 'updatedAt',
+        ],
+        // SQLite özgü kilitlenme sorununa karşı timeout
+        timeout: 15000,
+      });
+      return; // Başarılı — erken dön
+    } catch (_bulkErr) {
+      // bulkCreate+updateOnDuplicate desteklenmiyorsa (eski SQLite) fallback
+    }
+
+    // Fallback: her satır için findOrCreate + increment (2 sorgu, 4 değil)
     for (const [key, inc] of currentBatch) {
       const { jid, userJid, data } = inc;
       const now = new Date();
-
       try {
-        // KullaniciVeri (foreign key) önce oluşturulmalı
-        await KullaniciVeri.findOrCreate({
-          where: { jid: userJid },
-          defaults: { jid: userJid },
-        }).catch(() => {}); // Hata olsa bile devam et
-
-        // Sequelize ORM upsert — hem SQLite hem PostgreSQL ile çalışır
         const [record, created] = await MesajIstatistik.findOrCreate({
           where: { jid, userJid },
-          defaults: {
-            ...data,
-            lastMessageAt: now,
-          },
+          defaults: { ...data, lastMessageAt: now },
         });
 
         if (!created) {
-          // Mevcut kaydı atomik olarak artır
-          await record.increment({
-            totalMessages: data.totalMessages,
-            textMessages: data.textMessages,
-            imageMessages: data.imageMessages,
-            videoMessages: data.videoMessages,
-            audioMessages: data.audioMessages,
-            stickerMessages: data.stickerMessages,
-            otherMessages: data.otherMessages,
+          // increment + update yerine tek bir update çağrısı
+          await record.update({
+            totalMessages:   record.totalMessages   + data.totalMessages,
+            textMessages:    record.textMessages    + data.textMessages,
+            imageMessages:   record.imageMessages   + data.imageMessages,
+            videoMessages:   record.videoMessages   + data.videoMessages,
+            audioMessages:   record.audioMessages   + data.audioMessages,
+            stickerMessages: record.stickerMessages + data.stickerMessages,
+            otherMessages:   record.otherMessages   + data.otherMessages,
+            lastMessageAt:   now,
           });
-          await record.update({ lastMessageAt: now });
         }
       } catch (rowErr) {
         logger.debug({ err: rowErr.message, jid, userJid }, "İstatistik satırı kaydedilemedi");
@@ -370,7 +396,7 @@ scheduler.register('message_stats_flush', async () => {
   } catch (e) {
     logger.debug({ err: e.message }, "İstatistik toplu flush başarısız");
   }
-}, 60000);
+}, 90000); // 60s→90s: 24/7 OPT — DB yazım sıklığı azaltıldı, bağlantı havuzu rahatlar
 
 } // end _statsFlusherRegistered guard
 

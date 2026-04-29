@@ -46,11 +46,13 @@ function cleanTempFile(filePath) {
   }
 }
 
-// Auto-cleanup temp dir every 30 min
+// 24/7 OPT: Auto-cleanup temp dir every 15 min (30dk→15dk)
+// Disk-first felsefe: Daha sık medya işleme = daha çok temp dosya.
+// Ağresıf temizlik disk dolmasını önler, I/O performansını korur.
 const scheduler = require("./zamanlayici").scheduler;
 let _tempCleanupTask = null;
 
-function startTempCleanup(intervalMs = 30 * 60 * 1000) {
+function startTempCleanup(intervalMs = 15 * 60 * 1000) {
   if (_tempCleanupTask) return;
   
   _tempCleanupTask = scheduler.register('temp_cleanup', async () => {

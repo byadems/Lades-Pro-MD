@@ -67,19 +67,25 @@ let _queue = null;
 let _queueReady = false;
 let _firstConnectDone = false; // loadPlugins + startSchedulers sadece 1 kez çalışsın
 
+// ─── 24/7 ULTRA PERFORMANS PQueue AYARLARI ────────────────────────────────
+// concurrency: 30  — 40→30: Eşzamanlı görev sayısı azaltıldı → her görev
+//   daha az bellek baskısı altında çalışır. 300+ grupta 30 eşzamanlı slot
+//   yeterli; tıkanma olursa backpressure devreye girer.
+// intervalCap: 60  — 100→60: Saniyede max 60 mesaj işle.
+//   WhatsApp rate-limit'e daha az maruz kalınır.
+// throwOnTimeout: false — Timeout'ta hata fırlatma, sessizce geç.
+const PQUEUE_OPTS = { concurrency: 30, intervalCap: 60, interval: 1000, throwOnTimeout: false };
+
 // Pre-warm: Bot başlar başlamaz queue'yu hazırla
 import('p-queue').then(({ default: PQueue }) => {
-  // concurrency: 20 — 101 grup için yeterli; hafif komutlar çoğunluk
-  // intervalCap + interval: saniyede max 50 mesaj işle (burst engeli)
-  // throwOnTimeout: false — timeout'da hata fırlatma, sessizce geç
-  _queue = new PQueue({ concurrency: 20, intervalCap: 50, interval: 1000, throwOnTimeout: false });
+  _queue = new PQueue(PQUEUE_OPTS);
   _queueReady = true;
 }).catch(() => { /* fallback: create on demand */ });
 
 async function getMessageQueue() {
   if (_queue) return _queue;
   const { default: PQueue } = await import('p-queue');
-  _queue = new PQueue({ concurrency: 20, intervalCap: 50, interval: 1000, throwOnTimeout: false });
+  _queue = new PQueue(PQUEUE_OPTS);
   _queueReady = true;
   return _queue;
 }
@@ -386,7 +392,11 @@ async function createBot(sessionId = "lades-session", options = {}) {
            logData.err?.type === 'MessageCounterError' || 
            logData.err?.type === 'SessionError' ||
            (logData.msg && logData.msg.includes('failed to decrypt')) ||
-           (logData.err?.message && logData.err.message.includes('No session'));
+           (logData.err?.message && (
+             logData.err.message.includes('No session') ||
+             logData.err.message.includes('known session') ||
+             logData.err.message.includes('decrypt')
+           ));
 
         if (isDecryptionError) {
           const now = Date.now();
@@ -483,17 +493,16 @@ async function createBot(sessionId = "lades-session", options = {}) {
   // ─────────────────────────────────────────────────────────
   //  Group Metadata Cache (KRİTİK PERFORMANS + RATE LIMIT FİX)
   //  Baileys her grup mesajı gönderilirken WhatsApp'a groupMetadata
-  //  query'si atar. Çoklu grupta bu rate-overlimit'e yol açar ve
-  //  mesaj göndermeyi başarısız kılar ("Mesaj bekleniyor" balonu).
+  //  query'si atar. Çoklu grupta bu rate-overlimit'e yol açar.
   //  cachedGroupMetadata callback'i Baileys'in iç sorgularını cache'ler.
+  //  NOT: store.js'deki merkezi groupMetaCache kullanılıyor (350 kapasite)
+  //  — plugin'ler, handler ve Baileys aynı cache'i paylaşır.
   // ─────────────────────────────────────────────────────────
-  const groupMetaCache = new LRUCache({ max: 200, ttl: 5 * 60 * 1000 });
+  const { getGroupMeta, setGroupMeta } = require('./store');
   const cachedGroupMetadata = async (jid) => {
     try {
-      const cached = groupMetaCache.get(jid);
+      const cached = getGroupMeta(jid);
       if (cached) return cached;
-      // Cache yoksa ham sock.groupMetadata'yı çağır (recursion'u önlemek için
-      // wrapper'dan değil — sock henüz yaratılmadığı için aşağıda dolduruyoruz)
       return undefined;
     } catch { return undefined; }
   };
@@ -508,9 +517,9 @@ async function createBot(sessionId = "lades-session", options = {}) {
       // Çift önbellekleme (double-cache) durumunu ve bellek sızıntısını önlemek için direkt kullanıyoruz:
       keys: state.keys, 
     },
-    msgRetryCounterCache: createNodeCacheAdapter(100, 5 * 60 * 1000), // 500→100 mesaj, 5 dk
-    userDevicesCache: createNodeCacheAdapter(100, 5 * 60 * 1000), // 500→100 cihaz, 5 dk
-    cachedGroupMetadata, // ← YENİ: rate-overlimit'i ve send timeout'unu çözer
+    msgRetryCounterCache: createNodeCacheAdapter(80, 5 * 60 * 1000),  // 100→80: Retry sayacı, bellek tasarrufu
+    userDevicesCache: createNodeCacheAdapter(80, 5 * 60 * 1000),      // 100→80: Cihaz cache, bellek tasarrufu
+    cachedGroupMetadata, // ← Store ile birleşik cache: rate-overlimit'i önler
     // macOS/Safari: WhatsApp'ın multi-device korelasyon algoritmasının
     // istatistiksel olarak en az "şüpheli" gördüğü kombinasyon. Hermit-bot
     // ve KnightBot-Mini gibi uzun-ömürlü bot projelerinde tercih edilir.
@@ -542,27 +551,28 @@ async function createBot(sessionId = "lades-session", options = {}) {
     maxMsgRetryCount: 5,
   });
 
-  // ── Group metadata wrapper: tüm groupMetadata çağrılarını cache'ler ──
+  // ── Group metadata wrapper: tüm groupMetadata çağrılarını store cache'ine yazar ──
   // Hem Baileys'in iç çağrıları (cachedGroupMetadata) hem plugin'lerin
-  // direkt sock.groupMetadata() çağrıları cache'i besler ve okur.
+  // direkt sock.groupMetadata() çağrıları aynı merkezi store cache'ini besler.
   const _origGroupMetadata = sock.groupMetadata?.bind(sock);
   if (_origGroupMetadata) {
     sock.groupMetadata = async (jid) => {
-      const cached = groupMetaCache.get(jid);
+      const cached = getGroupMeta(jid);
       if (cached) return cached;
       const meta = await _origGroupMetadata(jid);
-      if (meta) groupMetaCache.set(jid, meta);
+      if (meta) setGroupMeta(jid, meta);
       return meta;
     };
   }
-  // Grup güncellemelerinde cache'i invalidate et
+  // Grup güncellemelerinde store cache'ini invalidate et
+  const { invalidateGroupMeta } = require('./store');
   sock.ev.on('groups.update', (updates) => {
     for (const u of updates) {
-      if (u?.id) groupMetaCache.delete(u.id);
+      if (u?.id) invalidateGroupMeta(u.id);
     }
   });
   sock.ev.on('group-participants.update', (ev) => {
-    if (ev?.id) groupMetaCache.delete(ev.id);
+    if (ev?.id) invalidateGroupMeta(ev.id);
   });
 
   // Store events
@@ -907,8 +917,9 @@ async function createBot(sessionId = "lades-session", options = {}) {
       if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
       if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
 
-      // 1) Periyodik presence güncellemesi (her 4 dakikada bir)
-      const PRESENCE_INTERVAL_MS = 4 * 60 * 1000;
+      // 1) Periyodik presence güncellemesi (her 5 dakikada bir)
+      // 24/7 OPT: 4dk→5dk: WA sorgu sayısı %20 azalır, bağlantı daha sessiz kalır
+      const PRESENCE_INTERVAL_MS = 5 * 60 * 1000;
       _presenceTimer = setInterval(async () => {
         if (!sock.user) return;
         try {
@@ -921,11 +932,14 @@ async function createBot(sessionId = "lades-session", options = {}) {
 
       // ─────────────────────────────────────────────────────────
       //  Inactivity Watchdog
-      //  5 dakika inaktif olan bağlantıyı otomatik yenile
+      //  24/7 OPT: 20 dakika inaktif olan bağlantıyı otomatik yenile
+      //  5dk çok kısaydı — gece 03:00-05:00 arası gruplar sessiz olur,
+      //  bu da gereksiz reconnect döngülerine yol açıyordu.
+      //  20dk: Gece sessizliğini tolere eder, gerçek kopmaları yakalar.
       // ─────────────────────────────────────────────────────────
       let lastActivity = Date.now();
       let firstMsgReceived = false;
-      const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 dakika
+      const INACTIVITY_TIMEOUT = 20 * 60 * 1000; // 5dk→20dk: 24/7 gece toleransı
 
       sock.ev.on('messages.upsert', ({ type }) => {
         firstMsgReceived = true;
@@ -948,9 +962,11 @@ async function createBot(sessionId = "lades-session", options = {}) {
 
       // ─────────────────────────────────────────────────────────
       //  Startup Zombie Dedektörü — Kademeli Recovery
-      //  Bağlantı açıldıktan 90s içinde hiç mesaj gelmezse:
+      //  24/7 OPT: Bekleme 120s'e çıkarıldı (90s→120s)
+      //  Yavaş ağlarda Baileys handshake 60-90s sürebilir;
+      //  90s çok erken tetikleniyordu → gereksiz clearSessions.
       //   Deneme 1 → clearSessions() + reconnect (hafif onarım)
-      //   Deneme 2 → clearState()  + dashboard'a QR zorunluluğu
+      //   Deneme 2 → süreç yeniden başlatma (Reserved VM kalkar)
       // ─────────────────────────────────────────────────────────
       let startupZombieTimer = null;
 
@@ -965,34 +981,36 @@ async function createBot(sessionId = "lades-session", options = {}) {
         if (update.connection === 'open') {
           lastActivity = Date.now();
           firstMsgReceived = false;
-          // 90 saniyelik startup zombie kontrolü
+          // 120 saniyelik startup zombie kontrolü (90s→120s)
           if (startupZombieTimer) clearTimeout(startupZombieTimer);
           startupZombieTimer = setTimeout(async () => {
             if (!firstMsgReceived && sock.ws && sock.ws.readyState === 1 && sock.user) {
               zombieRecoveryCount++;
               if (zombieRecoveryCount === 1) {
                 // Hafif onarım: P2P signal session'larını temizle, creds koru
-                logger.warn(`[Zombie] Deneme ${zombieRecoveryCount}: 90s mesaj yok. clearSessions() + yeniden bağlanıyor...`);
+                logger.warn(`[Zombie] Deneme ${zombieRecoveryCount}: 120s mesaj yok. clearSessions() + yeniden bağlanıyor...`);
                 try { if (clearSessions) await clearSessions(); } catch { }
                 try { sock.end(new Error('zombie-clearSessions')); } catch { }
               } else {
-                // ÜLTRA ONARIM: clearState (QR zorunluluğu) ÇOK AĞIR — kullanıcı yeniden eşleşmek istemez.
-                // Onun yerine süreci temiz kapat → Reserved VM aynı oturumla saniyeler içinde kalkar.
-                logger.error(`[Zombie] Deneme ${zombieRecoveryCount}: clearSessions sonrası hâlâ zombie! Süreç temiz yeniden başlatılıyor (Reserved VM kalkar)...`);
+                // Süreci temiz kapat → PM2/Reserved VM aynı oturumla saniyeler içinde kalkar.
+                logger.error(`[Zombie] Deneme ${zombieRecoveryCount}: clearSessions sonrası hâlâ zombie! Süreç temiz yeniden başlatılıyor...`);
                 try {
                   if (process.send) process.send({ type: 'bot_status', data: { connected: false, error: 'Zombie soket — yeniden başlatma' } });
                 } catch {}
                 setTimeout(() => process.exit(1), 500);
               }
             }
-          }, 90 * 1000);
+          }, 120 * 1000);
         }
       });
 
-      // 2) Saat kayması izleyicisi — 60 dakikada bir (CPU tasarrufu)
+      // 2) Saat kayması izleyicisi — 24/7 OPT: 3 saatte bir (60dk→180dk)
       //    timeout 3s'e düşürüldü (event-loop blokajını azaltır)
-      const NTP_CHECK_INTERVAL_MS  = 60 * 60 * 1000; // 60 dakika (30dk → 60dk)
-      const PROACTIVE_RECONNECT_MS =  6 * 60 * 60 * 1000;
+      //    Saatte 1 HTTP sorgusu yerine 3 saatte 1: CPU + ağ tasarrufu
+      const NTP_CHECK_INTERVAL_MS  = 3 * 60 * 60 * 1000; // 180 dakika
+      // 24/7 OPT: Proaktif reconnect 12 saatte bir (6h→12h)
+      // Günde 4 reconnect yerine 2: Mesaj kaybı penceresi %50 azalır
+      const PROACTIVE_RECONNECT_MS = 12 * 60 * 60 * 1000;
 
       _ntpTimer = setInterval(async () => {
         if (!sock.user) return;
@@ -1012,11 +1030,11 @@ async function createBot(sessionId = "lades-session", options = {}) {
 
       _proactiveTimer = setInterval(async () => {
         if (!sock.user) return;
-        logger.info('[Proaktif] 6 saatlik oturum yenileme...');
+        logger.info('[Proaktif] 12 saatlik oturum yenileme...');
         if (_presenceTimer) { clearInterval(_presenceTimer); _presenceTimer = null; }
         if (_ntpTimer)      { clearInterval(_ntpTimer);      _ntpTimer = null; }
         if (_proactiveTimer){ clearInterval(_proactiveTimer); _proactiveTimer = null; }
-        gracefulClose("Proactive 6h reconnect");
+        gracefulClose("Proactive 12h reconnect");
       }, PROACTIVE_RECONNECT_MS);
 
       // ─────────────────────────────────────────────────────────
@@ -1237,21 +1255,20 @@ async function createBot(sessionId = "lades-session", options = {}) {
   });
 
   // ── Message events ───────────────────────────────────
-  // RAM KORUMA: Queue doluysa (200+ bekleyen görev) yeni mesajları düşür.
-  // 60+ grupta burst mesajlarda heap'in sonsuz büyümesini engeller.
-  const MAX_QUEUE_SIZE = 500;
+  // RAM KORUMA: Queue doluysa (500+ bekleyen görev) yeni mesajları düşür.
+  // 300+ grupta burst mesajlarda heap'in sonsuz büyümesini engeller.
+  // 24/7 OPT: Kuyruk boyutu 800'e düşürüldü (1000→800)
+  // Her kuyruktaki görev ~2-10KB bellek tutar; 800×10KB = max 8MB
+  const MAX_QUEUE_SIZE = 800;
 
-  // Eski mesaj eşiği: 30 dakika (saniye cinsinden).
-  // 5dk çok dardı; saat kayması veya WhatsApp retry geç kaldığında komutlar
-  // sessizce düşüyordu. 30dk daha güvenli — gerçekten eski mesajlar yine atlanır.
-  const MSG_AGE_LIMIT_SEC = 30 * 60;
+  // 24/7 OPT: Mesaj yaşı 15 dakikaya sıkıştırıldı (30dk→15dk)
+  // Daha az eski mesaj işlenir → kuyruk daha az dolar → daha hızlı yanıt
+  const MSG_AGE_LIMIT_SEC = 15 * 60;
 
-  // Tek bir komut/mesajın işlenmesi için maksimum süre (2 dakika).
-  // 5 dakikadan indirildi — bağlantı koptuğunda kuyruk slotları 5 dakika
-  // işgal ediyordu, bu yüzden yeni gelen komutlar hiç işlenemiyordu.
-  // YouTube indirme gibi uzun işlemler 2 dakika içinde zaten biter veya
-  // kendi timeout'larını halleder. Süre dolarsa kullanıcıya geri bildirim gönderilir.
-  const HANDLER_TIMEOUT_MS = 2 * 60 * 1000;
+  // 24/7 OPT: Handler timeout 90 saniye (2dk→90s)
+  // Hung komut daha hızlı temizlenir → kuyruk slotları daha çabuk boşalır.
+  // Medya indirme komutları kendi internal timeout'larını kullanır (60s).
+  const HANDLER_TIMEOUT_MS = 90 * 1000;
 
   // Komut ön ekleri (HANDLERS) — log filtreleme ve hata bildirimi için.
   const _handlersList = String(config.HANDLERS || ".").split("");

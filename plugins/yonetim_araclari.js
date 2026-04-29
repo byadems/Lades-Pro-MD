@@ -59,14 +59,86 @@ const config = require("../config");
 const { settingsMenu, ADMIN_ACCESS } = config;
 const fs = require("fs");
 const { BotVariable } = require("../core/database");
+const { fetchGroupMeta } = require("../core/store");
 
 const handler = config.HANDLER_PREFIX;
 
+const MANAGE_CACHE_TTL = 60000;
+
 let _antiwordJidsCache = null;
 let _antiwordCacheTime = 0;
+// _antilinkCache: jid → { conf, expiresAt } — JID başına ayrı TTL
+// Önceki implement.: tek global timestamp tüm JID'lerin TTL'sını sıfırlıyordu.
 let _antilinkCache = new Map();
-let _antilinkCacheTime = 0;
-const MANAGE_CACHE_TTL = 60000;
+
+// ─────────────────────────────────────────────────────────
+//  PERFORMANS KRİTİK: Antispam/Antibot JID cache
+//  Her mesajda DB'ye gitmeyi önler. 300+ grupta saniyede
+//  yüzlerce DB sorgusunu tek bir 60s periyodik sorguya indirir.
+//  Yanlış kick sorununu da çözer: DB gecikmesi timestamp'leri
+//  kirletiyordu, şimdi antispam window doğru hesaplanır.
+// ─────────────────────────────────────────────────────────
+let _antispamJidsCache = null;
+let _antispamCacheTime = 0;
+let _antibotJidsCache = null;
+let _antibotCacheTime = 0;
+const SPAM_CACHE_TTL = 60000; // 60 saniyede bir DB'ye git
+
+async function getCachedAntispamJids() {
+  if (_antispamJidsCache && Date.now() - _antispamCacheTime < SPAM_CACHE_TTL) {
+    return _antispamJidsCache;
+  }
+  try {
+    const db = await antispam.get();
+    _antispamJidsCache = new Set(db.map((d) => d.jid));
+    _antispamCacheTime = Date.now();
+  } catch (e) {
+    // DB hatası olursa eski cache'i koru
+    if (!_antispamJidsCache) _antispamJidsCache = new Set();
+  }
+  return _antispamJidsCache;
+}
+
+async function getCachedAntibotJids() {
+  if (_antibotJidsCache && Date.now() - _antibotCacheTime < SPAM_CACHE_TTL) {
+    return _antibotJidsCache;
+  }
+  try {
+    const db = await antibot.get();
+    _antibotJidsCache = new Set(db.map((d) => d.jid));
+    _antibotCacheTime = Date.now();
+  } catch (e) {
+    if (!_antibotJidsCache) _antibotJidsCache = new Set();
+  }
+  return _antibotJidsCache;
+}
+
+// Cache invalidation: .antispam/.antibot aç/kapat komutları bu fonksiyonu çağırır
+function _invalidateAntispamCache() { _antispamJidsCache = null; _antispamCacheTime = 0; }
+function _invalidateAntibotCache() { _antibotJidsCache = null; _antibotCacheTime = 0; }
+
+// ─────────────────────────────────────────────────────────
+//  Antifake (Anti-Numara) JID cache
+//  .ayarlar menüsü ve group-participants event'i çin
+// ─────────────────────────────────────────────────────────
+let _antifakeJidsCache = null;
+let _antifakeCacheTime = 0;
+
+async function getCachedAntifakeJids() {
+  if (_antifakeJidsCache && Date.now() - _antifakeCacheTime < SPAM_CACHE_TTL) {
+    return _antifakeJidsCache;
+  }
+  try {
+    const db = await antifake.get();
+    _antifakeJidsCache = new Set(db.map((d) => d.jid));
+    _antifakeCacheTime = Date.now();
+  } catch (e) {
+    if (!_antifakeJidsCache) _antifakeJidsCache = new Set();
+  }
+  return _antifakeJidsCache;
+}
+
+function _invalidateAntifakeCache() { _antifakeJidsCache = null; _antifakeCacheTime = 0; }
 
 async function getCachedAntiwordJids() {
   if (_antiwordJidsCache && Date.now() - _antiwordCacheTime < MANAGE_CACHE_TTL) {
@@ -79,12 +151,11 @@ async function getCachedAntiwordJids() {
 }
 
 async function getCachedAntilinkConfig(jid) {
-  if (_antilinkCache.has(jid) && Date.now() - _antilinkCacheTime < MANAGE_CACHE_TTL) {
-    return _antilinkCache.get(jid);
-  }
+  const now = Date.now();
+  const entry = _antilinkCache.get(jid);
+  if (entry && now < entry.expiresAt) return entry.conf;
   const conf = await antilinkConfig.get(jid);
-  _antilinkCache.set(jid, conf);
-  _antilinkCacheTime = Date.now();
+  _antilinkCache.set(jid, { conf, expiresAt: now + MANAGE_CACHE_TTL });
   return conf;
 }
 
@@ -301,7 +372,12 @@ Module({
   }
 );
 
-// Ayarlar menüsündeki özellikler — sıra ve anahtar isimleri sabit kalmalı
+// ─────────────────────────────────────────────────────────
+//  GRUP_AYARLARI — ayarlar menüsü özellik tanımları
+//  getStatus() fonksiyonları DB yerine module-level cache kullanır.
+//  Bu sayede .ayarlar komutu her çağrıldığında 6 ayrı DB sorgusu
+//  atmak yerine anlık cache'den okur (60s TTL).
+// ─────────────────────────────────────────────────────────
 const GRUP_AYARLARI = [
   {
     key: "antispam",
@@ -309,16 +385,19 @@ const GRUP_AYARLARI = [
     desc: "Hızlı mesaj atanları otomatik gruptan atar",
     icon: "🚨",
     getStatus: async (jid) => {
-      const db = await antispam.get();
-      return db.some(d => d.jid === jid);
+      // Cache'li versiyon — her .ayarlar açılışında DB'ye gitme
+      const jids = await getCachedAntispamJids();
+      return jids.has(jid);
     },
     toggle: async (jid, enable, message) => {
       if (enable) {
-        if (!message.isBotAdmin) return message.sendReply("🙁 *Botu önce yönetici yapın!*");
+        if (!message.isBotAdmin) return message.sendReply("🙁 *Beni önce yönetici yapın!*");
         await antispam.set(jid);
+        _invalidateAntispamCache();
         return message.sendReply("✅ *Anti-Spam açıldı!*");
       }
       await antispam.delete(jid);
+      _invalidateAntispamCache();
       return message.sendReply("❌ *Anti-Spam kapatıldı!*");
     }
   },
@@ -328,8 +407,10 @@ const GRUP_AYARLARI = [
     desc: "Silinen mesajları yakalar ve iletir",
     icon: "🗑️",
     getStatus: async (jid) => {
-      const db = await antidelete.get();
-      return db.some(d => d.jid === jid);
+      // handler.js'teki _antideleteCache zaten in-memory Set — doğrudan import et
+      const { getAntideleteCache } = require("../core/handler");
+      const cache = getAntideleteCache();
+      return cache ? cache.has(jid) : false;
     },
     toggle: async (jid, enable, message) => {
       if (enable) {
@@ -348,7 +429,8 @@ const GRUP_AYARLARI = [
     desc: "Grup içi link paylaşımını engeller",
     icon: "🔗",
     getStatus: async (jid) => {
-      const conf = await antilinkConfig.get(jid);
+      // Cache'li versiyon
+      const conf = await getCachedAntilinkConfig(jid);
       return !!(conf && conf.enabled);
     },
     toggle: async (jid, enable, message) => {
@@ -360,6 +442,7 @@ const GRUP_AYARLARI = [
         } else {
           await antilinkConfig.update(jid, { enabled: true, updatedBy: message.sender });
         }
+        invalidateManageCache();
         return message.sendReply("✅ *Anti-Bağlantı açıldı!* (Mod: SİL)\n\n💡 _Detaylı ayar için_ `.antibağlantı yardım` _kullanın._");
       }
       const existing = await antilinkConfig.get(jid);
@@ -376,18 +459,16 @@ const GRUP_AYARLARI = [
     desc: "Yasaklı kelime kullanımını engeller",
     icon: "🤬",
     getStatus: async (jid) => {
-      const db = await antiword.get();
+      // Cache'li versiyon
+      const jids = await getCachedAntiwordJids();
       const antiwordWarn = config.ANTIWORD_WARN?.split(",") || [];
-      const kickMode = db.some(d => d.jid === jid);
-      const warnMode = antiwordWarn.includes(jid);
-      if (kickMode) return "at";
-      if (warnMode) return "uyar";
+      if (jids.has(jid)) return "at";
+      if (antiwordWarn.includes(jid)) return "uyar";
       return false;
     },
     toggle: async (jid, enable, message) => {
       if (enable) {
         if (!message.isBotAdmin) return message.sendReply("🙁 *Botu önce yönetici yapın!*");
-        // Uyarı modunda aç
         const antiwordWarn = config.ANTIWORD_WARN?.split(",").filter(Boolean) || [];
         if (!antiwordWarn.includes(jid)) antiwordWarn.push(jid);
         await setVar("ANTIWORD_WARN", antiwordWarn.join(","), false);
@@ -406,16 +487,19 @@ const GRUP_AYARLARI = [
     desc: "Yabancı ülke numaralarını gruptan engeller",
     icon: "🌍",
     getStatus: async (jid) => {
-      const db = await antifake.get();
-      return db.some(d => d.jid === jid);
+      // Cache'li versiyon
+      const jids = await getCachedAntifakeJids();
+      return jids.has(jid);
     },
     toggle: async (jid, enable, message) => {
       if (enable) {
         if (!message.isBotAdmin) return message.sendReply("🙁 *Botu önce yönetici yapın!*");
         await antifake.set(jid);
+        _invalidateAntifakeCache();
         return message.sendReply("✅ *Anti-Numara açıldı!*\n\nℹ️ _Varsayılan: sadece +90 kabul edilir._\n💡 _Özelleştirmek için_ `.antinumara izin 90,1` _kullanın._");
       }
       await antifake.delete(jid);
+      _invalidateAntifakeCache();
       return message.sendReply("❌ *Anti-Numara kapatıldı!*");
     }
   },
@@ -773,30 +857,29 @@ Module({
     let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
       match[1] = match[1] ? match[1].toLowerCase() : "";
-      const db = await antibot.get();
-      const jids = [];
-      db.map((data) => {
-        jids.push(data.jid);
-      });
+      // OPT: antibot.get() (findAll) yerine cache'li Set sorgusu
+      const jids = await getCachedAntibotJids();
       if (match[1] === "aç") {
         if (!message.isBotAdmin)
           return await message.sendReply("🙁 _Üzgünüm! Öncelikle yönetici olmalısınız._");
         await antibot.set(message.jid);
+        _invalidateAntibotCache();
       }
       if (match[1] === "kapat") {
         await antibot.delete(message.jid);
+        _invalidateAntibotCache();
       }
       if (match[1] !== "aç" && match[1] !== "kapat") {
-        const status = jids.includes(message.jid) ? "Açık" : "Kapalı";
+        const status = jids.has(message.jid) ? "Açık" : "Kapalı";
         const { subject } = await message.client.groupMetadata(message.jid);
         return await message.sendReply(
           `🚨 *Bot Engelleme Sistemi (Anti-Bot)*\n\n` +
-          `ℹ️ *Mevcut Durum:* ${status} ${jids.includes(message.jid) ? "✅" : "❌"}\n` +
+          `ℹ️ *Mevcut Durum:* ${status} ${jids.has(message.jid) ? "✅" : "❌"}\n` +
           `💬 *Kullanım:* \`.antibot aç / kapat\``
         );
       }
       await message.sendReply(
-        match[1] === "aç" ? "✅ *Antibot etkinleştirildi!*" : "❌ *Antibot kapatıldı!*"
+        match[1] === "aç" ? "✅ *Anti-Bot etkinleştirildi!*" : "❌ *Anti-Bot kapatıldı!*"
       );
     }
   }
@@ -830,11 +913,13 @@ Module({
         if (!message.isBotAdmin)
           return await message.sendReply("🙁 *Üzgünüm! Öncelikle yönetici olmalısınız.*");
         await antispam.set(message.jid);
+        _invalidateAntispamCache(); // Cache'i anında temizle
         return await message.sendReply("✅ *Anti-Spam etkinleştirildi!*");
       }
 
       if (command === "kapat") {
         await antispam.delete(message.jid);
+        _invalidateAntispamCache(); // Cache'i anında temizle
         return await message.sendReply("❌ *Anti-Spam kapatıldı!*");
       }
 
@@ -1244,12 +1329,11 @@ Module({
     let adminAccesValidated = await isAdmin(message);
     if (message.fromOwner || adminAccesValidated) {
       match[1] = match[1] ? match[1].toLowerCase() : "";
-      const db = await antiword.get();
-      const jids = [];
-      db.map((data) => {
-        jids.push(data.jid);
-      });
+      // OPT + BUG FIX: antiword.get() (findAll) yerine cache'li Set
+      // Hem DB sorgusu azalır hem de jids.includes() yerine .has() kullanılır
+      const jids = await getCachedAntiwordJids();
       const antiwordWarn = config.ANTIWORD_WARN?.split(",") || [];
+
       if (match[1].includes("warn") || match[1] === "aç" || match[1] === "on") {
         if (match[1].endsWith("aç") || match[1].endsWith("on") || match[1] === "aç") {
           if (!(await isAdmin(message)))
@@ -1257,6 +1341,7 @@ Module({
           if (!antiwordWarn.includes(message.jid)) {
             antiwordWarn.push(message.jid);
             await setVar("ANTIWORD_WARN", antiwordWarn.join(","), false);
+            invalidateManageCache(); // BUG FIX: cache'i hemen temizle
           }
           return await message.sendReply("✅ *Bu grupta kelime uyarı sistemi aktif edildi!*\n_Uyarı verir, gerekirse atar._"
           );
@@ -1266,14 +1351,17 @@ Module({
             return await message.sendReply("🙁 *Üzgünüm! Öncelikle yönetici olmalısınız.*");
           if (antiwordWarn.includes(message.jid)) {
             await message.sendReply("❌ *Kelime uyarı sistemi kapatıldı!*");
-            return await setVar(
+            await setVar(
               "ANTIWORD_WARN",
               antiwordWarn.filter((x) => x != message.jid).join(",") || "null",
               false
             );
+            invalidateManageCache(); // BUG FIX: kapat sonrası cache'i sıfırla
+            return;
           }
         }
       }
+
       if (match[1] === "at") {
         if (!await isAdmin(message))
           return await message.sendReply("🙁 *Üzgünüm! Öncelikle yönetici olmalısınız.*");
@@ -1285,14 +1373,21 @@ Module({
             false
           );
         }
+        invalidateManageCache(); // BUG FIX: "at" modu sonrası cache reset
         return await message.sendReply("✅ *Bu grupta kelime atma sistemi aktif edildi!*\n_Kullanıcıları diret atar._");
       }
+
       if (match[1] === "kapat" || match[1] === "off") {
         await antiword.delete(message.jid);
+        const warnList = config.ANTIWORD_WARN?.split(",").filter(x => x && x !== message.jid) || [];
+        await setVar("ANTIWORD_WARN", warnList.join(",") || "null", false);
+        invalidateManageCache(); // BUG FIX: kapat sonrası cache'i hemen temizle
+        return await message.sendReply("❌ *Yasaklı kelime engeli kapatıldı!*");
       }
+
       if (match[1] !== "at" && match[1] !== "aç" && match[1] !== "kapat") {
         const status =
-          jids.includes(message.jid) ? "At Modu" : antiwordWarn.includes(message.jid) ? "Açık (Uyarır)" : "Kapalı";
+          jids.has(message.jid) ? "At Modu" : antiwordWarn.includes(message.jid) ? "Açık (Uyarır)" : "Kapalı";
         const { subject } = await message.client.groupMetadata(message.jid);
         return await message.sendReply(
           `🤬 *${subject} Yasaklı Kelime Menüsü*` +
@@ -1301,9 +1396,6 @@ Module({
           "*\n\n💬 _Ör: .antikelime aç_ → Sadece uyarır\n💬 _Ör: .antikelime at_ → Direkt atar\n💬 _Ör: .antikelime kapat_ → Kapatır"
         );
       }
-      await message.sendReply(
-        match[1] === "aç" ? "✅ *Yasaklı kelime engeli etkinleştirildi!*" : "❌ *Yasaklı kelime engeli kapatıldı!*"
-      );
     }
   }
 );
@@ -1570,17 +1662,14 @@ Module({
 
             if (currentGroupCode && inviteMatch[2] === currentGroupCode) continue;
 
-            const groupMetadata = await message.client.groupMetadata(message.jid).catch(() => ({ subject: "Grup" }));
+            // fetchGroupMeta → store'un cache'li versiyonu (5 dk TTL)
+            // groupMetadata() yerine kullanarak her WA link tespitinde
+            // gereksiz Baileys sorgusu atmıyoruz.
+            const _groupMeta = await fetchGroupMeta(message.client, message.jid).catch(() => ({ subject: "Grup" }));
+            const groupMetadata = _groupMeta || { subject: "Grup" };
 
             let senderNumber = message.sender.split("@")[0];
-            let senderName = senderNumber;
-            try {
-              const contact = await message.client.getContact(message.sender);
-              senderName = contact.name || contact.notify || senderNumber;
-              if (contact.number) senderNumber = contact.number;
-            } catch {
-              senderName = message.senderName || senderNumber;
-            }
+            let senderName = message.senderName || senderNumber;
 
             if (!global.antilink_warned_senders) global.antilink_warned_senders = new Set();
             const senderKey = message.jid + "_" + message.sender;
@@ -1849,62 +1938,77 @@ Module({
   async (message) => {
     if (!message.isGroup) return;
     try {
-      // Önce veritabanından grupların aktif olup olmadığını kontrol et
-      const dbAntibot = await antibot.get();
-      const antibotJids = dbAntibot.map((data) => data.jid);
-      const isAntibotActive = antibotJids.includes(message.jid);
-
-      const dbAntispam = await antispam.get();
-      const antispamJids = dbAntispam.map((data) => data.jid);
-      const isAntispamActive = antispamJids.includes(message.jid);
+      // ─────────────────────────────────────────────────────────
+      //  PERFORMANS KRİTİK: antispam/antibot JID kontrolü
+      //  Artık her mesajda DB'ye gitmiyor → 60 saniyelik cache
+      //  Bu hem yavaşlamayı hem de timestamp kirlenmesinden kaynaklanan
+      //  yanlış kick sorununu çözüyor.
+      // ─────────────────────────────────────────────────────────
+      const antispamJids = await getCachedAntispamJids();
+      const antibotJids = await getCachedAntibotJids();
+      const isAntispamActive = antispamJids.has(message.jid);
+      const isAntibotActive = antibotJids.has(message.jid);
 
       if (!isAntibotActive && !isAntispamActive) return;
 
       // Dinamik admin hesaplamaları
-      const senderIsAdmin = await isAdmin(message);
+      const senderIsAdmin = message.isAdmin; // handler.js zaten hesapladı
 
       // Yetkili kişileri atla
       if (message.fromOwner || message.fromSudo || senderIsAdmin) return;
 
-      let botIsAdmin = false;
-      try {
-        const metadata = await message.client.groupMetadata(message.jid).catch(() => null);
-        if (metadata && metadata.participants && message.client.user) {
-          const botPn = message.client.user.id ? message.client.user.id.split(":")[0] : "";
-          const botLid = message.client.user.lid ? message.client.user.lid.split(":")[0] : "";
-
-          const groupAdmins = metadata.participants.filter(p => p.admin === "admin" || p.admin === "superadmin");
-          const foundAdmin = groupAdmins.find(p =>
-            (botPn && p.id.startsWith(botPn)) ||
-            (botLid && p.id.startsWith(botLid))
-          );
-          if (foundAdmin) botIsAdmin = true;
-        }
-      } catch (e) {
-        console.error("[ADMIN-CHECK] Error:", e);
+      // ─── Bot admin durumu: fetchGroupMeta cache'ini kullan ──────────
+      // message.client.groupMetadata() yerine store'un cache'li versiyonu
+      // rate-overlimit'i engeller ve DB/WA round-trip'ini önler.
+      let botIsAdmin = message.isBotAdmin; // handler.js zaten hesapladı
+      if (!botIsAdmin) {
+        // Handler bazen grupMetadata alamayabilir; güvenli fallback
+        try {
+          const metadata = await fetchGroupMeta(message.client, message.jid);
+          if (metadata && metadata.participants && message.client.user) {
+            const botPn = message.client.user.id ? message.client.user.id.split(":")[0] : "";
+            const botLid = message.client.user.lid ? message.client.user.lid.split(":")[0] : "";
+            const groupAdmins = metadata.participants.filter(p => p.admin === "admin" || p.admin === "superadmin");
+            const foundAdmin = groupAdmins.find(p =>
+              (botPn && p.id.startsWith(botPn)) ||
+              (botLid && p.id.startsWith(botLid))
+            );
+            if (foundAdmin) botIsAdmin = true;
+          }
+        } catch { /* groupMetadata cache miss — sessizce geç */ }
       }
 
       // ---------------- ANTI-SPAM SISTEMI (sliding window) ----------------
       // Her kullanıcı için son 10 saniye içindeki mesaj timestamp'leri tutulur.
-      // Eski timestamp'ler her mesajda otomatik temizlenir → gerçek bir kayan
-      // pencere. Önceki tumbling window'da görülen "eski sayımın yeni teste
-      // bleed etmesi" (limit 10'ken 5 mesajda atma) sorunu bu sayede biter.
+      // Eski timestamp'ler her mesajda otomatik temizlenir → gerçek kayan pencere.
+      // Önceki hatanın özeti: DB gecikmesi timestamp üretimini geciktiriyordu,
+      // 10 sn penceresi kirleniyor ve eskiden mesaj gönderenler de eşiği aşıyordu.
       if (isAntispamActive) {
+        // ─── spamMonitor: Module-level Map (global yerine kapalı scope) ─────────
         if (!global.spamMonitor) global.spamMonitor = new Map();
+
         const WINDOW_MS = 10_000;
-        // Sender'ın @lid / @s.whatsapp.net farkı ve cihaz suffix'i olabilir;
+        // @lid / @s.whatsapp.net farkı ve cihaz suffix'i olabilir;
         // sadece numerik kısmı anahtarla → aynı kişi için tek sayaç.
         const senderNumeric = (message.sender || "").split("@")[0].split(":")[0];
         const spamKey = `${message.jid}_${senderNumeric}`;
         const now = Date.now();
 
         let timestamps = global.spamMonitor.get(spamKey) || [];
-        // Pencere dışında kalan eski mesajları at
+        // Pencere dışında kalan eski mesajları at (sliding window)
         timestamps = timestamps.filter(t => now - t <= WINDOW_MS);
         timestamps.push(now);
         global.spamMonitor.set(spamKey, timestamps);
 
-        const { BotVariable } = require("../core/database");
+        // ─── Bellek koruması: Map çok büyürse eski entry'leri temizle ───────────
+        if (global.spamMonitor.size > 2000) {
+          const cutoff = now - WINDOW_MS;
+          for (const [k, ts] of global.spamMonitor) {
+            if (ts[ts.length - 1] < cutoff) global.spamMonitor.delete(k);
+          }
+        }
+
+        // ─── Limit: DB'ye her spam kontrolünde değil, yalnızca limit aşımında git ─
         const limitStr = await BotVariable.get(`SPAMLIMIT_${message.jid}`, "10");
         const limit = parseInt(limitStr) || 10;
 
@@ -1916,13 +2020,13 @@ Module({
             await message.client.sendMessage(message.jid, {
               text: `🚨 *Anti-Spam Sistemi Devrede!*\n\n🚫 @${senderNumeric} kısa sürede çok fazla mesaj gönderdiği için gruptan uzaklaştırıldı.\n_(Limit: 10 saniyede ${limit} mesaj)_`,
               mentions: [message.sender]
-            });
-            await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove");
+            }).catch(() => { });
+            await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove").catch(() => { });
           } else {
             await message.client.sendMessage(message.jid, {
               text: `🚨 *Anti-Spam Tespit Edildi!*\n\n🚫 @${senderNumeric} spam yapıyor ancak yönetici olmadığım için gruptan atamıyorum!`,
               mentions: [message.sender]
-            });
+            }).catch(() => { });
           }
         }
       }
@@ -1940,25 +2044,18 @@ Module({
           (id.length === 12 && id.startsWith("3EB0")) ||
           ((id.length === 22 || id.length === 20) && (id.startsWith("BAE") || id.startsWith("B24E")));
 
-        if (hasBotSignature) {
-          isBotMessage = true;
-        }
+        if (hasBotSignature) isBotMessage = true;
 
         if (!global.antibot_handled_ids) global.antibot_handled_ids = new Set();
-        if (global.antibot_handled_ids.has(id)) return; // Daha önce işlenmişse atla
+        if (global.antibot_handled_ids.has(id)) return;
 
         if (!global.antibot_warned_senders) global.antibot_warned_senders = new Set();
         const senderKey = message.jid + "_" + message.sender;
 
         if (isBotMessage) {
           global.antibot_handled_ids.add(id);
+          setTimeout(() => global.antibot_handled_ids.delete(id), 60000);
 
-          // Bellek sızıntısını önlemek için bu id'yi 1 dakika sonra bellekten sil
-          setTimeout(() => {
-            global.antibot_handled_ids.delete(id);
-          }, 60000);
-
-          // Uyarı mesajının gönderilip gönderilmeyeceğini belirle
           const shouldWarn = !global.antibot_warned_senders.has(senderKey);
           if (shouldWarn) {
             global.antibot_warned_senders.add(senderKey);
@@ -1969,40 +2066,30 @@ Module({
             if (shouldWarn) {
               await message.client.sendMessage(message.jid, {
                 text: `🚨 *Antibot Tespit Edildi* 🚨\n\n🤖 _Sohbete sızan bir bot tespit edildi ancak yönetici (Admin) olmadığım için uzaklaştıramıyorum! Lütfen bana yetki verin._`
-              });
+              }).catch(() => { });
             }
             return;
           }
 
-          // 1. ÖNCE bilgilendirme mesajı gönder (SADECE bu bot için ilk defaysa)
           if (shouldWarn) {
             await message.client.sendMessage(message.jid, {
               text: `🚨 *Anti-Bot Sistemi Devrede!* 😈\n\n🤖 _Sohbete sızan bir bot tespit ettim ve anında uzaklaştırdım._ 🧹`,
-            });
+            }).catch(() => { });
           }
 
-          // 2. Attığı sinsi mesajı herkesten sil
+          // Mesajı sil
           await message.client.sendMessage(message.jid, {
-            delete: {
-              remoteJid: message.jid,
-              fromMe: false,
-              id: id,
-              participant: message.sender
-            }
-          });
+            delete: { remoteJid: message.jid, fromMe: false, id, participant: message.sender }
+          }).catch(() => { });
 
-          // 3. EN SON İlgili botu gruptan uzaklaştır (SADECE ilk defaysa)
+          // Botu gruptan uzaklaştır
           if (shouldWarn) {
-            await message.client.groupParticipantsUpdate(
-              message.jid,
-              [message.sender],
-              "remove"
-            );
+            await message.client.groupParticipantsUpdate(message.jid, [message.sender], "remove").catch(() => { });
           }
         }
       }
     } catch (e) {
-      console.error("Antibot tespit hatası:", e);
+      // Sessizce yut — antibot/antispam hatası mesaj akışını engellememeli
     }
   }
 );
@@ -2089,7 +2176,7 @@ Module({
     const sub = (match[1] || "").trim().toLowerCase();
 
     const enabled = await BotVariable.get("AUTO_STATUS_ENABLED", "false") === "true";
-    const react   = await BotVariable.get("AUTO_STATUS_REACT",    "false") === "true";
+    const react = await BotVariable.get("AUTO_STATUS_REACT", "false") === "true";
 
     if (!sub) {
       return await message.sendReply(

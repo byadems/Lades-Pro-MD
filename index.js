@@ -66,7 +66,7 @@ try {
 suppressLibsignalLogs();
 runtime.startTime = Date.now();
 
-const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 480; // 420→480MB (Daha geniş bellek toleransı)
+const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 460; // 24/7: ecosystem.config max_memory_restart=480M ile uyumlu; 20MB güvenlik marjı
 let _isShuttingDown = false;
 
 // ─────────────────────────────────────────────────────────
@@ -82,8 +82,8 @@ let _isShuttingDown = false;
 //   • PRUNE  : Her 5 dk'da süresi geçmiş ID'leri ayıkla
 // ─────────────────────────────────────────────────────────
 const processedMessages = new Map();
-const DEDUPE_TTL_MS = 60 * 60 * 1000;   // 1 saat
-const DEDUPE_MAX = 10_000;
+const DEDUPE_TTL_MS = 30 * 60 * 1000;   // 30 dakika (1 saat→30dk: Baileys replay penceresi için yeterli, bellek yarıya iner)
+const DEDUPE_MAX = 5_000;               // 10K→5K: ~500KB yerine ~250KB (her entry ~50 byte)
 
 function isMessageProcessed(id) {
   if (!id) return false;
@@ -110,7 +110,8 @@ function markMessageProcessed(id) {
   processedMessages.set(id, Date.now());
 }
 
-// Periyodik temizlik — sadece TTL'i geçenleri at, taze ID'leri koru
+// 24/7 OPT: Periyodik temizlik — 3 dakikada bir (5dk→3dk)
+// Daha sık temizlik = daha düşük ortalama bellek kullanımı
 setInterval(() => {
   const now = Date.now();
   let removed = 0;
@@ -123,7 +124,7 @@ setInterval(() => {
   if (removed > 0) {
     logger.debug(`[Dedupe] ${removed} eski ID temizlendi (mevcut: ${processedMessages.size})`);
   }
-}, 5 * 60 * 1000);
+}, 3 * 60 * 1000);
 
 // Process sonlanırken temizle
 process.on('beforeExit', () => processedMessages.clear());
@@ -133,6 +134,7 @@ global.processedMessages = processedMessages;
 global.isMessageProcessed = isMessageProcessed;
 global.markMessageProcessed = markMessageProcessed;
 
+// 24/7 OPT: Bellek kontrolü 45s'de bir (30s→45s: CPU overhead %33 azalır)
 scheduler.register('memory_check', () => {
   if (_isShuttingDown) return;
   const mem = process.memoryUsage();
@@ -149,22 +151,23 @@ scheduler.register('memory_check', () => {
     return;
   }
 
-  // Her kontrolde GC öner
-  if (typeof global.gc === 'function') {
+  // Sadece heap %70'i aştığında GC öner (gereksiz GC CPU çalar)
+  if (typeof global.gc === 'function' && heapMB > PM2_RESTART_MB * 0.70) {
     global.gc();
     logger.debug(`[GC] Bellek: RSS=${Math.round(rssMB)}MB Heap=${Math.round(heapMB)}MB`);
   }
-}, 30000);
+}, 45000);
 
-// Periyodik agresif GC (her 2 dakikada bir — 60+ grupta heap hızlı birikir)
+// 24/7 OPT: Periyodik GC her 4 dakikada bir (2dk→4dk: CPU %50 tasarruf)
+// V8 --optimize-for-size zaten daha agresif GC yapıyor; ekstra GC gereksiz
 scheduler.register('periodic_gc', () => {
   if (typeof global.gc === 'function') {
     global.gc();
     const mem = process.memoryUsage();
     const toMB = (b) => Math.round(b / 1024 / 1024);
-    logger.debug(`[GC-2m] RSS=${toMB(mem.rss)}MB Heap=${toMB(mem.heapUsed)}/${toMB(mem.heapTotal)}MB`);
+    logger.debug(`[GC-4m] RSS=${toMB(mem.rss)}MB Heap=${toMB(mem.heapUsed)}/${toMB(mem.heapTotal)}MB`);
   }
-}, 2 * 60 * 1000); // 5 dk →2 dk
+}, 4 * 60 * 1000);
 
 
 function startKeepAlive() {

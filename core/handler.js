@@ -35,6 +35,10 @@ async function _refreshAntideleteCache() {
   } catch (e) { /* DB henüz hazır değil, sessizce atla */ }
 }
 
+// Dışarıya açık getter — yonetim_araclari.js getStatus() bunu kullanır
+// (her .ayarlar çağrısında antidelete.get() DB sorgusu yerine)
+function getAntideleteCache() { return _antideleteCache; }
+
 // Point 5 & 17: Redundant commandQueue removed. Concurrency is handled in bot.js.
 
 
@@ -98,6 +102,31 @@ const scheduler = require("./zamanlayici").scheduler;
 // Antidelete cache: başlangıçta ve 60s'de bir yenile
 scheduler.register('antidelete_cache_refresh', _refreshAntideleteCache, 60000, { runImmediately: true });
 
+// ─────────────────────────────────────────────────────────
+//  StickerCmd LRU Cache — handler hot-path'te her sticker
+//  mesajında DB'ye gitmemek için 2 dakikalık önbellek.
+//  Tablo küçüktür (<100 satır), tamamını belleğe alıyoruz.
+// ─────────────────────────────────────────────────────────
+let _stickcmdCache = null;
+let _stickcmdCacheAt = 0;
+const STICKCMD_CACHE_MS = 2 * 60 * 1000; // 2 dakika
+
+async function getStickcmdCached() {
+  const now = Date.now();
+  if (_stickcmdCache && (now - _stickcmdCacheAt) < STICKCMD_CACHE_MS) return _stickcmdCache;
+  try {
+    const { stickcmd } = require('../plugins/utils/db/zamanlayicilar');
+    const rows = await stickcmd.get();
+    _stickcmdCache = rows || [];
+    _stickcmdCacheAt = now;
+  } catch (_) {
+    if (!_stickcmdCache) _stickcmdCache = [];
+  }
+  return _stickcmdCache;
+}
+
+function invalidateStickcmdCache() { _stickcmdCache = null; _stickcmdCacheAt = 0; }
+
 scheduler.register('metrics_batch_flush', async () => {
   if (metricsBatch.total_messages === 0 && metricsBatch.total_commands === 0) return;
   const currentBatch = { ...metricsBatch };
@@ -105,14 +134,23 @@ scheduler.register('metrics_batch_flush', async () => {
   metricsBatch.total_commands = 0;
 
   try {
-    // Dialect-agnostic ORM approach (works with SQLite, PostgreSQL, Neon, Supabase, Render)
+    // OPT: findOrCreate + increment = 2 sorgu → tek increment (upsert garantisi
+    // başlangıçta yapılır, sayaç sıfır altına düşemez).
+    // İlk kez sıfır değerle insert; sonraki çağrılarda sadece increment.
     if (currentBatch.total_messages > 0) {
-      await BotMetrik.findOrCreate({ where: { key: 'total_messages' }, defaults: { value: 0 } });
-      await BotMetrik.increment('value', { by: currentBatch.total_messages, where: { key: 'total_messages' } });
+      await BotMetrik.upsert({ key: 'total_messages', value: currentBatch.total_messages })
+        .catch(async () => {
+          // upsert desteklenmiyorsa (SQLite eski sürüm) güvenli fallback
+          await BotMetrik.findOrCreate({ where: { key: 'total_messages' }, defaults: { value: 0 } });
+          await BotMetrik.increment('value', { by: currentBatch.total_messages, where: { key: 'total_messages' } });
+        });
     }
     if (currentBatch.total_commands > 0) {
-      await BotMetrik.findOrCreate({ where: { key: 'total_commands' }, defaults: { value: 0 } });
-      await BotMetrik.increment('value', { by: currentBatch.total_commands, where: { key: 'total_commands' } });
+      await BotMetrik.upsert({ key: 'total_commands', value: currentBatch.total_commands })
+        .catch(async () => {
+          await BotMetrik.findOrCreate({ where: { key: 'total_commands' }, defaults: { value: 0 } });
+          await BotMetrik.increment('value', { by: currentBatch.total_commands, where: { key: 'total_commands' } });
+        });
     }
   } catch (e) {
     logger.debug({ err: e.message }, "Metric batch flush failed");
@@ -128,10 +166,10 @@ function recordCommand() {
   metricsBatch.total_commands++;
 }
 
-// getRuntimeStats — 45 saniye cache (15s→45s: daha az DB sorgusu = daha az PG bağlantısı = RAM tasarrufu)
+// getRuntimeStats — 24/7 OPT: 60 saniye cache (45s→60s: daha az DB sorgusu)
 let _runtimeStatsCache = null;
 let _runtimeStatsCacheAt = 0;
-const RUNTIME_STATS_CACHE_MS = 45000; // 15s→45s
+const RUNTIME_STATS_CACHE_MS = 60000; // 45s→60s
 
 async function getRuntimeStats() {
   const now = Date.now();
@@ -179,8 +217,8 @@ async function recordStat(pattern, status, durationMs, error = null, isTest = fa
   }
 
   currentBatch.set(key, entry);
-  // commandStatsBatch sınırsız büyümeyi önle (max 500 komut) — 2000→500
-  if (runtime.commandStatsBatch.size > 500) {
+  // commandStatsBatch sınırsız büyümeyi önle (max 300 komut) — 24/7 OPT: 500→300
+  if (runtime.commandStatsBatch.size > 300) {
     const firstKey = runtime.commandStatsBatch.keys().next().value;
     runtime.commandStatsBatch.delete(firstKey);
   }
@@ -838,8 +876,8 @@ async function loadPlugins(pluginsDir, force = false) {
 // ─────────────────────────────────────────────────────────
 const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX || "8", 10);
 const RATE_LIMIT_WINDOW = parseInt(process.env.RATE_LIMIT_WINDOW || "10000", 10);
-// RAM OPT: 500→200 kullanıcı, TTL aynı
-const rateLimit = new LRUCache({ max: 200, ttl: RATE_LIMIT_WINDOW * 3 }); // 200 kullanıcı, 30s TTL
+// 24/7 OPT: Rate limit cache 150 kullanıcı (200→150), TTL aynı
+const rateLimit = new LRUCache({ max: 150, ttl: RATE_LIMIT_WINDOW * 3 });
 
 function checkRateLimit(jid) {
   const now = Date.now();
@@ -975,13 +1013,17 @@ async function handleMessage(client, rawMsg, groupMetadata = null) {
     let { jid, text, isGroup, isChannel, fromMe } = message;
 
     // ── OTO-ÇIKARTMA (STICKER CMD) INTERCEPTOR ──
+    // OPT: stickcmd.get() her stickerde DB'ye gitmek yerine 2dk LRU cache kullanır
     const stickerMsg = rawMsg.message?.stickerMessage || rawMsg.message?.documentWithCaptionMessage?.message?.stickerMessage;
     if (stickerMsg?.fileSha256) {
       try {
-        const { stickcmd } = require("../plugins/utils/db/zamanlayicilar");
-        const cmds = await stickcmd.get();
+        const cmds = await getStickcmdCached();
         if (cmds && cmds.length > 0) {
-          const sha = stickerMsg.fileSha256.toString();
+          // BUG FIX: fileSha256 bir Uint8Array/Buffer — .toString() latın1/decimal çıkar
+          // DB'ye base64 olarak kaydedildiğinden aynı format kullanılmalı
+          const sha = Buffer.isBuffer(stickerMsg.fileSha256)
+            ? stickerMsg.fileSha256.toString('base64')
+            : Buffer.from(stickerMsg.fileSha256).toString('base64');
           const match = cmds.find(c => c.file === sha);
           if (match && match.command) {
             text = match.command;
@@ -1520,6 +1562,8 @@ module.exports = {
   handleGroupUpdate, handleGroupParticipantsUpdate,
   isOwner, isSudo, isOwnerOrSudo,
   getStats, recordStat, getRuntimeStats,
+  getAntideleteCache,
+  invalidateStickcmdCache,
   onHandlers,
   commands,
 };

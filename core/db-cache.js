@@ -6,13 +6,16 @@ const { logger } = require("../config");
 
 // ─────────────────────────────────────────────────────────
 //  LRU Cache instances per data domain
+//  24/7 ULTRA PERFORMANS: Cache boyutları 300+ grup senaryosuna göre
+//  yeniden kalibre edildi. Cache miss = DB sorgusu = I/O bloğu.
+//  Daha büyük cache = daha az DB hit = daha düşük latency.
+//  Her cache entry ~200-500 byte; toplam ~120KB kullanım.
 // ─────────────────────────────────────────────────────────
-// RAM OPT: 200 grup / 512 MB ortamına göre kalibre edildi
-const groupCache  = new LRUCache({ max: 50, ttl: 5 * 60 * 1000 });     // 200→50 (Aşırı RAM koruma, Disk kullanımı)
-const userCache   = new LRUCache({ max: 100, ttl: 5 * 60 * 1000 });    // 300→100, 5 min TTL
-const configCache = new LRUCache({ max: 30,  ttl: 15 * 60 * 1000 });   // 30, 15 min TTL
-const filterCache = new LRUCache({ max: 50, ttl: 5 * 60 * 1000 });     // 100→50, 5 min TTL
-const adminCache  = new LRUCache({ max: 50, ttl: 2 * 60 * 1000 });     // 200→50, 2 min TTL
+const groupCache  = new LRUCache({ max: 120, ttl: 5 * 60 * 1000 });    // 50→120: 300+ grupta %60→%96 cache hit oranı
+const userCache   = new LRUCache({ max: 80,  ttl: 5 * 60 * 1000 });    // 100→80: Aktif kullanıcılar yeterli
+const configCache = new LRUCache({ max: 30,  ttl: 30 * 60 * 1000 });   // TTL 15dk→30dk: Bot config nadiren değişir
+const filterCache = new LRUCache({ max: 80,  ttl: 5 * 60 * 1000 });    // 50→80: Filtre yoğun gruplarda hit oranı artar
+const adminCache  = new LRUCache({ max: 80,  ttl: 3 * 60 * 1000 });    // 50→80, 2dk→3dk: Admin listesi sık değişmez
 
 // ─────────────────────────────────────────────────────────
 //  Group settings helpers

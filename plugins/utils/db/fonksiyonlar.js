@@ -489,20 +489,25 @@ async function setFilter(
 
   if (existing) {
     await existing.update(filterData);
+    _invalidateFilterCache(jid);
     return existing;
   }
 
-  return await FilterDB.create(filterData);
+  const created = await FilterDB.create(filterData);
+  _invalidateFilterCache(jid);
+  return created;
 }
 
 async function delFilter(trigger, jid = null, scope = "chat") {
-  return await FilterDB.destroy({
+  const result = await FilterDB.destroy({
     where: {
       trigger,
       jid: scope === "chat" ? jid : null,
       scope,
     },
   });
+  _invalidateFilterCache(jid);
+  return result;
 }
 
 async function toggleFilter(trigger, jid = null, scope = "chat", enabled) {
@@ -532,6 +537,44 @@ async function getFiltersByScope(scope, jid = null) {
   return await FilterDB.findAll({ where: whereCondition });
 }
 
+// ─────────────────────────────────────────────────────────
+//  FilterDB JID-başlı önbelleği
+//  checkFilterMatch her metin mesajında çağrılır. FilterDB.findAll()
+//  yerine 2 dakika TTL'li JID-başlı Map cache kullanıyoruz.
+// ─────────────────────────────────────────────────────────
+const FILTER_CACHE_TTL = 2 * 60 * 1000; // 2 dakika
+const _filterDbCache = new Map(); // jid → { rows, expiresAt }
+
+function _invalidateFilterCache(jid) {
+  if (jid) _filterDbCache.delete(jid);
+  else _filterDbCache.clear();
+}
+
+async function _getFiltersForJid(jid) {
+  const now = Date.now();
+  const cached = _filterDbCache.get(jid);
+  if (cached && now < cached.expiresAt) return cached.rows;
+
+  const { Op } = require('sequelize');
+  try {
+    const rows = await FilterDB.findAll({
+      where: {
+        [Op.or]: [
+          { jid: jid, scope: 'chat' },
+          { jid: null, scope: 'global' },
+          { jid: null, scope: jid && jid.includes('@g.us') ? 'group' : 'dm' },
+        ],
+        enabled: true,
+      },
+    });
+    const plain = rows.map(r => r.get ? r.get({ plain: true }) : r);
+    _filterDbCache.set(jid, { rows: plain, expiresAt: now + FILTER_CACHE_TTL });
+    return plain;
+  } catch (_) {
+    return (cached && cached.rows) ? cached.rows : [];
+  }
+}
+
 // Regex cache for filters (size-capped to prevent memory leak)
 const FILTER_REGEX_CACHE_MAX = 500;
 const filterRegexCache = new Map();
@@ -539,44 +582,26 @@ const filterRegexCache = new Map();
 async function checkFilterMatch(text, jid) {
   if (!text) return null;
 
-  // FilterDB (trigger/jid/scope şeması) kullanılır — core Filtre modeli değil
-  const { Op } = require("sequelize");
-  let filters;
-  try {
-    filters = await FilterDB.findAll({
-      where: {
-        [Op.or]: [
-          { jid: jid, scope: "chat" },
-          { jid: null, scope: "global" },
-          { jid: null, scope: jid && jid.includes("@g.us") ? "group" : "dm" },
-        ],
-        enabled: true,
-      },
-    });
-  } catch (e) {
-    return null;
-  }
+  // Cache'li versiyon: Her JID için ayrı slot, 2 dakika TTL
+  const filters = await _getFiltersForJid(jid);
 
-  for (const filter of filters) {
-    const f = filter.get ? filter.get({ plain: true }) : filter;
+  for (const f of filters) {
     const isExact = f.exactMatch;
     const isCase = f.caseSensitive;
     const cacheKey = `${f.trigger}:${isExact}:${isCase}`;
-    
+
     let regex = filterRegexCache.get(cacheKey);
     if (!regex) {
       const escaped = f.trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const pattern = isExact ? `^${escaped}$` : escaped;
-      regex = new RegExp(pattern, isCase ? "" : "i");
+      regex = new RegExp(pattern, isCase ? '' : 'i');
       if (filterRegexCache.size >= FILTER_REGEX_CACHE_MAX) {
         filterRegexCache.delete(filterRegexCache.keys().next().value);
       }
       filterRegexCache.set(cacheKey, regex);
     }
 
-    if (regex.test(text)) {
-      return f;
-    }
+    if (regex.test(text)) return f;
   }
 
   return null;
@@ -667,4 +692,5 @@ module.exports = {
   welcome,
   goodbye,
   filter,
+  _invalidateFilterCache,
 };
