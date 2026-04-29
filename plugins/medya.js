@@ -1719,8 +1719,14 @@
     use: "medya",
   },
     async (m, match) => {
-      if (!m.reply_message)
-        return await m.sendMessage("_🎵 Bir sesi veya çıkartmayı yanıtlayın_");
+      if (!m.reply_message) {
+        return await m.sendReply(
+          "⚠️ *Bir ses veya çıkartmayı yanıtlayın!*\n\n" +
+          "• Çıkartma için: `.take PaketAdı;Yazar`\n" +
+          "• Ses için: `.take Başlık;Sanatçı;KapakURL`\n" +
+          "• Varsayılan değerlerle: `.take`"
+        );
+      }
       var audiomsg = m.reply_message.audio;
       var stickermsg = m.reply_message.sticker;
       var q = await m.reply_message.download();
@@ -1841,26 +1847,37 @@
     usage: ".url (bir görsele, videoya veya sese yanıt vererek)",
     use: "medya",
   },
-    async (m, match) => {
-      const hasMedia = m.reply_message?.image || m.reply_message?.sticker ||
-        m.reply_message?.video || m.reply_message?.document || m.reply_message?.audio;
-      if (!hasMedia) return await m.sendReply("_📎 Bir görsel, video, ses veya belgeyi yanıtlayın_");
-      const wait = await m.sendReply("⏳ _Yükleniyor..._");
-      try {
-        let url;
-        const q = await m.reply_message.download();
-        if (m.reply_message?.image || m.reply_message?.sticker) {
-          const res = await uploadToCatbox(q);
-          url = res?.url;
-        } else {
-          const res = await uploadToCatbox(q);
-          url = res?.url;
-        }
-        if (!url || url.includes("hata") || url.includes("_Dosya")) throw new Error("Dosya yüklenemedi");
-        await m.edit(`🔗 *Bağlantı:*\n${url}`, m.jid, wait.key);
-      } catch (e) {
-        await m.edit(`❌ *Yükleme başarısız!* \n\n*Hata:* ${e.message}`, m.jid, wait.key);
+async (m, match) => {
+      let result, sent;
+      if (!m.reply_message) {
+        return await m.sendReply(
+          "⚠️ *Bir medyayı yanıtlayın!*\n\n" +
+          "• Görsel/çıkartma -> imgbb bağlantısı\n" +
+          "• Video/ses/dosya -> catbox bağlantısı\n" +
+          "Örnek: Bir medyaya yanıt verip `.url` yazın."
+        );
       }
+      if (m.reply_message?.image || m.reply_message?.sticker) {
+        let q = await m.reply_message.download();
+        const sent = await m.sendReply("🔄 _Bağlantı oluşturuluyor..._");
+        result = await uploadToImgbb(q);
+        const outUrl = result?.url || result?.display_url || result?.image?.url || result?.image?.display_url;
+        if (!outUrl) return await m.sendReply("❌ *Bağlantı oluşturulamadı! Tekrar deneyin.*");
+        return await m.edit(`🔗 ${outUrl}`, m.jid, sent.key);
+      } else if (
+        m.reply_message?.video ||
+        m.reply_message?.document ||
+        m.reply_message?.audio ||
+        m.reply_message?.ptt
+      ) {
+        let q = await m.reply_message.download();
+        const sent = await m.sendReply("🔄 _Bağlantı oluşturuluyor..._");
+        result = await uploadToCatbox(q);
+        const outUrl = result?.url || (typeof result === "string" ? result : null);
+        if (!outUrl || outUrl.includes("_Dosya")) return await m.sendReply("❌ *Bağlantı oluşturulamadı! Tekrar deneyin.*");
+        return await m.edit(`🔗 ${outUrl}`, m.jid, sent.key);
+      }
+      return await m.sendReply("⚠️ *Medya türü desteklenmiyor.*");
     }
   );
 })();
