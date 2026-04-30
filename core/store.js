@@ -13,12 +13,14 @@ const runtime = require("./runtime");
 const { WhatsappOturum, BotMetrik, MesajIstatistik, KullaniciVeri, sequelize } = require("./database");
 const scheduler = require("./zamanlayici").scheduler;
 
-// Message store: jid → Map<msgId, msg>
-// 24/7 OPT: Antidelete için 60 JID yeterli, TTL 2 saat
-// Disk-first felsefe: Eski mesajlar bellekten düşsün, DB/WhatsApp'tan alınsın
+// ─────────────────────────────────────────────────────────
+//  ULTRA-LOW RAM: Message Store (0.2 vCPU / 512MB için)
+//  400+ grup senaryosunda bellek kritik. Antidelete için
+//  minimum JID tutulur, TTL kısa tutulur.
+// ─────────────────────────────────────────────────────────
 const messageStore = new LRUCache({
-  max: 60,   // 80→60: daha az JID bellekte, antidelete hala çalışır
-  ttl: 2 * 60 * 60 * 1000, // 2 saat TTL (3h→2h: daha az bellek basıncı)
+  max: 40,   // 60→40: Sadece en aktif 40 JID bellekte
+  ttl: 60 * 60 * 1000, // 2h→1h: Daha kısa TTL, daha az bellek
   dispose: (bucket, jid) => {
     if (bucket instanceof Map) {
       for (const msgId of bucket.keys()) msgIdIndex.delete(msgId);
@@ -28,8 +30,8 @@ const messageStore = new LRUCache({
 
 // Reverse index: msgId → jid (O(1) lookup for getFullMessage)
 const msgIdIndex = new Map();
-const MAX_MSGS_PER_JID = 50;    // 60→50: %16 daha az bellek, antidelete için yeterli
-const MAX_MSGID_INDEX = 900;    // 1200→900: Daha sıkı indeks sınırı
+const MAX_MSGS_PER_JID = 30;    // 50→30: %40 daha az bellek, antidelete için yeterli
+const MAX_MSGID_INDEX = 600;    // 900→600: Daha sıkı indeks sınırı
 
 function storeMessage(jid, message) {
   if (!jid || !message || !message.key) return;
@@ -78,14 +80,13 @@ function getAlbumMessages(jid, albumId) {
 }
 
 // ─────────────────────────────────────────────────────────
-//  Group metadata
+//  ULTRA-LOW RAM: Group Metadata Cache
+//  400+ grup var ama hepsi aynı anda aktif değil.
+//  En aktif 150 grubun meta'sı bellekte tutulur.
 // ─────────────────────────────────────────────────────────
-// Group metadata cache: 24/7 OPT — 300 kapasiteyle 300 grubu kapsıyor
-// Cache miss = WhatsApp API sorgusu = rate-overlimit riski
-// TTL 4dk: Admin değişikliği algılanması için yeterli, 5dk→4dk: daha hızlı eviction
 const groupMetaCache = new LRUCache({
-  max: 300,  // 400→300: 300 grup için tam uygun, gereksiz 100 slot kaldırıldı
-  ttl: 4 * 60 * 1000,
+  max: 150,  // 300→150: Sadece en aktif gruplar, cache miss'te WA API'ye git
+  ttl: 3 * 60 * 1000, // 4dk→3dk: Daha hızlı eviction
 });
 
 function setGroupMeta(groupId, meta) {
@@ -314,10 +315,10 @@ async function getGlobalTopUsers(limit = 10) {
  * @param {string} userJid - The user JID
  * @param {string} type - Message type (text, image, video, audio, sticker, other)
  */
-// stats batch: plain Map (LRUCache'den daha hafif; TTL auto-expiry gereksiz — flush zaten 90s'de yapılıyor)
-// 24/7 OPT: Flush aralığı 90s'e çıkarıldı, DB write %33 azaldı
+// ─── ULTRA-LOW RAM: Stats Batch ───────────────────────────
+// Flush aralığı 2 dakikaya çıkarıldı, DB write azaldı
 const statsBatch = new Map();
-const MAX_STATS_BATCH = 250; // 400→250: Flush 90s aralıkla; 250 farklı user:group kombinasyonu yeterli (~50KB)
+const MAX_STATS_BATCH = 150; // 250→150: Daha sıkı limit (~30KB)
 
 // Guard: scheduler.register tekrar çağırılmamasını sağla
 let _statsFlusherRegistered = false;
@@ -396,7 +397,7 @@ scheduler.register('message_stats_flush', async () => {
   } catch (e) {
     logger.debug({ err: e.message }, "İstatistik toplu flush başarısız");
   }
-}, 90000); // 60s→90s: 24/7 OPT — DB yazım sıklığı azaltıldı, bağlantı havuzu rahatlar
+}, 120000); // 90s→120s: ULTRA-LOW — DB yazım sıklığı azaltıldı, 0.2 vCPU'da kritik
 
 } // end _statsFlusherRegistered guard
 

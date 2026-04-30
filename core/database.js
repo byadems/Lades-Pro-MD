@@ -24,27 +24,33 @@ if (isMongoDB) {
 
 let sequelize;
 if (isPostgres && !isMongoDB) {
-  // PostgreSQL: Neon, Supabase, Render Database, standart PostgreSQL
-  // BELLEK OPTİMİZASYONU: Pool max 20→3. Her PG bağlantısı ~10MB RAM tüketir.
-  // 20 bağlantı = ~200MB, 3 bağlantı = ~30MB → ~170MB tasarruf!
+  // ─────────────────────────────────────────────────────────────────────
+  //  ULTRA-LOW RAM: PostgreSQL Pool (0.2 vCPU / 512MB için)
+  //  Her PG bağlantısı ~10MB RAM tüketir. 2 bağlantı = ~20MB.
+  //  Bağlantı havuzu minimum tutulur, idle bağlantılar hızlı kapatılır.
+  // ─────────────────────────────────────────────────────────────────────
   sequelize = new Sequelize(DATABASE_URL, {
     dialect: "postgres",
     logging: false,
     pool: {
-      max: parseInt(process.env.DB_POOL_MAX || "3", 10),   // 20 → 3 (kritik RAM tasarrufu)
-      min: parseInt(process.env.DB_POOL_MIN || "1", 10),   // 2  → 1
-      acquire: 60000,
-      idle: 10000,  // 30s → 10s: Boş bağlantıları daha hızlı bırak
-      evict: 5000,  // 5s'de bir boş bağlantıları kontrol et
+      max: parseInt(process.env.DB_POOL_MAX || "2", 10),   // 3→2: Minimal bağlantı
+      min: parseInt(process.env.DB_POOL_MIN || "0", 10),   // 1→0: Boşta bağlantı tutma
+      acquire: 30000,  // 60s→30s: Daha hızlı timeout
+      idle: 5000,      // 10s→5s: Boş bağlantıları çok hızlı bırak
+      evict: 3000,     // 5s→3s: Daha sık eviction kontrolü
     },
     dialectOptions: {
-      ssl: process.env.DB_SSL === "false" ? false : { require: true, rejectUnauthorized: false },
-      connectTimeout: 60000,
-      // statement_timeout: Her sorgu max 30 saniye (sonsuz beklemeler engellenir)
-      statement_timeout: 30000,
+      // Render/Neon self-signed sertifikası için
+      ssl: {
+        require: true,
+        rejectUnauthorized: false,
+      },
+      connectTimeout: 30000, // 60s→30s: Daha hızlı bağlantı timeout
+      statement_timeout: 20000, // 30s→20s: Sorgu timeout azaltıldı
+      idle_in_transaction_session_timeout: 10000, // 10s idle transaction timeout
     },
     retry: {
-      max: 5,
+      max: 3,  // 5→3: Daha az retry, daha hızlı fail
       match: [
         Sequelize.ConnectionError,
         Sequelize.ConnectionRefusedError,
@@ -52,14 +58,7 @@ if (isPostgres && !isMongoDB) {
       ],
     },
   });
-  logger.info(`[DB] PostgreSQL bağlantısı hazırlanıyor — pool: max=3 (${DATABASE_URL.split('@')[1] || 'host gizli'})`);
-} else {
-  // PostgreSQL zorunlu - SQLite bu ortamda çalışmıyor (GLIBC uyumsuzluğu)
-  logger.error("[DB] HATA: DATABASE_URL (PostgreSQL) tanımlı değil!");
-  logger.error("[DB] Bu ortamda SQLite desteklenmiyor.");
-  logger.error("[DB] Lütfen POSTGRES_URL veya DATABASE_URL ortam değişkenini ayarlayın.");
-  logger.error("[DB] Örnek: postgresql://kullanici:sifre@host:5432/veritabani");
-  throw new Error("PostgreSQL DATABASE_URL gerekli! SQLite bu ortamda çalışmıyor.");
+  logger.info(`[DB] PostgreSQL bağlantısı hazırlanıyor — pool: max=2 (${DATABASE_URL.split('@')[1] || 'host gizli'})`);
 }
 
 // ─────────────────────────────────────────────────────────

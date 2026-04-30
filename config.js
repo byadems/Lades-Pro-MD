@@ -67,9 +67,9 @@ const config = {
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
   GROQ_API_KEY: process.env.GROQ_API_KEY || "",
 
-  // ── Bellek & Sistem ──
-  HEAP_LIMIT_MB: parseInt(process.env.HEAP_LIMIT_MB || "250", 10),
-  PM2_RESTART_LIMIT_MB: parseInt(process.env.PM2_RESTART_LIMIT_MB || "450", 10), // index.js ile uyumlu
+  // ── Bellek & Sistem (0.2 vCPU / 512MB RAM için optimize) ──
+  HEAP_LIMIT_MB: parseInt(process.env.HEAP_LIMIT_MB || "200", 10),  // 250→200: Daha erken GC tetikleme
+  PM2_RESTART_LIMIT_MB: parseInt(process.env.PM2_RESTART_LIMIT_MB || "350", 10), // 450→350: OOM'dan önce güvenli restart
   DEBUG: process.env.DEBUG === "true", // Production'da false — console spam önlenir
   SELF_TEST: process.env.SELF_TEST === "true", // Default: false. Testleri açmak için "true" yapın.
   NODE_ENV: process.env.NODE_ENV || "production",

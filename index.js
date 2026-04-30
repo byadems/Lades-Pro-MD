@@ -66,7 +66,9 @@ try {
 suppressLibsignalLogs();
 runtime.startTime = Date.now();
 
-const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 400; // Cloud Run 512MB limit: heap(280)+native(~140)=~420MB peak. 400'de restart = OOM'dan önce temiz çıkış
+// ─── ULTRA-LOW RESOURCE: 0.2 vCPU / 512MB RAM ───────────────────────
+// Heap 220MB + Native 160MB = 380MB peak. 320MB'de restart = OOM'dan önce güvenli çıkış
+const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 320;
 let _isShuttingDown = false;
 
 // ─────────────────────────────────────────────────────────
@@ -81,9 +83,10 @@ let _isShuttingDown = false;
 //   • CAP    : 10.000 — bellek sızıntısı koruması (taşarsa eski %10 atılır)
 //   • PRUNE  : Her 5 dk'da süresi geçmiş ID'leri ayıkla
 // ─────────────────────────────────────────────────────────
+// ─── ULTRA-LOW RAM: Dedupe ayarları daha agresif ───────────────────
 const processedMessages = new Map();
-const DEDUPE_TTL_MS = 15 * 60 * 1000;   // 30dk→15dk: Baileys replay penceresi için yeterli, bellek yarıya iner
-const DEDUPE_MAX = 3_000;               // 5K→3K: ~150KB (her entry ~50 byte)
+const DEDUPE_TTL_MS = 10 * 60 * 1000;   // 15dk→10dk: Daha kısa TTL, daha az bellek
+const DEDUPE_MAX = 2_000;               // 3K→2K: ~100KB (her entry ~50 byte)
 
 function isMessageProcessed(id) {
   if (!id) return false;
@@ -110,8 +113,8 @@ function markMessageProcessed(id) {
   processedMessages.set(id, Date.now());
 }
 
-// 24/7 OPT: Periyodik temizlik — 3 dakikada bir (5dk→3dk)
-// Daha sık temizlik = daha düşük ortalama bellek kullanımı
+// ─── ULTRA-LOW RAM: 90 saniyede bir temizlik ───────────────────────
+// 400+ grup = yoğun mesaj trafiği, sık temizlik kritik
 setInterval(() => {
   const now = Date.now();
   let removed = 0;
@@ -122,9 +125,9 @@ setInterval(() => {
     }
   }
   if (removed > 0) {
-    logger.debug(`[Dedupe] ${removed} eski ID temizlendi (mevcut: ${processedMessages.size})`);
+    logger.debug(`[Dedupe] ${removed} eski ID temizlendi (kalan: ${processedMessages.size})`);
   }
-}, 2 * 60 * 1000);  // 3dk→2dk: Daha sık temizlik = daha düşük ortalama bellek
+}, 90 * 1000);  // 2dk→90s: Daha agresif temizlik
 
 // Process sonlanırken temizle
 process.on('beforeExit', () => processedMessages.clear());
@@ -414,7 +417,7 @@ function isRecoverableError(err) {
 
 // ─────────────────────────────────────────────────────────
 //  ENOSPC (disk dolu) durumunda acil temizlik
-// ─────────────────────────────────────────────────────────
+// ────────���────────────────────────────────────────────────
 async function cleanupDiskSpace() {
   const fs = await import("fs");
   const path = await import("path");
