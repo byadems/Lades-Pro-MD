@@ -4,8 +4,8 @@
   "description": "Ultra-premium WhatsApp bot framework - Lades-Pro",
   "main": "index.js",
   "scripts": {
-    "start": "chcp 65001 && node --no-warnings --expose-gc --max-old-space-size=300 index.js",
-    "dev": "chcp 65001 && NODE_ENV=development node --no-warnings --expose-gc --max-old-space-size=300 index.js",
+    "start": "node --no-warnings --expose-gc --optimize-for-size --max-old-space-size=240 --max-semi-space-size=4 --no-compilation-cache index.js",
+    "dev": "NODE_ENV=development node --no-warnings --expose-gc --max-old-space-size=300 index.js",
     "pair": "node --no-warnings scripts/pair.js",
     "dashboard": "node --no-warnings scripts/dashboard.js",
     "pm2:start": "pm2 start ecosystem.config.js",
@@ -44,6 +44,7 @@
     "link-preview-js": "^3.0.5",
     "lru-cache": "^11.3.5",
     "mime-types": "^2.1.35",
+    "moment-timezone": "^0.6.2",
     "music-metadata": "^7.14.0",
     "node-cron": "^3.0.3",
     "node-id3": "^0.2.9",

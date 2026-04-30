@@ -251,18 +251,20 @@ async function initializeDatabase() {
       await sequelize.authenticate();
       logger.info("Veritabanı bağlantısı kuruldu.");
 
-      // SQLite pragmaları: WAL modu ve busy_timeout
+      // SQLite pragmaları: 0.2 vCPU / 512MB / 2GB disk için sıkı tuning
       if (sequelize.getDialect() === 'sqlite') {
         await sequelize.query("PRAGMA journal_mode = WAL;");         // Concurrent reads
-        await sequelize.query("PRAGMA busy_timeout = 5000;");         // Retry on lock
-        await sequelize.query("PRAGMA synchronous = NORMAL;");        // Safe + fast
-        await sequelize.query("PRAGMA cache_size = -2000;");          // 2MB page cache (RAM tasarrufu)
-        await sequelize.query("PRAGMA temp_store = FILE;");           // Temp tablolar diske (RAM koruma!)
-        await sequelize.query("PRAGMA mmap_size = 0;");               // Mmap kapalı (tamamen diske güven, RAM koru)
-        await sequelize.query("PRAGMA wal_autocheckpoint = 200;");    // Daha sık checkpoint (500→200: WAL dosyasını küçük tut)
-        await sequelize.query("PRAGMA optimize;");                    // Sorgu planlamasını optimize et
-        await sequelize.query("PRAGMA foreign_keys = OFF;");          // FK kontrolü gereksiz overhead
-        logger.info("SQLite pragmaları ayarlandı (WAL, cache=2MB, temp=FILE, mmap=0MB, checkpoint=200).");
+        await sequelize.query("PRAGMA busy_timeout = 8000;");        // 5s→8s: 0.2 vCPU'da kilit beklemesi uzayabilir
+        await sequelize.query("PRAGMA synchronous = NORMAL;");       // Safe + fast (FULL'a göre %30 daha hızlı)
+        await sequelize.query("PRAGMA cache_size = -1024;");         // 2MB→1MB: 1MB page cache yeterli; ~1MB RAM tasarrufu
+        await sequelize.query("PRAGMA temp_store = FILE;");          // Temp tablolar diske (RAM koruma!)
+        await sequelize.query("PRAGMA mmap_size = 0;");              // Mmap kapalı (tamamen diske güven, RAM koru)
+        await sequelize.query("PRAGMA wal_autocheckpoint = 100;");   // 200→100: 2GB diskte WAL'ı küçük tut (~400KB)
+        await sequelize.query("PRAGMA journal_size_limit = 6291456;"); // WAL fiziksel üst limiti 6MB — şişme koruması
+        await sequelize.query("PRAGMA page_size = 4096;");           // 4KB sayfa = OS page ile hizalı, daha az fragmentation
+        await sequelize.query("PRAGMA optimize;");                   // Sorgu planlamasını optimize et
+        await sequelize.query("PRAGMA foreign_keys = OFF;");         // FK kontrolü gereksiz overhead
+        logger.info("SQLite pragmaları ayarlandı (WAL, cache=1MB, temp=FILE, mmap=0, checkpoint=100, walLimit=6MB).");
       }
 
       break;
