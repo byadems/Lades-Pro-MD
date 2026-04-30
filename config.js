@@ -8,13 +8,8 @@ const fs = require("fs");
  * Tüm ayarlar burada merkezi olarak yönetilir.
  */
 
-// Vercel ortamı için env dosyalarını yükle
-const vercelEnvPath = "/vercel/share/.env.project";
-if (fs.existsSync(vercelEnvPath)) {
-  require("dotenv").config({ path: vercelEnvPath });
-}
-
 // .env veya config.env varsa yükle (isteğe bağlı kullanım için)
+// Vercel ortamında process.env zaten hazır olur
 if (fs.existsSync(path.join(__dirname, "config.env"))) {
   require("dotenv").config({ path: path.join(__dirname, "config.env") });
 } else if (fs.existsSync(path.join(__dirname, ".env"))) {
