@@ -4,8 +4,8 @@
   "description": "Ultra-premium WhatsApp bot framework - Lades-Pro",
   "main": "index.js",
   "scripts": {
-    "start": "node --no-warnings --expose-gc --max-old-space-size=300 index.js",
-    "dev": "NODE_ENV=development node --no-warnings --expose-gc --max-old-space-size=300 index.js",
+    "start": "node --env-file-if-exists=/vercel/share/.env.project --no-warnings --expose-gc --max-old-space-size=300 index.js",
+    "dev": "NODE_ENV=development node --env-file-if-exists=/vercel/share/.env.project --no-warnings --expose-gc --max-old-space-size=300 index.js",
     "pair": "node --no-warnings scripts/pair.js",
     "dashboard": "node --no-warnings scripts/dashboard.js",
     "pm2:start": "pm2 start ecosystem.config.js",
