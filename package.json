@@ -4,7 +4,7 @@
   "description": "Ultra-premium WhatsApp bot framework - Lades-Pro",
   "main": "index.js",
   "scripts": {
-    "start": "node --no-warnings --expose-gc --optimize-for-size --max-old-space-size=240 --max-semi-space-size=4 --no-compilation-cache index.js",
+    "start": "node --no-warnings --expose-gc --optimize-for-size --max-old-space-size=240 --max-semi-space-size=4 --no-compilation-cache --no-deprecation index.js",
     "dev": "NODE_ENV=development node --no-warnings --expose-gc --max-old-space-size=300 index.js",
     "pair": "node --no-warnings scripts/pair.js",
     "dashboard": "node --no-warnings scripts/dashboard.js",
@@ -63,7 +63,6 @@
     "sequelize": "^6.37.3",
     "sharp": "^0.33.5",
     "simple-git": "^3.36.0",
-    "sqlite3": "^6.0.1",
     "tar": "^6.2.1",
     "umzug": "^3.8.2",
     "youtube-dl-exec": "^3.1.5",
@@ -72,6 +71,9 @@
   },
   "devDependencies": {
     "eslint": "^9.21.0"
+  },
+  "optionalDependencies": {
+    "sqlite3": "^6.0.1"
   },
   "engines": {
     "node": ">=20.0.0"

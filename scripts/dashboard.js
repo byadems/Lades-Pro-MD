@@ -229,7 +229,7 @@ app.get('/api/status', async (req, res) => {
   const mem = process.memoryUsage();
   const hasLocalSession = fs.existsSync(path.join(__dirname, "../sessions/lades-session/creds.json"));
   const hasDashboardSession = fs.existsSync(path.join(__dirname, "../sessions/dashboard-auth/creds.json"));
-  const hasDb = !!(process.env.EXTERNAL_DB_URL);
+  const hasDb = !!(process.env.DATABASE_URL || process.env.EXTERNAL_DB_URL || process.env.PG_URL);
   const hasStoredSession = hasLocalSession || hasDashboardSession || hasDb;
 
   // Runtime stats
@@ -337,7 +337,7 @@ app.get('/api/config', (req, res) => {
     // Advanced / Internal
     MAX_STICKER_SIZE: conf.MAX_STICKER_SIZE || '2',
     MAX_DL_SIZE: conf.MAX_DL_SIZE || '50',
-    PM2_RESTART_LIMIT_MB: conf.PM2_RESTART_LIMIT_MB || '450',
+    PM2_RESTART_LIMIT_MB: conf.PM2_RESTART_LIMIT_MB || '380',
     DEBUG: conf.DEBUG || 'false',
   });
 });
@@ -419,7 +419,7 @@ app.post('/api/ig-session/parse', (req, res) => {
   res.json({ ok: true, ...parts });
 });
 
-// ─── Plugins management ──────────────────────────────────
+// ─── Plugins management ───────────────────��──────────────
 app.get('/api/plugins', (req, res) => {
   try {
     const pluginsDir = path.join(__dirname, '../plugins');

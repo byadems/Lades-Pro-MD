@@ -67,8 +67,9 @@ const config = {
   GROQ_API_KEY: process.env.GROQ_API_KEY || "",
 
   // ── Bellek & Sistem ──
-  HEAP_LIMIT_MB: parseInt(process.env.HEAP_LIMIT_MB || "250", 10),
-  PM2_RESTART_LIMIT_MB: parseInt(process.env.PM2_RESTART_LIMIT_MB || "450", 10), // index.js ile uyumlu
+  // 0.2 vCPU / 512 MB profili için index.js, ecosystem.config.js ve Dockerfile
+  // ile birebir aynı: heap=240 + native ~140 = ~380 normal RSS.
+  PM2_RESTART_LIMIT_MB: parseInt(process.env.PM2_RESTART_LIMIT_MB || "380", 10),
   DEBUG: process.env.DEBUG === "true", // Production'da false — console spam önlenir
   SELF_TEST: process.env.SELF_TEST === "true", // Default: false. Testleri açmak için "true" yapın.
   NODE_ENV: process.env.NODE_ENV || "production",
@@ -90,8 +91,12 @@ const config = {
   CHANNEL_JID: process.env.CHANNEL_JID || "120363427366763599@newsletter",
   CHANNEL_NAME: process.env.CHANNEL_NAME || "Lades-Pro | Bot",
 
-  // Database instance (core/database.js tarafından ayağa kaldırılır)
-  DATABASE_URL: process.env.EXTERNAL_DB_URL || null,
+  // ── Veritabanı ──
+  // Northflank standardı: DATABASE_URL. Replit eski deployment'lar EXTERNAL_DB_URL
+  // kullanıyordu (Replit'in dahili PG'si DATABASE_URL adını çakıştırıyor diye).
+  // Hem Northflank hem Replit ile uyumlu olmak için ikisini de okuruz, öncelik
+  // standart DATABASE_URL'da. PG_URL alternatif ad olarak da kabul edilir.
+  DATABASE_URL: process.env.DATABASE_URL || process.env.EXTERNAL_DB_URL || process.env.PG_URL || null,
   logger,
 };
 

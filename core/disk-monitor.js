@@ -3,18 +3,18 @@
 /**
  * core/disk-monitor.js
  *
- * Sınırlı disk (2 GB) ortamlar için disk gözcüsü.
- * 400+ grup yükünde ana disk dolma kaynakları:
- *   1. SQLite WAL dosyası (database.sqlite-wal) — yoğun yazımda hızlı büyür
- *   2. /tmp ve ./temp altındaki medya işlem artıkları (ffmpeg, sharp)
- *   3. Logs dizini (pm2-error.log, pm2-out.log)
+ * Northflank 2 GB disk için disk gözcüsü (PostgreSQL deployment).
+ * Veriler harici PG'de tutulduğundan disk dolma kaynakları sadeleşti:
+ *   1. /tmp ve ./temp altındaki medya işlem artıkları (ffmpeg, sharp)
+ *   2. ./uploads, ./downloads (kullanıcı medya cache)
+ *   3. ./logs dizini (genel log dosyaları)
  *   4. Eski "sessions/*_migrated_*" yedekleri
  *   5. AI tarafından üretilmiş eklenti/medya artıkları
  *
  * Bu modül:
  *   • Kritik dizinlerin toplam boyutunu sayar (du benzeri)
  *   • %75 (1.5 GB) eşiğinde proaktif temizlik yapar (eski temp + log truncate)
- *   • %88 (1.76 GB) eşiğinde acil temizlik + WAL checkpoint(TRUNCATE) yapar
+ *   • %88 (1.76 GB) eşiğinde acil temizlik (daha agresif yaş eşiği)
  *   • %95 üzerinde sürecin temiz şekilde yeniden başlamasını ister
  *
  * Tasarım kuralı: hata olursa sessizce yut. Disk gözcüsü asla
@@ -36,9 +36,6 @@ const TARGETS = {
   sessions: path.join(ROOT, "sessions"),
   logs: path.join(ROOT, "logs"),
   aiPlugins: path.join(ROOT, "plugins", "ai-generated"),
-  sqliteFile: path.join(ROOT, "database.sqlite"),
-  sqliteWal: path.join(ROOT, "database.sqlite-wal"),
-  sqliteShm: path.join(ROOT, "database.sqlite-shm"),
 };
 
 // 2 GB diskte güvenli bütçe
@@ -155,8 +152,20 @@ async function pruneOldSessionBackups() {
 
 // ── Ana akış ──────────────────────────────────────────────────────────────
 
+async function listLogFiles() {
+  // logs/ altındaki tüm .log dosyalarını döner — adı önceden bilinen
+  // pm2-*.log dosyalarına bağlı kalmadan tüm büyük logları yönetir.
+  if (!fs.existsSync(TARGETS.logs)) return [];
+  try {
+    const entries = await fsp.readdir(TARGETS.logs, { withFileTypes: true });
+    return entries
+      .filter(e => e.isFile() && /\.log$/i.test(e.name))
+      .map(e => path.join(TARGETS.logs, e.name));
+  } catch { return []; }
+}
+
 async function getDiskSnapshot() {
-  const [tempOs, tempApp, uploads, downloads, sessions, logs, aiPlugins, sqlite, wal, shm] = await Promise.all([
+  const [tempOs, tempApp, uploads, downloads, sessions, logs, aiPlugins] = await Promise.all([
     dirSize(TARGETS.tempOs),
     dirSize(TARGETS.tempApp),
     dirSize(TARGETS.uploads),
@@ -164,12 +173,9 @@ async function getDiskSnapshot() {
     dirSize(TARGETS.sessions),
     dirSize(TARGETS.logs),
     dirSize(TARGETS.aiPlugins),
-    fileSize(TARGETS.sqliteFile),
-    fileSize(TARGETS.sqliteWal),
-    fileSize(TARGETS.sqliteShm),
   ]);
-  const total = tempOs + tempApp + uploads + downloads + sessions + logs + aiPlugins + sqlite + wal + shm;
-  return { tempOs, tempApp, uploads, downloads, sessions, logs, aiPlugins, sqlite, wal, shm, total };
+  const total = tempOs + tempApp + uploads + downloads + sessions + logs + aiPlugins;
+  return { tempOs, tempApp, uploads, downloads, sessions, logs, aiPlugins, total };
 }
 
 async function softCleanup() {
@@ -178,9 +184,9 @@ async function softCleanup() {
     if (fs.existsSync(dir)) freed += await pruneOlderThan(dir, TEMP_FILE_AGE_SOFT);
   }
   freed += await pruneOldSessionBackups();
-  // Logları kabarmışsa kırp
-  await truncateLargeLog(path.join(TARGETS.logs, "pm2-error.log"));
-  await truncateLargeLog(path.join(TARGETS.logs, "pm2-out.log"));
+  // Logs/ altındaki tüm .log dosyaları için kabarma kontrolü
+  const logFiles = await listLogFiles();
+  for (const lf of logFiles) await truncateLargeLog(lf);
   return freed;
 }
 
@@ -190,19 +196,8 @@ async function hardCleanup() {
     if (fs.existsSync(dir)) freed += await pruneOlderThan(dir, TEMP_FILE_AGE_HARD);
   }
   freed += await pruneOldSessionBackups();
-  await truncateLargeLog(path.join(TARGETS.logs, "pm2-error.log"), 1 * 1024 * 1024);
-  await truncateLargeLog(path.join(TARGETS.logs, "pm2-out.log"), 1 * 1024 * 1024);
-
-  // SQLite WAL'ı zorla küçült — bot 400+ grupta saatte 100MB+ WAL üretebilir
-  try {
-    const { sequelize } = require("./database");
-    if (sequelize.getDialect() === "sqlite") {
-      await sequelize.query("PRAGMA wal_checkpoint(TRUNCATE);");
-      logger.warn("[DiskMon] WAL TRUNCATE checkpoint yürütüldü.");
-    }
-  } catch (e) {
-    logger.debug({ err: e.message }, "[DiskMon] WAL truncate başarısız");
-  }
+  const logFiles = await listLogFiles();
+  for (const lf of logFiles) await truncateLargeLog(lf, 1 * 1024 * 1024);
   return freed;
 }
 
@@ -221,7 +216,8 @@ async function runOnce(opts = {}) {
       logger.debug(
         `[DiskMon] kullanım=%${Math.round(ratio * 100)} ` +
         `(toplam=${toMB(snap.total)}MB / bütçe=${toMB(DISK_BUDGET_BYTES)}MB | ` +
-        `wal=${toMB(snap.wal)}MB sqlite=${toMB(snap.sqlite)}MB temp=${toMB(snap.tempOs + snap.tempApp)}MB ` +
+        `temp=${toMB(snap.tempOs + snap.tempApp)}MB ` +
+        `media=${toMB(snap.uploads + snap.downloads + snap.aiPlugins)}MB ` +
         `logs=${toMB(snap.logs)}MB sessions=${toMB(snap.sessions)}MB)`
       );
     }

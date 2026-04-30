@@ -17,7 +17,6 @@ const compression = require("compression");
 const { fork } = require('child_process');
 const runtime = require("./core/runtime");
 const { scheduler } = require("./core/zamanlayici");
-const PID_FILE = path.join(__dirname, "bot.pid");
 const config = require("./config");
 const { logger } = config;
 const { initializeDatabase, WhatsappOturum } = require("./core/database");
@@ -28,29 +27,12 @@ const { getAllGroups } = require("./core/store");
 const { setupDashboardBridge } = require("./core/dashboard-bridge");
 const diskMonitor = require("./core/disk-monitor");
 
-async function checkSingleInstance() {
-  try {
-    if (fs.existsSync(PID_FILE)) {
-      const data = await fsp.readFile(PID_FILE, "utf-8");
-      const oldPid = parseInt(data.trim());
-      if (!isNaN(oldPid) && oldPid !== process.pid) {
-        try {
-          process.kill(oldPid, 0);
-          logger.info(`[ANTI-DUBLE] Eski bot süreci (PID: ${oldPid}) tespit edildi. Sonlandırılıyor...`);
-          process.kill(oldPid, "SIGTERM");
-          await new Promise(r => setTimeout(r, 2000));
-          try {
-            process.kill(oldPid, 0);
-            process.kill(oldPid, "SIGKILL");
-          } catch { }
-        } catch (e) { }
-      }
-    }
-    await fsp.writeFile(PID_FILE, process.pid.toString());
-  } catch (e) {
-    logger.error({ err: e.message }, "[ANTI-DUBLE] PID hatası");
-  }
-}
+// NOT: Container ortamlarında (Northflank/Docker) PID-file tabanlı single-instance
+// kontrolü gereksizdir. Container orchestrator zaten tek instance garantisi verir
+// ve PID 1 her zaman bot sürecidir. Eski bot.pid kontrolü kaldırıldı:
+//   • Container restart sonrası PID dosyası "yetim" kalıyor → false positive uyarı
+//   • Her başlatmada disk yazımı (gereksiz I/O)
+//   • Container scaling gelecekte istenirse zaten dashed-loadbalancing gerekir
 
 try {
   const ffmpeg = require("fluent-ffmpeg");
@@ -672,7 +654,6 @@ async function startSessionCleanup() {
 
 (async () => {
   try {
-    await checkSingleInstance();
     await initializeDatabase();
     logger.info("Bot başlatılıyor...");
     await startSessionCleanup();

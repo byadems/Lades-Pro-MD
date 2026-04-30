@@ -10,38 +10,51 @@ const DATABASE_URL = config.DATABASE_URL;
 
 // ─────────────────────────────────────────────────────────
 //  Veritabanı Platform Tespiti
+//  Northflank hedefi: PostgreSQL. Yerel geliştirme: SQLite fallback.
+//  MongoDB URL'leri reddedilir (Sequelize MongoDB'yi desteklemez).
 // ─────────────────────────────────────────────────────────
-const isMongoDB = DATABASE_URL && (DATABASE_URL.startsWith('mongodb://') || DATABASE_URL.startsWith('mongodb+srv://'));
 const isPostgres = DATABASE_URL && (DATABASE_URL.startsWith('postgres://') || DATABASE_URL.startsWith('postgresql://'));
+const isMongoDB  = DATABASE_URL && (DATABASE_URL.startsWith('mongodb://')  || DATABASE_URL.startsWith('mongodb+srv://'));
 
 if (isMongoDB) {
-  logger.warn("[DB] MongoDB URL tespit edildi. Sequelize ORM MongoDB'yi desteklemez.");
-  logger.warn("[DB] MongoDB için: 'npm install mongoose' çalıştırın ve DATABASE_URL='mongodb+srv://...' ayarlayın.");
-  logger.warn("[DB] Önerilen alternatif: Neon/Supabase/Render üzerinde ÜCRETSİZ PostgreSQL kullanın.");
-  logger.warn("[DB] PostgreSQL URL formatı: postgresql://kullanici:sifre@host:5432/db");
-  logger.warn("[DB] SQLite'a geri dönülüyor (yerel geliştirme modu)...");
+  // Net hata. Sessiz fallback yerine kullanıcıyı bilgilendir.
+  logger.error("[DB] MongoDB URL desteklenmiyor (Sequelize ORM PostgreSQL/SQLite kullanır).");
+  logger.error("[DB] PostgreSQL'e geçin: postgresql://user:pass@host:5432/dbname");
 }
 
 let sequelize;
-if (isPostgres && !isMongoDB) {
-  // PostgreSQL: Neon, Supabase, Render Database, standart PostgreSQL
-  // BELLEK OPTİMİZASYONU: Pool max 20→3. Her PG bağlantısı ~10MB RAM tüketir.
-  // 20 bağlantı = ~200MB, 3 bağlantı = ~30MB → ~170MB tasarruf!
+if (isPostgres) {
+  // ── PostgreSQL (Northflank, Neon, Supabase, Render, vb.) ──────────────
+  // 0.2 vCPU / 512 MB profili için pool sıkı tutulur:
+  //   • Her PG bağlantısı server tarafında ~10 MB, client tarafında ~2-3 MB
+  //   • 3 bağlantı = ~9 MB client RAM, 400+ grup yükünde rahat
+  //   • idle=10s + evict=5s → boş bağlantılar hızlı bırakılır (Northflank
+  //     dahili PG idle connection limitlerine karşı dostane davranış)
+  //
+  // SSL: Northflank dahili network'te SSL gerekmez (DB_SSL=false). Harici
+  // sağlayıcılar (Neon/Supabase/Render) için varsayılan açık. URL'de
+  // ?sslmode=require zaten varsa pg sürücüsü otomatik halleder.
+  const sslEnv = process.env.DB_SSL;
+  const ssl = sslEnv === "false" ? false
+            : sslEnv === "true"  ? { require: true, rejectUnauthorized: false }
+            : (DATABASE_URL.includes("sslmode=") ? undefined : { require: true, rejectUnauthorized: false });
+
   sequelize = new Sequelize(DATABASE_URL, {
     dialect: "postgres",
     logging: false,
     pool: {
-      max: parseInt(process.env.DB_POOL_MAX || "3", 10),   // 20 → 3 (kritik RAM tasarrufu)
-      min: parseInt(process.env.DB_POOL_MIN || "1", 10),   // 2  → 1
+      max: parseInt(process.env.DB_POOL_MAX || "3", 10),
+      min: parseInt(process.env.DB_POOL_MIN || "1", 10),
       acquire: 60000,
-      idle: 10000,  // 30s → 10s: Boş bağlantıları daha hızlı bırak
-      evict: 5000,  // 5s'de bir boş bağlantıları kontrol et
+      idle: 10000,
+      evict: 5000,
     },
     dialectOptions: {
-      ssl: process.env.DB_SSL === "false" ? false : { require: true, rejectUnauthorized: false },
+      ...(ssl !== undefined ? { ssl } : {}),
       connectTimeout: 60000,
-      // statement_timeout: Her sorgu max 30 saniye (sonsuz beklemeler engellenir)
-      statement_timeout: 30000,
+      statement_timeout: 30000,                    // Her sorgu max 30s
+      idle_in_transaction_session_timeout: 30000,  // Asılı transaction'ları öldür
+      keepAlive: true,                              // Container NAT idle disconnect koruması
     },
     retry: {
       max: 5,
@@ -52,25 +65,22 @@ if (isPostgres && !isMongoDB) {
       ],
     },
   });
-  logger.info(`[DB] PostgreSQL bağlantısı hazırlanıyor — pool: max=3 (${DATABASE_URL.split('@')[1] || 'host gizli'})`);
+  const hostHint = (DATABASE_URL.split('@')[1] || 'host gizli').split('/')[0];
+  logger.info(`[DB] PostgreSQL — pool max=${process.env.DB_POOL_MAX || 3} ssl=${ssl === false ? 'off' : 'on'} host=${hostHint}`);
 } else {
-  // SQLite (varsayılan — yerel geliştirme ve MongoDB URL fallback)
+  // ── SQLite fallback (sadece yerel geliştirme / DATABASE_URL yoksa) ────
+  // Production (Northflank) deployment'larında DATABASE_URL set edilmeli.
+  if (process.env.NODE_ENV === "production" && !isMongoDB) {
+    logger.warn("[DB] DİKKAT: Production modunda DATABASE_URL bulunamadı, SQLite'a düşülüyor. Northflank'te DATABASE_URL env değişkenini set edin.");
+  }
   sequelize = new Sequelize({
     dialect: "sqlite",
     storage: path.join(__dirname, "../database.sqlite"),
     logging: false,
-    pool: {
-      max: 1,
-      min: 0,
-      acquire: 30000,
-      idle: 10000,
-    },
-    retry: {
-      max: 10,
-      match: [/SQLITE_BUSY/],
-    },
+    pool: { max: 1, min: 0, acquire: 30000, idle: 10000 },
+    retry: { max: 10, match: [/SQLITE_BUSY/] },
   });
-  if (!isMongoDB) logger.info("[DB] SQLite veritabanı kullanılıyor (database.sqlite)");
+  logger.info("[DB] SQLite (yerel geliştirme modu, database.sqlite)");
 }
 
 // ─────────────────────────────────────────────────────────
