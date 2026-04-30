@@ -448,10 +448,6 @@ async function shutdown(signal) {
   }
 
   shutdownCache();
-  try {
-    const exists = await fsp.access(PID_FILE).then(() => true).catch(() => false);
-    if (exists) await fsp.unlink(PID_FILE);
-  } catch { }
   logger.info("Sistem temiz bir şekilde kapatıldı.");
   process.exit(0);
 }
