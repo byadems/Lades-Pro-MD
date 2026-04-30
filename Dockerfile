@@ -35,11 +35,27 @@ RUN mkdir -p sessions temp plugins/utils
 
 ENV PORT=3000 \
     NODE_ENV=production \
-    DASHBOARD_PORT=3001
+    DASHBOARD_PORT=3001 \
+    UV_THREADPOOL_SIZE=4 \
+    PQUEUE_CONCURRENCY=6 \
+    PQUEUE_INTERVAL_CAP=15 \
+    SCHEDULER_TICK_MS=20000 \
+    PM2_RESTART_LIMIT_MB=380 \
+    DISK_BUDGET_BYTES=2147483648
 
 EXPOSE 3000 3001
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:3000/health || exit 1
+# Healthcheck 0.2 vCPU'ya nazik: 60s aralık + 90s start grace + /ping (DB sorgusuz lightweight endpoint)
+HEALTHCHECK --interval=60s --timeout=10s --start-period=90s --retries=3 \
+  CMD curl -fsS http://localhost:3000/ping || exit 1
 
-CMD ["node", "--no-warnings", "--max-old-space-size=280", "--max-semi-space-size=8", "--optimize-for-size", "--expose-gc", "--gc-interval=100", "index.js"]
+# 0.2 vCPU / 512 MB için V8 + libuv tuning (ecosystem.config.js ile birebir aynı)
+CMD ["node", \
+  "--no-warnings", \
+  "--max-old-space-size=240", \
+  "--max-semi-space-size=4", \
+  "--optimize-for-size", \
+  "--no-compilation-cache", \
+  "--expose-gc", \
+  "--no-deprecation", \
+  "index.js"]

@@ -9,7 +9,11 @@
 const { logger } = require("../config");
 
 class Scheduler {
-  constructor(tickMs = 15000) { // 10s → 15s: Northflank 0.2 CPU i\u00e7in tick azalt\u0131ld\u0131
+  constructor(tickMs = parseInt(process.env.SCHEDULER_TICK_MS || "20000", 10)) {
+    // 0.2 vCPU OPT: Tick 15s → 20s. Her tick CPU wake-up demek; 33% daha az
+    // periyodik wake = idle anlarında daha düşük CPU kullanımı.
+    // Tüm görev aralıkları zaten saniyeler değil dakikalar mertebesinde,
+    // bu yüzden 20s tick hassasiyeti fazlasıyla yeterli.
 
     this.tasks = [];
     this._tickMs = tickMs;

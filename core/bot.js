@@ -67,14 +67,24 @@ let _queue = null;
 let _queueReady = false;
 let _firstConnectDone = false; // loadPlugins + startSchedulers sadece 1 kez çalışsın
 
-// ─── Cloud Run 0.2 vCPU / 512MB PQueue AYARLARI ──────────────────────────
-// concurrency: 20  — 30→20: 0.2 vCPU'da 30 eşzamanlı slot event loop'u
-//   doyurur. 20 slot daha az bellek basıncı altında çalışır.
-//   Tıkanma olursa backpressure devreye girer.
-// intervalCap: 40  — 60→40: Saniyede max 40 mesaj işle.
-//   WhatsApp rate-limit'e daha az maruz kalınır + CPU %33 azalır.
+// ─── 0.2 vCPU / 512 MB / 400+ grup için PQueue AYARLARI ──────────────────
+// concurrency: 6  — 20→6: 0.2 vCPU = saniyede yalnızca 200ms CPU bütçesi.
+//   20 paralel slot event loop'u doyurup mesaj işleme gecikmesini patlatıyordu.
+//   6 slot, P95 mesaj işleme süresi (~30ms) ile rahat omuzlanır,
+//   aynı anda gelen 400 grup mesajları için yeterli — fazlası kuyrukta bekler.
+// intervalCap: 15 — 40→15: WhatsApp ack rate-limit'i ve event loop sağlığı için.
+//   Saniyede 15 işlem = ~25 msg/s sürdürülebilir; burst'leri kuyruk emer.
+// interval: 1000 — saniyede pencere.
 // throwOnTimeout: false — Timeout'ta hata fırlatma, sessizce geç.
-const PQUEUE_OPTS = { concurrency: 20, intervalCap: 40, interval: 1000, throwOnTimeout: false };
+// carryoverConcurrencyCount: true — pencere geçişinde devam eden işler sayılır,
+//   böylece long-running işlemler intervalCap'i aşmaz (kuyruk patlamaz).
+const PQUEUE_OPTS = {
+  concurrency: parseInt(process.env.PQUEUE_CONCURRENCY || "6", 10),
+  intervalCap: parseInt(process.env.PQUEUE_INTERVAL_CAP || "15", 10),
+  interval: 1000,
+  carryoverConcurrencyCount: true,
+  throwOnTimeout: false,
+};
 
 // Pre-warm: Bot başlar başlamaz queue'yu hazırla
 import('p-queue').then(({ default: PQueue }) => {

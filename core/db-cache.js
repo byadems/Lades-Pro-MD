@@ -5,17 +5,20 @@ const { GrupAyar, KullaniciVeri, BotAyar, Filtre } = require("./database");
 const { logger } = require("../config");
 
 // ─────────────────────────────────────────────────────────
-//  LRU Cache instances per data domain
-//  24/7 ULTRA PERFORMANS: Cache boyutları 300+ grup senaryosuna göre
-//  yeniden kalibre edildi. Cache miss = DB sorgusu = I/O bloğu.
-//  Daha büyük cache = daha az DB hit = daha düşük latency.
-//  Her cache entry ~200-500 byte; toplam ~120KB kullanım.
+//  LRU Cache instances — 400+ grup, 0.2 vCPU, 512MB tuning
+//
+//  Felsefe: 0.2 vCPU'da DB I/O bloklayıcıdır (her sorgu 5-50ms event-loop
+//  blokajı). Bu nedenle cache hit oranı CPU latency'sini doğrudan belirler.
+//  TTL'leri uzattık çünkü:
+//   • Grup ayarları nadiren değişir (admin değişiklikleri zaten invalidate eder)
+//   • User/admin verileri event-driven invalidate edilir (handler.js)
+//   • Bellek bütçesi: 5 cache * ~120 entry * ~400B = ~240KB (kabul edilebilir)
 // ─────────────────────────────────────────────────────────
-const groupCache  = new LRUCache({ max: 80,  ttl: 5 * 60 * 1000 });    // 120→80: 300 grupta en aktif 80 gruba odaklan, miss durumunda DB'ye git
-const userCache   = new LRUCache({ max: 60,  ttl: 5 * 60 * 1000 });    // 80→60: En aktif kullanıcılar yeterli
-const configCache = new LRUCache({ max: 30,  ttl: 30 * 60 * 1000 });   // Aynı kalıyor: Bot config nadiren değişir
-const filterCache = new LRUCache({ max: 60,  ttl: 5 * 60 * 1000 });    // 80→60: Filtre yoğun gruplarda yeterli
-const adminCache  = new LRUCache({ max: 60,  ttl: 3 * 60 * 1000 });    // 80→60: Admin listesi sık değişmez
+const groupCache  = new LRUCache({ max: 150, ttl: 10 * 60 * 1000 }); // 80→150 (en aktif 150 grup), 5dk→10dk
+const userCache   = new LRUCache({ max: 100, ttl: 8  * 60 * 1000 }); // 60→100, 5dk→8dk
+const configCache = new LRUCache({ max: 40,  ttl: 60 * 60 * 1000 }); // 30dk→60dk: bot config neredeyse hiç değişmez
+const filterCache = new LRUCache({ max: 80,  ttl: 10 * 60 * 1000 }); // 60→80, 5dk→10dk
+const adminCache  = new LRUCache({ max: 100, ttl: 6  * 60 * 1000 }); // 60→100, 3dk→6dk (event invalidate)
 
 // ─────────────────────────────────────────────────────────
 //  Group settings helpers

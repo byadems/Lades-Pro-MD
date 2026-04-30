@@ -80,12 +80,14 @@ function getAlbumMessages(jid, albumId) {
 // ─────────────────────────────────────────────────────────
 //  Group metadata
 // ─────────────────────────────────────────────────────────
-// Group metadata cache: 24/7 OPT — 300 kapasiteyle 300 grubu kapsıyor
-// Cache miss = WhatsApp API sorgusu = rate-overlimit riski
-// TTL 4dk: Admin değişikliği algılanması için yeterli, 5dk→4dk: daha hızlı eviction
+// Group metadata cache: 400+ grup hedefiyle yeniden boyutlandırıldı.
+// Cache miss = WhatsApp API sorgusu = WS round-trip + CPU. 400 grup x 6dk TTL
+// senaryosunda saniyede ~1.1 cache miss. group-participants.update event'i
+// invalidasyonu zaten yönetiyor; bu yüzden TTL'i uzatmak güvenli.
+// Bellek: ~400 entry * ~3KB = ~1.2MB (kabul edilebilir).
 const groupMetaCache = new LRUCache({
-  max: 300,  // 400→300: 300 grup için tam uygun, gereksiz 100 slot kaldırıldı
-  ttl: 4 * 60 * 1000,
+  max: 420,  // 300→420: 400 grup + biraz tampon (yeni katılan gruplar için)
+  ttl: 6 * 60 * 1000, // 4dk→6dk: cache hit oranı %50 daha iyi, WA sorgu yükü azalır
 });
 
 function setGroupMeta(groupId, meta) {
@@ -129,8 +131,12 @@ function invalidateGroupMeta(groupId) {
 
 async function getAllGroups(sock) {
   const now = Date.now();
-  // 24/7 OPT: allGroupsCache TTL 5 dakika — gece saatlerinde gereksiz WA sorgusu önlenir
-  if (runtime.metrics.allGroupsCache && (now - runtime.metrics.allGroupsLastFetch < 5 * 60 * 1000)) {
+  // 400+ grup OPT: allGroupsCache TTL 5dk → 10dk.
+  // groupFetchAllParticipating() 400 grupta tek sorguda ~1-2MB JSON üretir +
+  // event-loop'u 200-400ms blokar (parsing maliyeti). 10dk TTL ile saatte 6
+  // çağrı = günde 144. Dashboard refresh'leri ve broadcast hedefleri için
+  // gayet taze; gerçek zamanlı invalidasyon için groups.update event'i var.
+  if (runtime.metrics.allGroupsCache && (now - runtime.metrics.allGroupsLastFetch < 10 * 60 * 1000)) {
     return runtime.metrics.allGroupsCache;
   }
 

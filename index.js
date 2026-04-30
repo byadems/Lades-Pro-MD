@@ -26,6 +26,7 @@ const { suppressLibsignalLogs, startTempCleanup } = require("./core/yardimcilar"
 const { shutdownCache } = require("./core/db-cache");
 const { getAllGroups } = require("./core/store");
 const { setupDashboardBridge } = require("./core/dashboard-bridge");
+const diskMonitor = require("./core/disk-monitor");
 
 async function checkSingleInstance() {
   try {
@@ -66,7 +67,10 @@ try {
 suppressLibsignalLogs();
 runtime.startTime = Date.now();
 
-const PM2_RESTART_MB = config.PM2_RESTART_LIMIT_MB || 400; // Cloud Run 512MB limit: heap(280)+native(~140)=~420MB peak. 400'de restart = OOM'dan önce temiz çıkış
+// 0.2 vCPU / 512MB tuning: heap=240MB + native peak ~140MB = ~380MB normal RSS.
+// PM2 max_memory_restart=400M zaten zorlar; biz 380'de erken/temiz çıkıyoruz ki
+// in-flight mesajlar tamamlansın ve OOM-kill (signal: 9) hiç yaşanmasın.
+const PM2_RESTART_MB = parseInt(process.env.PM2_RESTART_LIMIT_MB || config.PM2_RESTART_LIMIT_MB || "380", 10);
 let _isShuttingDown = false;
 
 // ─────────────────────────────────────────────────────────
@@ -134,40 +138,109 @@ global.processedMessages = processedMessages;
 global.isMessageProcessed = isMessageProcessed;
 global.markMessageProcessed = markMessageProcessed;
 
-// 24/7 OPT: Bellek kontrolü 45s'de bir (30s→45s: CPU overhead %33 azalır)
+// ─────────────────────────────────────────────────────────
+//  Bellek Gözcüsü — 0.2 vCPU / 512MB için kademeli baskı yönetimi
+//
+//  Üç seviye:
+//   • SOFT  (0.70 * limit) → cache trim + manuel GC (eğer açıksa)
+//   • HARD  (0.88 * limit) → tüm LRU cache'leri temizle, agresif GC
+//   • PANIC (1.00 * limit) → temiz restart (in-flight kuyruğu tamamla)
+//
+//  Heap %70 = 266MB, %88 = 334MB, %100 = 380MB (RSS budget).
+//  Bu sayede OS OOM-kill ve PM2 max_memory_restart bizi devirmeden
+//  proaktif olarak basıncı düşürürüz.
+// ─────────────────────────────────────────────────────────
+let _lastEmergencyTrim = 0;
+function _emergencyTrimCaches() {
+  // 30s cooldown — sürekli temizlik CPU yer
+  if (Date.now() - _lastEmergencyTrim < 30000) return;
+  _lastEmergencyTrim = Date.now();
+  try {
+    const cache = require("./core/db-cache");
+    if (cache.shutdownCache) cache.shutdownCache();
+  } catch { }
+  try {
+    if (runtime.metrics) {
+      if (runtime.metrics.users && runtime.metrics.users.clear) runtime.metrics.users.clear();
+      if (runtime.metrics.groups && runtime.metrics.groups.clear) runtime.metrics.groups.clear();
+      runtime.metrics.allGroupsCache = null;
+      runtime.metrics.allGroupsLastFetch = 0;
+    }
+    if (runtime.lidCache && runtime.lidCache.clear) runtime.lidCache.clear();
+  } catch { }
+  if (typeof global.gc === "function") {
+    try { global.gc(); } catch { }
+  }
+}
+
+// Bellek kontrolü 45s'de bir — kademeli yanıt
 scheduler.register('memory_check', () => {
   if (_isShuttingDown) return;
   const mem = process.memoryUsage();
   const rssMB = mem.rss / (1024 * 1024);
-  const heapMB = mem.heapUsed / (1024 * 1024);
+  const heapUsedMB = mem.heapUsed / (1024 * 1024);
+  const heapTotalMB = mem.heapTotal / (1024 * 1024);
+  const externalMB = mem.external / (1024 * 1024);
 
-  // Hem RSS hem heap ayrı ayrı kontrol et
-  const rssOver   = rssMB  > PM2_RESTART_MB;
-  const heapOver  = heapMB > PM2_RESTART_MB * 0.85; // heap, RSS'nin %85'ini aşınca uyar
-
-  if (rssOver || heapOver) {
-    logger.warn(`Bellek sınırı aşıldı (RSS=${Math.round(rssMB)}MB Heap=${Math.round(heapMB)}MB). Yeniden başlatılıyor...`);
+  // PANIC: RSS limiti aşıldı → temiz çıkış
+  if (rssMB > PM2_RESTART_MB) {
+    logger.warn(`[Bellek][PANIC] RSS=${Math.round(rssMB)}MB > ${PM2_RESTART_MB}MB — temiz restart`);
     shutdown("MEMORY_LIMIT_EXCEEDED");
     return;
   }
 
-  // Sadece heap %70'i aştığında GC öner (gereksiz GC CPU çalar)
-  if (typeof global.gc === 'function' && heapMB > PM2_RESTART_MB * 0.70) {
-    global.gc();
-    logger.debug(`[GC] Bellek: RSS=${Math.round(rssMB)}MB Heap=${Math.round(heapMB)}MB`);
+  // HARD: %88 — emergency trim
+  if (rssMB > PM2_RESTART_MB * 0.88 || heapUsedMB > PM2_RESTART_MB * 0.78) {
+    logger.warn(`[Bellek][HARD] RSS=${Math.round(rssMB)}MB Heap=${Math.round(heapUsedMB)}MB — cache flush + GC`);
+    _emergencyTrimCaches();
+    return;
+  }
+
+  // SOFT: %70 — sadece GC öner
+  if (typeof global.gc === 'function' && (heapUsedMB > PM2_RESTART_MB * 0.70 || externalMB > 80)) {
+    try { global.gc(); } catch { }
+    logger.debug(`[Bellek][SOFT] GC (RSS=${Math.round(rssMB)}MB Heap=${Math.round(heapUsedMB)}/${Math.round(heapTotalMB)}MB Ext=${Math.round(externalMB)}MB)`);
   }
 }, 45000);
 
-// 24/7 OPT: Periyodik GC her 4 dakikada bir (2dk→4dk: CPU %50 tasarruf)
-// V8 --optimize-for-size zaten daha agresif GC yapıyor; ekstra GC gereksiz
+// Periyodik GC: 4dk'de bir — V8 --optimize-for-size + 4MB semi-space zaten
+// agresif scavenge yapıyor; bu sadece old-gen için bir nudge.
 scheduler.register('periodic_gc', () => {
   if (typeof global.gc === 'function') {
-    global.gc();
-    const mem = process.memoryUsage();
-    const toMB = (b) => Math.round(b / 1024 / 1024);
-    logger.debug(`[GC-4m] RSS=${toMB(mem.rss)}MB Heap=${toMB(mem.heapUsed)}/${toMB(mem.heapTotal)}MB`);
+    try { global.gc(); } catch { }
+    if (process.env.LOG_LEVEL === 'debug') {
+      const mem = process.memoryUsage();
+      const toMB = (b) => Math.round(b / 1024 / 1024);
+      logger.debug(`[GC-4m] RSS=${toMB(mem.rss)}MB Heap=${toMB(mem.heapUsed)}/${toMB(mem.heapTotal)}MB Ext=${toMB(mem.external)}MB`);
+    }
   }
 }, 4 * 60 * 1000);
+
+// ─────────────────────────────────────────────────────────
+//  Event Loop Lag İzleyici — CPU starvation erken uyarı
+//
+//  0.2 vCPU'da event loop lag ilk uyarı sinyalidir. Lag > 500ms ise
+//  PQueue zaten kuyruğu tutuyor demektir; lag > 2s ise tıkanma var.
+//  Sürekli lag > 5s görürsek soketi yenileyerek temizlik yaparız.
+// ─────────────────────────────────────────────────────────
+let _lagSamples = []; // son 5 örnek
+let _lastLagWarn = 0;
+function _measureEventLoopLag() {
+  const start = Date.now();
+  setImmediate(() => {
+    const lag = Date.now() - start;
+    _lagSamples.push(lag);
+    if (_lagSamples.length > 5) _lagSamples.shift();
+    const avgLag = _lagSamples.reduce((a, b) => a + b, 0) / _lagSamples.length;
+    // 5 örneğin ortalaması 2s'yi aşarsa: kalıcı starvation
+    if (avgLag > 2000 && Date.now() - _lastLagWarn > 60000) {
+      _lastLagWarn = Date.now();
+      logger.warn(`[EventLoop] Kalıcı lag tespit edildi (avg=${Math.round(avgLag)}ms). CPU baskısı altındayız — geçici trim uygulanıyor.`);
+      _emergencyTrimCaches();
+    }
+  });
+}
+scheduler.register('event_loop_lag', _measureEventLoopLag, 30000);
 
 
 function startKeepAlive() {
@@ -181,7 +254,10 @@ function startKeepAlive() {
   // ─────────────────────────────────────────────────────────
   let _healthCache = null;
   let _healthCacheAt = 0;
-  const HEALTH_CACHE_MS = 10000; // 10 saniye cache — dashboard her refresh DB'yi çarpmıyor
+  // 0.2 vCPU OPT: Health cache 10s → 30s. Dashboard refresh + container
+  // health check sıklığında bile 30s yeterince taze; her sorgu DB ping
+  // + memoryUsage() + cache stats tarama yapıyordu. CPU tasarrufu önemli.
+  const HEALTH_CACHE_MS = 30000;
 
   app.get('/health', async (req, res) => {
     const now = Date.now();
@@ -312,9 +388,15 @@ function startKeepAlive() {
     }
   });
 
-  // Lightweight ping (no DB check, no cache needed)
+  // Lightweight ping (no DB check, no cache needed) — Dockerfile HEALTHCHECK bunu kullanır
   app.get('/ping', (req, res) => {
     res.json({ ok: true, t: Date.now() });
+  });
+
+  // Orchestrator-friendly liveness/readiness — sıfır iş, sıfır JSON parse
+  app.get('/healthz', (req, res) => {
+    if (_isShuttingDown) return res.status(503).type('text/plain').send('shutting_down');
+    res.type('text/plain').send('ok');
   });
 
   // ─── Yönetici token doğrulaması ───────────────────────────
@@ -414,7 +496,7 @@ function isRecoverableError(err) {
 
 // ─────────────────────────────────────────────────────────
 //  ENOSPC (disk dolu) durumunda acil temizlik
-// ─────────────────────────────────────────────────────────
+// ────────���────────────────────────────────────────────────
 async function cleanupDiskSpace() {
   const fs = await import("fs");
   const path = await import("path");
@@ -594,6 +676,9 @@ async function startSessionCleanup() {
     await initializeDatabase();
     logger.info("Bot başlatılıyor...");
     await startSessionCleanup();
+    // 0.2 vCPU / 2GB disk: Disk gözcüsünü erken aç. /tmp/sessions/temp/wal'ı
+    // 4dk'da bir tarar, eşiklere göre kademeli temizlik yapar.
+    try { diskMonitor.start(); } catch (e) { logger.warn({ err: e.message }, "[DiskMon] başlatılamadı"); }
     // startKeepAlive(); // Disabled again! This steals PORT 3000 from the dashboard server!
 
     const manager = new BotManager();
